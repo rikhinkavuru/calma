@@ -50,7 +50,7 @@ isolation, pinned libm, DSR) is still built in full but is not the day-one hook.
 > recomputed −32% REFUTED on real BTC data); the finished skill must reproduce that verdict through its
 > OWN pipeline scripts.
 >
-> **Build the COMPLETE Stage-1 SKILL, milestone order M0 → M4, no descoping.** (M5 is the optional
+> **Build the COMPLETE Stage-1 SKILL, milestone order M0 → M4, no descoping — but follow the phase order in 'Build phases & what blocks on infra' below: M2+ is gated on a GPU/multi-language calibration runner the build host does NOT have, so build M0–M1 fully first.** (M5 is the optional
 > Stage-2/3 bridge — CLI + managed-layer on-ramp — NOT part of the skill; build it only if continuing
 > past the skill.) Every component gets its real implementation and must pass its blueprint acceptance
 > test (§15) before you move on. This is a
@@ -118,6 +118,41 @@ Authoritative detail (deliverables + acceptance tests) is in blueprint §15 (Bui
   audit trail; opt-in independent point-in-time / survivorship-free vendor-data tier. This is the on-ramp
   to Calma **Stage 2 (CLI)** and **Stage 3 (managed layer)** — it is NOT part of the Stage-1 skill. Build
   it only if/when you continue past the skill; the skill is complete at M4.
+
+---
+
+## Build phases & what blocks on infra (READ — this changes the order, not the scope)
+
+"No descoping" stands — every component still gets its real implementation. But the milestones are NOT all
+buildable on this machine, so build them in this order:
+
+- **Phase A — local, do this now (M0 + M1).** The recompute-and-diff spine in Python: shared `verdict()`,
+  ledger/gate, `draft_contract.py`, `run_hermetic.py` (Tier-0 native sandbox + Seatbelt), `recompute.py`
+  with **TWO recipe families** (Sharpe/max-drawdown AND accuracy/AUC-DeLong, so the spine is provably
+  domain-agnostic, not quant-only), `compare.py`, `attest.py`. **Deliverable: the BTC fixture reproduced
+  REFUTED end-to-end through the skill's own scripts** — reachable here because the pure-stdlib fixture is
+  CONTROLLED-TO-BIT (band ≈0, no empirical calibration). Needs NO GPU, NO container daemon, NO faketime.
+  This is the whole day-one value and it is fully buildable now.
+- **Phase B — M2 calibration (mostly local on this M4; one external dependency).** Verified on this host:
+  Apple M4 (10-core), network UP, Metal GPU, no NVIDIA, no Docker daemon, no faketime. The §16
+  determinism-band is **self-calibrating on-target** (the blueprint's own stance — not a transferable
+  constant), so it **runs here**: Metal/MPS + multithreaded Accelerate BLAS produce the real nondeterminism
+  to fit the order-statistic band, cold-launch, and runs-test against. (What this host can't give —
+  CUDA-specific scatter-reduce validation and cross-hardware transfer — the blueprint already declines to
+  claim.) The genuinely external pieces: (a) **start a container/VM runtime** (`colima start` / Docker
+  Desktop, or lima/krunkit for the managed-VM path) so UNTRUSTED third-party code gets the verified
+  isolation tier — a local install, not remote infra; (b) **a 3–5 repo × language corpus**
+  (R/Julia/C++/notebooks + toolchains) to measure served-fraction / FP / PPV — this is the real founder
+  dependency, it's repos, not hardware. Until M2 passes, **REFUTED on a MEASURED-BAND run stays disabled**
+  (CONTROLLED-TO-BIT runs still REFUTE). See `docs/BUILD-REVIEW.md`. Do not fake these values.
+- **Phase C — M3 + M4.** Five-family engine (DSR/PBO/leakage re-run), domain packs, contamination probes,
+  breadth templates. Depends on Phase B's corpus + calibration. The DSR/stats engine is the one "hard" M3
+  item validatable against published reference vectors (mlfinlab/pypbo) without new infra; the rest needs
+  the corpus.
+
+**Honest value framing for the build:** the COMMON terminal outcome is CAVEAT/INCONCLUSIVE + a reproduction
++ an exact who-can-act fix (the ~21% reproduction ceiling is real), with the occasional killer REFUTED as
+the viral artifact. Build and message to that — not to "we always recompute the true number."
 
 ---
 

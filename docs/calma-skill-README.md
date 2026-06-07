@@ -5,13 +5,17 @@
 Drop it into Claude Code. Point it at what an agent just built — or have your agent call it as it works. Calma re-executes the code, **recomputes the headline number from the raw outputs** (it never trusts the number the agent reported), and returns a verdict you can act on — with a reproduction.
 
 ```
-$ /calma verify ./agent-output  "AUC 0.94"
+$ /calma verify ./btc-backtest  "+14,698% backtest"
 
-  FAIL — claimed AUC 0.94, recomputed 0.71
-  • leakage: scaler fit on the full dataset before the train/test split (preprocess.py:23)
+  FAIL — claimed +14,698% is really −32% out-of-sample, net of costs
+  • overfitting: the winner of 100 in-sample param combos, scored on the same data it reports
+  • realism: 3× leverage, zero costs modeled — real fees flip it negative
+  • benchmark: loses money AND underperforms buy-and-hold (−32% vs +40%)
   • reproduce: calma replay ./.calma/run-3f9
-  scope: re-ran the code · recomputed from preds.csv · not checked: whether this was the right model
+  scope: re-ran the code · recomputed from the out-of-sample trade log · real BTC-USD daily
 ```
+
+<sub>Real, reproducible numbers — `scripts/teardowns/btc_overfit_teardown.py` on a vendored BTC snapshot (~0.2s, no network). The skill reproduces them through its own pipeline at M1. This is the fixture's actual failure mode — overfitting + realism + baseline; leakage / DSR land in later milestones.</sub>
 
 ## Why
 

@@ -5,10 +5,17 @@ Pure stdlib. No lookahead is used; the collapse comes purely from in-sample over
 
 Run: python3 scripts/teardowns/btc_overfit_teardown.py
 """
-import json, time, urllib.request, datetime as dt, math
+import json, time, urllib.request, datetime as dt, math, os
+
+SNAPSHOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "btc_snapshot.json")
 
 def fetch_btc_daily(years=4):
-    """Coinbase daily candles, paginated backwards (<=300 per call). Returns [(epoch, close)] asc."""
+    """Coinbase daily candles, paginated backwards (<=300 per call). Returns [(epoch, close)] asc.
+    Cached to btc_snapshot.json on first fetch so re-runs are REPRODUCIBLE and need no network —
+    mirroring the skill's hard rule that the recompute runs network-OFF from a vendored snapshot.
+    Delete btc_snapshot.json to refresh."""
+    if os.path.exists(SNAPSHOT):
+        return [(int(t), float(c)) for t, c in json.load(open(SNAPSHOT))]
     out = {}
     end = dt.datetime.now(dt.UTC)
     for _ in range(years * 2 + 2):  # 300d per call
@@ -24,7 +31,12 @@ def fetch_btc_daily(years=4):
             out[int(r[0])] = float(r[4])
         end = start
         time.sleep(0.4)
-    return [(t, out[t]) for t in sorted(out)]
+    series = [(t, out[t]) for t in sorted(out)]
+    try:
+        json.dump(series, open(SNAPSHOT, "w"))
+    except Exception:
+        pass
+    return series
 
 def sharpe(daily_rets, periods=365):
     if len(daily_rets) < 2: return 0.0
@@ -97,6 +109,9 @@ def main():
     print(f"  (buy & hold OOS: {bh_oos*100:,.1f}%, Sharpe {sharpe(bh_oos_rets):.2f})")
 
     beat_bh = oos_ret > bh_oos
+    # NOTE: this 0.25/beat-BH test is a DEMONSTRATION heuristic — it shows the verdict SHAPE only.
+    # The Calma skill does NOT use it. The skill derives REFUTED from a band-aware recompute diff
+    # plus a baseline-edge CI guard (docs/calma-skill-blueprint.md §10 / §15-M1.3). Do not port this rule.
     verdict = "REFUTED" if (oos_ret < is_ret * 0.25 or not beat_bh) else "CONFIRMED-WITH-CAVEATS"
     print("\n================ CALMA VERDICT ================")
     print(f"  {verdict}: claimed {is_ret*100:,.0f}% -> real out-of-sample {oos_ret*100:,.1f}% net of costs")
