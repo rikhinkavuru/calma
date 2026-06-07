@@ -1,0 +1,87 @@
+{
+  "schema": "calma/ledger@1",
+  "target": "btc-overfit-backtest",
+  "repo_verdict": "REFUTED",
+  "claims": [
+    {
+      "id": "c1",
+      "headline": true,
+      "headline_confidence": 0.96,
+      "metric": "total_return",
+      "artifact": "runs/oos/equity.csv",
+      "claimed_value": 146.98,
+      "recomputed_value": -0.324,
+      "verdict": "REFUTED",
+      "driving_dimension": "baseline",
+      "waivable": false,
+      "reproduction_or_reverify": {
+        "kind": "requires-reexecution",
+        "command": "calma replay ./.calma/btc/run",
+        "manifest_ref": "sha256:PENDING-M1-PIPELINE",
+        "expected": "oos_return < claimed_return * 0.05 and oos_return < buy_and_hold_oos"
+      },
+      "recipe_authority": "canonical",
+      "set_maturity": "reviewed",
+      "input_binding_status": "independently-bound",
+      "selection_scope": "best-of-undisclosed",
+      "verdict_status": "stable",
+      "verdict_history": [],
+      "verdict_inputs": {
+        "gap": 147.304,
+        "effective_budget": 0.05,
+        "margin": 1.0,
+        "claim_outside_ci": true,
+        "sign_agrees": false,
+        "band_coverage_ok": true,
+        "binding_status": "independently-bound",
+        "isolation_tier": "tier0",
+        "container_present": true,
+        "untrusted": false,
+        "exit_codes": [0],
+        "killed": false,
+        "determinism_mode": "controlled-to-bit",
+        "sufficient_k": true,
+        "unbounded_op_present": false,
+        "path_dependent": false,
+        "m2_calibrated": false,
+        "recompute_degenerate": false,
+        "claim_confirmed_target": true
+      }
+    }
+  ],
+  "findings": [
+    {
+      "id": "f1", "claim_id": "c1", "dimension": "baseline", "severity": "blocker",
+      "status": "open", "confidence": "deterministic", "fixable_by": "author",
+      "locator": "OOS strategy return -32.4% < buy-and-hold +41.8% (loses money and underperforms doing nothing)",
+      "reverify": {"kind": "requires-reexecution", "source": "runs/oos/equity.csv",
+                   "expected": "baseline_edge_ci_upper < 0"}
+    },
+    {
+      "id": "f2", "claim_id": "c1", "dimension": "overfitting", "severity": "major",
+      "status": "open", "confidence": "deterministic", "fixable_by": "none",
+      "locator": "winner of N=100 in-sample param combos; in-sample Sharpe 1.32 -> OOS Sharpe 0.19",
+      "reverify": {"kind": "requires-reexecution", "source": "runs/oos/equity.csv",
+                   "expected": "oos_sharpe << in_sample_sharpe"}
+    },
+    {
+      "id": "f3", "claim_id": "c1", "dimension": "execution-realism", "severity": "major",
+      "status": "open", "confidence": "deterministic", "fixable_by": "author",
+      "locator": "3x leverage; fees+slippage drag OOS from -27.4% to -32.4%",
+      "reverify": {"kind": "requires-reexecution", "source": "runs/oos/equity.csv",
+                   "expected": "net_of_cost_return < gross_return"}
+    }
+  ],
+  "scope": {
+    "isolation_tier": "tier0",
+    "determinism_mode": "controlled-to-bit",
+    "reproducibility_scope": "same-platform",
+    "data_vintage": "Coinbase BTC-USD daily, vendored snapshot 2018-03-22..2026-06-07",
+    "families": {
+      "reproducibility": "checked", "recomputation": "checked", "baseline": "checked",
+      "execution-realism": "checked", "overfitting": "flagged-static (DSR is M3)",
+      "leakage": "not-applicable (no fitted split; no lookahead)", "data-integrity": "checked"
+    },
+    "not_verified": ["deflated-Sharpe / PBO (M3)", "survivorship-free vendor data (Stage-3)"]
+  }
+}
