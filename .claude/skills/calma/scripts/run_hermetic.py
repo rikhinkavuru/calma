@@ -25,6 +25,8 @@ import tempfile
 # AST-detected modules. GPU/ML -> uncontrolled (BLAS/cuda nondeterminism); RNG -> measured-band.
 NONDET_MODULES = {"torch", "tensorflow", "cupy", "jax"}
 RNG_MODULES = {"random", "secrets", "numpy"}  # numpy conservatively (numpy.random / BLAS threading)
+# stdlib sources of run-to-run variation: importing any of these means we cannot PROVE bit-determinism
+NONDET_STDLIB = {"time", "datetime", "uuid", "socket", "threading", "multiprocessing"}
 
 
 def _have_sandbox_exec():
@@ -178,9 +180,9 @@ def _detect_determinism(entrypoint_path):
     if mods & NONDET_MODULES:
         return "uncontrolled", "imports a GPU/ML framework (%s); band must be measured (M2)" % \
             ", ".join(sorted(mods & NONDET_MODULES))
-    rng = (mods & RNG_MODULES) | ({"os.urandom"} if urandom else set())
+    rng = (mods & (RNG_MODULES | NONDET_STDLIB)) | ({"os.urandom"} if urandom else set())
     if rng:
-        return "measured-band", "uses %s; determinism config / seeds required (M2)" % ", ".join(sorted(rng))
+        return "measured-band", "uses %s; bit-determinism cannot be proven, band must be measured (M2)" % ", ".join(sorted(rng))
     return "controlled-to-bit", "pure-stdlib, no RNG/GPU imports (structural)"
 
 

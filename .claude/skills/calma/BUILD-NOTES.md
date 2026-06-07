@@ -69,3 +69,16 @@ repo corpus (see `docs/BUILD-REVIEW.md`).
   `__import__`, `importlib.import_module`, `exec`/`eval`/`compile` - purity cannot be proven statically, so
   it fails safe (was: mislabeled controlled-to-bit).
 - 7 new regression tests. Total: 128 checks across 8 suites, all green.
+
+## Audit round 3 (convergence) - CONVERGED
+
+Verdict: CONVERGED (no critical/major). Confirmed closed: entrypoint/artifact symlink-escape (realpath),
+ledger REFUTED-cannot-be-clean invariant, orchestrator edge cases (no-contract / timeout / untrusted all
+yield a coherent valid ledger, never a crash or exit-2). One honest tightening applied: importing a
+stdlib source of run-to-run variation (time/datetime/uuid/socket/threading/multiprocessing) now downgrades
+from controlled-to-bit to measured-band (fails safe). Total: 130 checks across 8 suites, all green.
+
+## Status: M0 + M1 COMPLETE and audited. The closed build->audit->fix loop converged in 3 rounds.
+
+Try it:  python3 .claude/skills/calma/scripts/calma.py verify .claude/skills/calma/assets/btc
+Tests:   python3 .claude/skills/calma/scripts/tests/run_all.py

@@ -121,6 +121,8 @@ truth(det("import importlib\nimportlib.import_module('random')\n") == "uncontrol
 truth(det("exec('import random')\n") == "uncontrolled", "exec -> uncontrolled")
 truth(det("eval('1')\n") == "uncontrolled", "eval -> uncontrolled")
 truth(det("import csv, json\nprint(1)\n") == "controlled-to-bit", "pure stdlib still controlled-to-bit")
+truth(det("import time\nprint(time.time())\n") == "measured-band", "time import -> not controlled-to-bit (round-3)")
+truth(det("import threading\n") == "measured-band", "threading -> not controlled-to-bit (round-3)")
 
 print("audit-fixes: %d checks, %d failures" % (_n, _fail))
 sys.exit(1 if _fail else 0)
