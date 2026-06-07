@@ -94,10 +94,11 @@ def _refute_blocked(vi):
         if not (vi["fraud_multiple_met"] and not vi["unbounded_op_present"]):
             return True, "determinism is %s without sufficient K / band coverage" % dm
 
-    # The M2 gate: for non-controlled runs, REFUTED-without-a-container is disabled until M2
-    # calibration has passed on this host. CONTROLLED-TO-BIT is exempt (no empirical band to calibrate).
-    if dm != "controlled-to-bit" and not vi["container_present"] and not vi["m2_calibrated"]:
-        return True, "REFUTED-without-a-container is disabled for non-controlled runs until M2 calibration"
+    # The M2 gate: a REFUTED on a non-controlled (measured/uncontrolled) BAND requires M2 band-
+    # calibration, REGARDLESS of isolation tier - the band's coverage is what is unvalidated, and a
+    # container does not make an uncalibrated band trustworthy. CONTROLLED-TO-BIT is exempt (no band).
+    if dm != "controlled-to-bit" and not vi["m2_calibrated"]:
+        return True, "REFUTED on a non-controlled band requires M2 band-calibration"
     return False, ""
 
 

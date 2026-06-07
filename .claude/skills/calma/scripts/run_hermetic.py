@@ -13,17 +13,18 @@ Library: doctor() -> dict ; run(contract, base) -> dict.
 CLI: run_hermetic.py doctor | run --contract verify.yaml [--base DIR] [--out run.json]
 """
 import argparse
+import ast
 import json
 import os
-import re
 import shutil
 import signal
 import subprocess
 import sys
 import tempfile
 
-NONDET_LIBS = re.compile(r"\bimport\s+(torch|tensorflow|tf|cupy)\b|\bfrom\s+(torch|tensorflow)\b|cuda")
-UNSEEDED_RANDOM = re.compile(r"\b(numpy|np)\.random\.|(?<!\.)\brandom\.")
+# AST-detected modules. GPU/ML -> uncontrolled (BLAS/cuda nondeterminism); RNG -> measured-band.
+NONDET_MODULES = {"torch", "tensorflow", "cupy", "jax"}
+RNG_MODULES = {"random", "secrets", "numpy"}  # numpy conservatively (numpy.random / BLAS threading)
 
 
 def _have_sandbox_exec():
@@ -31,20 +32,23 @@ def _have_sandbox_exec():
 
 
 def _profile(base):
-    """allow-default, then deny the two things we actually VERIFY: network egress and $HOME reads
-    (so secrets are unreadable). The repo/base is re-allowed for read (it lives under $HOME). This keeps
-    the interpreter alive on macOS while preserving the egress + secret-read denials the doctor proves.
-    Writes are confined to the run output area + temp. last-match-wins, so order matters."""
-    home = os.path.realpath(os.path.expanduser("~"))
+    """allow-default for the system paths the interpreter needs, then DENY the things we verify and
+    claim: network egress, and reads of ALL user homes (/Users) + known system-secret dirs. The base is
+    re-allowed for read (it lives under /Users). Writes are confined to the run area + temp. last-match-
+    wins, so order matters. NOTE (stamped honestly): Seatbelt shares the host kernel and is NOT
+    escape-isolated - untrusted third-party code requires a container/VM tier (refused otherwise)."""
     base = os.path.realpath(base)
     return '''(version 1)
 (allow default)
 (deny network*)
-(deny file-read* (subpath "%s"))
+(deny file-read*
+  (subpath "/Users") (subpath "/etc/ssh") (subpath "/private/etc/ssh")
+  (subpath "/var/root") (subpath "/private/var/root")
+  (subpath "/Library/Keychains") (subpath "/private/var/db/dslocal"))
 (allow file-read* (subpath "%s"))
-(deny file-write* (subpath "%s"))
+(deny file-write* (subpath "/Users"))
 (allow file-write* (subpath "%s") (subpath "/tmp") (subpath "/private/tmp") (subpath "/private/var/folders") (literal "/dev/null") (literal "/dev/tty"))
-''' % (home, base, home, base)
+''' % (base, base)
 
 
 def _run_sandboxed(profile_text, argv, cwd, timeout=120, env=None):
@@ -70,11 +74,44 @@ def _run_sandboxed(profile_text, argv, cwd, timeout=120, env=None):
         os.unlink(pf.name)
 
 
+_PROBE = r'''
+import socket, subprocess, os
+leaks = []
+SECRET = {secret!r}
+# secret reads (multiple paths that MUST be denied)
+for path in [SECRET, "/Library/Keychains", "/var/root"]:
+    try:
+        if os.path.isdir(path):
+            os.listdir(path); leaks.append("read:" + path)
+        else:
+            open(path).read(); leaks.append("read:" + path)
+    except Exception:
+        pass
+# egress: raw IP, hostname (DNS+TCP), and a curl subprocess - ALL must be denied
+try:
+    socket.create_connection(("1.1.1.1", 80), timeout=4); leaks.append("egress:ip")
+except Exception:
+    pass
+try:
+    socket.create_connection(("example.com", 80), timeout=4); leaks.append("egress:dns")
+except Exception:
+    pass
+try:
+    r = subprocess.run(["/usr/bin/curl", "-s", "-m", "4", "http://1.1.1.1"], capture_output=True)
+    if r.returncode == 0 and r.stdout:
+        leaks.append("egress:curl")
+except Exception:
+    pass
+print("LEAKS=" + ",".join(leaks))
+'''
+
+
 def doctor(repo_root=None):
-    """Positive-control self-test: under the profile, a planted secret-read AND an egress MUST fail."""
+    """Positive-control self-test: under the profile, a BATTERY of secret-reads (planted $HOME secret,
+    keychains, /var/root) AND egress attempts (raw IP, DNS hostname, curl subprocess) must ALL fail.
+    Any leak -> host-not-isolated (never a silent verified stamp)."""
     repo_root = os.path.realpath(repo_root or os.getcwd())
-    home = os.path.expanduser("~")
-    secret = os.path.join(home, ".calma_doctor_secret")
+    secret = os.path.join(os.path.realpath(os.path.expanduser("~")), ".calma_doctor_secret")
     info = {"sandbox_exec": _have_sandbox_exec()}
     if not info["sandbox_exec"]:
         info.update(tier="host-not-isolated", secret_read_blocked=False, egress_blocked=False,
@@ -84,33 +121,50 @@ def doctor(repo_root=None):
         with open(secret, "w") as fh:
             fh.write("TOPSECRET-CALMA-DOCTOR")
         prof = _profile(repo_root)
-        # probe 1: read the secret (must be DENIED)
-        probe_secret = "import sys\ntry:\n open(%r).read(); print('LEAK')\nexcept Exception:\n print('BLOCKED')\n" % secret
-        rc, out, err, _ = _run_sandboxed(prof, [sys.executable, "-c", probe_secret], repo_root, timeout=20)
-        secret_blocked = "LEAK" not in out
-        # probe 2: network egress (must be DENIED)
-        probe_net = ("import socket\ntry:\n socket.create_connection(('1.1.1.1',80),timeout=4);"
-                     " print('LEAK')\nexcept Exception:\n print('BLOCKED')\n")
-        rc2, out2, err2, _ = _run_sandboxed(prof, [sys.executable, "-c", probe_net], repo_root, timeout=20)
-        egress_blocked = "LEAK" not in out2
+        rc, out, err, _ = _run_sandboxed(prof, [sys.executable, "-c", _PROBE.format(secret=secret)],
+                                         repo_root, timeout=30)
     finally:
         if os.path.exists(secret):
             os.unlink(secret)
-    tier = "seatbelt-verified" if (secret_blocked and egress_blocked) else "host-not-isolated"
-    info.update(tier=tier, secret_read_blocked=secret_blocked, egress_blocked=egress_blocked)
+    leaks = ""
+    for line in (out or "").splitlines():
+        if line.startswith("LEAKS="):
+            leaks = line[len("LEAKS="):].strip()
+    leak_list = [x for x in leaks.split(",") if x]
+    secret_blocked = not any(x.startswith("read:") for x in leak_list)
+    egress_blocked = not any(x.startswith("egress:") for x in leak_list)
+    tier = "seatbelt-verified" if (not leak_list) else "host-not-isolated"
+    info.update(tier=tier, secret_read_blocked=secret_blocked, egress_blocked=egress_blocked,
+                leaks=leak_list,
+                note="host-kernel shared; verified = egress+secret-read denial, NOT escape isolation")
     return info
 
 
 def _detect_determinism(entrypoint_path):
+    """Conservative AST scan: only pure-stdlib code with NO RNG/GPU imports is controlled-to-bit.
+    Catches aliased/from-imports the old regex missed (import random as r; from random import random;
+    import secrets; numpy/torch aliases; os.urandom). Unparseable -> uncontrolled (fail safe)."""
     try:
-        src = open(entrypoint_path).read()
-    except OSError:
-        return "uncontrolled", "entrypoint unreadable"
-    if NONDET_LIBS.search(src):
-        return "uncontrolled", "imports a GPU/ML framework; band must be measured (M2)"
-    if UNSEEDED_RANDOM.search(src):
-        return "measured-band", "uses RNG; determinism config / seeds required"
-    return "controlled-to-bit", "pure-stdlib, no RNG/GPU libs (structural)"
+        tree = ast.parse(open(entrypoint_path).read())
+    except (OSError, SyntaxError) as e:
+        return "uncontrolled", "entrypoint unparseable (%s)" % type(e).__name__
+    mods, urandom = set(), False
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for a in node.names:
+                mods.add(a.name.split(".")[0])
+        elif isinstance(node, ast.ImportFrom):
+            if node.module:
+                mods.add(node.module.split(".")[0])
+        elif isinstance(node, ast.Attribute) and node.attr == "urandom":
+            urandom = True
+    if mods & NONDET_MODULES:
+        return "uncontrolled", "imports a GPU/ML framework (%s); band must be measured (M2)" % \
+            ", ".join(sorted(mods & NONDET_MODULES))
+    rng = (mods & RNG_MODULES) | ({"os.urandom"} if urandom else set())
+    if rng:
+        return "measured-band", "uses %s; determinism config / seeds required (M2)" % ", ".join(sorted(rng))
+    return "controlled-to-bit", "pure-stdlib, no RNG/GPU imports (structural)"
 
 
 def run(contract_path, base=None, timeout=120):
@@ -133,7 +187,8 @@ def run(contract_path, base=None, timeout=120):
     out_dir = os.path.join(base, "runs")
     prof = _profile(base)
     # network OFF for the run phase, unconditionally (the profile denies it; we also clear proxies)
-    env = {k: v for k, v in os.environ.items() if not k.lower().endswith("_proxy")}
+    _proxy = {"http_proxy", "https_proxy", "ftp_proxy", "all_proxy", "no_proxy"}
+    env = {k: v for k, v in os.environ.items() if k.lower() not in _proxy}
     rc, out, err, killed = _run_sandboxed(prof, [sys.executable, entry_path], base, timeout, env)
     exit_code = 4 if killed else (0 if rc == 0 else 1)
     return {

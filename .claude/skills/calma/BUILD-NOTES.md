@@ -40,3 +40,22 @@ repo corpus (see `docs/BUILD-REVIEW.md`).
 ## Test entrypoint
 
 `python3 .claude/skills/calma/scripts/tests/run_all.py` runs every suite (pure stdlib; no pytest/numpy).
+
+## Audit round 1 (adversarial, 2 auditors) - fixed
+
+- **NaN-input propagation** (numeric.py): auc/accuracy/max_drawdown/DeLong now return NaN on NaN inputs
+  so the recipe flags `degenerate` and the verdict degrades to INCONCLUSIVE (was: silently valid metric).
+- **Path traversal** (recompute.py `_safe_join`): artifact paths that escape the contract base (abs / ..)
+  are refused.
+- **Determinism mis-detection** (run_hermetic.py): regex replaced with an AST scan that catches
+  `import random as r`, `from random import ...`, `secrets`, `os.urandom`, numpy/torch aliases -> these
+  are no longer mislabeled controlled-to-bit (closed a false-REFUTED soundness hole).
+- **M2-gate soundness** (verdict.py): a REFUTED on a measured/uncontrolled BAND now requires M2
+  calibration regardless of isolation tier (a container does not validate an uncalibrated band).
+- **Sandbox read-scope** (run_hermetic.py): profile now denies ALL user homes (/Users) + system-secret
+  dirs (keychains, /etc/ssh, /var/root), not just $HOME; `doctor` runs a probe BATTERY (raw-IP, DNS,
+  curl egress + multiple secret reads) and stamps host-not-isolated on ANY leak. Honest stamp added:
+  Seatbelt is host-kernel-shared, NOT escape-isolated (untrusted code still requires a container/VM,
+  refused otherwise) - the process-escape-on-timeout limit is acknowledged, not hidden.
+- All proxy env vars (incl no_proxy) cleared for the run phase.
+- 20 new regression tests (test_audit.py). Total: 121 checks across 8 suites, all green.

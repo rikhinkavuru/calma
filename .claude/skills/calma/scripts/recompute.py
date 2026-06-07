@@ -42,8 +42,17 @@ def _to_numeric(raw, na_policy="error"):
     return out
 
 
+def _safe_join(base, rel):
+    """Resolve rel under base and refuse anything that escapes base (abs path, .. traversal)."""
+    full = os.path.realpath(os.path.join(base, rel))
+    rb = os.path.realpath(base)
+    if full != rb and not full.startswith(rb + os.sep):
+        raise ValueError("artifact path escapes the contract base: %r" % rel)
+    return full
+
+
 def _numeric_cols(contract, artifact_path, binding, base):
-    cols_raw = _load_cols(os.path.join(base, artifact_path))
+    cols_raw = _load_cols(_safe_join(base, artifact_path))
     # find na_policy per column from the artifact spec
     na = {}
     for a in contract.get("artifacts", []):

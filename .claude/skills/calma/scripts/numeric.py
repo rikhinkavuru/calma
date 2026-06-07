@@ -12,6 +12,10 @@ HARD RULE enforced by tests: no `import numpy` and no bare np reductions in any 
 import math
 
 
+def _has_nan(xs):
+    return any(not (v == v) for v in xs)
+
+
 def fmean(xs):
     xs = list(xs)
     return math.fsum(xs) / len(xs)
@@ -68,6 +72,8 @@ def sharpe_se(sr, T):
 def max_drawdown(rets):
     """Worst peak-to-trough on the cumulative-equity curve. Path-dependent (argmin) - the caller
     routes this through the path-dependence condition, never the forward-error budget."""
+    if _has_nan(rets):
+        return float("nan")
     eq = 1.0
     peak = 1.0
     mdd = 0.0
@@ -83,7 +89,7 @@ def max_drawdown(rets):
 
 def accuracy(preds, labels):
     n = len(labels)
-    if n == 0:
+    if n == 0 or _has_nan(preds) or _has_nan(labels):
         return float("nan")
     correct = sum(1 for p, y in zip(preds, labels) if p == y)
     return correct / n
@@ -99,6 +105,8 @@ def _psi(a, b):
 
 def auc(scores, labels):
     """AUC = P(score_pos > score_neg) with tie=0.5 (Mann-Whitney). labels in {0,1}."""
+    if _has_nan(scores) or _has_nan(labels):
+        return float("nan")
     pos = [s for s, y in zip(scores, labels) if y == 1]
     neg = [s for s, y in zip(scores, labels) if y == 0]
     if not pos or not neg:
@@ -110,6 +118,8 @@ def auc(scores, labels):
 def auc_delong_se(scores, labels):
     """DeLong sampling SE of a single AUC via the structural components V10 (over positives) and
     V01 (over negatives). O(m*n) - exact, fine for verification-scale fixtures."""
+    if _has_nan(scores) or _has_nan(labels):
+        return float("nan")
     pos = [s for s, y in zip(scores, labels) if y == 1]
     neg = [s for s, y in zip(scores, labels) if y == 0]
     m, n = len(pos), len(neg)
