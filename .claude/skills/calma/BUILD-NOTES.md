@@ -11,9 +11,10 @@ repo corpus (see `docs/BUILD-REVIEW.md`).
 | M0.0 verdict.py | **DONE, tested (27/0)** | Total pure `verdict()` over the full vector; conservative defaults; ordered false-REFUTED guards; M2-gate + controlled-to-bit carve-out. |
 | M0.1 ledger + gate | **DONE, tested (12/0)** | schema + semantic `_validate()` (byte-re-derivation), strict-lattice gate, FP-aware repo verdict. BTC ledger fixture -> REFUTED / exit 1. |
 | M0.2 SKILL.md + invariants | **DONE** | TOC body, version-gated description (M1 = recompute-and-diff + baseline; rest named as roadmap), 7 machine-enforced invariants. |
-| M1.1 verify.yaml + draft_contract + recipes | in progress | recipe families: quant (Sharpe, max-drawdown) + general (accuracy, AUC-DeLong). |
-| M1.2 run_hermetic | in progress | Tier-0/Seatbelt on macOS; container/VM tier for untrusted (daemon not up here). |
-| M1.3 recompute + compare + attest | in progress | reference-deterministic recompute (fsum/Welford/log-domain; mpmath for transcendentals); calibrated tolerance. |
+| M1.1 verify.yaml + draft_contract + recipes | **DONE, tested** | verify.schema.json; draft_contract.py (tag inference + graded binding); recipes: quant (Sharpe, total_return, max-drawdown) + general (accuracy, AUC-DeLong). |
+| M1.2 run_hermetic | **DONE, tested** | verified Seatbelt tier with `calma doctor` positive-control (secret-read + egress BOTH blocked); process-group kill on timeout; untrusted-third-party refused (no container). |
+| M1.3 recompute + compare + attest | **DONE, tested** | reference-deterministic recompute (fsum/pairwise-product/sqrt, NO transcendental/numpy); calibrated budget; shared verdict(); SBOM manifest. |
+| M1.x orchestrator + report | **DONE, tested** | `calma.py verify` chains draft->run_hermetic->recompute->compare->ledger/gate->attest->progressive report. BTC -> REFUTED, honest claim -> CONFIRMED, end-to-end. 101 tests across 7 suites. |
 | M2 calibration lock-gates | **deferred (infra)** | self-calibrating on this M4 per blueprint, but needs a 3-5 repo x language corpus. REFUTED-without-container disabled for MEASURED-BAND until passed; CONTROLLED-TO-BIT exempt. |
 | M3 five-family + stats_engine | **deferred** | DSR/PBO validatable vs mlfinlab/pypbo vectors w/o new infra; leakage re-run + domain breadth need the corpus. |
 | M4 breadth + contamination + signing | **deferred** | |

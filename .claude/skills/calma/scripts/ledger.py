@@ -161,16 +161,18 @@ def gate(led):
     }
 
 
-def validate(path):
-    led = load_ledger(path)
+def validate_obj(led):
     errs = structural_validate(led)
     if errs:
         return 2, {"stage": "structural", "errors": errs}
     errs = semantic_validate(led)
     if errs:
         return 2, {"stage": "semantic", "errors": errs}
-    code, summary = gate(led)
-    return code, summary
+    return gate(led)
+
+
+def validate(path):
+    return validate_obj(load_ledger(path))
 
 
 if __name__ == "__main__":

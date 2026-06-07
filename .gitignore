@@ -13,3 +13,7 @@ next-env.d.ts
 
 __pycache__/
 *.pyc
+
+# Calma run outputs
+.claude/skills/calma/**/.calma/
+*.pyc
