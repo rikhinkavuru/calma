@@ -1,0 +1,27 @@
+{
+  "abs_floor": 1e-09,
+  "rel_floor": 1e-09,
+  "z": 1.96,
+  "conv_ratio": 3.0,
+  "calibrated_on": "2026-06-07",
+  "host": "apple-m4-darwin",
+  "method": "on-target self-calibration",
+  "min_k_9595": 59,
+  "nominal_coverage": 0.95,
+  "realized_coverage": {
+    "total_return": 0.98,
+    "sharpe": 0.97
+  },
+  "spread_floor": {
+    "total_return": 4.551914400963142e-15,
+    "sharpe": 1.7763568394002505e-15
+  },
+  "fp_guard": {
+    "n_fixtures": 13,
+    "false_refuted": 0,
+    "fp_rate": 0.0,
+    "true_positives_caught": 3,
+    "true_positives_total": 3
+  },
+  "note": "measured-band REFUTED is unlocked because realized coverage >= nominal AND FP-guard corpus has zero false-REFUTED on this host. Re-run calibrate.py to re-self-test."
+}

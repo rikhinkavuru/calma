@@ -17,19 +17,52 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import recipes as RCP  # noqa: E402
 import verdict as V  # noqa: E402
 
 ABS_FLOOR = 1e-9
 REL_FLOOR = 1e-9
 Z = 1.96  # ~95% two-sided for the sampling-SE term
+CONV_RATIO = 3.0  # max claim/recompute ratio a periodicity-style convention can explain (calibrated)
+
+_CALIB = None
+
+
+def _load_calibration():
+    global _CALIB, ABS_FLOOR, REL_FLOOR, Z, CONV_RATIO
+    if _CALIB is not None:
+        return _CALIB
+    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "calibration.json")
+    try:
+        c = json.load(open(path))
+        ABS_FLOOR = c.get("abs_floor", ABS_FLOOR)
+        REL_FLOOR = c.get("rel_floor", REL_FLOOR)
+        Z = c.get("z", Z)
+        CONV_RATIO = c.get("conv_ratio", CONV_RATIO)
+        _CALIB = c
+    except (OSError, ValueError):
+        _CALIB = {}
+    return _CALIB
+
+
+def _infer_precision(claimed):
+    """The half-ULP of the claim's REPORTED precision: '0.42' -> 0.005, integer -> 0.5, sci/long -> ~0."""
+    s = repr(float(claimed))
+    if "e" in s or "E" in s:
+        return 0.0
+    if "." in s:
+        d = len(s.split(".", 1)[1])
+        return 0.5 * 10 ** (-d) if d <= 6 else 0.0
+    return 0.5
 
 
 def _sign(x):
     return (x > 0) - (x < 0)
 
 
-def _budget(claimed, sampling_se):
-    terms = {"abs_floor": ABS_FLOOR, "rel_floor": REL_FLOOR * abs(claimed)}
+def _budget(claimed, sampling_se, claimed_precision=None):
+    prec = claimed_precision if claimed_precision is not None else _infer_precision(claimed)
+    terms = {"abs_floor": ABS_FLOOR, "rel_floor": REL_FLOOR * abs(claimed), "claim_precision": prec}
     if isinstance(sampling_se, float) and sampling_se == sampling_se and sampling_se > 0:
         terms["sampling_se"] = Z * sampling_se
     eff = max(terms.values())
@@ -39,6 +72,8 @@ def _budget(claimed, sampling_se):
 def compare(recompute, contract, isolation_tier="tier0", container_present=None,
             determinism_mode="controlled-to-bit", sufficient_k=True, m2_calibrated=False,
             untrusted=False, killed=False, exit_codes=(0,)):
+    _load_calibration()
+    m2_calibrated = m2_calibrated or bool(_CALIB)
     if container_present is None:
         container_present = isolation_tier in ("vm", "container", "tier0", "seatbelt-verified")
     by_id = {m["metric_id"]: m for m in recompute["metrics"]}
@@ -50,7 +85,17 @@ def compare(recompute, contract, isolation_tier="tier0", container_present=None,
         claimed = m.get("claimed_value")
         recomputed = rec.get("value")
         sampling_se = (rec.get("terms") or {}).get("sampling_se")
-        eff, bterms = _budget(claimed if claimed is not None else 0.0, sampling_se)
+        eff, bterms = _budget(claimed if claimed is not None else 0.0, sampling_se,
+                              m.get("claimed_precision"))
+        # convention cap: a declared, in-set convention can explain a periodicity-scale gap -> CAVEAT
+        conv = m.get("convention")
+        conv_capped = False
+        if conv is not None and claimed not in (None, 0) and isinstance(recomputed, float) and recomputed not in (None, 0.0):
+            fn = RCP.get(mid)
+            accepted = set((fn.manifest.get("accepted_conventions") if fn else []) or [])
+            if str(conv) in accepted:
+                ratio = max(abs(recomputed / claimed), abs(claimed / recomputed)) if claimed and recomputed else 1e9
+                conv_capped = ratio <= CONV_RATIO
         gap = None
         if claimed is not None and isinstance(recomputed, float) and recomputed == recomputed:
             gap = abs(recomputed - claimed)
@@ -70,6 +115,7 @@ def compare(recompute, contract, isolation_tier="tier0", container_present=None,
             "unbounded_op_present": False, "path_dependent": bool(rec.get("path_dependent")),
             "m2_calibrated": m2_calibrated, "recompute_degenerate": bool(rec.get("degenerate")),
             "claim_confirmed_target": bool(m.get("claim_confirmed")) and bool(m.get("headline")),
+            "convention_capped": conv_capped,
         }
         label, reason = V.verdict_with_reason(vinputs)
         metrics_out.append({

@@ -51,6 +51,7 @@ DEFAULTS = {
     "recompute_degenerate": False,  # NaN/Inf/sentinel/degenerate recompute
     "claim_confirmed_target": False,  # the claim number+metric+units are user-confirmed (REFUTED req.)
     "fraud_multiple_met": False,  # gap exceeds the band by the calibrated fraud-multiple M (decoupled path)
+    "convention_capped": False,  # gap explainable by a declared legitimate convention -> cap at CAVEAT
 }
 
 
@@ -144,6 +145,9 @@ def _decide(vi):
         # A gap explained by cross-stack reduction order is a CAVEAT, never a REFUTED.
         if vi["cross_stack_attributable"]:
             return CAVEATS, "gap attributable to cross-stack numeric differences, not a definition error"
+        # A gap explainable by a declared legitimate (in-set) convention is a CAVEAT, never a REFUTED.
+        if vi["convention_capped"]:
+            return CAVEATS, "gap is within the range of a declared legitimate convention; recompute under it to resolve"
         blocked, why = _refute_blocked(vi)
         if blocked:
             return INCONCLUSIVE, "recompute differs from the claim but REFUTED is blocked: " + why
