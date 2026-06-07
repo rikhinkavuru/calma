@@ -105,5 +105,22 @@ doc = H.doctor(os.path.join(SCR, "..", "assets", "btc"))
 if doc["sandbox_exec"]:
     truth(doc["leaks"] == [], "doctor battery: zero leaks (egress+secret all blocked)")
 
+# 6) entrypoint path traversal is refused (round-2 B1/B3) - parity with artifact guard
+ed = tempfile.mkdtemp()
+ebase = os.path.join(ed, "work")
+os.makedirs(ebase)
+json.dump({"run": {"entrypoint": "../../../../etc/hosts"}, "env": {"trust": "own-code"}},
+          open(os.path.join(ebase, "verify.yaml"), "w"))
+er = H.run(os.path.join(ebase, "verify.yaml"), base=ebase, timeout=5)
+truth(er.get("phase") == "refused" and er.get("exit_code") == 2, "entrypoint escaping base is refused (exit 2)")
+truth("determinism_note" not in er, "escaped entrypoint never read/executed on host")
+
+# 7) dynamic import / exec evade no longer pass as controlled-to-bit (round-2 B2)
+truth(det("__import__('random').random()\n") == "uncontrolled", "__import__ -> uncontrolled")
+truth(det("import importlib\nimportlib.import_module('random')\n") == "uncontrolled", "importlib -> uncontrolled")
+truth(det("exec('import random')\n") == "uncontrolled", "exec -> uncontrolled")
+truth(det("eval('1')\n") == "uncontrolled", "eval -> uncontrolled")
+truth(det("import csv, json\nprint(1)\n") == "controlled-to-bit", "pure stdlib still controlled-to-bit")
+
 print("audit-fixes: %d checks, %d failures" % (_n, _fail))
 sys.exit(1 if _fail else 0)

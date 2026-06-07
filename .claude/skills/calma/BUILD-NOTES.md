@@ -59,3 +59,13 @@ repo corpus (see `docs/BUILD-REVIEW.md`).
   refused otherwise) - the process-escape-on-timeout limit is acknowledged, not hidden.
 - All proxy env vars (incl no_proxy) cleared for the run phase.
 - 20 new regression tests (test_audit.py). Total: 121 checks across 8 suites, all green.
+
+## Audit round 2 (verification pass) - all round-1 fixes confirmed; 3 new fixed
+
+- **Entrypoint path traversal** (run_hermetic.run): the entrypoint is now guarded by `_within(base,...)`
+  exactly like artifact paths - an escaping entrypoint is refused (exit 2) and never read/executed on the
+  host (closed a host-side read before sandboxing).
+- **Dynamic-import / exec determinism evasion**: `_detect_determinism` now returns `uncontrolled` for
+  `__import__`, `importlib.import_module`, `exec`/`eval`/`compile` - purity cannot be proven statically, so
+  it fails safe (was: mislabeled controlled-to-bit).
+- 7 new regression tests. Total: 128 checks across 8 suites, all green.

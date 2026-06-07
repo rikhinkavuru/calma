@@ -31,6 +31,13 @@ def _have_sandbox_exec():
     return shutil.which("sandbox-exec") is not None
 
 
+def _within(base, rel):
+    """Resolve rel under base; return (fullpath, ok). ok=False if it escapes (abs path / .. traversal)."""
+    full = os.path.realpath(os.path.join(base, rel))
+    rb = os.path.realpath(base)
+    return full, (full == rb or full.startswith(rb + os.sep))
+
+
 def _profile(base):
     """allow-default for the system paths the interpreter needs, then DENY the things we verify and
     claim: network egress, and reads of ALL user homes (/Users) + known system-secret dirs. The base is
@@ -148,7 +155,7 @@ def _detect_determinism(entrypoint_path):
         tree = ast.parse(open(entrypoint_path).read())
     except (OSError, SyntaxError) as e:
         return "uncontrolled", "entrypoint unparseable (%s)" % type(e).__name__
-    mods, urandom = set(), False
+    mods, urandom, dynamic = set(), False, None
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for a in node.names:
@@ -156,8 +163,18 @@ def _detect_determinism(entrypoint_path):
         elif isinstance(node, ast.ImportFrom):
             if node.module:
                 mods.add(node.module.split(".")[0])
-        elif isinstance(node, ast.Attribute) and node.attr == "urandom":
-            urandom = True
+        elif isinstance(node, ast.Attribute):
+            if node.attr == "urandom":
+                urandom = True
+            elif node.attr == "import_module":   # importlib.import_module(...)
+                dynamic = "importlib.import_module"
+        elif isinstance(node, ast.Name) and node.id in ("__import__", "exec", "eval", "compile"):
+            dynamic = node.id
+    if dynamic:
+        # dynamic import / code execution -> purity cannot be proven statically; fail safe
+        return "uncontrolled", "uses %s (dynamic import/exec); determinism cannot be proven statically" % dynamic
+    if "importlib" in mods:
+        return "uncontrolled", "imports importlib (dynamic import); determinism cannot be proven statically"
     if mods & NONDET_MODULES:
         return "uncontrolled", "imports a GPU/ML framework (%s); band must be measured (M2)" % \
             ", ".join(sorted(mods & NONDET_MODULES))
@@ -173,7 +190,11 @@ def run(contract_path, base=None, timeout=120):
     base = os.path.realpath(base or os.path.dirname(os.path.abspath(contract_path)))
     trust = contract.get("env", {}).get("trust", "own-code")
     entry = contract["run"]["entrypoint"]
-    entry_path = os.path.join(base, entry)
+    entry_path, _ok = _within(base, entry)
+    if not _ok:
+        return {"phase": "refused", "exit_code": 2, "isolation_tier": "n/a",
+                "container_present": False, "killed": False,
+                "reason": "entrypoint escapes the contract base: %r" % entry}
     doc = doctor(base)
     isolation_tier = doc["tier"]
 
