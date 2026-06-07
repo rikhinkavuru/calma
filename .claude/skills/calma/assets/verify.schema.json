@@ -1,0 +1,64 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "calma/verify@1",
+  "description": "The Calma artifact contract. Written as JSON (valid YAML) so scripts parse it dependency-free.",
+  "type": "object",
+  "required": ["run", "artifacts", "metrics"],
+  "properties": {
+    "run": {
+      "type": "object",
+      "required": ["entrypoint"],
+      "properties": {
+        "entrypoint": {"type": "string"},
+        "network": {"enum": ["off", "proxy", "on"], "default": "off"},
+        "cwd": {"type": "string"}
+      }
+    },
+    "env": {
+      "type": "object",
+      "properties": {
+        "ecosystem": {"type": "string"},
+        "trust": {"enum": ["own-code", "untrusted-third-party"], "default": "own-code"}
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "columns"],
+        "properties": {
+          "path": {"type": "string"},
+          "re_emit": {"type": "boolean", "default": true},
+          "columns": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "tag": {"enum": ["return", "price", "score", "prob", "label", "prediction", "weight", "timestamp", "group"]},
+                "dtype": {"type": "string"},
+                "na_policy": {"enum": ["drop", "error", "zero-fill"], "default": "error"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "metrics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["metric_id", "artifact", "binding"],
+        "properties": {
+          "metric_id": {"type": "string"},
+          "artifact": {"type": "string"},
+          "binding": {"type": "object"},
+          "convention": {"type": ["string", "null"]},
+          "claimed_value": {"type": ["number", "null"]},
+          "headline": {"type": "boolean", "default": false},
+          "binding_status": {"enum": ["independently-bound", "plausibly-bound", "author-asserted"]}
+        }
+      }
+    },
+    "baselines": {"type": "array", "items": {"type": "object"}}
+  }
+}

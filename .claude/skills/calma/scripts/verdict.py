@@ -50,6 +50,7 @@ DEFAULTS = {
     "m2_calibrated": False,       # the M2 band-coverage lock-gate has passed on this host
     "recompute_degenerate": False,  # NaN/Inf/sentinel/degenerate recompute
     "claim_confirmed_target": False,  # the claim number+metric+units are user-confirmed (REFUTED req.)
+    "fraud_multiple_met": False,  # gap exceeds the band by the calibrated fraud-multiple M (decoupled path)
 }
 
 
