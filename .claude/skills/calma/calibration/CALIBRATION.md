@@ -48,3 +48,24 @@ This is the **Python** M2. The cross-language served-fraction matrix (R/Julia/C+
 needs those toolchains + a real multi-repo corpus. The determinism band is validated as a *methodology*
 (self-calibrating on-target), not as a transferable constant; re-run `calibrate.py` on any host to
 re-self-test (it refuses to write the artifact if that host false-REFUTEs).
+
+## Served-fraction (real-repo corpus)
+
+Research-vetted candidates (GitHub API checked for license/size/freshness). Most public "backtest"/ML
+repos failed the permissive-Python bar (AGPL `backtesting.py`; R `benchm-ml`; 246MB `pmlb`; several with
+no license). The strongest documented leakage case — the civil-war RF study (AUC 0.97 → 0.91 corrected;
+ML-over-LR edge 0.14 → 0.01) — is **R-only**, so it is reproduced faithfully in self-contained Python
+(`assets/leakage/`). Corpus run via `calibration/served_fraction.py` (4-gate + terminal verdict):
+
+| repo | bucket | served | verdict | failing gate |
+|---|---|---|---|---|
+| btc-overfit backtest (vendored snapshot) | flawed/quant | yes | **REFUTED** | — |
+| ml-leakage civil-war repro | flawed/ML | yes | **REFUTED** (measured-band, M2-unlocked) | — |
+| sh-mukherjee/momentum-strategy (MIT) | honest/quant | no | INCONCLUSIVE | run (needs yfinance live data) |
+| Erfaniaa/crypto-backtester (GPL, local) | flawed/quant | no | INCONCLUSIVE | run (needs binance live data) |
+
+**Served-fraction = 0.50** (2/4). Terminal verdicts: REFUTED 2, INCONCLUSIVE 2. The honest finding:
+**live-data dependency is the dominant coverage killer**, not the verification logic — a repo that fetches
+market/ML data at runtime cannot run under network-off isolation until its data is vendored to a snapshot
+(as BTC was). Both *self-contained flawed* repos are caught (REFUTED); the verification engine never
+false-confirmed. Full data: `assets/served_fraction.json`.

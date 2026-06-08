@@ -1,0 +1,78 @@
+{
+  "n": 4,
+  "served": 2,
+  "served_fraction": 0.5,
+  "gate_failures": {
+    "run": 2
+  },
+  "terminal_verdicts": {
+    "REFUTED": 2,
+    "INCONCLUSIVE": 2
+  },
+  "rows": [
+    {
+      "repo": "btc",
+      "label": "btc-overfit-backtest (self-contained, vendored snapshot)",
+      "gates": {
+        "restore": true,
+        "run": true,
+        "emit_raw": true,
+        "bind": true
+      },
+      "served": true,
+      "failing_gate": null,
+      "verdict": "REFUTED",
+      "determinism": "controlled-to-bit",
+      "isolation": "seatbelt-verified",
+      "notes": {}
+    },
+    {
+      "repo": "leakage",
+      "label": "ml-leakage-civilwar-repro (self-contained)",
+      "gates": {
+        "restore": true,
+        "run": true,
+        "emit_raw": true,
+        "bind": true
+      },
+      "served": true,
+      "failing_gate": null,
+      "verdict": "REFUTED",
+      "determinism": "measured-band",
+      "isolation": "seatbelt-verified",
+      "notes": {}
+    },
+    {
+      "repo": "momentum-strategy",
+      "label": "sh-mukherjee/momentum-strategy (MIT, real, yfinance)",
+      "gates": {
+        "restore": true,
+        "run": false,
+        "emit_raw": true,
+        "bind": false
+      },
+      "served": false,
+      "failing_gate": "run",
+      "verdict": "INCONCLUSIVE",
+      "determinism": "controlled-to-bit",
+      "isolation": "seatbelt-verified",
+      "notes": {}
+    },
+    {
+      "repo": "crypto-trading-strategy-backtester",
+      "label": "Erfaniaa/crypto-backtester (real, binance)",
+      "gates": {
+        "restore": true,
+        "run": false,
+        "emit_raw": true,
+        "bind": false
+      },
+      "served": false,
+      "failing_gate": "run",
+      "verdict": "INCONCLUSIVE",
+      "determinism": "controlled-to-bit",
+      "isolation": "seatbelt-verified",
+      "notes": {}
+    }
+  ]
+}

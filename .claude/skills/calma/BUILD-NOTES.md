@@ -15,7 +15,7 @@ repo corpus (see `docs/BUILD-REVIEW.md`).
 | M1.2 run_hermetic | **DONE, tested** | verified Seatbelt tier with `calma doctor` positive-control (secret-read + egress BOTH blocked); process-group kill on timeout; untrusted-third-party refused (no container). |
 | M1.3 recompute + compare + attest | **DONE, tested** | reference-deterministic recompute (fsum/pairwise-product/sqrt, NO transcendental/numpy); calibrated budget; shared verdict(); SBOM manifest. |
 | M1.x orchestrator + report | **DONE, tested** | `calma.py verify` chains draft->run_hermetic->recompute->compare->ledger/gate->attest->progressive report. BTC -> REFUTED, honest claim -> CONFIRMED, end-to-end. 101 tests across 7 suites. |
-| M2 calibration lock-gates | **deferred (infra)** | self-calibrating on this M4 per blueprint, but needs a 3-5 repo x language corpus. REFUTED-without-container disabled for MEASURED-BAND until passed; CONTROLLED-TO-BIT exempt. |
+| M2 calibration lock-gates | **DONE (Python), tested** | determinism band (coverage 0.97-0.98>=0.95, min-K 59); FP-guard corpus 0 false-REFUTED; calibration.json unlocks measured-band REFUTED; served-fraction 0.50 on a research-vetted real-repo corpus (2 flawed self-contained repos REFUTED, 2 live-data repos UNVERIFIABLE offline). Cross-language matrix still open. |
 | M3 five-family + stats_engine | **deferred** | DSR/PBO validatable vs mlfinlab/pypbo vectors w/o new infra; leakage re-run + domain breadth need the corpus. |
 | M4 breadth + contamination + signing | **deferred** | |
 

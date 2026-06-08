@@ -76,5 +76,18 @@ truth(cmp1(1.57, 1.90, mid="sharpe", convention="252", terms={"sampling_se": 0.1
            isolation_tier="tier0", determinism_mode="controlled-to-bit") == V.CAVEATS,
       "declared in-set convention -> CONFIRMED-WITH-CAVEATS, not REFUTED")
 
+# 7) served-fraction: both self-contained fixtures verify and correctly REFUTE
+sys.path.insert(0, os.path.join(SCR, "..", "calibration"))
+import served_fraction as SF  # noqa: E402
+A = os.path.join(SCR, "..", "assets")
+btc = SF.assess(os.path.join(A, "btc"), label="btc")
+truth(btc["served"] and btc["verdict"] == V.REFUTED, "served-fraction: BTC served + REFUTED")
+leak = SF.assess(os.path.join(A, "leakage"), label="leakage")
+truth(leak["served"] and leak["verdict"] == V.REFUTED, "served-fraction: leakage served + REFUTED")
+truth(leak["determinism"] == "measured-band", "leakage runs on the M2-unlocked measured-band path")
+import shutil
+for d in ("btc", "leakage"):
+    shutil.rmtree(os.path.join(A, d, ".calma"), ignore_errors=True)
+
 print("m2: %d checks, %d failures" % (_n, _fail))
 sys.exit(1 if _fail else 0)

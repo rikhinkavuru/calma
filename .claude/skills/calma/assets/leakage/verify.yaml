@@ -1,0 +1,18 @@
+{
+  "_note": "Self-contained Python reproduction of the documented civil-war RF leakage case (R original). The claim is the LEAKED train=test AUC; the artifact is the HELD-OUT predictions.",
+  "run": {"entrypoint": "gen_fixture.py", "network": "off", "cwd": "."},
+  "env": {"ecosystem": "python-stdlib", "trust": "own-code"},
+  "artifacts": [
+    {"path": "runs/preds_holdout.csv", "re_emit": true,
+     "columns": {"score": {"tag": "score", "dtype": "float", "na_policy": "error"},
+                 "label": {"tag": "label", "dtype": "int", "na_policy": "error"}}}
+  ],
+  "metrics": [
+    {"metric_id": "auc", "artifact": "runs/preds_holdout.csv",
+     "binding": {"score": "score", "label": "label"}, "convention": null,
+     "claimed_value": 0.9359, "headline": true,
+     "binding_status": "independently-bound", "claim_confirmed": true,
+     "_claim": "author reported AUC 0.94 (trained and evaluated on the same rows - leakage)"}
+  ],
+  "baselines": []
+}
