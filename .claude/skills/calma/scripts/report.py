@@ -51,3 +51,29 @@ def render(led, diff=None):
                         sc.get("determinism_mode", "?"),
                         (" | not verified: " + "; ".join(nv)) if nv else ""))
     return "\n".join(lines)
+
+
+def teardown_card(led, diff=None):
+    """A copy-pasteable shareable card for a REFUTED result - the growth/pitch artifact.
+    'claimed X -> really Y, here is why, here is the repro.'"""
+    if led.get("repo_verdict") not in ("REFUTED", "MIXED"):
+        return None
+    c = (led.get("claims") or [{}])[0]
+    lines = ["CALMA TEARDOWN  -  %s" % led.get("target", "result"), ""]
+    if c.get("claimed_value") is not None and c.get("recomputed_value") is not None:
+        lines.append("  CLAIMED:     %s" % c["claimed_value"])
+        lines.append("  RECOMPUTED:  %s   <- re-ran the code, recomputed from raw outputs" % c["recomputed_value"])
+        lines.append("")
+    blockers = [f for f in led.get("findings", []) if f.get("severity") in ("blocker", "major")]
+    if blockers:
+        lines.append("  why it breaks:")
+        for f in blockers[:4]:
+            lines.append("   - %s: %s" % (f.get("dimension"), f.get("locator")))
+        lines.append("")
+    rep = c.get("reproduction_or_reverify", {})
+    if rep.get("command"):
+        lines.append("  reproduce:  %s" % rep["command"])
+    sc = led.get("scope", {})
+    lines.append("  verified by RE-EXECUTION, not opinion  -  isolation: %s | determinism: %s"
+                 % (sc.get("isolation_tier", "?"), sc.get("determinism_mode", "?")))
+    return "\n".join(lines)

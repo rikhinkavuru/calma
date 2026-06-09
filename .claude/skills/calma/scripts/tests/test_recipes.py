@@ -12,6 +12,10 @@ import recipes as R  # noqa: E402
 _n = _fail = 0
 
 
+def isnan_local(x):
+    return isinstance(x, float) and x != x
+
+
 def approx(got, want, tol, label):
     global _n, _fail
     _n += 1
@@ -71,6 +75,24 @@ truth(res["terms"]["se_method"] == "delong", "auc recipe carries DeLong SE")
 # determinism: same inputs -> identical bits, twice
 truth(N.sharpe(xs, 252) == N.sharpe(xs, 252), "sharpe bit-stable across calls")
 truth(N.total_return(xs) == N.total_return(xs), "total_return bit-stable across calls")
+
+# regression + analytics + classification-depth families
+import math as _m
+approx(N.rmse([1.0, 2.0, 3.0], [1.0, 2.0, 4.0]), _m.sqrt(1.0/3.0), 1e-12, "rmse")
+approx(N.mae([1.0, 2.0], [2.0, 4.0]), 1.5, 1e-12, "mae")
+approx(N.r2([1.0, 2.0, 3.0], [1.0, 2.0, 3.0]), 1.0, 0.0, "r2 perfect")
+truth(isnan_local(N.r2([1.0, 1.0], [5.0, 5.0])), "r2 zero-variance -> nan")
+approx(N.precision([1, 1, 0], [1, 0, 0]), 0.5, 1e-12, "precision")
+approx(N.recall([1, 0, 1], [1, 1, 0]), 0.5, 1e-12, "recall")
+approx(N.f1([1, 1, 0, 0], [1, 0, 0, 1]), 0.5, 1e-12, "f1")
+approx(N.col_sum([1.5, 2.5, 3.0]), 7.0, 1e-12, "col_sum")
+approx(N.col_mean([2.0, 4.0, 6.0]), 4.0, 1e-12, "col_mean")
+truth(R.get("rmse")({"p": [1.0, 2.0], "t": [1.0, 3.0]}, {"prediction": "p", "target": "t"})["value"] > 0, "rmse recipe runs")
+truth(R.get("row_count")({"c": [1, 2, 3, 4]}, {"column": "c"})["value"] == 4.0, "row_count recipe")
+truth(set(R.ids()) >= {"rmse", "mae", "r2", "precision", "recall", "f1", "column_sum", "column_mean", "row_count"}, "new recipe families registered")
+# NaN propagation in new metrics
+truth(isnan_local(N.rmse([1.0, float("nan")], [1.0, 2.0])), "rmse NaN -> nan")
+truth(isnan_local(N.col_sum([1.0, float("nan")])), "col_sum NaN -> nan")
 
 print("recipes/numeric: %d checks, %d failures" % (_n, _fail))
 sys.exit(1 if _fail else 0)

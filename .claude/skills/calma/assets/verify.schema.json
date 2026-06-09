@@ -34,7 +34,7 @@
             "additionalProperties": {
               "type": "object",
               "properties": {
-                "tag": {"enum": ["return", "price", "score", "prob", "label", "prediction", "weight", "timestamp", "group"]},
+                "tag": {"enum": ["return", "price", "score", "prob", "label", "prediction", "weight", "timestamp", "group", "value", "target"]},
                 "dtype": {"type": "string"},
                 "na_policy": {"enum": ["drop", "error", "zero-fill"], "default": "error"}
               }

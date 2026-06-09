@@ -118,12 +118,16 @@ def verify(target, claim=None, metric=None, run_id="run"):
         json.dump(diff, open(os.path.join(run_dir, "diff.json"), "w"), indent=2)
         led = _assemble_ledger(contract, diff, run_res)
 
+    led.setdefault("target", os.path.basename(target))
     json.dump(led, open(os.path.join(run_dir, "ledger.json"), "w"), indent=2)
     code, summary = LED.validate_obj(led)
     rendered = REP.render(led, led.get("_diff"))
     open(os.path.join(run_dir, "report.txt"), "w").write(rendered)
+    card = REP.teardown_card(led)
+    if card:
+        open(os.path.join(run_dir, "teardown.txt"), "w").write(card)
     return {"gate_exit": code, "gate": summary, "repo_verdict": led["repo_verdict"],
-            "report": rendered, "run_dir": run_dir, "ledger": led}
+            "report": rendered, "teardown": card, "run_dir": run_dir, "ledger": led}
 
 
 def main():
@@ -134,12 +138,20 @@ def main():
     v.add_argument("--claim")
     v.add_argument("--metric")
     v.add_argument("--run-id", default="run")
+    t = sub.add_parser("teardown")
+    t.add_argument("target")
+    t.add_argument("--claim")
+    t.add_argument("--metric")
     a = ap.parse_args()
     if a.cmd == "verify":
         res = verify(a.target, a.claim, a.metric, a.run_id)
         print(res["report"])
         print("\n[gate exit %d - %s]" % (res["gate_exit"], res["repo_verdict"]))
         return res["gate_exit"]
+    if a.cmd == "teardown":
+        res = verify(a.target, a.claim, a.metric, "teardown")
+        print(res.get("teardown") or "(no teardown: result was not REFUTED)")
+        return 0 if res.get("teardown") else 1
     return 2
 
 

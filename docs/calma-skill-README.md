@@ -23,9 +23,11 @@ AI agents generate a flood of plausible results — a metric, a backtest, a clea
 
 And because the **agent** produced it, a FAIL isn't a knock on you — it's Calma catching the agent's mistake before you ship it.
 
+*Positioning, market gap, and use-cases for pitches: see `docs/PITCH.md`.*
+
 ## What it checks — any language, any domain
 
-- **Reproduces?** Re-run → same number, or it isn't a result.
+- **Reproduces?** Re-run → same number, or it isn't a result. (Only ~35% of real notebooks do.)
 - **Recomputes?** The headline metric, rebuilt from the raw outputs — never the reported value.
 - **Leakage / look-ahead?** Future or out-of-fold information sneaking in.
 - **Holds on unseen data?** Re-run on data withheld from training — overfitting collapses.

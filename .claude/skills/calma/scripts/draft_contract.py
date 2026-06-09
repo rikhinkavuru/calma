@@ -22,7 +22,9 @@ TAG_PATTERNS = [
     (r"price|close|open|high|low|adj", "price"),
     (r"prob|proba|p_hat|phat|score|logit", "score"),
     (r"y_?pred|prediction|pred(icted)?|yhat", "prediction"),
-    (r"y_?true|label|target|gt|truth|actual|class", "label"),
+    (r"y_?true|ground.?truth|gt|\bclass\b|\blabel\b", "label"),
+    (r"target|actual|y_?act|observed|true_?val", "target"),
+    (r"amount|revenue|total|sales|price_usd|value|qty|quantity|count", "value"),
     (r"weight|wt", "weight"),
     (r"time|date|ts|timestamp", "timestamp"),
 ]
@@ -30,7 +32,9 @@ TAG_PATTERNS = [
 METRIC_BY_TAGS = [
     ({"return"}, "total_return"),
     ({"score", "label"}, "auc"),
+    ({"prediction", "target"}, "rmse"),
     ({"prediction", "label"}, "accuracy"),
+    ({"value"}, "column_sum"),
 ]
 ENTRYPOINT_CANDIDATES = ["run.sh", "Makefile", "gen_fixture.py", "main.py", "run.py"]
 

@@ -106,3 +106,16 @@ Tests:   python3 .claude/skills/calma/scripts/tests/run_all.py
 - This converts "gated on vendoring each repo's data" from a blocker into a bounded, documented step.
   The one inherent per-repo task that remains: repos that print but never emit a machine-readable output
   need a one-line emit added before their headline number can be recomputed.
+
+## Research-driven hardening (pitch-readiness)
+
+Web research (manual, not a workflow) into the AI-verification market, reproducibility-tool adoption, and
+the quant/leakage literature drove these improvements (full value/gap analysis + sources in docs/PITCH.md):
+- **Breadth for many use-cases:** added regression (RMSE/MAE/R2), classification depth (precision/recall/F1),
+  and analytics (column-sum/mean, row-count) recipe families -> 14 recipes across quant/ML/DS/analytics.
+- **Growth loop:** `calma teardown` emits a shareable "claimed X -> really Y + repro" card on every REFUTED.
+- **Adoption UX:** SKILL.md now tells an agent to auto-invoke Calma after producing any numeric result
+  (zero-install, in-workflow - the antidote to the 50%-install-fail / 21%-awareness death of repro tools).
+- **Positioning:** Calma occupies the empty cell - verification by EXECUTION to ground truth - vs the
+  eval/observability (judge) and data-validation (validate data) tools that never recompute the claim.
+- 179 checks across 11 suites, all green.

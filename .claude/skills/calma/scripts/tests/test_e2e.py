@@ -32,6 +32,8 @@ res = C.verify(BTC, run_id="test_e2e")
 truth(res["repo_verdict"] == "REFUTED", "BTC -> repo REFUTED")
 truth(res["gate_exit"] == 1, "BTC gate exit 1 (valid, not clean)")
 truth("BROKEN" in res["report"], "report leads with BROKEN")
+truth(res.get("teardown") and "CALMA TEARDOWN" in res["teardown"] and "RECOMPUTED" in res["teardown"],
+      "shareable teardown card produced on REFUTED")
 truth("146.97" in res["report"] and "-0.32" in res["report"], "report shows the numeric collapse")
 rd = res["run_dir"]
 for f in ("recompute.json", "diff.json", "ledger.json", "manifest.json", "report.txt"):

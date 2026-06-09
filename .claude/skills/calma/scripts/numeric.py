@@ -129,3 +129,70 @@ def auc_delong_se(scores, labels):
     v01 = [math.fsum(_psi(p, q) for p in pos) / m for q in neg]
     var = fvar(v10, ddof=1) / m + fvar(v01, ddof=1) / n
     return math.sqrt(var) if var == var and var >= 0 else float("nan")
+
+
+# ---- regression metrics ----
+def rmse(pred, actual):
+    if len(pred) != len(actual) or not pred or _has_nan(pred) or _has_nan(actual):
+        return float("nan")
+    return math.sqrt(math.fsum((p - a) * (p - a) for p, a in zip(pred, actual)) / len(pred))
+
+
+def mae(pred, actual):
+    if len(pred) != len(actual) or not pred or _has_nan(pred) or _has_nan(actual):
+        return float("nan")
+    return math.fsum(abs(p - a) for p, a in zip(pred, actual)) / len(pred)
+
+
+def r2(pred, actual):
+    if len(pred) != len(actual) or len(actual) < 2 or _has_nan(pred) or _has_nan(actual):
+        return float("nan")
+    m = fmean(actual)
+    ss_res = math.fsum((a - p) * (a - p) for p, a in zip(pred, actual))
+    ss_tot = math.fsum((a - m) * (a - m) for a in actual)
+    return 1.0 - ss_res / ss_tot if ss_tot > 0 else float("nan")
+
+
+# ---- classification depth (binary 0/1 hard predictions) ----
+def _confusion(pred, label):
+    tp = fp = fn = tn = 0
+    for p, y in zip(pred, label):
+        if p == 1 and y == 1:
+            tp += 1
+        elif p == 1 and y == 0:
+            fp += 1
+        elif p == 0 and y == 1:
+            fn += 1
+        else:
+            tn += 1
+    return tp, fp, fn, tn
+
+
+def precision(pred, label):
+    if _has_nan(pred) or _has_nan(label):
+        return float("nan")
+    tp, fp, _, _ = _confusion(pred, label)
+    return tp / (tp + fp) if (tp + fp) else float("nan")
+
+
+def recall(pred, label):
+    if _has_nan(pred) or _has_nan(label):
+        return float("nan")
+    tp, _, fn, _ = _confusion(pred, label)
+    return tp / (tp + fn) if (tp + fn) else float("nan")
+
+
+def f1(pred, label):
+    pr, rc = precision(pred, label), recall(pred, label)
+    if pr != pr or rc != rc or (pr + rc) == 0:
+        return float("nan")
+    return 2 * pr * rc / (pr + rc)
+
+
+# ---- column aggregates (analytics / data-pipeline claims) ----
+def col_sum(xs):
+    return float("nan") if _has_nan(xs) else math.fsum(xs)
+
+
+def col_mean(xs):
+    return float("nan") if (not xs or _has_nan(xs)) else fmean(xs)

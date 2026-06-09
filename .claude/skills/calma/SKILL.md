@@ -4,11 +4,11 @@ description: >-
   Independently verify a computational result by RE-EXECUTING it to ground truth and recomputing the
   headline number from raw outputs - then prove or break the claim. Use to check what an AI agent just
   produced (a metric, a backtest, a cleaned dataset, a "tests pass"), or as an inline guardrail an agent
-  calls while it works. M1 capability: reproduce + independent recompute-and-diff against the claim +
-  trivial-baseline edge, across domains (quant Sharpe/drawdown and classification accuracy/AUC ship
-  today). Deeper validity checks - leakage re-run, deflated-Sharpe/overfitting, realism deflators,
-  contamination - are named roadmap (M3-M4), not yet delivered. Triggers: "verify", "is this result
-  real", "did the agent's number reproduce", "recompute this metric", "check this backtest/AUC".
+  calls while it works. Recompute-and-diff against the claim + trivial-baseline edge, across domains and languages
+  (quant Sharpe/return/drawdown; classification accuracy/AUC/F1/precision/recall; regression RMSE/MAE/R2;
+  analytics row-count/column-sum/mean). Runs Python/R/Julia/C++/Rust as a black box. Deeper validity checks - leakage re-run, deflated-Sharpe/overfitting, realism deflators,
+  contamination - are named roadmap (M3-M4), not yet delivered. Triggers: "verify", "is this result real", "did the number reproduce", "recompute this metric",
+  "check this backtest/AUC/accuracy", "I processed N rows", "the total is", "before I report this".
 ---
 
 # Calma - the trust layer for agentic work
@@ -21,6 +21,14 @@ agent that wrote the code cannot talk Calma out of a FAIL.
 
 **Verdict enum (fixed vocabulary, agent-consumable):**
 `CONFIRMED` / `CONFIRMED-WITH-CAVEATS` / `REFUTED` / `INCONCLUSIVE`.
+
+## When to invoke (agents: call this automatically)
+
+After you produce ANY checkable result before reporting it as done - a metric (AUC/accuracy/RMSE/Sharpe),
+a backtest return, a cleaned dataset ("processed 10k rows"), an aggregate ("total = $4.2M"), or a "tests
+pass" claim - run Calma on it. It is cheapest as an inline guardrail (only re-checks what changed). A FAIL
+catches YOUR mistake before the human sees it; an INCONCLUSIVE tells you the one thing to emit to make it
+verifiable. Quick start: `calma verify <target> "<claim>"`  ·  shareable catch: `calma teardown <target>`.
 
 ## Pipeline checklist (one script per step; the model READS outputs, never computes them)
 

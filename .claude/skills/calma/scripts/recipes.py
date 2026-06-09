@@ -83,3 +83,52 @@ def auc(cols, binding, convention=None):
     val = N.auc(scores, labels)
     se = N.auc_delong_se(scores, labels)
     return _result(val, {"n": len(labels), "sampling_se": se, "se_method": "delong"})
+
+
+# ---- regression family ----
+@register("rmse", family="regression", required_tags=["prediction", "target"], set_maturity="reviewed")
+def rmse(cols, binding, convention=None):
+    return _result(N.rmse(cols[binding["prediction"]], cols[binding["target"]]), {"n": len(cols[binding["target"]])})
+
+
+@register("mae", family="regression", required_tags=["prediction", "target"], set_maturity="reviewed")
+def mae(cols, binding, convention=None):
+    return _result(N.mae(cols[binding["prediction"]], cols[binding["target"]]), {"n": len(cols[binding["target"]])})
+
+
+@register("r2", family="regression", required_tags=["prediction", "target"], set_maturity="reviewed")
+def r2(cols, binding, convention=None):
+    return _result(N.r2(cols[binding["prediction"]], cols[binding["target"]]), {"n": len(cols[binding["target"]])})
+
+
+# ---- classification depth ----
+@register("precision", family="classification", required_tags=["prediction", "label"], set_maturity="reviewed")
+def precision(cols, binding, convention=None):
+    return _result(N.precision(cols[binding["prediction"]], cols[binding["label"]]), {"n": len(cols[binding["label"]])})
+
+
+@register("recall", family="classification", required_tags=["prediction", "label"], set_maturity="reviewed")
+def recall(cols, binding, convention=None):
+    return _result(N.recall(cols[binding["prediction"]], cols[binding["label"]]), {"n": len(cols[binding["label"]])})
+
+
+@register("f1", family="classification", required_tags=["prediction", "label"], set_maturity="reviewed")
+def f1(cols, binding, convention=None):
+    return _result(N.f1(cols[binding["prediction"]], cols[binding["label"]]), {"n": len(cols[binding["label"]])})
+
+
+# ---- analytics / data-pipeline aggregates ----
+@register("column_sum", family="analytics", required_tags=["value"], set_maturity="reviewed")
+def column_sum(cols, binding, convention=None):
+    return _result(N.col_sum(cols[binding["value"]]), {"n": len(cols[binding["value"]])})
+
+
+@register("column_mean", family="analytics", required_tags=["value"], set_maturity="reviewed")
+def column_mean(cols, binding, convention=None):
+    return _result(N.col_mean(cols[binding["value"]]), {"n": len(cols[binding["value"]])})
+
+
+@register("row_count", family="analytics", required_tags=[], set_maturity="reviewed")
+def row_count(cols, binding, convention=None):
+    col = binding.get("column") or (next(iter(cols)) if cols else None)
+    return _result(float(len(cols[col])) if col in cols else float("nan"), {"column": col})
