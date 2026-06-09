@@ -1,0 +1,15 @@
+name: "Calma verify"
+description: "Re-execute a result and recompute its headline metric; fail the build on a REFUTED claim."
+inputs:
+  target:    { description: "Path to the result dir (with a verify.yaml)", required: true }
+  claim:     { description: "Optional headline claim to check", required: false, default: "" }
+  metric:    { description: "Optional metric id", required: false, default: "" }
+runs:
+  using: "composite"
+  steps:
+    - shell: bash
+      run: |
+        ARGS="${{ inputs.target }}"
+        [ -n "${{ inputs.claim }}" ] && ARGS="$ARGS --claim '${{ inputs.claim }}'"
+        [ -n "${{ inputs.metric }}" ] && ARGS="$ARGS --metric ${{ inputs.metric }}"
+        python3 "$GITHUB_ACTION_PATH/../../../.claude/skills/calma/scripts/calma.py" verify $ARGS

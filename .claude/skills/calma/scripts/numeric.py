@@ -196,3 +196,10 @@ def col_sum(xs):
 
 def col_mean(xs):
     return float("nan") if (not xs or _has_nan(xs)) else fmean(xs)
+
+
+def brier(probs, labels):
+    """Brier score = mean((p - y)^2) for probabilistic predictions p in [0,1], y in {0,1}. Lower=better."""
+    if len(probs) != len(labels) or not probs or _has_nan(probs) or _has_nan(labels):
+        return float("nan")
+    return math.fsum((p - y) * (p - y) for p, y in zip(probs, labels)) / len(probs)

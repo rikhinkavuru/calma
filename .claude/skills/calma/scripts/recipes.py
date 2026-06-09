@@ -132,3 +132,8 @@ def column_mean(cols, binding, convention=None):
 def row_count(cols, binding, convention=None):
     col = binding.get("column") or (next(iter(cols)) if cols else None)
     return _result(float(len(cols[col])) if col in cols else float("nan"), {"column": col})
+
+
+@register("brier", family="classification", required_tags=["prob", "label"], set_maturity="reviewed")
+def brier(cols, binding, convention=None):
+    return _result(N.brier(cols[binding["prob"]], cols[binding["label"]]), {"n": len(cols[binding["label"]])})

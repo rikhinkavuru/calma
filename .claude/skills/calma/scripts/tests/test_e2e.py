@@ -38,6 +38,12 @@ truth("146.97" in res["report"] and "-0.32" in res["report"], "report shows the 
 rd = res["run_dir"]
 for f in ("recompute.json", "diff.json", "ledger.json", "manifest.json", "report.txt"):
     truth(os.path.exists(os.path.join(rd, f)), "artifact written: %s" % f)
+# in-toto / SLSA attestation + CycloneDX ML-BOM (the regulatory/procurement artifact)
+att = json.load(open(os.path.join(rd, "attestation.json")))
+truth(att["_type"] == "https://in-toto.io/Statement/v1", "attestation is an in-toto Statement v1")
+truth(att["predicate"]["verdict"] == "REFUTED" and att["predicate"]["materials"], "attestation binds verdict + materials")
+bom = json.load(open(os.path.join(rd, "mlbom.json")))
+truth(bom["bomFormat"] == "CycloneDX" and bom["components"], "CycloneDX ML-BOM emitted with components")
 man = json.load(open(os.path.join(rd, "manifest.json")))
 truth(len(man.get("manifest_sha256", "")) == 64, "manifest has a sha256 root hash")
 # the ledger written by the pipeline re-validates clean of schema/semantic errors (gate=1, not 2)

@@ -110,6 +110,7 @@ def verify(target, claim=None, metric=None, run_id="run"):
         man = attest.manifest_for(os.path.join(target, "runs")) if os.path.isdir(os.path.join(target, "runs")) else {}
         json.dump(man, open(os.path.join(run_dir, "manifest.json"), "w"), indent=2)
         run_res["manifest_ref"] = "sha256:" + man.get("manifest_sha256", "none")
+        run_res["_manifest"] = man
         diff = CMP.compare(rec, contract, isolation_tier=run_res.get("isolation_tier", "none"),
                            determinism_mode=run_res.get("determinism_mode", "uncontrolled"),
                            untrusted=(contract.get("env", {}).get("trust") == "untrusted-third-party"),
@@ -119,6 +120,12 @@ def verify(target, claim=None, metric=None, run_id="run"):
         led = _assemble_ledger(contract, diff, run_res)
 
     led.setdefault("target", os.path.basename(target))
+    _man = run_res.get("_manifest")
+    if _man:
+        json.dump(attest.intoto_statement(_man, led["target"], led["repo_verdict"], led.get("scope")),
+                  open(os.path.join(run_dir, "attestation.json"), "w"), indent=2)
+        json.dump(attest.ml_bom(_man, led["target"], led.get("scope")),
+                  open(os.path.join(run_dir, "mlbom.json"), "w"), indent=2)
     json.dump(led, open(os.path.join(run_dir, "ledger.json"), "w"), indent=2)
     code, summary = LED.validate_obj(led)
     rendered = REP.render(led, led.get("_diff"))
