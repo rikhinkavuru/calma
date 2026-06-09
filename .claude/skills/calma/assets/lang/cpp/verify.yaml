@@ -1,0 +1,7 @@
+{"run":{"entrypoint":"gen_fixture.cpp","network":"off","cwd":"."},
+ "env":{"ecosystem":"cpp","trust":"own-code"},
+ "artifacts":[{"path":"runs/returns.csv","re_emit":true,"columns":{"daily_return":{"tag":"return","na_policy":"error"}}}],
+ "metrics":[{"metric_id":"total_return","artifact":"runs/returns.csv","binding":{"return":"daily_return"},
+             "convention":null,"claimed_value":5.0,"headline":true,"binding_status":"independently-bound","claim_confirmed":true,
+             "_claim":"author claims +500% but the code's own output compounds to ~7%"}],
+ "baselines":[]}

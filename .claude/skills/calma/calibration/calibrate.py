@@ -106,9 +106,15 @@ def fp_corpus():
     cases.append(("nan-artifact", rec("total_return", float("nan"), degenerate=True), contract("total_return", 0.42), ctl, "no-refute"))
     cases.append(("thin-edge-se", rec("sharpe", 1.78, terms={"sampling_se": 0.12}), contract("sharpe", 1.90), ctl, "no-refute"))
     cases.append(("unconfirmed-claim", rec("total_return", -0.30), contract("total_return", 1.50, claim_confirmed=False), ctl, "no-refute"))
+    # uncontrolled (non-Python) determinism: honest must not refute; only a fraud-grade gap may
+    unc = dict(isolation_tier="seatbelt-verified", determinism_mode="uncontrolled", sufficient_k=False)
+    cases.append(("uncontrolled-honest", rec("total_return", 0.4203), contract("total_return", 0.42, precision=0.005), unc, "no-refute"))
+    cases.append(("uncontrolled-small-gap", rec("sharpe", 1.70, terms={"sampling_se": 0.12}), contract("sharpe", 1.90), unc, "no-refute"))
     cases.append(("fraud-grade", rec("total_return", -0.324), contract("total_return", 146.98), ctl, "refute"))
     cases.append(("mis-report", rec("auc", 0.71, terms={"sampling_se": 0.02}), contract("auc", 0.94), ctl, "refute"))
     cases.append(("overstate-2_5x", rec("sharpe", 0.80, terms={"sampling_se": 0.05}), contract("sharpe", 2.00), ctl, "refute"))
+    cases.append(("fraud-uncontrolled", rec("total_return", -0.30), contract("total_return", 50.0),
+                  dict(isolation_tier="seatbelt-verified", determinism_mode="uncontrolled", sufficient_k=False), "refute"))
     return cases
 
 
@@ -129,7 +135,7 @@ def run_corpus(cases):
 
 
 # calibrated constants that achieve FP==0 while catching every true positive on the corpus
-CONSTANTS = {"abs_floor": 1e-9, "rel_floor": 1e-9, "z": 1.96, "conv_ratio": 3.0}
+CONSTANTS = {"abs_floor": 1e-9, "rel_floor": 1e-9, "z": 1.96, "conv_ratio": 3.0, "fraud_m": 5.0}
 
 
 def main():
@@ -149,6 +155,7 @@ def main():
     # write the calibration artifact (the gate). Only reached when FP==0 and all TPs caught.
     calib = dict(CONSTANTS)
     calib.update({
+        "fraud_m": CONSTANTS["fraud_m"],
         "calibrated_on": "2026-06-07", "host": "apple-m4-darwin", "method": "on-target self-calibration",
         "min_k_9595": band["min_k_9595"], "nominal_coverage": band["nominal"],
         "realized_coverage": {"total_return": band["realized_coverage_total_return"],

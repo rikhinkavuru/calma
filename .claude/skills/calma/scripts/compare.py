@@ -24,12 +24,13 @@ ABS_FLOOR = 1e-9
 REL_FLOOR = 1e-9
 Z = 1.96  # ~95% two-sided for the sampling-SE term
 CONV_RATIO = 3.0  # max claim/recompute ratio a periodicity-style convention can explain (calibrated)
+FRAUD_M = 5.0  # gap must exceed budget by this multiple for an UNCONTROLLED (non-Python) run to REFUTE
 
 _CALIB = None
 
 
 def _load_calibration():
-    global _CALIB, ABS_FLOOR, REL_FLOOR, Z, CONV_RATIO
+    global _CALIB, ABS_FLOOR, REL_FLOOR, Z, CONV_RATIO, FRAUD_M
     if _CALIB is not None:
         return _CALIB
     path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "calibration.json")
@@ -39,6 +40,7 @@ def _load_calibration():
         REL_FLOOR = c.get("rel_floor", REL_FLOOR)
         Z = c.get("z", Z)
         CONV_RATIO = c.get("conv_ratio", CONV_RATIO)
+        FRAUD_M = c.get("fraud_m", FRAUD_M)
         _CALIB = c
     except (OSError, ValueError):
         _CALIB = {}
@@ -116,6 +118,7 @@ def compare(recompute, contract, isolation_tier="tier0", container_present=None,
             "m2_calibrated": m2_calibrated, "recompute_degenerate": bool(rec.get("degenerate")),
             "claim_confirmed_target": bool(m.get("claim_confirmed")) and bool(m.get("headline")),
             "convention_capped": conv_capped,
+            "fraud_multiple_met": bool(gap is not None and gap > FRAUD_M * eff),
         }
         label, reason = V.verdict_with_reason(vinputs)
         metrics_out.append({

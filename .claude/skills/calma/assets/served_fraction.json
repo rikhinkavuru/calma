@@ -1,18 +1,68 @@
 {
-  "n": 4,
-  "served": 2,
-  "served_fraction": 0.5,
-  "gate_failures": {
-    "run": 2
+  "n": 9,
+  "served": 6,
+  "served_fraction": 0.667,
+  "by_language": {
+    "cpp": {
+      "served": 1,
+      "n": 1,
+      "served_fraction": 1.0,
+      "verdicts": {
+        "REFUTED": 1
+      }
+    },
+    "julia": {
+      "served": 1,
+      "n": 1,
+      "served_fraction": 1.0,
+      "verdicts": {
+        "CONFIRMED-WITH-CAVEATS": 1
+      }
+    },
+    "node": {
+      "served": 0,
+      "n": 1,
+      "served_fraction": 0.0,
+      "verdicts": {
+        "INCONCLUSIVE": 1
+      }
+    },
+    "python": {
+      "served": 2,
+      "n": 4,
+      "served_fraction": 0.5,
+      "verdicts": {
+        "REFUTED": 2,
+        "INCONCLUSIVE": 2
+      }
+    },
+    "r": {
+      "served": 1,
+      "n": 1,
+      "served_fraction": 1.0,
+      "verdicts": {
+        "CONFIRMED-WITH-CAVEATS": 1
+      }
+    },
+    "rust": {
+      "served": 1,
+      "n": 1,
+      "served_fraction": 1.0,
+      "verdicts": {
+        "CONFIRMED-WITH-CAVEATS": 1
+      }
+    }
   },
   "terminal_verdicts": {
-    "REFUTED": 2,
-    "INCONCLUSIVE": 2
+    "INCONCLUSIVE": 3,
+    "REFUTED": 3,
+    "CONFIRMED-WITH-CAVEATS": 3
   },
   "rows": [
     {
       "repo": "btc",
-      "label": "btc-overfit-backtest (self-contained, vendored snapshot)",
+      "language": "python",
+      "label": "btc-overfit backtest (vendored snapshot)",
       "gates": {
         "restore": true,
         "run": true,
@@ -22,13 +72,12 @@
       "served": true,
       "failing_gate": null,
       "verdict": "REFUTED",
-      "determinism": "controlled-to-bit",
-      "isolation": "seatbelt-verified",
-      "notes": {}
+      "determinism": "controlled-to-bit"
     },
     {
       "repo": "leakage",
-      "label": "ml-leakage-civilwar-repro (self-contained)",
+      "language": "python",
+      "label": "ml-leakage civil-war repro",
       "gates": {
         "restore": true,
         "run": true,
@@ -38,41 +87,112 @@
       "served": true,
       "failing_gate": null,
       "verdict": "REFUTED",
-      "determinism": "measured-band",
-      "isolation": "seatbelt-verified",
-      "notes": {}
+      "determinism": "measured-band"
+    },
+    {
+      "repo": "r",
+      "language": "r",
+      "label": "R total-return fixture (honest)",
+      "gates": {
+        "restore": true,
+        "run": true,
+        "emit_raw": true,
+        "bind": true
+      },
+      "served": true,
+      "failing_gate": null,
+      "verdict": "CONFIRMED-WITH-CAVEATS",
+      "determinism": "uncontrolled"
+    },
+    {
+      "repo": "julia",
+      "language": "julia",
+      "label": "Julia total-return fixture (honest)",
+      "gates": {
+        "restore": true,
+        "run": true,
+        "emit_raw": true,
+        "bind": true
+      },
+      "served": true,
+      "failing_gate": null,
+      "verdict": "CONFIRMED-WITH-CAVEATS",
+      "determinism": "uncontrolled"
+    },
+    {
+      "repo": "cpp",
+      "language": "cpp",
+      "label": "C++ total-return fixture (flawed claim)",
+      "gates": {
+        "restore": true,
+        "run": true,
+        "emit_raw": true,
+        "bind": true
+      },
+      "served": true,
+      "failing_gate": null,
+      "verdict": "REFUTED",
+      "determinism": "uncontrolled"
+    },
+    {
+      "repo": "rust",
+      "language": "rust",
+      "label": "Rust total-return fixture (honest)",
+      "gates": {
+        "restore": true,
+        "run": true,
+        "emit_raw": true,
+        "bind": true
+      },
+      "served": true,
+      "failing_gate": null,
+      "verdict": "CONFIRMED-WITH-CAVEATS",
+      "determinism": "uncontrolled"
+    },
+    {
+      "repo": "node",
+      "language": "node",
+      "label": "Node total-return fixture (honest)",
+      "gates": {
+        "restore": true,
+        "run": false,
+        "emit_raw": false,
+        "bind": true
+      },
+      "served": false,
+      "failing_gate": "run",
+      "verdict": "INCONCLUSIVE",
+      "determinism": "uncontrolled"
     },
     {
       "repo": "momentum-strategy",
-      "label": "sh-mukherjee/momentum-strategy (MIT, real, yfinance)",
+      "language": "python",
+      "label": "sh-mukherjee/momentum-strategy (MIT, yfinance)",
       "gates": {
         "restore": true,
         "run": false,
-        "emit_raw": true,
+        "emit_raw": false,
         "bind": false
       },
       "served": false,
       "failing_gate": "run",
       "verdict": "INCONCLUSIVE",
-      "determinism": "controlled-to-bit",
-      "isolation": "seatbelt-verified",
-      "notes": {}
+      "determinism": null
     },
     {
-      "repo": "crypto-trading-strategy-backtester",
-      "label": "Erfaniaa/crypto-backtester (real, binance)",
+      "repo": "crypto-backtester",
+      "language": "python",
+      "label": "Erfaniaa/crypto-backtester (GPL, binance)",
       "gates": {
         "restore": true,
         "run": false,
-        "emit_raw": true,
+        "emit_raw": false,
         "bind": false
       },
       "served": false,
       "failing_gate": "run",
       "verdict": "INCONCLUSIVE",
-      "determinism": "controlled-to-bit",
-      "isolation": "seatbelt-verified",
-      "notes": {}
+      "determinism": null
     }
   ]
 }

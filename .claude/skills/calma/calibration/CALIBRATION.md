@@ -69,3 +69,34 @@ ML-over-LR edge 0.14 → 0.01) — is **R-only**, so it is reproduced faithfully
 market/ML data at runtime cannot run under network-off isolation until its data is vendored to a snapshot
 (as BTC was). Both *self-contained flawed* repos are caught (REFUTED); the verification engine never
 false-confirmed. Full data: `assets/served_fraction.json`.
+
+## Cross-language served-fraction matrix
+
+The "partial" M2 deliverable is now filled. Calma runs the program as a **black box** and recomputes in
+its own Python reference layer, so language only touches the run + env gates. Verified on this host
+(R 4.5, Julia 1.12, clang, rustc, node 24) with `run_hermetic` dispatching by entrypoint extension
+(.R→Rscript, .jl→julia, .c/.cpp→compile+run, .rs→rustc, .js→node) under the SAME verified Seatbelt tier.
+
+| language | served | verdict | notes |
+|---|---|---|---|
+| Python | yes | REFUTED ×2 | controlled-to-bit (BTC) + measured-band (leakage) |
+| R | yes | CONFIRMED-WITH-CAVEATS | honest fixture; uncontrolled determinism caveat |
+| Julia | yes | CONFIRMED-WITH-CAVEATS | honest fixture |
+| C++ | yes | **REFUTED** | flawed claim (+500% vs ~7%) → fraud-multiple path on an uncontrolled run |
+| Rust | yes | CONFIRMED-WITH-CAVEATS | honest fixture |
+| Node | no | INCONCLUSIVE | run-gate: node realpath-resolves through /Users, which the secret-protecting profile denies |
+
+All five honest cross-language fixtures emit the **identical** `returns.csv` (shared deterministic series),
+demonstrating cross-language numeric agreement. Two findings, both honest: (1) non-Python runs are stamped
+`uncontrolled` (bit-determinism not statically provable) yet a **fraud-grade** gap still REFUTES via the
+calibrated fraud-multiple M=5 (C++); (2) runtimes that need to traverse `$HOME` at startup (Node) land
+UNVERIFIABLE under the strict profile — a real isolation/runtime tradeoff, not a verification failure. The
+Seatbelt profile gained a toolchain allowlist (`~/.julia`, `~/.cargo`, `~/.rustup`, `~/.npm`) so language
+depots are readable while `~/.ssh`/`~/.aws`/keychains stay denied (doctor still verifies zero leaks).
+
+## Overall served-fraction (full corpus)
+
+9 corpus members across 6 languages: **served-fraction 0.67 (6/9)**. Terminal verdicts: REFUTED 3,
+CONFIRMED-WITH-CAVEATS 3, INCONCLUSIVE 3. The 3 INCONCLUSIVE are Node (home-traversal) + the two live-data
+real repos (yfinance/binance need a vendored snapshot). The engine never false-confirmed and never
+false-REFUTED. Full data: `assets/served_fraction.json`.

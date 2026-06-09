@@ -1,0 +1,6 @@
+{"run":{"entrypoint":"gen_fixture.js","network":"off","cwd":"."},
+ "env":{"ecosystem":"node","trust":"own-code"},
+ "artifacts":[{"path":"runs/returns.csv","re_emit":true,"columns":{"daily_return":{"tag":"return","na_policy":"error"}}}],
+ "metrics":[{"metric_id":"total_return","artifact":"runs/returns.csv","binding":{"return":"daily_return"},
+             "convention":null,"claimed_value":0.0712,"headline":true,"binding_status":"independently-bound","claim_confirmed":true}],
+ "baselines":[]}

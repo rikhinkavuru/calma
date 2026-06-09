@@ -46,6 +46,7 @@ def _profile(base):
     re-allowed for read (it lives under /Users). Writes are confined to the run area + temp. last-match-
     wins, so order matters. NOTE (stamped honestly): Seatbelt shares the host kernel and is NOT
     escape-isolated - untrusted third-party code requires a container/VM tier (refused otherwise)."""
+    home = os.path.realpath(os.path.expanduser("~"))
     base = os.path.realpath(base)
     return '''(version 1)
 (allow default)
@@ -54,10 +55,15 @@ def _profile(base):
   (subpath "/Users") (subpath "/etc/ssh") (subpath "/private/etc/ssh")
   (subpath "/var/root") (subpath "/private/var/root")
   (subpath "/Library/Keychains") (subpath "/private/var/db/dslocal"))
+;; re-allow language-runtime/toolchain depots under $HOME (package caches, NOT secrets) so R/Julia/
+;; Rust/Node can read their libs; the actual secret dirs (~/.ssh, ~/.aws, keychains) stay denied.
+(allow file-read*
+  (subpath "%s/.julia") (subpath "%s/.cargo") (subpath "%s/.rustup")
+  (subpath "%s/.npm") (subpath "%s/.nvm") (subpath "%s/.node-gyp"))
 (allow file-read* (subpath "%s"))
 (deny file-write* (subpath "/Users"))
 (allow file-write* (subpath "%s") (subpath "/tmp") (subpath "/private/tmp") (subpath "/private/var/folders") (literal "/dev/null") (literal "/dev/tty"))
-''' % (base, base)
+''' % (home, home, home, home, home, home, base, base)
 
 
 def _run_sandboxed(profile_text, argv, cwd, timeout=120, env=None):
@@ -186,6 +192,36 @@ def _detect_determinism(entrypoint_path):
     return "controlled-to-bit", "pure-stdlib, no RNG/GPU imports (structural)"
 
 
+def _which(*names):
+    for n in names:
+        if shutil.which(n):
+            return shutil.which(n)
+    return None
+
+
+def _lang_dispatch(entry_path, base):
+    """Return (interpreter_ok, compile_cmd_or_None, run_argv, language). Calma runs the program as a
+    BLACK BOX and recomputes in its own Python layer, so any language that emits a machine-readable file
+    is verifiable - the language only touches the run + env gates."""
+    ext = os.path.splitext(entry_path)[1].lower()
+    binp = os.path.join(base, ".calma_bin")
+    cc = _which("cc", "clang")
+    cxx = _which("c++", "clang++")
+    table = {
+        ".py": (sys.executable, (None, [sys.executable, entry_path]), "python"),
+        ".r": (_which("Rscript"), (None, [_which("Rscript") or "Rscript", entry_path]), "r"),
+        ".jl": (_which("julia"), (None, [_which("julia") or "julia", entry_path]), "julia"),
+        ".js": (_which("node"), (None, [_which("node") or "node", entry_path]), "node"),
+        ".sh": (_which("sh"), (None, ["sh", entry_path]), "shell"),
+        ".c": (cc, ([cc, entry_path, "-O2", "-o", binp] if cc else None, [binp]), "c"),
+        ".cpp": (cxx, ([cxx, entry_path, "-O2", "-std=c++17", "-o", binp] if cxx else None, [binp]), "cpp"),
+        ".cc": (cxx, ([cxx, entry_path, "-O2", "-std=c++17", "-o", binp] if cxx else None, [binp]), "cpp"),
+        ".rs": (_which("rustc"), ([_which("rustc"), "-O", entry_path, "-o", binp] if _which("rustc") else None, [binp]), "rust"),
+    }
+    interp, (compile_cmd, run_argv), lang = table.get(ext, (None, (None, None), ext.lstrip(".")))
+    return interp, compile_cmd, run_argv, lang
+
+
 def run(contract_path, base=None, timeout=120):
     with open(contract_path) as fh:
         contract = json.load(fh)
@@ -206,16 +242,33 @@ def run(contract_path, base=None, timeout=120):
                 "reason": "untrusted third-party code requires a verified container/VM tier (none live)",
                 "container_present": False}
 
-    det_mode, det_note = _detect_determinism(entry_path)
+    interp, compile_cmd, run_argv, lang = _lang_dispatch(entry_path, base)
+    if interp is None or run_argv is None:
+        return {"phase": "refused", "exit_code": 3, "isolation_tier": isolation_tier, "language": lang,
+                "container_present": False, "killed": False,
+                "reason": "no toolchain for .%s entrypoints on this host" % lang}
+    # determinism: AST proof for Python; non-Python cannot be statically proven -> uncontrolled
+    if lang == "python":
+        det_mode, det_note = _detect_determinism(entry_path)
+    else:
+        det_mode, det_note = "uncontrolled", "%s: bit-determinism not statically provable (non-Python)" % lang
     out_dir = os.path.join(base, "runs")
     prof = _profile(base)
-    # network OFF for the run phase, unconditionally (the profile denies it; we also clear proxies)
     _proxy = {"http_proxy", "https_proxy", "ftp_proxy", "all_proxy", "no_proxy"}
     env = {k: v for k, v in os.environ.items() if k.lower() not in _proxy}
-    rc, out, err, killed = _run_sandboxed(prof, [sys.executable, entry_path], base, timeout, env)
+    # compile step (C/C++/Rust) under the same verified tier; failure -> run-gate fail
+    if compile_cmd:
+        crc, cout, cerr, ckill = _run_sandboxed(prof, compile_cmd, base, timeout, env)
+        if ckill or crc != 0:
+            return {"phase": "run", "entrypoint": entry, "exit_code": 1, "killed": ckill, "language": lang,
+                    "isolation_tier": isolation_tier, "determinism_mode": det_mode,
+                    "container_present": isolation_tier in ("seatbelt-verified", "tier0", "container", "vm"),
+                    "install_network": "off", "run_network": "off",
+                    "stderr_tail": ("compile failed: " + (cerr or ""))[-500:], "doctor": doc}
+    rc, out, err, killed = _run_sandboxed(prof, run_argv, base, timeout, env)
     exit_code = 4 if killed else (0 if rc == 0 else 1)
     return {
-        "phase": "run", "entrypoint": entry, "exit_code": exit_code, "killed": killed,
+        "phase": "run", "entrypoint": entry, "exit_code": exit_code, "killed": killed, "language": lang,
         "isolation_tier": isolation_tier,
         "container_present": isolation_tier in ("seatbelt-verified", "tier0", "container", "vm"),
         "determinism_mode": det_mode, "determinism_note": det_note,

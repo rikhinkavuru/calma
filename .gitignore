@@ -17,3 +17,6 @@ __pycache__/
 # Calma run outputs
 .claude/skills/calma/**/.calma/
 *.pyc
+
+# regenerated cross-language fixture outputs (the entrypoint re-emits them)
+.claude/skills/calma/assets/lang/*/runs/

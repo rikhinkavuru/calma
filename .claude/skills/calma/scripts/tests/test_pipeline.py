@@ -53,11 +53,14 @@ truth(diff2["metrics"][0]["verdict"] == V.CONFIRMED, "honest matching claim -> C
 # a near-rounding claim (within budget) confirms; a tiny-but-real gap beyond budget+CI but not
 # fraud-grade still distinguishes -> here we keep it simple: equal claim already covered above.
 
-# determinism gate: if the run were uncontrolled, no container, not M2-calibrated -> INCONCLUSIVE
+# determinism gate (post-M2): a FRAUD-GRADE gap on an uncontrolled run REFUTES via the fraud-multiple
+# path even with no container (the blueprint's "fraud-grade inflation REFUTES on an L0/L1 run"); a
+# SMALL gap on uncontrolled still degrades to INCONCLUSIVE.
 diff3 = CMP.compare(rec, contract, isolation_tier="none", determinism_mode="uncontrolled")
-truth(diff3["metrics"][0]["verdict"] == V.INCONCLUSIVE,
-      "uncontrolled + no container + pre-M2 -> INCONCLUSIVE, not REFUTED (got %s)"
+truth(diff3["metrics"][0]["verdict"] == V.REFUTED,
+      "uncontrolled + fraud-grade gap -> REFUTED via fraud-multiple (got %s)"
       % diff3["metrics"][0]["verdict"])
+# (the small-gap-uncontrolled -> INCONCLUSIVE case is covered by the calibrated M2 corpus)
 
 print("pipeline: %d checks, %d failures" % (_n, _fail))
 sys.exit(1 if _fail else 0)

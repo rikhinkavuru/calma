@@ -82,3 +82,17 @@ from controlled-to-bit to measured-band (fails safe). Total: 130 checks across 8
 
 Try it:  python3 .claude/skills/calma/scripts/calma.py verify .claude/skills/calma/assets/btc
 Tests:   python3 .claude/skills/calma/scripts/tests/run_all.py
+
+## M2 cross-language matrix + fraud-multiple (DONE)
+
+- run_hermetic dispatches by entrypoint extension (Python/R/Julia/C/C++/Rust/Node) under the same verified
+  Seatbelt tier; compile step for C/C++/Rust runs sandboxed too. Toolchain allowlist (~/.julia, ~/.cargo,
+  ~/.rustup, ~/.npm) added so language depots are readable while secret dirs stay denied (doctor: 0 leaks).
+- compare.py: fraud-multiple M=5 (calibrated) lets a fraud-grade gap REFUTE even on an UNCONTROLLED
+  (non-Python) run; honest cross-language fixtures land CONFIRMED-WITH-CAVEATS. Calibrated against
+  uncontrolled honest + fraud FP-guard cases (16-fixture corpus, FP=0).
+- Cross-language matrix: R/Julia/C++/Rust/Python all SERVE (5 languages); Node is an honest run-gate
+  failure (home traversal). Served-fraction 0.67 (6/9) across the full corpus. 12 new crosslang tests.
+- The two remaining-partial M2 items from the prior handoff are now addressed: cross-language matrix
+  filled; corpus grown to 9 members across 6 languages. (Live-data real repos still need per-repo
+  snapshot vendoring to reach a verdict - the BTC pattern.)
