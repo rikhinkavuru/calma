@@ -18,14 +18,22 @@ export function Closing({ onRequest }: { onRequest: () => void }) {
             <span className="closing__title-dim"> before you put money on it.</span>
           </h2>
           <p className="closing__sub">
-            Calma works with systematic funds as an independent verification layer.
+            The open-source skill verifies any agent&apos;s results today, free. The Calma CLI — deflated
+            Sharpe, leakage re-runs, signed attestations — works with systematic funds and allocators as
+            an independent verification layer.
           </p>
           <div className="closing__actions">
             <motion.button className="btn btn-primary" onClick={onRequest} {...hoverLift}>
-              Request access <Arrow />
+              Request CLI access <Arrow />
             </motion.button>
-            <motion.a className="btn btn-ghost" href="#roadmap" {...hoverLift}>
-              See the roadmap
+            <motion.a
+              className="btn btn-ghost"
+              href="https://github.com/rikhinkavuru/calma"
+              target="_blank"
+              rel="noreferrer"
+              {...hoverLift}
+            >
+              Get the free skill
             </motion.a>
           </div>
         </Reveal>
