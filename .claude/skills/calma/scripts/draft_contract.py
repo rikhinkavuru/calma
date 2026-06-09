@@ -36,7 +36,266 @@ METRIC_BY_TAGS = [
     ({"prediction", "label"}, "accuracy"),
     ({"value"}, "column_sum"),
 ]
-ENTRYPOINT_CANDIDATES = ["run.sh", "Makefile", "gen_fixture.py", "main.py", "run.py"]
+# common entrypoint names first; gen_fixture.py last (calma's own fixture convention)
+ENTRYPOINT_CANDIDATES = ["run.sh", "main.py", "run.py", "train.py", "pipeline.py", "backtest.py",
+                         "analyze.py", "gen_fixture.py"]
+
+# free-text claim -> metric hint (first match wins; word-boundary matched). Order matters:
+# "total return" must hit total_return before "total" hits column_sum.
+CLAIM_METRIC_HINTS = [
+    ("accuracy", "accuracy"), ("auc", "auc"), ("rmse", "rmse"), ("mae", "mae"),
+    ("r2", "r2"), ("r^2", "r2"), ("sharpe", "sharpe"), ("drawdown", "max_drawdown"),
+    ("return", "total_return"), ("backtest", "total_return"), ("f1", "f1"),
+    ("precision", "precision"), ("recall", "recall"), ("brier", "brier"),
+    ("rows", "row_count"), ("row", "row_count"), ("count", "row_count"),
+    ("sum", "column_sum"), ("total", "column_sum"), ("revenue", "column_sum"),
+    ("mean", "column_mean"), ("average", "column_mean"),
+]
+
+_CLAIM_NUM = re.compile(
+    r"([-+]?)\s*\$?\s*((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:[eE][-+]?\d+)?|\.\d+(?:[eE][-+]?\d+)?)\s*(%|[kKmMbB](?![a-zA-Z]))?")
+
+
+def parse_claim(text):
+    """Free-text claim -> (value, metric_hint). Accepts 'accuracy 0.87', '+14,698% backtest',
+    '$4.2M revenue', 'processed 10,000 rows', or a bare number. '%' divides by 100; k/M/B scale.
+    Returns (None, hint) when no number is present."""
+    if text is None:
+        return None, None
+    if isinstance(text, (int, float)):
+        return float(text), None
+    s = str(text).strip()
+    low = s.lower()
+    hint = None
+    for word, mid in CLAIM_METRIC_HINTS:
+        if re.search(r"(?<![a-z0-9])%s(?![a-z0-9])" % re.escape(word.lower()), low):
+            hint = mid
+            break
+    m = _CLAIM_NUM.search(s)
+    if not m:
+        return None, hint
+    raw = m.group(2).replace(",", "")
+    val = float(raw)
+    if m.group(1) == "-":
+        val = -val
+    suffix = m.group(3) or ""
+    if suffix == "%":
+        val /= 100.0
+    elif suffix in ("k", "K"):
+        val *= 1e3
+    elif suffix in ("m", "M"):
+        val *= 1e6
+    elif suffix in ("b", "B"):
+        val *= 1e9
+    return val, hint
+
+
+# ---------- contract loading (tolerant: JSON first, then a small YAML subset) ----------
+
+def _strip_comment(line):
+    out, in_s, in_d = [], False, False
+    for ch in line:
+        if ch == "'" and not in_d:
+            in_s = not in_s
+        elif ch == '"' and not in_s:
+            in_d = not in_d
+        elif ch == "#" and not in_s and not in_d:
+            break
+        out.append(ch)
+    return "".join(out).rstrip()
+
+
+def _split_flow(inner):
+    """Split a flow collection's body on top-level commas."""
+    parts, buf, depth, in_s, in_d = [], [], 0, False, False
+    for ch in inner:
+        if ch == "'" and not in_d:
+            in_s = not in_s
+        elif ch == '"' and not in_s:
+            in_d = not in_d
+        elif not in_s and not in_d:
+            if ch in "{[":
+                depth += 1
+            elif ch in "}]":
+                depth -= 1
+            elif ch == "," and depth == 0:
+                parts.append("".join(buf))
+                buf = []
+                continue
+        buf.append(ch)
+    if buf:
+        parts.append("".join(buf))
+    return parts
+
+
+def _scalar(s):
+    s = s.strip()
+    if not s:
+        return None
+    if len(s) >= 2 and s[0] == s[-1] and s[0] in "'\"":
+        return s[1:-1]
+    if s.startswith("{") and s.endswith("}"):
+        inner = s[1:-1].strip()
+        out = {}
+        for part in _split_flow(inner):
+            k, _, v = part.partition(":")
+            out[_scalar(k)] = _scalar(v)
+        return out
+    if s.startswith("[") and s.endswith("]"):
+        inner = s[1:-1].strip()
+        return [_scalar(p) for p in _split_flow(inner)] if inner else []
+    low = s.lower()
+    if low in ("null", "~"):
+        return None
+    if low == "true":
+        return True
+    if low == "false":
+        return False
+    # deliberately NOT YAML-1.1: off/on/yes/no stay strings (the contract uses `network: off`)
+    try:
+        return int(s)
+    except ValueError:
+        pass
+    try:
+        return float(s)
+    except ValueError:
+        pass
+    return s
+
+
+def _indent_of(line):
+    return len(line) - len(line.lstrip(" "))
+
+
+def _parse_block(lines, i, indent):
+    if i >= len(lines):
+        return None, i
+    if lines[i].strip().startswith("- "):
+        return _parse_list(lines, i, indent)
+    return _parse_map(lines, i, indent)
+
+
+def _parse_map(lines, i, indent):
+    out = {}
+    while i < len(lines):
+        line = lines[i]
+        ind = _indent_of(line)
+        if ind < indent or line.strip().startswith("- "):
+            break
+        if ind > indent:
+            raise ValueError("bad indentation at: %r" % line.strip())
+        body = line.strip()
+        if ":" not in body:
+            raise ValueError("expected 'key: value' at: %r" % body)
+        key, _, rest = body.partition(":")
+        key = _scalar(key)
+        rest = rest.strip()
+        if rest == "":
+            if i + 1 < len(lines) and _indent_of(lines[i + 1]) > indent:
+                val, i = _parse_block(lines, i + 1, _indent_of(lines[i + 1]))
+            else:
+                val = None
+                i += 1
+            out[key] = val
+            continue
+        if rest == "[]":
+            out[key] = []
+        elif rest == "{}":
+            out[key] = {}
+        else:
+            out[key] = _scalar(rest)
+        i += 1
+    return out, i
+
+
+def _parse_list(lines, i, indent):
+    out = []
+    while i < len(lines):
+        line = lines[i]
+        ind = _indent_of(line)
+        if ind != indent or not line.strip().startswith("- "):
+            break
+        item_body = line.strip()[2:].strip()
+        item_indent = ind + 2
+        if not item_body:
+            if i + 1 < len(lines) and _indent_of(lines[i + 1]) > ind:
+                val, i = _parse_block(lines, i + 1, _indent_of(lines[i + 1]))
+            else:
+                val, i = None, i + 1
+            out.append(val)
+            continue
+        if ":" in item_body and (item_body.endswith(":") or ": " in item_body):
+            # mapping that starts inline after the dash
+            sub = [" " * item_indent + item_body]
+            j = i + 1
+            while j < len(lines) and _indent_of(lines[j]) >= item_indent:
+                sub.append(lines[j])
+                j += 1
+            val, _ = _parse_map(sub, 0, item_indent)
+            out.append(val)
+            i = j
+        else:
+            out.append(_scalar(item_body))
+            i += 1
+    return out, i
+
+
+def parse_simple_yaml(text):
+    """Parse the YAML subset a hand-written verify.yaml uses: nested maps by indentation, '- ' lists
+    (scalars or block maps), quoted/plain scalars, comments. NOT a full YAML parser."""
+    lines = [_strip_comment(raw).replace("\t", "    ") for raw in text.splitlines()]
+    lines = [ln for ln in lines if ln.strip()]
+    if not lines:
+        return {}
+    val, _ = _parse_block(lines, 0, _indent_of(lines[0]))
+    return val
+
+
+def load_contract(path):
+    """Load verify.yaml: JSON first (the canonical dependency-free format), then the YAML subset.
+    Raises ValueError with an actionable message instead of a raw parser traceback."""
+    text = open(path).read()
+    try:
+        obj = json.loads(text)
+    except ValueError:
+        try:
+            obj = parse_simple_yaml(text)
+        except ValueError as e:
+            raise ValueError(
+                "%s could not be parsed: %s. The contract accepts JSON or simple YAML "
+                "(nested 'key: value' maps and '- ' lists)." % (path, e))
+    if not isinstance(obj, dict):
+        raise ValueError("%s parsed to %s, expected a mapping" % (path, type(obj).__name__))
+    return obj
+
+
+def validate_contract(contract):
+    """Light structural check against the verify schema's required fields. Returns a list of errors."""
+    errs = []
+    run = contract.get("run")
+    if not isinstance(run, dict) or not run.get("entrypoint"):
+        errs.append("run.entrypoint is required (the command/script that re-produces the result)")
+    arts = contract.get("artifacts")
+    if not isinstance(arts, list):
+        errs.append("artifacts must be a list of {path, columns}")
+    else:
+        for k, a in enumerate(arts):
+            if not isinstance(a, dict) or not a.get("path") or not isinstance(a.get("columns"), dict):
+                errs.append("artifacts[%d] needs path + columns" % k)
+    if isinstance(arts, list):
+        for k, a in enumerate(arts):
+            for cname, spec in (a.get("columns") or {}).items() if isinstance(a, dict) else []:
+                if not isinstance(spec, dict):
+                    errs.append("artifacts[%d].columns[%s] must be a mapping like {tag: label}" % (k, cname))
+    mets = contract.get("metrics")
+    if not isinstance(mets, list):
+        errs.append("metrics must be a list (may be empty)")
+    else:
+        for k, m in enumerate(mets):
+            if not isinstance(m, dict) or not m.get("metric_id") or not m.get("artifact") \
+                    or not isinstance(m.get("binding"), dict):
+                errs.append("metrics[%d] needs metric_id + artifact + binding" % k)
+    return errs
 
 
 def _infer_tag(name):
@@ -115,6 +374,19 @@ def _detect_entrypoint(target):
     for c in ENTRYPOINT_CANDIDATES:
         if os.path.exists(os.path.join(target, c)):
             return c
+    # fallback: a single runnable script in the target root is unambiguous
+    try:
+        names = sorted(os.listdir(target))
+    except OSError:
+        return "MANUAL"
+    pys = [n for n in names if n.endswith(".py") and not n.startswith((".", "_", "test"))]
+    if len(pys) == 1:
+        return pys[0]
+    if not pys:
+        others = [n for n in names
+                  if os.path.splitext(n)[1].lower() in (".r", ".jl", ".rs", ".c", ".cpp", ".cc", ".js", ".sh")]
+        if len(others) == 1:
+            return others[0]
     return "MANUAL"
 
 
@@ -157,12 +429,17 @@ def _pick_metric(arts, forced=None):
 
 def draft(target, claim=None, metric=None):
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    claim_value, hint = parse_claim(claim)
+    if claim is not None and claim_value is None:
+        raise ValueError(
+            "no number found in claim %r - state the claimed value, e.g. \"accuracy 0.87\" or \"+14,698%%\"" % claim)
+    metric = metric or hint
     arts = _scan_csvs(target)
     contract = {
         "run": {"entrypoint": _detect_entrypoint(target), "network": "off", "cwd": "."},
         "env": {"ecosystem": "auto", "trust": "own-code"},
         "artifacts": [
-            {"path": a["path"], "re_emit": False,
+            {"path": a["path"],
              "columns": {c: {"tag": s["tag"], "dtype": s["dtype"], "na_policy": s["na_policy"]}
                          for c, s in a["columns"].items() if s["tag"]}}
             for a in arts if any(s["tag"] for s in a["columns"].values())
@@ -173,14 +450,21 @@ def draft(target, claim=None, metric=None):
     picked = _pick_metric(arts, metric)
     if picked:
         mid, art, binding, grade = picked
+        # The claim TARGET is confirmed only when the caller stated the number AND the metric is
+        # unambiguous (named explicitly / in the claim text) or the binding is independently sane-checked.
+        # An auto-picked metric under a bare-number claim stays unconfirmed: REFUTED is then blocked
+        # (degrades to INCONCLUSIVE), so a wrong auto-binding can never manufacture a refutation.
+        target_confirmed = claim_value is not None and (metric is not None or grade == "independently-bound")
         contract["metrics"].append({
             "metric_id": mid, "artifact": art, "binding": binding, "convention": None,
-            "claimed_value": float(claim) if claim is not None else None,
-            "headline": claim is not None, "binding_status": grade,
-            "claim_confirmed": claim is not None,
+            "claimed_value": claim_value,
+            "headline": claim_value is not None, "binding_status": grade,
+            "claim_confirmed": target_confirmed,
+            "binding_source": "named-in-claim" if (metric is not None) else "auto-detected",
         })
     contract["_draft_notes"] = {
         "artifacts_found": len(arts),
+        "claim_metric_hint": hint,
         "needs_confirmation": [m["metric_id"] for m in contract["metrics"]
                                if m["binding_status"] != "independently-bound" or m["headline"]],
         "warning": None if contract["metrics"] else "no recomputable metric detected; provide --metric/--claim",
