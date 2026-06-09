@@ -48,10 +48,6 @@ def main():
     return 0
 
 
-if __name__ == "__main__":
-    sys.exit(main())
-
-
 def intoto_statement(manifest, subject_name, verdict, scope=None):
     """An in-toto/SLSA-style attestation statement binding the verdict to the content-addressed inputs.
     Aligns to in-toto Statement v1 so it drops into SLSA/sigstore provenance pipelines."""
@@ -89,3 +85,7 @@ def ml_bom(manifest, target, scope=None):
             {"name": "calma:manifest_sha256", "value": manifest.get("manifest_sha256", "")},
         ],
     }
+
+
+if __name__ == "__main__":
+    sys.exit(main())

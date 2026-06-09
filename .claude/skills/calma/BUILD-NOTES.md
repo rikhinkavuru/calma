@@ -111,11 +111,43 @@ Tests:   python3 .claude/skills/calma/scripts/tests/run_all.py
 
 Web research (manual, not a workflow) into the AI-verification market, reproducibility-tool adoption, and
 the quant/leakage literature drove these improvements:
-- **Breadth for many use-cases:** added regression (RMSE/MAE/R2), classification depth (precision/recall/F1),
-  and analytics (column-sum/mean, row-count) recipe families -> 14 recipes across quant/ML/DS/analytics.
+- **Breadth for many use-cases:** added regression (RMSE/MAE/R2), classification depth (precision/recall/F1/Brier),
+  and analytics (column-sum/mean, row-count) recipe families -> 15 recipes across quant/ML/DS/analytics.
 - **Growth loop:** `calma teardown` emits a shareable "claimed X -> really Y + repro" card on every REFUTED.
 - **Adoption UX:** SKILL.md now tells an agent to auto-invoke Calma after producing any numeric result
   (zero-install, in-workflow - the antidote to the 50%-install-fail / 21%-awareness death of repro tools).
 - **Positioning:** Calma occupies the empty cell - verification by EXECUTION to ground truth - vs the
   eval/observability (judge) and data-validation (validate data) tools that never recompute the claim.
-- 179 checks across 11 suites, all green.
+- 184 checks across 11 suites, all green.
+
+## Audit round 4 (3 independent auditors: code/spec, fresh-user DX, startup) - fixed
+
+The largest audit round; one true soundness blocker plus the entire first-contact UX.
+- **Stale-artifact CONFIRMED (soundness blocker):** an entrypoint that crashed (exit 1) proceeded to
+  recompute from pre-existing CSVs and could return CONFIRMED. New verdict guard G1b: ANY non-zero exit
+  -> INCONCLUSIVE + a blocker reproducibility finding with the stderr tail. A failed re-run can never confirm.
+- **Claim-target rubber-stamp:** `claim_confirmed` was simply `claim is not None`, so the REFUTED guard
+  gated on nothing. Now: confirmed only when the metric is named (in the claim text or --metric) or the
+  binding independently sanity-checks; a bare-number claim on an ambiguous auto-binding can never REFUTE.
+- **Natural-language claims:** `verify <target> "accuracy 0.87"` / `"+14,698% backtest"` / `"$4.2M"` now
+  parse (sign, %, commas, k/M/B) and infer the metric from the words; non-numeric claims exit 2 with a
+  message, never a float() traceback. The README's own syntax works now (it didn't).
+- **`calma replay` implemented** (was printed on every REFUTED card but didn't exist): re-runs under the
+  prior contract terms and asserts the verdict + recomputed value reproduce.
+- **INCONCLUSIVE actually prints the fix:** unblock text on findings + a reason->fix table; the dead
+  `led.get("_diff")` render bug fixed; refusal/MANUAL/no-metric paths each carry a who-can-act unblock.
+- **Honest platform stamps:** without sandbox-exec the run/install network stamps now say
+  "host-default (NOT blocked)" and hermeticity "unverified" (was: hardcoded "off" - false on Linux).
+- **verify.yaml accepts real YAML** (small dependency-free subset incl. flow maps) on top of JSON.
+- **Entrypoint detection** broadened (train.py/pipeline.py/backtest.py + single-script fallback); ambiguous
+  -> exact fix listing candidates. Fresh projects re-draft after the first run (outputs that only exist
+  post-run now bind). Nonexistent/empty targets exit 2 with a clear error (no more silent INCONCLUSIVE).
+- **One vocabulary + human numbers:** REFUTED (not BROKEN), CAN'T-CONFIRM display for INCONCLUSIVE;
+  +14,698% -> -32.4% formatting; deterministic `verdict.confidence()` replaces the hardcoded 0.96;
+  family-aware not-verified list (no DSR/PBO jargon on ML claims).
+- **GitHub Action fixed** (env-indirection quoting - the old interpolation crashed on any claim and was a
+  shell-injection vector) and now exercised in CI against the REFUTED fixture, on Linux.
+- SKILL.md truth pass: phantom `consistency.py` step removed, consent-token prose removed (drafting is
+  read-only; execution happens in the run step), "signed" -> content-addressed (signing is roadmap),
+  spec path fixed. README rewritten to match real commands and real output.
+- 52 new regression checks (test_dx.py). **Total: 236 checks across 12 suites, all green.**

@@ -1,15 +1,33 @@
 name: "Calma verify"
-description: "Re-execute a result and recompute its headline metric; fail the build on a REFUTED claim."
+description: "Re-execute a result and recompute its headline metric; fail the build when the claim breaks."
 inputs:
-  target:    { description: "Path to the result dir (with a verify.yaml)", required: true }
-  claim:     { description: "Optional headline claim to check", required: false, default: "" }
-  metric:    { description: "Optional metric id", required: false, default: "" }
+  target:
+    description: "Path to the result dir (with a verify.yaml, or auto-drafted)"
+    required: true
+  claim:
+    description: "Optional headline claim to check, e.g. 'accuracy 0.87'"
+    required: false
+    default: ""
+  metric:
+    description: "Optional metric id (e.g. accuracy, auc, total_return)"
+    required: false
+    default: ""
+  fail_on:
+    description: "When to fail the step: 'refuted' (default) or 'not-clean' (CAN'T-CONFIRM also fails)"
+    required: false
+    default: "refuted"
 runs:
   using: "composite"
   steps:
     - shell: bash
+      # env indirection: inputs never touch the shell line (no word-splitting, no injection)
+      env:
+        CALMA_TARGET: ${{ inputs.target }}
+        CALMA_CLAIM: ${{ inputs.claim }}
+        CALMA_METRIC: ${{ inputs.metric }}
+        CALMA_FAIL_ON: ${{ inputs.fail_on }}
       run: |
-        ARGS="${{ inputs.target }}"
-        [ -n "${{ inputs.claim }}" ] && ARGS="$ARGS --claim '${{ inputs.claim }}'"
-        [ -n "${{ inputs.metric }}" ] && ARGS="$ARGS --metric ${{ inputs.metric }}"
-        python3 "$GITHUB_ACTION_PATH/../../../.claude/skills/calma/scripts/calma.py" verify $ARGS
+        args=(verify "$CALMA_TARGET" --fail-on "$CALMA_FAIL_ON")
+        [ -n "$CALMA_CLAIM" ] && args+=(--claim "$CALMA_CLAIM")
+        [ -n "$CALMA_METRIC" ] && args+=(--metric "$CALMA_METRIC")
+        python3 "$GITHUB_ACTION_PATH/../../../.claude/skills/calma/scripts/calma.py" "${args[@]}"
