@@ -850,3 +850,71 @@ body {
   .hero__actions, .closing__actions { flex-direction: column; align-items: stretch; }
   .hero__actions .btn, .closing__actions .btn { width: 100%; justify-content: center; }
 }
+
+/* ============================================================
+   MOBILE REFINEMENTS — tighter vertical rhythm, reclaimed
+   horizontal space, and calmer accents on phones.
+   ============================================================ */
+img, svg, video, canvas { max-width: 100%; height: auto; }
+
+@media (max-width: 640px) {
+  /* tighten the big section rhythm so phones aren't all whitespace */
+  .vsec, .indep, .road { padding-block: 64px; }
+  .hero__inner { padding-block: 44px 36px; }
+  .hero__demo { margin-top: 34px; }
+  .closing__inner { padding-block: 72px; }
+
+  /* the giant section numeral shouldn't dominate a small screen */
+  .sec__wm { font-size: clamp(110px, 40vw, 190px); opacity: 0.025; }
+
+  /* section heads + inter-block spacing */
+  .sec-head { margin-bottom: 32px; }
+  .vhead, .road__head, .indep__title { margin-bottom: 0; }
+  .prob-thesis { margin-top: 40px; gap: 18px; }
+  .map { margin-top: 32px; }
+  .indep__kicker { margin-top: 28px; }
+  .vread { margin-top: 28px; }
+
+  /* reclaim horizontal room: trim component padding */
+  .report__main, .report__side { padding: 20px; }
+  .report__foot { padding: 16px; grid-template-columns: 1fr; gap: 12px; align-items: start; }
+  .runlog { min-height: 0; }
+  .pcell { padding: 24px 20px 26px; }
+  .map__row { padding: 20px; }
+  .vread__row { padding: 18px; }
+  .rstep__card { padding: 18px 16px 16px; }
+  .hc__left, .hc__right { padding: 16px; }
+
+  /* console + report readability on narrow screens */
+  .hc__metrics { flex-wrap: wrap; gap: 14px 22px; }
+  .leak__code { overflow-x: auto; }
+  .leak__code .ct { overflow: visible; text-overflow: clip; }
+  .report__bar { flex-wrap: wrap; gap: 8px 16px; }
+
+  /* dialog fits the viewport with breathing room */
+  .dlg { padding: 16px; }
+  .dlg__card { padding: 28px 22px 24px; }
+}
+
+@media (max-width: 400px) {
+  .vsec, .indep, .road { padding-block: 52px; }
+  .hero__title { font-size: clamp(31px, 8.8vw, 40px); }
+  .cv__big { font-size: 36px; }
+  .stamp__verdict { font-size: 25px; }
+  .footer__cols { gap: 32px; }
+  .footer__inner { gap: 28px; }
+}
+
+/* hide the floating design-tweaks launcher/panel on phones — it's a dev affordance
+   and its fixed bottom-right position overlaps section content on small screens */
+@media (max-width: 768px) {
+  .twk-launch, .twk-panel { display: none !important; }
+}
+
+/* on phones, let inline command/code snippets WRAP instead of clipping mid-token */
+@media (max-width: 640px) {
+  .rstep__surface { align-items: flex-start; }
+  .rstep__surface code { white-space: normal; overflow-wrap: anywhere; text-overflow: clip; overflow: visible; min-width: 0; }
+  .hc__leak code, .hc__clean code { white-space: normal; overflow-wrap: anywhere; }
+  .rstep { gap: 14px; }
+}
