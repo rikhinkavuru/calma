@@ -6,7 +6,7 @@ import { Reveal } from "./Reveal";
 const MAP_ROWS = [
   { domain: "Net asset value", producer: "the fund", verifier: "fund administrator", hot: false },
   { domain: "The books", producer: "the company", verifier: "external auditor", hot: false },
-  { domain: "Your research", producer: "the model", verifier: "Calma", hot: true },
+  { domain: "Your agent's results", producer: "the model", verifier: "Calma", hot: true },
 ];
 
 export function Independence() {
@@ -20,7 +20,10 @@ export function Independence() {
           <Eyebrow num="04">Why independence</Eyebrow>
           <h2 className="indep__title">No one certifies their own number.</h2>
           <p className="indep__sub">
-            The party that produces a result can't be the party trusted to verify it. Finance settled this everywhere — except research.
+            The party that produces a result can&apos;t be the party trusted to verify it. Asking your
+            agent to double-check its own number is the model grading its own homework — even when it
+            re-runs the code, it still judges the match itself. Finance settled this everywhere except
+            research: the verdict must come from an independent layer, computed by code.
           </p>
         </Reveal>
 

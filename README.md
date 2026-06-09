@@ -75,6 +75,10 @@ Claims are natural language: `"accuracy 0.87"`, `"+14,698% backtest"`, `"$4.2M r
 `"processed 10,000 rows"` — the number and the metric are parsed from the words (`--metric` pins it
 explicitly). With no claim at all, Calma still checks that the result reproduces.
 
+Verification is **incremental**: results are cached by the content hash of the code, data, contract, and
+claim, so re-verifying something unchanged returns the prior verdict instantly (`--force` re-executes).
+That makes it cheap enough for an agent to call in its loop after every result.
+
 Drop a `verify.yaml` next to a result (JSON or simple YAML) to pin the contract. In CI, use the GitHub
 Action (`.github/actions/calma`) — `fail_on: refuted` fails the build only when a claim actually breaks.
 
@@ -116,11 +120,24 @@ is refused rather than run unsafely.
 
 ## FAQ
 
-**How is this different from just asking my agent to double-check its own work?**
-The agent that produced the result is the worst judge of it: it re-reads its own reasoning, tends to
-rationalize, and never actually re-runs anything. "Looks right" is a second opinion, not verification.
-Calma re-executes the code and recomputes the number from the raw outputs, and the verdict comes from
-deterministic scripts, not a model. Even the agent that wrote the code can't talk Calma out of a FAIL.
+**Can't I just ask my agent to verify it — or to re-run the code itself?**
+Asked to "double-check," a model usually re-reads its reasoning and says it looks right — that's a second
+opinion, not verification. And even when an agent does re-run the code, three gaps remain: (1) the agent
+*decides* whether the output matches the claim — a judgment call it can rationalize, especially about its
+own work; (2) nothing stops it from "fixing" the comparison instead of the code; (3) there's no
+reusable artifact — no tolerance model, no audit trail, no exit code for CI. Calma closes all three: the
+diff happens under a calibrated tolerance in deterministic, unit-tested scripts, the ledger re-derives
+every label byte-for-byte so a model can't author a passing verdict, and every run leaves a
+content-addressed manifest. Independent benchmarks back this up: agents *assessing* reproducibility score
+~21% accuracy (REPRO-Bench) — judgment fails where re-execution works. The auditor can't be the auditee.
+
+**What do people use for this problem today?**
+Honestly: mostly nothing — they trust the printed number, or eyeball it. The adjacent tools solve
+different problems: eval/observability platforms (LangSmith, Langfuse, Arize) trace and score with
+LLM-judges; data validators (Great Expectations, Pandera) check schemas and drift; CI tests check code
+paths the author thought to test. None of them re-execute the work and recompute the claimed number from
+the raw outputs. In quant, independent backtest validation exists — as bespoke human consulting. That
+empty cell is what Calma fills.
 
 **Why not just put my rules / bounds / invariants in CLAUDE.md or the start of the session?**
 Instructions in context are advisory and probabilistic. A model can forget them, deprioritize them, or
