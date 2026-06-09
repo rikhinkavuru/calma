@@ -124,6 +124,11 @@ def _decide(vi):
     # G1 - resource kill / refused isolation: NEVER a verdict.
     if vi["killed"] or REFUSED_NO_ISOLATION in ec or KILL_INCONCLUSIVE in ec:
         return INCONCLUSIVE, "execution was killed or isolation was refused"
+    # G1b - the re-execution itself failed (entrypoint/compile exited non-zero): the result was NOT
+    # reproduced, so no numeric comparison is trustworthy - stale on-disk artifacts must never CONFIRM.
+    if any(c != 0 for c in ec):
+        return INCONCLUSIVE, ("the re-execution exited non-zero (%s) - the result was not reproduced; "
+                              "recompute would read stale artifacts" % ",".join(str(c) for c in ec if c != 0))
     # G2 - degenerate recompute.
     if vi["recompute_degenerate"]:
         return INCONCLUSIVE, "NaN/Inf/degenerate recompute - data-cleaning policy undetermined"
@@ -167,6 +172,31 @@ def _decide(vi):
 
     # Ambiguous zone: budget < gap <= budget * margin (close, but outside the tight budget).
     return CAVEATS, "recompute is near the claim but outside the tight budget (within the fraud-margin)"
+
+
+def confidence(verdict_inputs, label):
+    """Deterministic 0..1 confidence in the LABEL, derived from the same vector verdict() decides on
+    (never a model, never a constant). Components: verified isolation, determinism strength,
+    independent binding, statistical distinguishability. INCONCLUSIVE has no confidence (returns 0.0:
+    the honest statement is 'not enough to decide', not a score)."""
+    vi = _norm(verdict_inputs)
+    if label == INCONCLUSIVE:
+        return 0.0
+    score = 0.50
+    if vi["isolation_tier"] in ("vm", "container", "tier0", "seatbelt-verified"):
+        score += 0.15
+    dm = vi["determinism_mode"]
+    if dm == "controlled-to-bit":
+        score += 0.20
+    elif dm == "measured-band" and vi["band_coverage_ok"] and vi["sufficient_k"]:
+        score += 0.10
+    if vi["binding_status"] == "independently-bound":
+        score += 0.10
+    elif vi["binding_status"] == "plausibly-bound":
+        score += 0.05
+    if label == REFUTED and vi["claim_outside_ci"]:
+        score += 0.03
+    return round(min(score, 0.98), 2)
 
 
 if __name__ == "__main__":

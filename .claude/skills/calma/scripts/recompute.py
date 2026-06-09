@@ -82,8 +82,8 @@ def _run_recipe(metric_id, cols, binding, convention, k):
 
 
 def recompute_contract(contract_path, base=None, k=3):
-    with open(contract_path) as fh:
-        contract = json.load(fh)
+    import draft_contract as _DC
+    contract = _DC.load_contract(contract_path)
     base = base or os.path.dirname(os.path.abspath(contract_path))
     out = {"metrics": [], "baselines": []}
     for m in contract.get("metrics", []):

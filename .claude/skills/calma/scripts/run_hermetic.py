@@ -223,8 +223,8 @@ def _lang_dispatch(entry_path, base):
 
 
 def run(contract_path, base=None, timeout=120):
-    with open(contract_path) as fh:
-        contract = json.load(fh)
+    import draft_contract as _DC
+    contract = _DC.load_contract(contract_path)
     base = os.path.realpath(base or os.path.dirname(os.path.abspath(contract_path)))
     trust = contract.get("env", {}).get("trust", "own-code")
     entry = contract["run"]["entrypoint"]
@@ -256,23 +256,29 @@ def run(contract_path, base=None, timeout=120):
     prof = _profile(base)
     _proxy = {"http_proxy", "https_proxy", "ftp_proxy", "all_proxy", "no_proxy"}
     env = {k: v for k, v in os.environ.items() if k.lower() not in _proxy}
+    # the network/hermeticity stamps are DERIVED from the achieved tier, never asserted: on a host
+    # with no verified sandbox (e.g. Linux without sandbox-exec) the truth is "not blocked".
+    tier_verified = isolation_tier in ("seatbelt-verified", "tier0", "container", "vm")
+    net_stamp = "off" if tier_verified else "host-default (NOT blocked - no verified sandbox on this host)"
+    herm_stamp = "vendored-snapshot" if tier_verified else "unverified"
     # compile step (C/C++/Rust) under the same verified tier; failure -> run-gate fail
     if compile_cmd:
         crc, cout, cerr, ckill = _run_sandboxed(prof, compile_cmd, base, timeout, env)
         if ckill or crc != 0:
             return {"phase": "run", "entrypoint": entry, "exit_code": 1, "killed": ckill, "language": lang,
                     "isolation_tier": isolation_tier, "determinism_mode": det_mode,
-                    "container_present": isolation_tier in ("seatbelt-verified", "tier0", "container", "vm"),
-                    "install_network": "off", "run_network": "off",
+                    "container_present": tier_verified,
+                    "install_network": net_stamp, "run_network": net_stamp,
                     "stderr_tail": ("compile failed: " + (cerr or ""))[-500:], "doctor": doc}
     rc, out, err, killed = _run_sandboxed(prof, run_argv, base, timeout, env)
     exit_code = 4 if killed else (0 if rc == 0 else 1)
     return {
         "phase": "run", "entrypoint": entry, "exit_code": exit_code, "killed": killed, "language": lang,
+        "run_exit_status": rc,
         "isolation_tier": isolation_tier,
-        "container_present": isolation_tier in ("seatbelt-verified", "tier0", "container", "vm"),
+        "container_present": tier_verified,
         "determinism_mode": det_mode, "determinism_note": det_note,
-        "install_network": "off", "run_network": "off", "hermeticity": "vendored-snapshot",
+        "install_network": net_stamp, "run_network": net_stamp, "hermeticity": herm_stamp,
         "stdout_tail": (out or "")[-500:], "stderr_tail": (err or "")[-500:],
         "doctor": doc,
     }
