@@ -13,24 +13,30 @@ CLI, one notch shallower.
 
 ## Repo & current state
 
-- **Public:** https://github.com/rikhinkavuru/calma · default branch `main` (HEAD `471b42d`) · MIT · CI green.
-- **Milestones M0–M2 complete and tested:** 184 checks across 11 suites, all green.
+- **Public:** https://github.com/rikhinkavuru/calma · default branch `main` · MIT · CI green.
+- **Milestones M0–M2 complete + audit round 4 (soundness/DX) applied:** 236 checks across 12 suites, all green.
+- Installable as a plugin (`.claude-plugin/marketplace.json`): `/plugin marketplace add rikhinkavuru/calma`
+  → `/plugin install calma@calma`. `bin/calma` is the CLI launcher.
 - The repo also contains a small Next.js project website (`app/`, `components/`) — optional, unrelated to using the skill.
-- **Private (NOT in repo):** GTM/strategy docs (PITCH, STARTUP, ROADMAP, BUILD-REVIEW) live at `~/calma-strategy/`. They were purged from git history before the repo went public — do not re-commit them.
+- **Private (NOT in repo):** GTM/strategy docs (FINAL, GROWTH, FUNDING-GAPS, PITCH, ROADMAP, STARTUP,
+  BUILD-REVIEW) live at `~/calma-strategy/`. FINAL.md is the current framing (attestation business; the
+  skill is demo/brand, not funnel). They were purged from git history before the repo went public — do
+  not re-commit them.
 
 ## How to run
 
 ```bash
-# tests (pure stdlib, no deps, ~100s):
+# tests (pure stdlib, no deps):
 python3 .claude/skills/calma/scripts/tests/run_all.py
 
-# verify a result dir that has a verify.yaml (exit 0 clean / 1 not-clean / 2 invalid):
-python3 .claude/skills/calma/scripts/calma.py verify <target> "<claim>"
-python3 .claude/skills/calma/scripts/calma.py teardown <target>     # shareable card on a REFUTED
-python3 .claude/skills/calma/scripts/run_hermetic.py doctor          # check isolation tier on this host
+# verify (claims are natural language; exit 0 clean / 1 not-clean / 2 bad input):
+bin/calma verify <target> "accuracy 0.87"
+bin/calma teardown <target> "<claim>"      # shareable card on a REFUTED
+bin/calma replay <target>/.calma/<run-id>  # re-run a saved verification; exit 0 iff it reproduces
+python3 .claude/skills/calma/scripts/run_hermetic.py doctor   # check isolation tier on this host
 
-# flagship demo (reproduces +14,698% -> -32% REFUTED end-to-end):
-python3 .claude/skills/calma/scripts/calma.py verify .claude/skills/calma/assets/btc
+# flagship demo (reproduces +14,698% -> -32.4% REFUTED end-to-end):
+bin/calma verify .claude/skills/calma/assets/btc
 ```
 
 ## Architecture (the skill, under `.claude/skills/calma/`)
