@@ -36,16 +36,24 @@ export function Hero({ headline, onRequest }: { headline: Line[]; onRequest: () 
         </Reveal>
 
         <Reveal as="p" className="hero__sub" delay={0.08}>
-          An open-source skill that re-runs your backtest against ground truth on your own machine — and proves it, or breaks it, before capital is committed.
+          Calma re-runs the work on your own machine and recomputes the number from the raw outputs —
+          proving the claim, or breaking it, before capital is committed. The open-source skill is free
+          today; the quant CLI adds the deep statistics.
         </Reveal>
 
         <Reveal className="hero__actions" delay={0.16}>
-          <motion.button className="btn btn-primary btn-lg" onClick={onRequest} {...hoverLift}>
-            Request access <Arrow />
-          </motion.button>
-          <motion.a className="btn btn-ghost btn-lg" href="#how" {...hoverLift}>
-            See the four checks
+          <motion.a
+            className="btn btn-primary btn-lg"
+            href="https://github.com/rikhinkavuru/calma"
+            target="_blank"
+            rel="noreferrer"
+            {...hoverLift}
+          >
+            Install the free skill <Arrow />
           </motion.a>
+          <motion.button className="btn btn-ghost btn-lg" onClick={onRequest} {...hoverLift}>
+            Request CLI access
+          </motion.button>
         </Reveal>
 
         <Reveal className="hero__demo" delay={0.24}>

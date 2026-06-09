@@ -34,8 +34,17 @@ export function Nav({ onRequest }: { onRequest: () => void }) {
           ))}
         </nav>
         <div className="nav__right">
+          <motion.a
+            className="btn btn-ghost nav__cta"
+            href="https://github.com/rikhinkavuru/calma"
+            target="_blank"
+            rel="noreferrer"
+            {...hoverLift}
+          >
+            Get the skill
+          </motion.a>
           <motion.button className="btn btn-primary nav__cta" onClick={onRequest} {...hoverLift}>
-            Request access
+            Request CLI access
           </motion.button>
         </div>
       </div>
