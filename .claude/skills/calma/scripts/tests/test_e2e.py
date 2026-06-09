@@ -71,7 +71,10 @@ with open(os.path.join(tmp, "verify.yaml"), "w") as fh:
                             "claim_confirmed": True}],
                "baselines": []}, fh)
 res2 = C.verify(tmp, run_id="honest")
-truth(res2["repo_verdict"] == V.CONFIRMED, "honest matching claim -> CONFIRMED (got %s)" % res2["repo_verdict"])
+# clean on both platforms: CONFIRMED when isolated (macOS Seatbelt), CONFIRMED-WITH-CAVEATS on a host
+# without an isolation tier (e.g. Linux CI) - the invariant is that an honest claim never REFUTES.
+truth(res2["repo_verdict"] in (V.CONFIRMED, V.CAVEATS),
+      "honest matching claim is clean / not REFUTED (got %s)" % res2["repo_verdict"])
 truth(res2["gate_exit"] == 0, "honest claim -> clean gate exit 0")
 truth("CONFIRMED" in res2["report"], "report says CONFIRMED")
 
