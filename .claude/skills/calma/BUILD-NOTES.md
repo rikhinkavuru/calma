@@ -96,3 +96,13 @@ Tests:   python3 .claude/skills/calma/scripts/tests/run_all.py
 - The two remaining-partial M2 items from the prior handoff are now addressed: cross-language matrix
   filled; corpus grown to 9 members across 6 languages. (Live-data real repos still need per-repo
   snapshot vendoring to reach a verdict - the BTC pattern.)
+
+## M2 vendoring shim (addresses the live-data served-fraction gate)
+
+- scripts/calma_vendor.py: generic HTTP record/replay (patches urllib + requests), keyed by URL. RECORD
+  once with network -> REPLAY offline; a cache MISS RAISES, so an offline replay is provably hermetic.
+  Tested record->replay->miss (tests/test_vendor.py). calibration/VENDORING.md documents the repeatable
+  recipe to turn a live-data repo into a verifiable corpus member.
+- This converts "gated on vendoring each repo's data" from a blocker into a bounded, documented step.
+  The one inherent per-repo task that remains: repos that print but never emit a machine-readable output
+  need a one-line emit added before their headline number can be recomputed.
