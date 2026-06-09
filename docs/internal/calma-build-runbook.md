@@ -144,7 +144,7 @@ buildable on this machine, so build them in this order:
   isolation tier — a local install, not remote infra; (b) **a 3–5 repo × language corpus**
   (R/Julia/C++/notebooks + toolchains) to measure served-fraction / FP / PPV — this is the real founder
   dependency, it's repos, not hardware. Until M2 passes, **REFUTED on a MEASURED-BAND run stays disabled**
-  (CONTROLLED-TO-BIT runs still REFUTE). See `docs/BUILD-REVIEW.md`. Do not fake these values.
+  (CONTROLLED-TO-BIT runs still REFUTE). Do not fake these values.
 - **Phase C — M3 + M4.** Five-family engine (DSR/PBO/leakage re-run), domain packs, contamination probes,
   breadth templates. Depends on Phase B's corpus + calibration. The DSR/stats engine is the one "hard" M3
   item validatable against published reference vectors (mlfinlab/pypbo) without new infra; the rest needs

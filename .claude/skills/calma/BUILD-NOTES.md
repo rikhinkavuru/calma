@@ -2,7 +2,7 @@
 
 Living record of what shipped, what's in progress, decisions, and open questions. Per the runbook, the
 repo stays green and runnable at every commit. Phase A (M0+M1) is buildable on this M4; M2+ needs the
-repo corpus (see `docs/BUILD-REVIEW.md`).
+repo corpus.
 
 ## Status
 
@@ -107,10 +107,10 @@ Tests:   python3 .claude/skills/calma/scripts/tests/run_all.py
   The one inherent per-repo task that remains: repos that print but never emit a machine-readable output
   need a one-line emit added before their headline number can be recomputed.
 
-## Research-driven hardening (pitch-readiness)
+## Research-driven hardening
 
 Web research (manual, not a workflow) into the AI-verification market, reproducibility-tool adoption, and
-the quant/leakage literature drove these improvements (full value/gap analysis + sources in docs/PITCH.md):
+the quant/leakage literature drove these improvements:
 - **Breadth for many use-cases:** added regression (RMSE/MAE/R2), classification depth (precision/recall/F1),
   and analytics (column-sum/mean, row-count) recipe families -> 14 recipes across quant/ML/DS/analytics.
 - **Growth loop:** `calma teardown` emits a shareable "claimed X -> really Y + repro" card on every REFUTED.

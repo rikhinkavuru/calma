@@ -54,7 +54,7 @@ def render(led, diff=None):
 
 
 def teardown_card(led, diff=None):
-    """A copy-pasteable shareable card for a REFUTED result - the growth/pitch artifact.
+    """A copy-pasteable shareable card for a REFUTED result.
     'claimed X -> really Y, here is why, here is the repro.'"""
     if led.get("repo_verdict") not in ("REFUTED", "MIXED"):
         return None

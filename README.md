@@ -90,7 +90,7 @@ python3 .claude/skills/calma/scripts/tests/run_all.py     # full suite, pure std
 .claude/skills/calma/   the skill — SKILL.md, scripts/, assets/, references/, calibration/
 scripts/teardowns/      the worked BTC example fixture
 app/ components/         a small Next.js project website (optional; not needed to use the skill)
-docs/                    EXAMPLES + INTERNAL.md index
+docs/                    project planning + design specs (internal/)
 ```
 
 ## License

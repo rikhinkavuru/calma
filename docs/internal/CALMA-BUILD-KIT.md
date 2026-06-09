@@ -39,12 +39,6 @@ Zero-config + auto-extract the claim from the agent's output · three always-on 
 recompute-vs-claim / leakage) · actionable INCONCLUSIVE (what's verified + the exact fix) · every FAIL is a
 shareable teardown. These win the first users.
 
-## Review (read before building)
-
-- **`BUILD-REVIEW.md`** — critical review of this kit + the fixes already applied (domain-agnostic recipe
-  family at M1, README hero, Tier-0/container ambiguity, build phasing, fixture reproducibility) AND the
-  **founder action list** (what only you can do: M2 infra, vendoring the BTC snapshot, the quant-vs-agnostic
-  M1 call). Phase A (M0+M1) is buildable locally now; Phase B (M2) is infra-gated.
 
 ## Reference
 
