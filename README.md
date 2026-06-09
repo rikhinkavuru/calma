@@ -90,6 +90,46 @@ Calma proves a result is **real and reproduces** — not that it answered the *r
 fully verify something, it says so and tells you the fix, rather than guessing. Running untrusted third-party
 code safely needs a container/VM (planned); for now such code is refused rather than run unsafely.
 
+## FAQ
+
+**How is this different from just asking my agent to double-check its own work?**
+The agent that produced the result is the worst judge of it: it re-reads its own reasoning, tends to
+rationalize, and never actually re-runs anything. "Looks right" is a second opinion, not verification.
+Calma re-executes the code and recomputes the number from the raw outputs, and the verdict comes from
+deterministic scripts, not a model. Even the agent that wrote the code can't talk Calma out of a FAIL.
+
+**Why not just put my rules / bounds / invariants in CLAUDE.md or the start of the session?**
+Instructions in context are advisory and probabilistic. A model can forget them, deprioritize them, or
+rationalize around them, especially late in a long session, and they only shape what gets *generated* —
+they don't prove the output is correct. Calma enforces the check by *running* the code: it recomputes the
+metric, compares it to the claim under a calibrated tolerance, and decides with code. Put the intent in
+CLAUDE.md to guide generation; use Calma to verify the result that comes out.
+
+**How is this different from eval / observability tools (LangSmith, Langfuse, Arize, etc.)?**
+Those trace runs and score them with model-as-judge, or track drift over time. None re-execute the work
+and recompute the claimed number. Calma is verification by execution to ground truth, not by judgment.
+
+**Can the agent game the verdict?**
+The label and every statistic come from deterministic, unit-tested scripts, and the ledger re-derives the
+verdict byte-for-byte from its inputs — a model can't author a passing label. The one thing the producer
+influences is which output column maps to the claim; for headline claims that binding is confirmed before
+any REFUTED is allowed.
+
+**Does it work if there's no specific number to check?**
+Yes. With a claim it recomputes-and-diffs; without one it still checks that the result reproduces and that
+any declared invariants hold.
+
+**Does my code or data leave my machine?**
+No. It runs locally in a sandbox with the network off; nothing is uploaded.
+
+**Is it only for trading/quant?**
+No. It ships metrics for trading, ML (classification + regression), and analytics, and treats your program
+as a black box, so it works across Python, R, Julia, C++, and Rust.
+
+**What if it can't fully verify something?**
+It returns CAN'T-CONFIRM with the exact fix to make it checkable (e.g. "set a seed", "write predictions to
+a file"), instead of guessing. It biases toward a caveat over a false alarm.
+
 ## Development
 
 ```bash
