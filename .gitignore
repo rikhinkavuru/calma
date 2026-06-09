@@ -20,3 +20,4 @@ __pycache__/
 
 # regenerated cross-language fixture outputs (the entrypoint re-emits them)
 .claude/skills/calma/assets/lang/*/runs/
+.gstack/
