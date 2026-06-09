@@ -28,7 +28,7 @@ def truth(cond, label):
 
 
 # --- REFUTED end-to-end on BTC ---
-res = C.verify(BTC, run_id="test_e2e")
+res = C.verify(BTC, run_id="test_e2e", force=True)  # force: the fixture persists across suite runs
 truth(res["repo_verdict"] == "REFUTED", "BTC -> repo REFUTED")
 truth(res["gate_exit"] == 1, "BTC gate exit 1 (valid, not clean)")
 truth(res["report"].startswith("REFUTED"), "report leads with REFUTED")

@@ -164,6 +164,22 @@ ok, text = C.replay(res["run_dir"])
 truth(ok, "replay reproduces the REFUTED verdict")
 truth("REPRODUCED" in text, "replay says REPRODUCED")
 
+# --- the verification cache: unchanged inputs -> instant cached verdict; any change -> re-run ---
+res_c = C.verify(ml, claim="accuracy 0.99")
+truth(res_c.get("cached") is True, "second identical verify is served from cache")
+truth(res_c["repo_verdict"] == "REFUTED" and "cached" in res_c["report"],
+      "cached result keeps the verdict and says it is cached")
+res_f = C.verify(ml, claim="accuracy 0.99", force=True)
+truth(res_f.get("cached") is False, "--force bypasses the cache")
+# changing the claim is a different fingerprint
+res_d = C.verify(ml, claim="accuracy 0.87")
+truth(res_d.get("cached") is False, "a different claim re-executes")
+# touching the code invalidates the cache
+with open(os.path.join(ml, "main.py"), "a") as fh:
+    fh.write("# changed\n")
+res_e = C.verify(ml, claim="accuracy 0.99")
+truth(res_e.get("cached") is False, "modified code re-executes")
+
 # --- deterministic confidence ---
 truth(V.confidence({}, V.INCONCLUSIVE) == 0.0, "INCONCLUSIVE has no confidence score")
 hi = V.confidence(dict(base_vi, exit_codes=[0]), V.CONFIRMED)

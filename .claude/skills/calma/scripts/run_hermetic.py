@@ -256,6 +256,10 @@ def run(contract_path, base=None, timeout=120):
     prof = _profile(base)
     _proxy = {"http_proxy", "https_proxy", "ftp_proxy", "all_proxy", "no_proxy"}
     env = {k: v for k, v in os.environ.items() if k.lower() not in _proxy}
+    # determinism hardening for the re-execution: pinned hash seed (stable set/dict iteration order),
+    # no bytecode writes into the target, pinned locale. Free reproducibility, no behavior loss.
+    env.update({"PYTHONHASHSEED": "0", "PYTHONDONTWRITEBYTECODE": "1",
+                "LC_ALL": "C.UTF-8", "LANG": "C.UTF-8", "TZ": "UTC"})
     # the network/hermeticity stamps are DERIVED from the achieved tier, never asserted: on a host
     # with no verified sandbox (e.g. Linux without sandbox-exec) the truth is "not blocked".
     tier_verified = isolation_tier in ("seatbelt-verified", "tier0", "container", "vm")

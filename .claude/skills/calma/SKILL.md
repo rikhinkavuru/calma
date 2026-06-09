@@ -28,7 +28,9 @@ A multi-claim ledger where a non-headline claim breaks reports `MIXED`.
 After you produce ANY checkable result before reporting it as done - a metric (AUC/accuracy/RMSE/Sharpe),
 a backtest return, a cleaned dataset ("processed 10k rows"), an aggregate ("total = $4.2M"), or a "tests
 pass" claim - run Calma on it. A FAIL catches YOUR mistake before the human sees it; a CAN'T-CONFIRM tells
-you the one thing to emit to make it verifiable (and prints it as a `fix:` line).
+you the one thing to emit to make it verifiable (and prints it as a `fix:` line). Inline use is cheap:
+verification is cached by the content hash of code+data+contract+claim, so re-checking anything unchanged
+returns the prior verdict in milliseconds (`--force` re-executes).
 
 ```
 calma verify <target> "<claim>"     # e.g. calma verify . "accuracy 0.87"  /  "+14,698% backtest"

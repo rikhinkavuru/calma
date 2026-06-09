@@ -10,6 +10,7 @@ Steps: draft-or-load contract -> run_hermetic (verified isolation, re-emit raw a
 the verdict label come from the scripts. Writes everything under <target>/.calma/<run-id>/.
 """
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -24,6 +25,8 @@ import recompute as RC
 import report as REP
 import run_hermetic as H
 import verdict as V
+
+__version__ = "0.2.0"
 
 QUANT_METRICS = {"total_return", "sharpe", "max_drawdown"}
 
@@ -139,7 +142,79 @@ def _assemble_ledger(contract, diff, run_res):
     return led
 
 
-def verify(target, claim=None, metric=None, run_id="run"):
+def _input_fingerprint(target, contract):
+    """Content-address everything the verdict depends on: the contract (minus draft notes), the
+    entrypoint bytes, and every bound artifact's bytes. Same fingerprint => the prior verdict is the
+    verdict (re-verification would re-derive it from identical inputs)."""
+    h = hashlib.sha256()
+    # the verifier's own version and the interpreter line are part of the key: upgrading either
+    # invalidates the cache (a different verifier run is a different computation)
+    h.update(("calma-cache@1|calma=%s|py=%d.%d\n"
+              % (__version__, sys.version_info[0], sys.version_info[1])).encode())
+    h.update(json.dumps({k: v for k, v in contract.items() if not str(k).startswith("_")},
+                        sort_keys=True).encode())
+    rt = os.path.realpath(target)
+    paths = []
+    entry = (contract.get("run") or {}).get("entrypoint")
+    if entry and entry != "MANUAL":
+        paths.append(entry)
+    for a in contract.get("artifacts", []):
+        if isinstance(a, dict) and a.get("path"):
+            paths.append(a["path"])
+    for rel in sorted(set(paths)):
+        full = os.path.realpath(os.path.join(rt, rel))
+        if full != rt and not full.startswith(rt + os.sep):
+            continue
+        h.update(rel.encode() + b"\x00")
+        try:
+            with open(full, "rb") as fh:
+                for chunk in iter(lambda: fh.read(65536), b""):
+                    h.update(chunk)
+        except OSError:
+            h.update(b"<missing>")
+    return h.hexdigest()
+
+
+def _cached_result(target, fingerprint):
+    """Return the prior result for this fingerprint, or None. Only definite verdicts are served from
+    cache (an INCONCLUSIVE may have been environmental - it always re-runs)."""
+    cache_path = os.path.join(target, ".calma", "cache.json")
+    try:
+        cache = json.load(open(cache_path))
+    except (OSError, ValueError):
+        return None
+    ent = cache.get(fingerprint)
+    if not ent:
+        return None
+    run_dir = os.path.join(target, ".calma", ent.get("run_id", ""))
+    led_path = os.path.join(run_dir, "ledger.json")
+    try:
+        led = json.load(open(led_path))
+    except (OSError, ValueError):
+        return None
+    code, summary = LED.validate_obj(led)
+    if led.get("repo_verdict") not in ("CONFIRMED", "CONFIRMED-WITH-CAVEATS", "REFUTED", "MIXED"):
+        return None
+    rendered = ("(cached: code, data, and claim unchanged since the last verification - "
+                "pass --force to re-execute)\n") + REP.render(led)
+    return {"gate_exit": code, "gate": summary, "repo_verdict": led["repo_verdict"],
+            "report": rendered, "teardown": REP.teardown_card(led), "run_dir": run_dir,
+            "ledger": led, "cached": True}
+
+
+def _store_cache(target, fingerprint, run_id, repo_verdict):
+    if repo_verdict not in ("CONFIRMED", "CONFIRMED-WITH-CAVEATS", "REFUTED", "MIXED"):
+        return
+    cache_path = os.path.join(target, ".calma", "cache.json")
+    try:
+        cache = json.load(open(cache_path))
+    except (OSError, ValueError):
+        cache = {}
+    cache[fingerprint] = {"run_id": run_id, "repo_verdict": repo_verdict}
+    json.dump(cache, open(cache_path, "w"), indent=2)
+
+
+def verify(target, claim=None, metric=None, run_id="run", force=False):
     target = os.path.realpath(target)
     if not os.path.isdir(target):
         raise ValueError("target directory does not exist: %s" % target)
@@ -168,6 +243,13 @@ def verify(target, claim=None, metric=None, run_id="run"):
         contract = DC.draft(target, claim=claim, metric=metric)
         contract_path = os.path.join(run_dir, "verify.yaml")
         json.dump(contract, open(contract_path, "w"), indent=2)
+
+    # the cache: same contract + same entrypoint bytes + same artifact bytes => same verdict.
+    # Inline/agent-loop use re-verifies only what changed; --force always re-executes.
+    if not force:
+        hit = _cached_result(target, _input_fingerprint(target, contract))
+        if hit:
+            return hit
 
     diff = None
     entry = contract.get("run", {}).get("entrypoint")
@@ -250,8 +332,24 @@ def verify(target, claim=None, metric=None, run_id="run"):
     card = REP.teardown_card(led)
     if card:
         open(os.path.join(run_dir, "teardown.txt"), "w").write(card)
+    _store_cache(target, _input_fingerprint(target, contract), run_id, led["repo_verdict"])
+    # append-only, human-readable history: one JSON line per verification (the audit trail is a feature)
+    c0 = (led.get("claims") or [{}])[0]
+    try:
+        import time
+        with open(os.path.join(target, ".calma", "history.jsonl"), "a") as fh:
+            fh.write(json.dumps({
+                "ts": int(time.time()), "run_id": run_id, "verdict": led["repo_verdict"],
+                "metric": c0.get("metric"), "claimed": c0.get("claimed_value"),
+                "recomputed": c0.get("recomputed_value"),
+                "isolation": led.get("scope", {}).get("isolation_tier"),
+                "calma": __version__,
+            }) + "\n")
+    except OSError:
+        pass
     return {"gate_exit": code, "gate": summary, "repo_verdict": led["repo_verdict"],
-            "report": rendered, "teardown": card, "run_dir": run_dir, "ledger": led}
+            "report": rendered, "teardown": card, "run_dir": run_dir, "ledger": led,
+            "cached": False}
 
 
 def replay(run_dir):
@@ -271,7 +369,7 @@ def replay(run_dir):
         mets = pc_obj.get("metrics") or [{}]
         claim, metric = mets[0].get("claimed_value"), mets[0].get("metric_id")
     res = verify(target, claim=claim, metric=metric,
-                 run_id=os.path.basename(run_dir) + "-replay")
+                 run_id=os.path.basename(run_dir) + "-replay", force=True)
     same_verdict = res["repo_verdict"] == prior.get("repo_verdict")
     pc = (prior.get("claims") or [{}])[0]
     nc = (res["ledger"].get("claims") or [{}])[0]
@@ -302,24 +400,27 @@ def main():
     v.add_argument("--run-id", default="run")
     v.add_argument("--fail-on", choices=["not-clean", "refuted"], default="not-clean",
                    help="process exit policy: not-clean (default; INCONCLUSIVE also fails) or refuted")
+    v.add_argument("--force", action="store_true",
+                   help="re-execute even if code, data, and claim are unchanged since the last verification")
     t = sub.add_parser("teardown", help="print a shareable card when a claim breaks")
     t.add_argument("target")
     t.add_argument("claim_text", nargs="?", default=None)
     t.add_argument("--claim")
     t.add_argument("--metric")
+    t.add_argument("--force", action="store_true")
     r = sub.add_parser("replay", help="re-run a saved verification and check it reproduces")
     r.add_argument("run_dir", help="the .calma/<run-id> dir printed on the original verdict")
     a = ap.parse_args()
     try:
         if a.cmd == "verify":
-            res = verify(a.target, a.claim_text or a.claim, a.metric, a.run_id)
+            res = verify(a.target, a.claim_text or a.claim, a.metric, a.run_id, force=a.force)
             print(res["report"])
             print("\n[gate exit %d - %s]" % (res["gate_exit"], res["repo_verdict"]))
             if a.fail_on == "refuted":
                 return 1 if res["repo_verdict"] in ("REFUTED", "MIXED") else 0
             return res["gate_exit"]
         if a.cmd == "teardown":
-            res = verify(a.target, a.claim_text or a.claim, a.metric, "teardown")
+            res = verify(a.target, a.claim_text or a.claim, a.metric, "teardown", force=a.force)
             print(res.get("teardown") or "(no teardown: result was not REFUTED)")
             return 0 if res.get("teardown") else 1
         if a.cmd == "replay":
