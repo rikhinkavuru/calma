@@ -9,86 +9,110 @@ work in a sandbox, **recomputes the headline number from the raw output files** 
 reported), and tells you whether the claim holds — with a one-command way to reproduce it.
 
 It's an open-source [Claude Code](https://code.claude.com) skill, and also runs as a plain Python CLI. Every
-number and the final verdict come from deterministic scripts, **not** from a model's opinion.
+number, the verdict, and even the confidence score come from deterministic scripts, **not** from a model's
+opinion.
 
 ## Demo
 
 <!-- DEMO: replace this with the recorded GIF/video, e.g. ![Calma demo](docs/demo.gif) -->
 *(Demo recording coming soon.)*
 
-Here's the kind of result it produces — a real backtest claiming +14,698% that falls apart out-of-sample:
+This is real output — a backtest that claimed +14,698% on BTC, re-executed on the held-out data:
 
 ```
-$ calma verify ./btc-backtest  "+14,698% backtest"
+$ calma verify ./btc-backtest "+14,698% backtest"
 
-  BROKEN  (96/100)  -  the result does not hold
-   claimed +14,698%   ->   recomputed -32%  (re-ran the code on the held-out data)
-   why:  best of 100 in-sample tries; loses to simply buying and holding
-   reproduce:  calma replay ./.calma/run
+REFUTED  (confidence 98/100)  -  the result does not hold
+  - also: strategy underperforms the trivial baseline (edge -0.7422 <= 0)
+  claimed +14,698%  ->  recomputed -32.4%
+  reproduce: calma replay ./btc-backtest/.calma/run
 ```
 
-You get one of three answers:
+You get one of four answers:
 
 - **CONFIRMED** — it re-runs and the number checks out.
-- **REFUTED** — the recomputed number contradicts the claim (with a reproduction you can run yourself).
-- **CAN'T-CONFIRM** — it can't be fully checked yet (e.g. no fixed seed, or no output file), plus the exact
-  fix to make it checkable. Calma never cries wolf.
+- **CONFIRMED-WITH-CAVEATS** — it holds, but narrower than claimed (and the caveat is named).
+- **REFUTED** — the recomputed number contradicts the claim, with a reproduction you can run yourself.
+- **CAN'T-CONFIRM** — it can't be fully checked yet, plus a `fix:` line with the exact change to make it
+  checkable (e.g. "set a fixed seed", "write predictions to a CSV"). Calma never cries wolf.
 
 ## Install
 
 The skill is one self-contained folder with **no dependencies** (pure Python standard library).
+
+As a Claude Code plugin:
+
+```
+/plugin marketplace add rikhinkavuru/calma
+/plugin install calma@calma
+```
+
+Or copy the folder into any project (works with every agent that reads SKILL.md — Claude Code, Codex,
+Cursor, ...):
 
 ```bash
 git clone https://github.com/rikhinkavuru/calma
 cp -r calma/.claude/skills/calma  your-project/.claude/skills/
 ```
 
-In Claude Code it's then available as the `calma` skill. Or run it directly:
+Or use it as a plain CLI:
 
 ```bash
-python3 your-project/.claude/skills/calma/scripts/calma.py verify <folder> "<claim>"
+ln -s "$(pwd)/calma/bin/calma" /usr/local/bin/calma
+calma verify <folder> "<claim>"
 ```
+
+## Commands
+
+```bash
+calma verify <folder> "<claim>"     # check a result   (exit 0 = clean, 1 = not clean, 2 = bad input)
+calma teardown <folder> "<claim>"   # print a shareable "claimed X -> really Y" card when something breaks
+calma replay <run_dir>              # re-run a saved verification; exit 0 iff the verdict reproduces
+python3 .claude/skills/calma/scripts/run_hermetic.py doctor   # prove the sandbox works on your machine
+```
+
+Claims are natural language: `"accuracy 0.87"`, `"+14,698% backtest"`, `"$4.2M revenue"`,
+`"processed 10,000 rows"` — the number and the metric are parsed from the words (`--metric` pins it
+explicitly). With no claim at all, Calma still checks that the result reproduces.
+
+Drop a `verify.yaml` next to a result (JSON or simple YAML) to pin the contract. In CI, use the GitHub
+Action (`.github/actions/calma`) — `fail_on: refuted` fails the build only when a claim actually breaks.
 
 ## What it can check
 
-- **Does it reproduce?** Re-run → same number, or it isn't a result.
+- **Does it reproduce?** Re-run → same number, or it isn't a result. (A crashed re-run can never CONFIRM —
+  stale output files don't count.)
 - **Does the number recompute?** The headline metric, rebuilt from the raw outputs.
 - **Does it beat a basic baseline?** (e.g. buy-and-hold, or majority-class.)
 - **Is it stable?** A calibrated tolerance so normal hardware/threading noise never causes a false alarm.
 
 Built-in metrics cover **trading** (Sharpe, return, drawdown), **machine learning** (accuracy, AUC, F1,
-precision, recall, Brier), **regression** (RMSE, MAE, R²), and **data/analytics** (sums, means, row counts).
-No specific number to check? It still verifies that the result reproduces. It works on programs written in
-**Python, R, Julia, C++, or Rust** — Calma treats your program as a black box and does the recompute itself.
-
-## Commands
-
-```bash
-calma verify <folder> "<claim>"     # check a result        (exit 0 = clean, 1 = not clean, 2 = invalid)
-calma teardown <folder> "<claim>"   # print a shareable "claimed X, really Y" card when something breaks
-python3 .../scripts/run_hermetic.py doctor   # check the sandbox is working on your machine
-```
-
-Drop a `verify.yaml` next to a result and re-runs only re-check what changed. There's a GitHub Action
-(`.github/actions/calma`) to use it as a CI check.
+precision, recall, Brier), **regression** (RMSE, MAE, R²), and **data/analytics** (sums, means, row counts) —
+15 recipes. It works on programs written in **Python, R, Julia, C++, or Rust** — Calma treats your program
+as a black box and does the recompute itself.
 
 ## Under the hood
 
 `calma verify` runs a small pipeline, one script per step, so the result is auditable:
 
-1. **Detect** the entrypoint, output files, and which column is the metric (`verify.yaml`).
-2. **Run** the code in a verified sandbox (macOS Seatbelt; network off), re-emitting the raw outputs. A
-   built-in `doctor` self-test proves the sandbox actually blocks secret-reads and network access.
+1. **Detect** the entrypoint, output files, and which column is the metric (`verify.yaml`, auto-drafted).
+2. **Run** the code in a verified sandbox (macOS Seatbelt; network off). A built-in `doctor` self-test
+   proves the sandbox actually blocks secret-reads and network access before the tier is claimed. On hosts
+   without a verified sandbox (e.g. Linux CI) the code still runs, but the verdict is stamped
+   `host-not-isolated` and a clean pass is capped at CONFIRMED-WITH-CAVEATS — the stamp never lies.
 3. **Recompute** each metric from the raw outputs, the same way every time (no floating-point surprises).
 4. **Compare** recomputed vs claimed, allowing for the claim's own measurement noise.
 5. **Verdict** from a single deterministic function — re-checked byte-for-byte so it can't be fudged.
-6. **Attest** with a signed manifest (in-toto/SLSA + CycloneDX ML-BOM) for audit trails.
+6. **Attest** with a content-addressed manifest (in-toto/SLSA statement + CycloneDX ML-BOM) for audit
+   trails; cryptographic signing is on the roadmap.
 
 ## Limitations
 
 Calma proves a result is **real and reproduces** — not that it answered the *right* question. When it can't
-fully verify something, it says so and tells you the fix, rather than guessing. Running untrusted third-party
-code safely needs a container/VM (planned); for now such code is refused rather than run unsafely.
+fully verify something, it says so and tells you the fix, rather than guessing. The verified-isolation tier
+ships on macOS today; on other platforms runs are honestly stamped as unisolated (a Linux tier is the top
+roadmap item). Running untrusted third-party code safely needs a container/VM (planned); for now such code
+is refused rather than run unsafely.
 
 ## FAQ
 
@@ -111,24 +135,27 @@ and recompute the claimed number. Calma is verification by execution to ground t
 
 **Can the agent game the verdict?**
 The label and every statistic come from deterministic, unit-tested scripts, and the ledger re-derives the
-verdict byte-for-byte from its inputs — a model can't author a passing label. The one thing the producer
-influences is which output column maps to the claim; for headline claims that binding is confirmed before
-any REFUTED is allowed.
+verdict byte-for-byte from its inputs — a model can't author a passing label. The one surface the producer
+influences is which output column maps to the claim; a REFUTED is only allowed when that binding passed an
+independent sanity check AND the claim target is unambiguous (named in the claim or pinned with --metric).
+An ambiguous binding degrades to CAN'T-CONFIRM, never a verdict.
 
 **Does it work if there's no specific number to check?**
 Yes. With a claim it recomputes-and-diffs; without one it still checks that the result reproduces and that
 any declared invariants hold.
 
 **Does my code or data leave my machine?**
-No. It runs locally in a sandbox with the network off; nothing is uploaded.
+No. Everything runs locally; nothing is uploaded. On macOS the run is inside a verified network-off
+sandbox; on hosts without one, the verdict says so explicitly instead of pretending.
 
 **Is it only for trading/quant?**
 No. It ships metrics for trading, ML (classification + regression), and analytics, and treats your program
 as a black box, so it works across Python, R, Julia, C++, and Rust.
 
 **What if it can't fully verify something?**
-It returns CAN'T-CONFIRM with the exact fix to make it checkable (e.g. "set a seed", "write predictions to
-a file"), instead of guessing. It biases toward a caveat over a false alarm.
+It returns CAN'T-CONFIRM with a `fix:` line naming the exact change to make it checkable (e.g. "set a
+fixed seed", "write predictions to a file"), instead of guessing. It biases toward a caveat over a false
+alarm.
 
 ## Development
 
@@ -139,8 +166,10 @@ python3 .claude/skills/calma/scripts/tests/run_all.py     # full test suite (pur
 ## Repository layout
 
 ```
-.claude/skills/calma/   the skill — SKILL.md, scripts/, assets/, calibration/
-scripts/teardowns/      the worked backtest example
+.claude/skills/calma/    the skill — SKILL.md, scripts/, assets/, calibration/
+.claude-plugin/          plugin + marketplace manifests (/plugin install calma@calma)
+bin/calma                CLI launcher
+scripts/teardowns/       the worked backtest example
 app/  components/        a small project website (optional; not needed to use the skill)
 docs/                    design specs and notes
 ```

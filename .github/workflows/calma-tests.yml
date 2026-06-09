@@ -9,3 +9,42 @@ jobs:
         with: { python-version: "3.12" }
       - name: Run Calma test suite (pure stdlib, no deps)
         run: python3 .claude/skills/calma/scripts/tests/run_all.py
+
+  # the shipped Action must actually work for a consumer: the flagship fixture
+  # is a known REFUTED, so the action step is EXPECTED to fail (claim broken).
+  action:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Verify the BTC fixture via the action (expected REFUTED)
+        id: btc
+        uses: ./.github/actions/calma
+        continue-on-error: true
+        with:
+          target: .claude/skills/calma/assets/btc
+          fail_on: refuted
+      - name: Assert the action refuted the known-broken claim
+        run: |
+          if [ "${{ steps.btc.outcome }}" != "failure" ]; then
+            echo "expected the action to fail on the REFUTED fixture, got: ${{ steps.btc.outcome }}"
+            exit 1
+          fi
+      - name: Exercise the claim-input quoting path (spaces, %, comma must not crash the shell)
+        id: quoting
+        uses: ./.github/actions/calma
+        continue-on-error: true   # still the REFUTED fixture - failure is the correct verdict
+        with:
+          target: .claude/skills/calma/assets/btc
+          claim: "+14,698% backtest"
+          fail_on: refuted
+      - name: Assert the quoted claim reached the verifier (exit 1 = REFUTED, not 2 = CLI error)
+        run: |
+          set +e
+          python3 .claude/skills/calma/scripts/calma.py verify .claude/skills/calma/assets/btc "+14,698% backtest" --fail-on refuted
+          code=$?
+          if [ "$code" -ne 1 ]; then
+            echo "expected exit 1 (REFUTED), got $code"
+            exit 1
+          fi

@@ -1,0 +1,25 @@
+{
+  "name": "calma",
+  "owner": {
+    "name": "Rikhin Kavuru",
+    "url": "https://github.com/rikhinkavuru"
+  },
+  "metadata": {
+    "description": "Verification by re-execution: re-run the work, recompute the headline number from raw outputs, prove or break the claim.",
+    "version": "0.2.0"
+  },
+  "plugins": [
+    {
+      "name": "calma",
+      "source": "./",
+      "description": "Verify a computational result (a metric, a backtest, a cleaned dataset, an aggregate) by re-executing it in a sandbox and recomputing the number from the raw outputs - the verdict comes from deterministic scripts, not a model's opinion.",
+      "version": "0.2.0",
+      "author": {
+        "name": "Rikhin Kavuru"
+      },
+      "license": "MIT",
+      "keywords": ["verification", "reproducibility", "testing", "agents", "data-science", "quant"],
+      "skills": ["./.claude/skills/calma"]
+    }
+  ]
+}

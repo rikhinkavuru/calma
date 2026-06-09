@@ -17,7 +17,7 @@
       "reproduction_or_reverify": {
         "kind": "requires-reexecution",
         "command": "calma replay ./.calma/btc/run",
-        "manifest_ref": "sha256:PENDING-M1-PIPELINE",
+        "manifest_ref": "sha256:fixture-hand-written-ledger",
         "expected": "oos_return < claimed_return * 0.05 and oos_return < buy_and_hold_oos"
       },
       "recipe_authority": "canonical",
@@ -37,7 +37,9 @@
         "isolation_tier": "tier0",
         "container_present": true,
         "untrusted": false,
-        "exit_codes": [0],
+        "exit_codes": [
+          0
+        ],
         "killed": false,
         "determinism_mode": "controlled-to-bit",
         "sufficient_k": true,
@@ -51,25 +53,49 @@
   ],
   "findings": [
     {
-      "id": "f1", "claim_id": "c1", "dimension": "baseline", "severity": "blocker",
-      "status": "open", "confidence": "deterministic", "fixable_by": "author",
+      "id": "f1",
+      "claim_id": "c1",
+      "dimension": "baseline",
+      "severity": "blocker",
+      "status": "open",
+      "confidence": "deterministic",
+      "fixable_by": "author",
       "locator": "OOS strategy return -32.4% < buy-and-hold +41.8% (loses money and underperforms doing nothing)",
-      "reverify": {"kind": "requires-reexecution", "source": "runs/oos/equity.csv",
-                   "expected": "baseline_edge_ci_upper < 0"}
+      "reverify": {
+        "kind": "requires-reexecution",
+        "source": "runs/oos/equity.csv",
+        "expected": "baseline_edge_ci_upper < 0"
+      }
     },
     {
-      "id": "f2", "claim_id": "c1", "dimension": "overfitting", "severity": "major",
-      "status": "open", "confidence": "deterministic", "fixable_by": "none",
+      "id": "f2",
+      "claim_id": "c1",
+      "dimension": "overfitting",
+      "severity": "major",
+      "status": "open",
+      "confidence": "deterministic",
+      "fixable_by": "none",
       "locator": "winner of N=100 in-sample param combos; in-sample Sharpe 1.32 -> OOS Sharpe 0.19",
-      "reverify": {"kind": "requires-reexecution", "source": "runs/oos/equity.csv",
-                   "expected": "oos_sharpe << in_sample_sharpe"}
+      "reverify": {
+        "kind": "requires-reexecution",
+        "source": "runs/oos/equity.csv",
+        "expected": "oos_sharpe << in_sample_sharpe"
+      }
     },
     {
-      "id": "f3", "claim_id": "c1", "dimension": "execution-realism", "severity": "major",
-      "status": "open", "confidence": "deterministic", "fixable_by": "author",
+      "id": "f3",
+      "claim_id": "c1",
+      "dimension": "execution-realism",
+      "severity": "major",
+      "status": "open",
+      "confidence": "deterministic",
+      "fixable_by": "author",
       "locator": "3x leverage; fees+slippage drag OOS from -27.4% to -32.4%",
-      "reverify": {"kind": "requires-reexecution", "source": "runs/oos/equity.csv",
-                   "expected": "net_of_cost_return < gross_return"}
+      "reverify": {
+        "kind": "requires-reexecution",
+        "source": "runs/oos/equity.csv",
+        "expected": "net_of_cost_return < gross_return"
+      }
     }
   ],
   "scope": {
@@ -78,10 +104,17 @@
     "reproducibility_scope": "same-platform",
     "data_vintage": "Coinbase BTC-USD daily, vendored snapshot 2018-03-22..2026-06-07",
     "families": {
-      "reproducibility": "checked", "recomputation": "checked", "baseline": "checked",
-      "execution-realism": "checked", "overfitting": "flagged-static (DSR is M3)",
-      "leakage": "not-applicable (no fitted split; no lookahead)", "data-integrity": "checked"
+      "reproducibility": "checked",
+      "recomputation": "checked",
+      "baseline": "checked",
+      "execution-realism": "checked",
+      "overfitting": "flagged-static (DSR is M3)",
+      "leakage": "not-applicable (no fitted split; no lookahead)",
+      "data-integrity": "checked"
     },
-    "not_verified": ["deflated-Sharpe / PBO (M3)", "survivorship-free vendor data (Stage-3)"]
+    "not_verified": [
+      "deflated-Sharpe / PBO (M3)",
+      "survivorship-free vendor data (Stage-3)"
+    ]
   }
 }

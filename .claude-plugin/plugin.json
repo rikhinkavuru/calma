@@ -1,0 +1,14 @@
+{
+  "name": "calma",
+  "description": "Verify a computational result by re-executing it in a sandbox and recomputing the headline number from the raw outputs - the verdict comes from deterministic scripts, not a model's opinion.",
+  "version": "0.2.0",
+  "author": {
+    "name": "Rikhin Kavuru",
+    "url": "https://github.com/rikhinkavuru"
+  },
+  "homepage": "https://github.com/rikhinkavuru/calma",
+  "repository": "https://github.com/rikhinkavuru/calma",
+  "license": "MIT",
+  "keywords": ["verification", "reproducibility", "testing", "agents", "data-science", "quant"],
+  "skills": ["./.claude/skills/calma"]
+}
