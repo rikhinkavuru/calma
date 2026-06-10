@@ -80,23 +80,28 @@ export function Demo() {
     const cr = c.getBoundingClientRect();
     const tr = t.getBoundingClientRect();
     if (tr.width === 0) return;
-    const jx = tr.right - cr.left;
+    /* light paths sit on the 1px border's centerline (inset 0.5), so the
+       light reads as the existing outline glowing — not a line on top */
+    const inset = 0.5;
+    const jx = tr.right - cr.left - inset;
     const jy = tr.top - cr.top + tr.height / 2;
     const conns: string[] = [];
     const boxes: string[] = [];
     boxRefs.current.forEach((b) => {
       if (!b) return;
       const br = b.getBoundingClientRect();
-      const bx = br.left - cr.left - 1.5; /* stop just short of the box border */
+      const bx = br.left - cr.left; /* the border's outer edge — touch, never cross */
       const by = br.top - cr.top + br.height / 2;
       const mx = jx + (bx - jx) * 0.5;
       conns.push(`M ${jx} ${jy} C ${mx} ${jy}, ${mx} ${by}, ${bx} ${by}`);
-      boxes.push(boxPath(br.left - cr.left, br.top - cr.top, br.width, br.height));
+      boxes.push(
+        boxPath(br.left - cr.left + inset, br.top - cr.top + inset, br.width - 1, br.height - 1)
+      );
     });
     setGeom({
       w: cr.width,
       h: cr.height,
-      term: termPath(tr.left - cr.left, tr.top - cr.top, tr.width, tr.height),
+      term: termPath(tr.left - cr.left + inset, tr.top - cr.top + inset, tr.width - 1, tr.height - 1),
       conns,
       boxes,
     });
@@ -124,7 +129,7 @@ export function Demo() {
       setDone(true);
       setConnected(STEPS.length);
       setLive(true);
-      measure();
+      requestAnimationFrame(() => requestAnimationFrame(measure));
       return;
     }
 
@@ -160,10 +165,11 @@ export function Demo() {
       at += line.pause;
     });
 
-    /* terminal done → measure → fan the connectors out one by one → light up */
+    /* terminal done → wait for the final layout (prompt line included) →
+       measure → fan the connectors out one by one → light up */
     later(() => {
       setDone(true);
-      measure();
+      requestAnimationFrame(() => requestAnimationFrame(measure));
     }, at);
     at += 250;
     STEPS.forEach((_, i) => {
