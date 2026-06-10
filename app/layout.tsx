@@ -24,7 +24,10 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body>{children}</body>
+      <body>
+        <div className="paper" aria-hidden="true"></div>
+        {children}
+      </body>
     </html>
   );
 }

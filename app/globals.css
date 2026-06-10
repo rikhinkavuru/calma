@@ -52,6 +52,18 @@ img, svg, canvas { display: block; max-width: 100%; }
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
+/* warm paper: the whole site sits on rough, sand-toned stock. Two scales of
+   warm-tinted noise — a fine tooth and a slow mottle — screened on at whisper
+   opacity so the void reads as material, not pixels. Mounted once in layout. */
+.paper {
+  position: fixed; inset: 0; z-index: 49; pointer-events: none;
+  mix-blend-mode: screen; opacity: 0.07;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='t'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.55' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.91 0 0 0 0 0.74 0 0 0 0 0.5 0 0 0 0.85 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23t)'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1000' height='1000'%3E%3Cfilter id='m'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.012' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.95 0 0 0 0 0.7 0 0 0 0 0.42 0 0 0 0.5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23m)'/%3E%3C/svg%3E");
+  background-size: 300px 300px, 1000px 1000px;
+}
+
 /* ============================================================ atmosphere */
 .atmo { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
 .atmo i { position: absolute; border-radius: 50%; }
@@ -91,24 +103,14 @@ img, svg, canvas { display: block; max-width: 100%; }
 }
 
 /* ============================================================ orbs
-   The atmosphere extends past the hero: ONE soft orb per section, alternating
-   warm/cool, always behind the content and under the global grain. Card-level
-   blooms live inside bordered boxes (marquee, dialog, CTA) like a lamp in the
-   corner. The outro gets the striated sunrise. Restraint is the rule. */
-.sec--orbed { overflow: hidden; }
-.sec--orbed > .wrap, .outro > .wrap { position: relative; z-index: 1; }
+   Glow lives ONLY at the edges of the page: the hero's planet atmosphere at the
+   top, and the striated sunrise behind the outro. Everything between sits flat
+   on the paper. */
+.outro > .wrap { position: relative; z-index: 1; }
 .orb { position: absolute; border-radius: 50%; pointer-events: none; z-index: 0; }
 .orb--amber {
   background: radial-gradient(circle, rgba(255, 179, 107, 0.42) 0%, rgba(232, 122, 50, 0.2) 42%, transparent 70%);
   filter: blur(58px);
-}
-.orb--teal {
-  background: radial-gradient(circle, rgba(127, 184, 158, 0.3) 0%, rgba(77, 138, 115, 0.14) 45%, transparent 70%);
-  filter: blur(62px);
-}
-.orb--deep {
-  background: radial-gradient(circle, rgba(58, 99, 136, 0.42) 0%, rgba(46, 79, 109, 0.18) 45%, transparent 68%);
-  filter: blur(66px);
 }
 /* the striation: thin vertical hairlines masked to a soft ellipse, laid over an orb */
 .orb-lines {
@@ -341,17 +343,9 @@ img, svg, canvas { display: block; max-width: 100%; }
   border-right: 1px solid var(--hairline);
   display: flex; flex-direction: column; gap: 14px;
   background: linear-gradient(rgba(232, 154, 93, 0.035), rgba(232, 154, 93, 0.035)), rgba(17, 15, 11, 0.6);
-  position: relative; overflow: hidden;
+  position: relative;
 }
 .mq:last-child { border-right: 0; }
-/* the lamp in the corner — brightens slightly under the cursor */
-.mq::before {
-  content: ""; position: absolute; right: -70px; bottom: -90px; width: 280px; height: 280px;
-  border-radius: 50%; pointer-events: none;
-  background: radial-gradient(circle, rgba(255, 179, 107, 0.5) 0%, rgba(232, 122, 50, 0.22) 45%, transparent 70%);
-  filter: blur(34px); opacity: 0.16; transition: opacity 0.5s ease;
-}
-.mq:hover::before { opacity: 0.3; }
 .mq__k { font-family: var(--mono); font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--amber); }
 .mq h3 { font-size: clamp(21px, 2.2vw, 27px); font-weight: 500; line-height: 1.25; max-width: 17em; }
 .mq p { font-size: 15.5px; line-height: 1.68; color: var(--cream-55); }
@@ -456,14 +450,7 @@ img, svg, canvas { display: block; max-width: 100%; }
 
 /* ============================================================ dialog */
 .dlg { position: fixed; inset: 0; z-index: 100; background: rgba(7, 6, 4, 0.82); display: grid; place-items: center; padding: 20px; }
-.dlg__card { width: min(500px, 100%); background: var(--void-2); border: 1px solid var(--cream-55); padding: clamp(28px, 4vw, 44px); position: relative; overflow: hidden; }
-.dlg__card::before {
-  content: ""; position: absolute; right: -90px; bottom: -110px; width: 300px; height: 300px;
-  border-radius: 50%; pointer-events: none;
-  background: radial-gradient(circle, rgba(255, 179, 107, 0.5) 0%, rgba(232, 122, 50, 0.24) 45%, transparent 70%);
-  filter: blur(38px); opacity: 0.22;
-}
-.dlg__card > * { position: relative; }
+.dlg__card { width: min(500px, 100%); background: var(--void-2); border: 1px solid var(--cream-55); padding: clamp(28px, 4vw, 44px); position: relative; }
 .dlg__close { position: absolute; top: 12px; right: 12px; background: none; border: 1px solid var(--hairline); color: var(--cream-55); font-family: var(--mono); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; padding: 6px 11px; }
 .dlg__close:hover { color: var(--cream); border-color: var(--cream-55); }
 .dlg__eyebrow { font-family: var(--mono); font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--amber); display: flex; align-items: center; gap: 10px; }
@@ -495,15 +482,8 @@ img, svg, canvas { display: block; max-width: 100%; }
   background: linear-gradient(rgba(232, 154, 93, 0.04), rgba(232, 154, 93, 0.04)), rgba(17, 15, 11, 0.7);
   display: grid; grid-template-columns: auto 1fr auto; gap: clamp(22px, 3.5vw, 48px);
   align-items: center; padding: clamp(22px, 3vw, 36px) clamp(22px, 3.2vw, 40px);
-  position: relative; overflow: hidden;
+  position: relative;
 }
-.rband::before {
-  content: ""; position: absolute; left: -80px; top: 50%; width: 280px; height: 280px;
-  margin-top: -140px; border-radius: 50%; pointer-events: none;
-  background: radial-gradient(circle, rgba(255, 179, 107, 0.45) 0%, rgba(232, 122, 50, 0.2) 45%, transparent 70%);
-  filter: blur(36px); opacity: 0.18;
-}
-.rband > * { position: relative; }
 .rband__n { display: flex; flex-direction: column; gap: 4px; }
 .rband__num {
   font-family: var(--mono); font-size: clamp(40px, 5vw, 58px); line-height: 1;
