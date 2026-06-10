@@ -1,6 +1,6 @@
 "use client";
 
-import { Reveal, SectionHead } from "./chrome";
+import { Eyebrow, Reveal } from "./chrome";
 
 const ITEMS: [string, React.ReactNode][] = [
   [
@@ -46,12 +46,21 @@ const ITEMS: [string, React.ReactNode][] = [
 
 export function Faq() {
   return (
-    <section className="section" id="faq">
+    <section className="sec" id="faq">
       <div className="wrap">
-        <SectionHead idx="06" title="Questions" />
+        <div className="sec__head">
+          <Reveal>
+            <Eyebrow>questions</Eyebrow>
+          </Reveal>
+          <Reveal delay={100}>
+            <h2>
+              Asked. <span className="serif-acc">Answered.</span>
+            </h2>
+          </Reveal>
+        </div>
         <div className="faq">
           {ITEMS.map(([q, a], i) => (
-            <Reveal key={q as string} delay={i * 70}>
+            <Reveal key={q as string} delay={i * 60}>
               <details>
                 <summary>{q}</summary>
                 <div className="a">{a}</div>

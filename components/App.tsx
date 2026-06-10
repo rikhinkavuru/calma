@@ -1,13 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { Topbar, Footer } from "./chrome";
+import { Nav, Footer } from "./chrome";
 import { Hero } from "./Hero";
+import { Giant } from "./Giant";
+import { Money } from "./Money";
 import { ClaimSection } from "./ClaimSection";
-import { Method } from "./Method";
-import { Evidence } from "./Evidence";
+import { Banner } from "./Banner";
 import { Verdicts } from "./Verdicts";
+import { Method } from "./Method";
 import { Access } from "./Access";
+import { CircleCta } from "./CircleCta";
 import { Faq } from "./Faq";
 import { RequestDialog } from "./RequestDialog";
 
@@ -17,15 +20,18 @@ export default function App() {
 
   return (
     <>
-      <div className="grain" aria-hidden="true"></div>
-      <Topbar onRequest={openDlg} />
+      <div className="stars" aria-hidden="true"></div>
+      <Nav onRequest={openDlg} />
       <main>
         <Hero onRequest={openDlg} />
+        <Giant />
+        <Money />
         <ClaimSection />
-        <Method />
-        <Evidence />
+        <Banner />
         <Verdicts />
+        <Method />
         <Access onRequest={openDlg} />
+        <CircleCta onRequest={openDlg} />
         <Faq />
       </main>
       <Footer />

@@ -1,76 +1,73 @@
 "use client";
 
-import { Reveal, SectionHead, useInView } from "./chrome";
+import { CropFrame, Eyebrow, Reveal, useInView } from "./chrome";
 
+/* The drift chart, deep-space edition: metallic claim line vs accent re-execution line. */
 export function ClaimSection() {
   const [ref, seen] = useInView<HTMLDivElement>(0.3);
 
   return (
-    <section className="section" id="catch">
+    <section className="sec" id="chart">
       <div className="wrap">
-        <SectionHead
-          idx="01"
-          title="A real catch"
-          sub="An agent backtested a trading strategy and reported the best of a hundred tries. Calma re-ran it on the data it never saw."
-        />
-
-        <div className="claimgrid" ref={ref}>
-          <Reveal dir="left">
-            <div className="chartpanel">
+        <div className="sec__head">
+          <Reveal>
+            <Eyebrow>in-sample vs unseen data</Eyebrow>
+          </Reveal>
+          <Reveal delay={100}>
+            <h2>
+              The mountain was <span className="serif-acc">fitted.</span>
+              <br />
+              The cliff was <span className="serif-acc">real.</span>
+            </h2>
+          </Reveal>
+        </div>
+        <Reveal dir="pop" delay={150}>
+          <div ref={ref}>
+            <CropFrame className="chartwrap">
               <svg
                 className={"chart" + (seen ? " draw" : "")}
-                viewBox="0 0 720 320"
+                viewBox="0 0 920 340"
                 role="img"
                 aria-label="Chart: the claimed +14,698% in-sample equity curve versus the recomputed −32.4% on held-out data"
               >
-                <line className="axis" x1="60" y1="20" x2="60" y2="280" />
-                <line className="axis" x1="60" y1="280" x2="700" y2="280" />
-                <line className="zero" x1="60" y1="250" x2="700" y2="250" />
-                <line className="axis" x1="460" y1="20" x2="460" y2="280" />
+                <defs>
+                  <linearGradient id="metalStroke" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" stopColor="#ffffff" />
+                    <stop offset="1" stopColor="#6f6f7c" />
+                  </linearGradient>
+                </defs>
+                <line className="axis" x1="70" y1="24" x2="70" y2="296" />
+                <line className="axis" x1="70" y1="296" x2="890" y2="296" />
+                <line className="zero" x1="70" y1="262" x2="890" y2="262" />
+                <line className="axis" x1="580" y1="24" x2="580" y2="296" />
 
-                <text className="lbl" x="64" y="54">+14,698% claimed</text>
-                <text className="lbl" x="64" y="245">0%</text>
-                <text className="lbl" x="466" y="30">unseen data →</text>
-                <text className="lbl lbl--flare" x="560" y="240">−32.4% re-executed</text>
+                <text className="lbl" x="76" y="52">+14,698% claimed</text>
+                <text className="lbl" x="76" y="257">0%</text>
+                <text className="lbl" x="588" y="38">unseen data →</text>
+                <text className="lbl lbl--acc" x="704" y="250">−32.4% re-executed</text>
 
                 <polyline
                   className="claimline"
-                  style={{ ["--len" as string]: 560 }}
-                  points="60,250 100,247 140,241 180,236 220,224 260,210 290,196 320,178 350,152 390,118 420,92 460,60"
+                  style={{ ["--len" as string]: 760 }}
+                  points="70,262 130,258 190,251 250,242 310,228 360,210 410,186 460,150 510,106 545,80 580,56"
                 />
                 <polyline
-                  points="460,60 540,46 620,36 700,30"
+                  points="580,56 680,40 790,30 890,24"
                   fill="none"
-                  stroke="var(--ink)"
+                  stroke="#6f6f7c"
                   strokeWidth="1.5"
-                  strokeDasharray="3 6"
-                  opacity="0.3"
+                  strokeDasharray="3 7"
+                  opacity="0.5"
                 />
                 <polyline
                   className="realline"
-                  style={{ ["--len" as string]: 300 }}
-                  points="460,250 490,254 520,248 550,258 580,262 610,257 640,266 670,263 700,268"
+                  style={{ ["--len" as string]: 360 }}
+                  points="580,262 620,267 660,261 700,272 740,276 780,271 820,280 855,277 890,283"
                 />
               </svg>
-            </div>
-          </Reveal>
-
-          <Reveal dir="right" delay={150}>
-            <div className="claimmeta">
-              <div className="big">
-                +14,698% claimed.
-                <br />
-                <em>−32.4%</em> when re-run.
-              </div>
-              <p>
-                The number was rebuilt from the run&apos;s own output files, inside a sandbox, under
-                a calibrated tolerance. The claim collapsed — before any capital moved. Anyone can
-                replay the verdict:
-              </p>
-              <pre className="repro">$ calma replay ./btc-backtest/.calma/run</pre>
-            </div>
-          </Reveal>
-        </div>
+            </CropFrame>
+          </div>
+        </Reveal>
       </div>
     </section>
   );
