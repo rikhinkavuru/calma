@@ -51,17 +51,42 @@ def _safe_join(base, rel):
     return full
 
 
-def _numeric_cols(contract, artifact_path, binding, base):
-    cols_raw = _load_cols(_safe_join(base, artifact_path))
-    # find na_policy per column from the artifact spec
+def _na_policies(contract, artifact_path):
     na = {}
     for a in contract.get("artifacts", []):
         if a["path"] == artifact_path:
             for cname, spec in a.get("columns", {}).items():
                 na[cname] = spec.get("na_policy", "error")
+    return na
+
+
+def _numeric_cols(contract, artifact_path, binding, base, metric_id=None):
+    """Load the bound columns. Two extensions over the M1 loader:
+    - a binding value 'other.csv::col' reads `col` from a SIBLING artifact (join_row_loss,
+      cross-file speedup); the cols dict is keyed by the full 'path::col' string so recipes
+      stay artifact-agnostic.
+    - binding keys named in the recipe manifest's `string_tags` keep RAW (stripped) cell
+      strings instead of floats (group keys, IDs, text predictions, null detection)."""
+    fn = R.get(metric_id) if metric_id else None
+    string_tags = set((fn.manifest.get("string_tags") if fn else []) or [])
+    cache = {}
+
+    def load(path):
+        if path not in cache:
+            cache[path] = _load_cols(_safe_join(base, path))
+        return cache[path]
+
     cols = {}
-    for col_name in binding.values():
-        cols[col_name] = _to_numeric(cols_raw[col_name], na.get(col_name, "error"))
+    for tag, col_name in binding.items():
+        if "::" in str(col_name):
+            art, _, cname = str(col_name).partition("::")
+        else:
+            art, cname = artifact_path, col_name
+        raw = load(art)[cname]
+        if tag in string_tags:
+            cols[col_name] = [str(v).strip() for v in raw]
+        else:
+            cols[col_name] = _to_numeric(raw, _na_policies(contract, art).get(cname, "error"))
     return cols
 
 
@@ -87,12 +112,12 @@ def recompute_contract(contract_path, base=None, k=3):
     base = base or os.path.dirname(os.path.abspath(contract_path))
     out = {"metrics": [], "baselines": []}
     for m in contract.get("metrics", []):
-        cols = _numeric_cols(contract, m["artifact"], m["binding"], base)
+        cols = _numeric_cols(contract, m["artifact"], m["binding"], base, m["metric_id"])
         rec = _run_recipe(m["metric_id"], cols, m["binding"], m.get("convention"), k)
         rec["artifact"] = m["artifact"]
         out["metrics"].append(rec)
     for b in contract.get("baselines", []):
-        cols = _numeric_cols(contract, b["artifact"], b["binding"], base)
+        cols = _numeric_cols(contract, b["artifact"], b["binding"], base, b["metric_id"])
         rec = _run_recipe(b["metric_id"], cols, b["binding"], b.get("convention"), k)
         rec["label"] = b.get("label")
         out["baselines"].append(rec)

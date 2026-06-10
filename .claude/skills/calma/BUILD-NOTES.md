@@ -151,3 +151,42 @@ The largest audit round; one true soundness blocker plus the entire first-contac
   read-only; execution happens in the run step), "signed" -> content-addressed (signing is roadmap),
   spec path fixed. README rewritten to match real commands and real output.
 - 52 new regression checks (test_dx.py). **Total: 236 checks across 12 suites, all green.**
+
+## Recipe expansion to 50 + SOTA validation harness (2026-06-10)
+
+The recipe library grew from 15 to 50, covering Packs 1-4 of the roadmap (the deep quant stats -
+deflated Sharpe, PBO/CSCV, Harvey-Liu, MinBTL - stay out of the skill on purpose; they are the R1
+paid-report engine):
+- **Pack 1, engineering (8):** speedup_ratio, latency_p50/p95/p99, throughput, peak_memory,
+  test_coverage, error_rate.
+- **Pack 2, analytics (9):** column_median, percentile, groupby_aggregate, distinct_count,
+  growth_rate, ratio_share, null_fraction, duplicate_count, join_row_loss.
+- **Pack 3, ML/RAG/LLM (12):** recall_at_k, ndcg_at_k, mrr, top_k_accuracy, exact_match,
+  pass_at_k, macro_f1, micro_f1, pr_auc, log_loss, mcc, ece.
+- **Pack 4, statistics (6):** p_value (Welch/pooled/z), confidence_interval, lift, chi_square,
+  correlation (Pearson/Spearman), effect_size (Cohen/Hedges/Glass).
+
+What made this possible without breaking the determinism rule:
+- **Deterministic transcendental kernels** in numeric.py: dlog/dexp/dlog2 (range-reduction +
+  series under fsum), dlgamma (Lanczos), betainc_reg / gammainc_upper_reg (Lentz continued
+  fractions), derfc, and bisection inverses for t/z critical values. Built ONLY from IEEE
+  correctly-rounded primitives - no platform libm transcendentals in any recipe path, so
+  bit-identical cross-platform, same guarantee as the M1 set. pass_at_k and the chi-square
+  table use exact integer arithmetic before the final float ops.
+- **String-typed columns:** recipe manifests declare `string_tags`; recompute keeps raw cell
+  strings for those bindings (group keys, IDs, text predictions, null detection).
+- **Cross-artifact bindings:** a binding value `left.csv::id` reads from a sibling artifact
+  (join_row_loss, cross-file speedups).
+- **SOTA validation:** calibration/gen_reference_vectors.py generates
+  assets/reference_vectors.json (295 cases) from scikit-learn/SciPy/NumPy + the HumanEval
+  pass@k estimator + the SQuAD normalizer + Guo et al. ECE; tests/test_recipes_sota.py
+  (pure stdlib) re-runs every case through the kernels plus convention parsing, degenerate
+  paths, bit-stability, and a recompute->compare e2e (REFUTED catch included). All 15
+  pre-existing recipes are now also pinned to sklearn/NumPy reference values.
+- **Claim-parser hardening:** the claim-number regex no longer swallows digits glued to metric
+  names ("f1 0.84" parsed 1.0 before; "top-5 accuracy 0.91" parsed -5). ~50 new claim hints
+  (p95, pass@1, ndcg, chi2, MoM, faster, coverage...) with order-sensitive specificity.
+- **Binding grades for new tags:** durations/counts/ranks/flags/HTTP-status columns get
+  independent value-plausibility checks, so true claims on sane columns CONFIRM (not CAVEAT)
+  and fraudulent ones can reach REFUTED.
+- Catalog: references/recipes.md. 711 checks across 13 suites, all green.
