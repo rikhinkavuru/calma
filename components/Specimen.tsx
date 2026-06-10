@@ -11,7 +11,7 @@ const MoneyStack = dynamic(() => import("./MoneyStack").then((m) => m.MoneyStack
 const FACTS = [
   "an agent claimed +14,698%. re-execution found −32.4%.",
   "deloitte refunded AU$440K after unverified AI work shipped.",
-  "the verdict is computed by code. there is nothing to argue with.",
+  "the verdict is computed by code. nothing to argue with.",
 ];
 
 function Typewriter() {
@@ -24,7 +24,7 @@ function Typewriter() {
     }
     const full = FACTS[line];
     if (chars < full.length) {
-      const t = setTimeout(() => setChars((c) => c + 1), 24);
+      const t = setTimeout(() => setChars((c) => c + 1), 26);
       return () => clearTimeout(t);
     }
     const t = setTimeout(() => {
@@ -41,31 +41,20 @@ function Typewriter() {
   );
 }
 
-/* The one deep, mystical band: what's actually at stake. */
-export function Deep() {
+export function Specimen() {
   return (
-    <section className="deep" id="stakes">
-      <div className="wrap">
-        <div>
-          <Reveal>
-            <span className="kicker">Why it matters</span>
-          </Reveal>
-          <Reveal delay={90}>
-            <h2>
-              Money moves on
-              <br />
-              <span className="serif">unchecked</span> numbers.
-            </h2>
-          </Reveal>
-          <Reveal delay={180}>
-            <p className="lead">
-              Allocations, payouts, budgets — capital settles on figures an agent printed, and
-              nobody re-computes them. Calma is the referee the producer can&apos;t own:{" "}
-              <b>it re-runs the work and rebuilds the number itself.</b>
+    <section className="sec" id="stakes">
+      <div className="wrap specimen">
+        <Reveal>
+          <div>
+            <span className="kicker">Specimen — capital at stake</span>
+            <p className="col" style={{ marginTop: 22 }}>
+              Allocations, payouts, budgets — <b>this is what settles on an unchecked figure</b>.
+              Calma is the referee the producer can&apos;t own.
             </p>
-          </Reveal>
-        </div>
-        <Reveal dir="right" delay={140}>
+          </div>
+        </Reveal>
+        <Reveal delay={180}>
           <div className="stage">
             <MoneyStack />
             <span className="stage__hint">hover</span>

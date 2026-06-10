@@ -1,51 +1,45 @@
 "use client";
 
-import { Reveal, useInView } from "./chrome";
+import { Cross, Reveal, useInView } from "./chrome";
 
-/* One concrete story carries the whole pitch. Real numbers from a real run. */
 export function Catch() {
   const [ref, seen] = useInView<HTMLDivElement>(0.3);
 
   return (
-    <section className="sec sec--card" id="catch">
+    <section className="sec" id="catch">
       <div className="wrap">
         <div className="sec__head">
           <Reveal>
-            <span className="kicker">A real catch</span>
+            <span className="kicker">Field report — 001</span>
           </Reveal>
-          <Reveal delay={90}>
-            <h2>
-              The number looked great.
-              <br />
-              <span className="serif">Re-running it didn&apos;t.</span>
-            </h2>
-          </Reveal>
-          <Reveal delay={170}>
-            <p>
-              An AI agent backtested a trading strategy and reported the best of a hundred attempts.
-              Calma re-ran the code on data it had never seen.
-            </p>
+          <Reveal delay={150}>
+            <div className="cascade" style={{ marginTop: 8 }}>
+              <span>The number looked great.</span>
+              <span>Re-running it didn&apos;t.</span>
+            </div>
           </Reveal>
         </div>
 
-        <div className="catchgrid" ref={ref}>
-          <Reveal dir="left">
-            <div className="chartcard">
+        <div className="catch" ref={ref}>
+          <Reveal>
+            <div className="panel">
+              <Cross className="tl" />
+              <Cross className="br" />
               <svg
                 className={"chart" + (seen ? " draw" : "")}
                 viewBox="0 0 860 330"
                 role="img"
-                aria-label="Chart: the claimed +14,698% in-sample curve versus the −32.4% found by re-execution on unseen data"
+                aria-label="Chart: an AI reported +14,698% in-sample; re-execution on unseen data found −32.4%"
               >
                 <line className="axis" x1="64" y1="22" x2="64" y2="288" />
                 <line className="axis" x1="64" y1="288" x2="830" y2="288" />
                 <line className="zero" x1="64" y1="254" x2="830" y2="254" />
                 <line className="axis" x1="540" y1="22" x2="540" y2="288" />
 
-                <text className="lbl" x="70" y="48">+14,698% — as reported</text>
+                <text className="lbl lbl--amber" x="70" y="48">+14,698% — as reported</text>
                 <text className="lbl" x="70" y="249">0%</text>
                 <text className="lbl" x="548" y="36">data the AI never saw →</text>
-                <text className="lbl lbl--blue" x="650" y="242">−32.4% — re-executed</text>
+                <text className="lbl lbl--teal" x="650" y="242">−32.4% — re-executed</text>
 
                 <polyline
                   className="claimline"
@@ -55,8 +49,8 @@ export function Catch() {
                 <polyline
                   points="540,56 640,42 740,32 830,26"
                   fill="none"
-                  stroke="rgba(16,20,27,.3)"
-                  strokeWidth="1.5"
+                  stroke="rgba(233,221,196,.22)"
+                  strokeWidth="1.4"
                   strokeDasharray="3 7"
                 />
                 <polyline
@@ -68,27 +62,31 @@ export function Catch() {
             </div>
           </Reveal>
 
-          <Reveal dir="right" delay={140}>
-            <div className="catchmeta">
-              <div className="figures">
+          <Reveal delay={200}>
+            <div>
+              <p className="col" style={{ marginBottom: 26 }}>
+                An agent backtested a trading strategy and reported{" "}
+                <b>the best of one hundred attempts</b>. Calma re-ran the code on data it had never
+                seen.
+              </p>
+              <div className="figs">
                 <div className="fig">
                   <span className="k">As reported</span>
-                  <span className="v">+14,698%</span>
+                  <span className="v v--amber">+14,698%</span>
                 </div>
                 <div className="fig">
-                  <span className="k">Re-executed on unseen data</span>
-                  <span className="v blue">−32.4%</span>
+                  <span className="k">Re-executed</span>
+                  <span className="v v--teal">−32.4%</span>
                 </div>
                 <div className="fig">
                   <span className="k">Verdict</span>
-                  <span className="v blue">Refuted</span>
+                  <span className="v">Refuted</span>
                 </div>
               </div>
-              <p>
-                The result was rebuilt from the run&apos;s own output files — <b>never taken from
-                the report</b>. Anyone can replay the verdict:
+              <p className="replay">
+                Rebuilt from the run&apos;s own output files — never the report. Replay it:{" "}
+                <b>calma replay ./.calma/run</b>
               </p>
-              <div className="codeline">$ calma replay ./btc-backtest/.calma/run</div>
             </div>
           </Reveal>
         </div>
