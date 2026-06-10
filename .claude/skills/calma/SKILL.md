@@ -34,9 +34,15 @@ returns the prior verdict in milliseconds (`--force` re-executes).
 
 ```
 calma verify <target> "<claim>"     # e.g. calma verify . "accuracy 0.87"  /  "+14,698% backtest"
-calma teardown <target> "<claim>"   # shareable "claimed X -> really Y" card on a break
+calma verify <target> "<claim>" --json                # machine-readable verdict (agents: use this)
+calma verify <target> "<claim>" --check-determinism   # re-execute twice; FLAKY outputs -> INCONCLUSIVE
+calma teardown <target> "<claim>" [--svg card.svg]    # shareable "claimed X -> really Y" card on a break
 calma replay <run_dir>              # re-run a saved verification; exit 0 iff the verdict reproduces
+calma stats <target>                # verification history: counts + recent catches
 ```
+
+Agents: prefer `--json` - it returns `{verdict, clean, confidence, claimed, recomputed, reason, fix,
+cached, run_dir}` so you branch on the verdict without parsing prose.
 
 Claims are natural language: the number is parsed (signs, %, $, commas, k/M/B) and the metric is
 inferred from the words ("accuracy", "AUC", "return", "rows", ...). Pass `--metric` to pin it. A bare

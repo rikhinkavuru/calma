@@ -73,7 +73,7 @@ def _budget(claimed, sampling_se, claimed_precision=None):
 
 def compare(recompute, contract, isolation_tier="tier0", container_present=None,
             determinism_mode="controlled-to-bit", sufficient_k=True, m2_calibrated=False,
-            untrusted=False, killed=False, exit_codes=(0,)):
+            untrusted=False, killed=False, exit_codes=(0,), outputs_unstable=False):
     _load_calibration()
     m2_calibrated = m2_calibrated or bool(_CALIB)
     if container_present is None:
@@ -119,6 +119,7 @@ def compare(recompute, contract, isolation_tier="tier0", container_present=None,
             "claim_confirmed_target": bool(m.get("claim_confirmed")) and bool(m.get("headline")),
             "convention_capped": conv_capped,
             "fraud_multiple_met": bool(gap is not None and gap > FRAUD_M * eff),
+            "outputs_unstable": bool(outputs_unstable),
         }
         label, reason = V.verdict_with_reason(vinputs)
         metrics_out.append({

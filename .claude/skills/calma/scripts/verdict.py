@@ -52,6 +52,7 @@ DEFAULTS = {
     "claim_confirmed_target": False,  # the claim number+metric+units are user-confirmed (REFUTED req.)
     "fraud_multiple_met": False,  # gap exceeds the band by the calibrated fraud-multiple M (decoupled path)
     "convention_capped": False,  # gap explainable by a declared legitimate convention -> cap at CAVEAT
+    "outputs_unstable": False,  # two identical re-executions produced different artifacts (FLAKY)
 }
 
 
@@ -129,6 +130,11 @@ def _decide(vi):
     if any(c != 0 for c in ec):
         return INCONCLUSIVE, ("the re-execution exited non-zero (%s) - the result was not reproduced; "
                               "recompute would read stale artifacts" % ",".join(str(c) for c in ec if c != 0))
+    # G1c - FLAKY: two identical re-executions produced different artifacts. The result does not
+    # reproduce, so neither run's numbers can confirm or refute anything.
+    if vi["outputs_unstable"]:
+        return INCONCLUSIVE, ("outputs differ across identical re-runs (FLAKY) - "
+                              "the result is not reproducible as-is")
     # G2 - degenerate recompute.
     if vi["recompute_degenerate"]:
         return INCONCLUSIVE, "NaN/Inf/degenerate recompute - data-cleaning policy undetermined"

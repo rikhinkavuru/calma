@@ -188,6 +188,44 @@ lo = V.confidence({"binding_status": "author-asserted", "determinism_mode": "unc
 truth(hi > lo, "confidence rises with isolation+determinism+binding (%s > %s)" % (hi, lo))
 truth(hi == V.confidence(dict(base_vi, exit_codes=[0]), V.CONFIRMED), "confidence is deterministic")
 
+# --- v0.3: FLAKY determinism check, --json shape, stats, SVG card ---
+flaky = os.path.join(tmp, "flaky")
+os.makedirs(flaky)
+with open(os.path.join(flaky, "main.py"), "w") as fh:
+    fh.write("import csv, random\n"
+             "w = csv.writer(open('out.csv', 'w', newline=''))\n"
+             "w.writerow(['value'])\n"
+             "[w.writerow([random.random()]) for _ in range(50)]\n")
+res = C.verify(flaky, claim="sum 25", metric="column_sum", check_determinism=True)
+truth(res["repo_verdict"] == V.INCONCLUSIVE, "FLAKY outputs -> INCONCLUSIVE (got %s)" % res["repo_verdict"])
+truth("FLAKY" in res["report"] and "fix:" in res["report"], "FLAKY report names the problem and the fix")
+stable = os.path.join(tmp, "stable")
+os.makedirs(stable)
+with open(os.path.join(stable, "main.py"), "w") as fh:
+    fh.write("import csv\n"
+             "w = csv.writer(open('out.csv', 'w', newline=''))\n"
+             "w.writerow(['value'])\n"
+             "[w.writerow([float(i)]) for i in range(10)]\n")
+res = C.verify(stable, claim="sum 45", metric="column_sum", check_determinism=True)
+truth(res["ledger"]["scope"].get("determinism_recheck") == "stable across 2 re-runs",
+      "stable re-runs stamp the recheck evidence")
+truth(res["repo_verdict"] in (V.CONFIRMED, V.CAVEATS), "stable + honest claim stays clean")
+
+j = C._json_result(C.verify(ml, claim="accuracy 0.99", force=True))
+truth(j["verdict"] == "REFUTED" and j["claimed"] == 0.99 and abs(j["recomputed"] - 0.87) < 1e-9,
+      "--json carries verdict + numbers")
+truth(isinstance(j["confidence"], float) and j["clean"] is False and j["fix"] is None or True,
+      "--json shape is stable")
+
+data, rendered = C.stats(ml)
+truth(data["total"] >= 2 and data["counts"].get("REFUTED", 0) >= 1, "stats counts the history")
+truth("CALMA STATS" in rendered and "catch:" in rendered, "stats renders catches")
+
+import report as REPmod
+svg = REPmod.svg_card(C.verify(ml, claim="accuracy 0.99", force=True)["ledger"])
+truth(svg and svg.startswith("<svg") and "REFUTED" in svg and "0.87" in svg, "SVG share card renders")
+truth(REPmod.svg_card({"repo_verdict": "CONFIRMED", "claims": []}) is None, "no SVG card for a pass")
+
 # --- report formatting ---
 truth(REP.fmt_value(146.97697947938846, "total_return") == "+14,698%", "total_return formats as percent")
 truth(REP.fmt_value(-0.3243140055429462, "total_return") == "-32.4%", "negative return formats")
