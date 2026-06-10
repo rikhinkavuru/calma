@@ -6,9 +6,8 @@ import { useInView } from "./chrome";
 /* The demo: one verification, typed out like a real terminal session.
    When the run finishes, four flowchart lines fan out from a single
    junction on the terminal's edge to boxes that show what happened
-   inside each step. A faint light then circulates through the outlines
-   forever. Each step shares a subtle hue between its terminal line,
-   its connector, and its box. */
+   inside each step. Each step shares a subtle hue between its terminal
+   line and its box. */
 
 type Line = { text: string; cls: string; typed?: boolean; pause: number };
 
@@ -21,43 +20,30 @@ const SCRIPT: Line[] = [
   { text: "  VERDICT: REFUTED — the real number is 0.84", cls: "verdict", pause: 400 },
 ];
 
-const STEPS: { key: string; hue: string; kicker: string; body: ReactNode }[] = [
+const STEPS: { key: string; kicker: string; body: ReactNode }[] = [
   {
     key: "rerun",
-    hue: "rgba(127, 184, 158, 0.55)",
     kicker: "Re-run",
     body: <>The sandbox proves itself before it&apos;s trusted — network blocked, secrets unreadable. Then the work runs again from scratch.</>,
   },
   {
     key: "recompute",
-    hue: "rgba(217, 179, 128, 0.55)",
     kicker: "Recompute",
     body: <>The number is rebuilt from the raw output files. The AI&apos;s report is never trusted — or even read.</>,
   },
   {
     key: "compare",
-    hue: "rgba(122, 156, 189, 0.6)",
     kicker: "Compare",
     body: <>0.87 vs 0.84 is outside the calibrated tolerance — a real break, not hardware noise. Calma never cries wolf.</>,
   },
   {
     key: "verdict",
-    hue: "rgba(232, 154, 93, 0.6)",
     kicker: "Verdict",
     body: <>Decided by a deterministic script, not a model&apos;s opinion. Anyone can replay the whole check with one command.</>,
   },
 ];
 
-type Geom = { w: number; h: number; term: string; conns: string[]; boxes: string[] };
-
-/* terminal outline, starting AT the junction (right edge, mid-height) so the
-   light's lap begins and ends where the connectors leave */
-const termPath = (x: number, y: number, w: number, h: number) =>
-  `M ${x + w} ${y + h / 2} V ${y} H ${x} V ${y + h} H ${x + w} Z`;
-
-/* box outline, starting at its left-center — where the connector arrives */
-const boxPath = (x: number, y: number, w: number, h: number) =>
-  `M ${x} ${y + h / 2} V ${y} H ${x + w} V ${y + h} H ${x} Z`;
+type Geom = { w: number; h: number; conns: string[] };
 
 export function Demo() {
   const [ref, seen] = useInView<HTMLDivElement>(0.35);
@@ -70,41 +56,28 @@ export function Demo() {
   const [lines, setLines] = useState<{ text: string; cls: string }[]>([]);
   const [done, setDone] = useState(false);
   const [connected, setConnected] = useState(0);
-  const [live, setLive] = useState(false);
   const [geom, setGeom] = useState<Geom | null>(null);
 
   const measure = useCallback(() => {
     const c = containerRef.current;
     const t = termRef.current;
     if (!c || !t) return;
-    const cr = c.getBoundingClientRect();
-    const tr = t.getBoundingClientRect();
-    if (tr.width === 0) return;
-    /* light paths sit on the 1px border's centerline (inset 0.5), so the
-       light reads as the existing outline glowing — not a line on top */
-    const inset = 0.5;
-    const jx = tr.right - cr.left - inset;
-    const jy = tr.top - cr.top + tr.height / 2;
+    if (t.offsetWidth === 0) return;
+    /* offsetLeft/offsetTop are layout positions — they ignore the reveal
+       transform on the boxes, so the endpoints are where the boxes LAND,
+       not where they start. (getBoundingClientRect included the 14px
+       slide-in offset, which is what made curves end inside the boxes.) */
+    const jx = t.offsetLeft + t.offsetWidth;
+    const jy = t.offsetTop + t.offsetHeight / 2;
     const conns: string[] = [];
-    const boxes: string[] = [];
     boxRefs.current.forEach((b) => {
       if (!b) return;
-      const br = b.getBoundingClientRect();
-      const bx = br.left - cr.left; /* the border's outer edge — touch, never cross */
-      const by = br.top - cr.top + br.height / 2;
+      const bx = b.offsetLeft - 0.5; /* the border's outer edge — touch, never cross */
+      const by = b.offsetTop + b.offsetHeight / 2;
       const mx = jx + (bx - jx) * 0.5;
       conns.push(`M ${jx} ${jy} C ${mx} ${jy}, ${mx} ${by}, ${bx} ${by}`);
-      boxes.push(
-        boxPath(br.left - cr.left + inset, br.top - cr.top + inset, br.width - 1, br.height - 1)
-      );
     });
-    setGeom({
-      w: cr.width,
-      h: cr.height,
-      term: termPath(tr.left - cr.left + inset, tr.top - cr.top + inset, tr.width - 1, tr.height - 1),
-      conns,
-      boxes,
-    });
+    setGeom({ w: c.offsetWidth, h: c.offsetHeight, conns });
   }, []);
 
   useEffect(() => {
@@ -122,13 +95,11 @@ export function Demo() {
     timers.current = [];
     setDone(false);
     setConnected(0);
-    setLive(false);
 
     if (reduced) {
       setLines(SCRIPT.map(({ text, cls }) => ({ text, cls })));
       setDone(true);
       setConnected(STEPS.length);
-      setLive(true);
       requestAnimationFrame(() => requestAnimationFrame(measure));
       return;
     }
@@ -166,7 +137,7 @@ export function Demo() {
     });
 
     /* terminal done → wait for the final layout (prompt line included) →
-       measure → fan the connectors out one by one → light up */
+       measure → fan the connectors out one by one */
     later(() => {
       setDone(true);
       requestAnimationFrame(() => requestAnimationFrame(measure));
@@ -175,8 +146,6 @@ export function Demo() {
     STEPS.forEach((_, i) => {
       later(() => setConnected(i + 1), at + i * 380);
     });
-    at += STEPS.length * 380 + 600;
-    later(() => setLive(true), at);
 
     return () => {
       timers.current.forEach(clearTimeout);
@@ -185,7 +154,7 @@ export function Demo() {
   }, [seen, run, measure]);
 
   return (
-    <div className={"demo" + (live ? " demo--live" : "")} ref={(el) => { containerRef.current = el; ref.current = el; }}>
+    <div className="demo" ref={(el) => { containerRef.current = el; ref.current = el; }}>
       {geom && (
         <svg
           className="demo__net"
@@ -194,36 +163,14 @@ export function Demo() {
           height={geom.h}
           aria-hidden="true"
         >
-          {/* ONE light, one journey: a lap of the terminal outline, out through
-              the junction, splitting along the four curves, a lap around each
-              box — then again, forever. The phases share one 9s cycle. */}
-          <path
-            className="net__light net__light--term"
-            d={geom.term}
-            pathLength={1}
-            stroke="rgba(233, 221, 196, 0.85)"
-          />
+          {/* the connectors, each drawn from the junction when its step lands */}
           {STEPS.map((s, i) => (
-            <g key={s.key}>
-              {/* the connector, drawn from the junction when its step lands */}
-              <path
-                className={"net__line" + (i < connected ? " is-on" : "")}
-                d={geom.conns[i]}
-                pathLength={1}
-              />
-              <path
-                className="net__light net__light--conn"
-                d={geom.conns[i]}
-                pathLength={1}
-                stroke={s.hue}
-              />
-              <path
-                className="net__light net__light--box"
-                d={geom.boxes[i]}
-                pathLength={1}
-                stroke={s.hue}
-              />
-            </g>
+            <path
+              key={s.key}
+              className={"net__line" + (i < connected ? " is-on" : "")}
+              d={geom.conns[i]}
+              pathLength={1}
+            />
           ))}
         </svg>
       )}
