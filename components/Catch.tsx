@@ -7,7 +7,9 @@ export function Problem() {
   const [ref, seen] = useInView<HTMLDivElement>(0.3);
 
   return (
-    <section className="sec" id="problem">
+    <section className="sec sec--orbed" id="problem">
+      <i className="orb orb--deep" aria-hidden="true"
+         style={{ width: 620, height: 620, left: -200, bottom: -240 }} />
       <div className="wrap">
         <div className="sec__head">
           <Reveal>
