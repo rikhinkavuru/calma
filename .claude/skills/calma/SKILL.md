@@ -5,12 +5,13 @@ description: >-
   headline number from raw outputs - then prove or break the claim. Use to check what an AI agent just
   produced (a metric, a backtest, a cleaned dataset, a "tests pass"), or as an inline guardrail an agent
   calls while it works. Recompute-and-diff against the claim + trivial-baseline edge, across domains and languages:
-  59 SOTA-validated recipes - trading (Sharpe/return/drawdown), classification (accuracy/AUC/F1/macro-micro-F1/
+  118 SOTA-validated recipes - trading (Sharpe/return/drawdown), classification (accuracy/AUC/F1/macro-micro-F1/
   PR-AUC/log-loss/MCC/ECE/Brier), regression (RMSE/MAE/R2), analytics (sum/mean/median/percentile/groupby/
   distinct/nulls/duplicates/growth/share/join-loss), engineering ("2.3x faster"/latency p50-p99/throughput/
   peak-memory/coverage/error-rate), retrieval+LLM evals (recall@k/NDCG/MRR/top-k/exact-match/pass@k),
-  statistics (p-value/CI/lift/chi-square/correlation/effect-size), finance (CAGR/NPV/IRR/churn/margin/
-  reconciliation), and forecasting (MAPE/sMAPE/MASE/pinball). Runs Python/R/Julia/C++/Rust as a black box.
+  statistics (p-value/CI/lift/chi-square/Mann-Whitney/ANOVA/Fisher-exact/correlation/effect-size), quant risk
+  (Sortino/Calmar/VaR/CVaR/beta/alpha/IR), finance (CAGR/NPV/IRR/churn/margin/reconciliation), and forecasting
+  (MAPE/sMAPE/WAPE/MASE/pinball). Runs Python/R/Julia/C++/Rust as a black box.
   Deeper validity checks - leakage re-run, deflated-Sharpe/overfitting, realism deflators,
   contamination - are named roadmap (M3-M4), not yet delivered. Triggers: "verify", "is this result real", "did the number reproduce", "recompute this metric",
   "check this backtest/AUC/accuracy/p95/speedup/pass@k", "I processed N rows", "the total is", "the experiment was significant", "before I report this".
@@ -92,6 +93,6 @@ with the fix.
 7. **Any "validity layer / five families / language-agnostic" claim carries the installed-milestone gate.**
 
 Build status + what is real vs deferred: `BUILD-NOTES.md`. Script I/O contract:
-`references/script-interfaces.md`. The full 59-recipe catalog (binding tags, conventions, data
+`references/script-interfaces.md`. The full 118-recipe catalog (binding tags, conventions, data
 layouts, reference implementations each is validated against): `references/recipes.md`. Full spec
 (repo checkout only, not shipped with the skill folder): `docs/internal/calma-skill-blueprint.md`.

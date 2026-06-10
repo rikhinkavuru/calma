@@ -419,6 +419,251 @@ for q in (0.1, 0.5, 0.9):
     case("pinball_q%g" % q, "pinball", {"pred": f_pred, "actual": f_actual, "q": q},
          skm.mean_pinball_loss(f_actual, f_pred, alpha=q), atol=1e-13)
 
+# ============================ Pack 7 - quant risk & relative performance ============================
+
+r = np.array(rets)
+case("volatility", "volatility", {"rets": rets, "periods": 252},
+     np.std(r, ddof=1) * np.sqrt(252.0), atol=1e-12)
+dd2 = float(np.mean(np.minimum(r, 0.0) ** 2))
+case("downside_dev", "downside_deviation", {"rets": rets, "periods": 252},
+     np.sqrt(dd2) * np.sqrt(252.0), atol=1e-12)
+case("sortino", "sortino", {"rets": rets, "periods": 252},
+     np.mean(r) / np.sqrt(dd2) * np.sqrt(252.0), atol=1e-10)
+eqc = np.cumprod(1.0 + r)
+mdd_ref = float(np.min(eqc / np.maximum.accumulate(eqc) - 1.0))
+ann_ref = float(np.prod(1.0 + r) ** (252.0 / len(r)) - 1.0)
+case("calmar", "calmar", {"rets": rets, "periods": 252}, ann_ref / abs(mdd_ref), atol=1e-10)
+case("var_95", "value_at_risk", {"rets": rets, "level": 0.95},
+     -np.quantile(r, 0.05), atol=1e-12)
+case("var_99", "value_at_risk", {"rets": rets, "level": 0.99},
+     -np.quantile(r, 0.01), atol=1e-12)
+tail = r[r <= np.quantile(r, 0.05)]
+case("cvar_95", "cvar", {"rets": rets, "level": 0.95}, -np.mean(tail), atol=1e-13)
+case("win_rate", "win_rate", {"rets": rets}, np.count_nonzero(r > 0) / len(r))
+case("profit_factor", "profit_factor", {"rets": rets},
+     np.sum(r[r > 0]) / -np.sum(r[r < 0]), atol=1e-12)
+case("omega_0", "omega_ratio", {"rets": rets, "threshold": 0.0},
+     np.sum(np.maximum(r, 0)) / np.sum(np.maximum(-r, 0)), atol=1e-12)
+case("omega_001", "omega_ratio", {"rets": rets, "threshold": 0.001},
+     np.sum(np.maximum(r - 0.001, 0)) / np.sum(np.maximum(0.001 - r, 0)), atol=1e-12)
+
+bench = [0.6 * x + e for x, e in zip(rets, uniforms(50, 252, -0.012, 0.014))]
+bv = np.array(bench)
+beta_ref = float(np.cov(r, bv, ddof=1)[0, 1] / np.var(bv, ddof=1))
+case("beta", "beta", {"rets": rets, "bench": bench}, beta_ref, atol=1e-12)
+case("alpha", "alpha", {"rets": rets, "bench": bench, "periods": 252},
+     (np.mean(r) - beta_ref * np.mean(bv)) * 252.0, atol=1e-11)
+act = r - bv
+case("tracking_error", "tracking_error", {"rets": rets, "bench": bench, "periods": 252},
+     np.std(act, ddof=1) * np.sqrt(252.0), atol=1e-12)
+case("information_ratio", "information_ratio", {"rets": rets, "bench": bench, "periods": 252},
+     np.mean(act) / np.std(act, ddof=1) * np.sqrt(252.0), atol=1e-10)
+
+# ============================ Pack 8 - classification & regression depth II ============================
+
+case("balanced_accuracy", "balanced_accuracy", {"preds": hard, "labels": labels},
+     skm.balanced_accuracy_score(labels, hard), atol=1e-12)
+case("balanced_accuracy_mc", "balanced_accuracy",
+     {"preds": [float(p) for p in mc_preds], "labels": [float(y) for y in mc_labels]},
+     skm.balanced_accuracy_score(mc_labels, mc_preds), atol=1e-12)
+case("cohen_kappa_mc", "cohen_kappa",
+     {"preds": [float(p) for p in mc_preds], "labels": [float(y) for y in mc_labels]},
+     skm.cohen_kappa_score(mc_labels, mc_preds), atol=1e-12)
+tn_ = sum(1 for p, y in zip(hard, labels) if p == 0 and y == 0)
+fp_ = sum(1 for p, y in zip(hard, labels) if p == 1 and y == 0)
+case("specificity", "specificity", {"preds": hard, "labels": labels}, tn_ / (tn_ + fp_))
+case("fbeta_2", "fbeta", {"preds": hard, "labels": labels, "beta": 2.0},
+     skm.fbeta_score(labels, hard, beta=2.0), atol=1e-12)
+case("fbeta_05", "fbeta", {"preds": hard, "labels": labels, "beta": 0.5},
+     skm.fbeta_score(labels, hard, beta=0.5), atol=1e-12)
+case("jaccard", "jaccard", {"preds": hard, "labels": labels},
+     skm.jaccard_score(labels, hard), atol=1e-12)
+case("weighted_f1", "weighted_f1",
+     {"preds": [float(p) for p in mc_preds], "labels": [float(y) for y in mc_labels]},
+     skm.f1_score(mc_labels, mc_preds, average="weighted", zero_division=0), atol=1e-12)
+pos_scores = [s for s, y in zip(scores, labels) if y == 1]
+neg_scores = [s for s, y in zip(scores, labels) if y == 0]
+case("ks_statistic", "ks_statistic", {"scores": scores, "labels": labels},
+     stats.ks_2samp(pos_scores, neg_scores).statistic, atol=1e-12)
+case("gini_norm", "gini_norm", {"scores": scores, "labels": labels},
+     2.0 * skm.roc_auc_score(labels, scores) - 1.0, atol=1e-11)
+
+m_actual = uniforms(51, 200, 5.0, 300.0)
+m_pred = [a * (1.0 + e) for a, e in zip(m_actual, uniforms(52, 200, -0.25, 0.25))]
+case("msle", "msle", {"pred": m_pred, "actual": m_actual, "root": False},
+     skm.mean_squared_log_error(m_actual, m_pred), atol=1e-12)
+case("rmsle", "msle", {"pred": m_pred, "actual": m_actual, "root": True},
+     np.sqrt(skm.mean_squared_log_error(m_actual, m_pred)), atol=1e-12)
+case("medae", "medae", {"pred": pred, "actual": target},
+     skm.median_absolute_error(target, pred), atol=1e-12)
+case("max_error", "max_error", {"pred": pred, "actual": target},
+     skm.max_error(target, pred), atol=1e-12)
+case("explained_variance", "explained_variance", {"pred": pred, "actual": target},
+     skm.explained_variance_score(target, pred), atol=1e-12)
+case("wape", "wape", {"pred": f_pred, "actual": f_actual},
+     np.sum(np.abs(np.array(f_pred) - np.array(f_actual))) / np.sum(np.abs(np.array(f_actual))),
+     atol=1e-13)
+case("forecast_bias", "forecast_bias", {"pred": f_pred, "actual": f_actual},
+     (np.sum(f_pred) - np.sum(f_actual)) / np.sum(f_actual), atol=1e-13)
+r2_ref = skm.r2_score(target, pred)
+n_r = len(target)
+case("adjusted_r2_p8", "adjusted_r2", {"pred": pred, "actual": target, "p": 8},
+     1.0 - (1.0 - r2_ref) * (n_r - 1) / (n_r - 8 - 1), atol=1e-12)
+rmse_ref = np.sqrt(skm.mean_squared_error(target, pred))
+case("nrmse_mean", "nrmse", {"pred": pred, "actual": target, "mode": "mean"},
+     rmse_ref / np.mean(target), atol=1e-12)
+case("nrmse_range", "nrmse", {"pred": pred, "actual": target, "mode": "range"},
+     rmse_ref / (np.max(target) - np.min(target)), atol=1e-12)
+from statsmodels.stats.stattools import durbin_watson as sm_dw  # noqa: E402
+resid = np.array(target) - np.array(pred)
+case("durbin_watson", "durbin_watson", {"pred": pred, "actual": target},
+     sm_dw(resid), atol=1e-12)
+
+# ============================ Pack 9 - analytics & engineering depth II ============================
+
+case("column_min", "column_min", {"xs": vals}, np.min(np.array(vals)))
+case("column_max", "column_max", {"xs": vals}, np.max(np.array(vals)))
+case("column_std", "column_std", {"xs": vals, "ddof": 1}, np.std(np.array(vals), ddof=1), atol=1e-11)
+case("column_std_ddof0", "column_std", {"xs": vals, "ddof": 0}, np.std(np.array(vals)), atol=1e-11)
+case("iqr", "iqr", {"xs": vals}, stats.iqr(np.array(vals)), atol=1e-10)
+q1_, q3_ = np.quantile(np.array(vals), [0.25, 0.75])
+fence = 1.5 * (q3_ - q1_)
+case("outlier_count", "outlier_count", {"xs": vals, "k": 1.5},
+     float(np.count_nonzero((np.array(vals) < q1_ - fence) | (np.array(vals) > q3_ + fence))))
+id_counts = {}
+for s_ in raw_ids:
+    id_counts[s_.strip()] = id_counts.get(s_.strip(), 0) + 1
+case("mode_share", "mode_share", {"raw": raw_ids}, max(id_counts.values()) / len(raw_ids))
+amounts_arr = np.sort(np.array(amounts))
+n_a = len(amounts_arr)
+gini_ref = float(np.sum((2 * np.arange(1, n_a + 1) - n_a - 1) * amounts_arr) / (n_a * np.sum(amounts_arr)))
+case("gini_coefficient", "gini_coefficient", {"xs": amounts}, gini_ref, atol=1e-12)
+shares = np.array(amounts) / np.sum(amounts)
+case("hhi", "hhi", {"xs": amounts}, float(np.sum(shares ** 2)), atol=1e-13)
+case("entropy_bits", "entropy", {"raw": raw_ids, "base": "bits"},
+     stats.entropy(list(id_counts.values()), base=2), atol=1e-12)
+case("entropy_nats", "entropy", {"raw": raw_ids, "base": "nats"},
+     stats.entropy(list(id_counts.values())), atol=1e-12)
+
+case("latency_p90", "quantile", {"xs": lat, "q": 0.90}, np.quantile(np.array(lat), 0.90), atol=1e-10)
+lat_arr = np.array(lat)
+t_ap = 120.0
+apdex_ref = (np.count_nonzero(lat_arr <= t_ap) + np.count_nonzero((lat_arr > t_ap) & (lat_arr <= 4 * t_ap)) / 2.0) / len(lat_arr)
+case("apdex_t120", "apdex", {"durs": lat, "t": t_ap}, apdex_ref)
+up_flags = [0.0 if u < 0.0008 else 1.0 for u in uniforms(53, 5000)]
+case("uptime", "ratio_share", {"flags": up_flags}, np.mean(np.array(up_flags)))
+
+# ============================ Pack 10 - statistical tests II ============================
+
+ta = [round(v, 1) for v in sa]   # 1dp -> ties, forcing the tie-corrected asymptotic path
+tb = [round(v, 1) for v in sb]
+case("mann_whitney_p", "mann_whitney_p", {"a": ta, "b": tb},
+     stats.mannwhitneyu(ta, tb, alternative="two-sided", method="asymptotic").pvalue,
+     atol=1e-12, rtol=1e-10)
+# the classical Kolmogorov asymptotic (kstwobign): the textbook two-sample formula;
+# scipy's method='asymp' switched to the finite-n kstwo refinement in 1.5+, so the
+# recipe documents and validates the classical limit explicitly
+ks_d_ref = stats.ks_2samp(sa, sb).statistic
+en_ref = np.sqrt(len(sa) * len(sb) / (len(sa) + len(sb)))
+case("ks_p", "ks_p", {"a": sa, "b": sb}, stats.kstwobign.sf(en_ref * ks_d_ref),
+     atol=1e-12, rtol=1e-9)
+buckets_ref = {}
+for g_, v_ in zip(regions, amounts):
+    buckets_ref.setdefault(g_, []).append(v_)
+f_res = stats.f_oneway(*buckets_ref.values())
+case("anova_p", "anova", {"groups": regions, "values": amounts, "output": "p"},
+     f_res.pvalue, atol=1e-13, rtol=1e-10)
+case("anova_f", "anova", {"groups": regions, "values": amounts, "output": "statistic"},
+     f_res.statistic, atol=1e-10)
+from statsmodels.stats.proportion import proportions_ztest  # noqa: E402
+x1 = sum(1 for v in conv_a if v != 0)
+x2 = sum(1 for v in conv_b if v != 0)
+_, pz = proportions_ztest([x1, x2], [len(conv_a), len(conv_b)])
+case("proportion_z_p", "proportion_z_p", {"a": conv_a, "b": conv_b}, pz, atol=1e-13, rtol=1e-10)
+fe_or, fe_p = stats.fisher_exact(t2)
+case("fisher_exact_p", "fisher_exact_p", {"groups": g2, "outcomes": o2}, fe_p,
+     atol=1e-12, rtol=1e-9)
+case("odds_ratio", "odds_ratio_2x2", {"groups": g2, "outcomes": o2, "haldane": False},
+     fe_or, atol=1e-12)
+rr_ref = (t2[0][0] / (t2[0][0] + t2[0][1])) / (t2[1][0] / (t2[1][0] + t2[1][1]))
+case("relative_risk", "relative_risk_2x2", {"groups": g2, "outcomes": o2}, rr_ref, atol=1e-12)
+chi2_nc = stats.chi2_contingency(t2, correction=False).statistic
+case("cramers_v_2x2", "cramers_v", {"groups": g2, "outcomes": o2},
+     np.sqrt(chi2_nc / (len(g2) * 1)), atol=1e-11)
+chi3_nc = stats.chi2_contingency(t3, correction=False).statistic
+case("cramers_v_3x3", "cramers_v", {"groups": g3, "outcomes": o3},
+     np.sqrt(chi3_nc / (len(g3) * 2)), atol=1e-11)
+case("skewness", "skewness", {"xs": rets}, stats.skew(np.array(rets)), atol=1e-12)
+case("kurtosis", "kurtosis", {"xs": rets}, stats.kurtosis(np.array(rets)), atol=1e-12)
+jb_res = stats.jarque_bera(np.array(rets))
+case("jarque_bera_p", "jarque_bera", {"xs": rets, "output": "p"}, jb_res.pvalue,
+     atol=1e-13, rtol=1e-9)
+case("jarque_bera_stat", "jarque_bera", {"xs": rets, "output": "statistic"},
+     jb_res.statistic, atol=1e-10)
+from statsmodels.tsa.stattools import acf as sm_acf  # noqa: E402
+acf_ref = sm_acf(np.array(f_actual), nlags=3, adjusted=False, fft=False)
+case("acf_lag1", "autocorrelation", {"xs": f_actual, "lag": 1}, acf_ref[1], atol=1e-12)
+case("acf_lag3", "autocorrelation", {"xs": f_actual, "lag": 3}, acf_ref[3], atol=1e-12)
+
+# ============================ Pack 11 - retrieval / LLM evals II ============================
+
+
+def ref_precision_at_k(k):
+    per = {}
+    for q, rk, rel in zip(queries, ranks, rels_bin):
+        per.setdefault(q, []).append((rk, rel))
+    return float(np.mean([sum(1 for _, rel in sorted(rows)[:k] if rel > 0) / k
+                          for rows in per.values()]))
+
+
+def ref_map_at_k(k):
+    per, out = {}, []
+    for q, rk, rel in zip(queries, ranks, rels_bin):
+        per.setdefault(q, []).append((rk, rel))
+    for rows in per.values():
+        rows = sorted(rows)
+        total_rel = sum(1 for _, rel in rows if rel > 0)
+        if total_rel == 0:
+            continue
+        hits, terms = 0, []
+        for i, (_, rel) in enumerate(rows[:k], 1):
+            if rel > 0:
+                hits += 1
+                terms.append(hits / i)
+        out.append(sum(terms) / min(total_rel, k))
+    return float(np.mean(out))
+
+
+case("precision_at_5", "precision_at_k", dict(RETR, k=5), ref_precision_at_k(5), atol=1e-12)
+case("precision_at_10", "precision_at_k", dict(RETR, k=10), ref_precision_at_k(10), atol=1e-12)
+case("map_at_5", "map_at_k", dict(RETR, k=5), ref_map_at_k(5), atol=1e-12)
+case("map_at_10", "map_at_k", dict(RETR, k=10), ref_map_at_k(10), atol=1e-12)
+
+logprobs = [-(0.2 + u * 4.0) for u in uniforms(54, 600)]
+case("perplexity", "perplexity", {"logprobs": logprobs},
+     np.exp(-np.mean(np.array(logprobs))), atol=1e-10, rtol=1e-12)
+
+import jiwer  # noqa: E402
+
+VOCAB = ["the", "model", "ran", "fast", "on", "data", "with", "errors", "loss", "clean",
+         "tokens", "noise", "result", "good", "bad", "trace"]
+wer_refs, wer_hyps = [], []
+for i in range(40):
+    us = uniforms(300 + i, 12)
+    n_words = 5 + int(us[0] * 6)
+    ref_words = [VOCAB[int(us[j + 1] * 16) % 16] for j in range(n_words)]
+    hyp_words = list(ref_words)
+    if us[7] < 0.6 and hyp_words:
+        hyp_words[int(us[8] * len(hyp_words))] = VOCAB[int(us[9] * 16) % 16]   # substitution
+    if us[10] < 0.3 and len(hyp_words) > 1:
+        del hyp_words[int(us[11] * len(hyp_words))]                            # deletion
+    wer_refs.append(" ".join(ref_words))
+    wer_hyps.append(" ".join(hyp_words))
+case("wer", "wer", {"preds": wer_hyps, "refs": wer_refs, "char_level": False},
+     jiwer.wer(wer_refs, wer_hyps), atol=1e-12)
+case("cer", "wer", {"preds": wer_hyps, "refs": wer_refs, "char_level": True},
+     jiwer.cer(wer_refs, wer_hyps), atol=1e-12)
+
 # ============================ special-function kernels ============================
 
 for x in (1e-300, 1e-12, 0.1, 0.5, 1.0, 1.5, 2.0, 2.718281828459045, 10.0, 1e5, 1e150, 1e300):

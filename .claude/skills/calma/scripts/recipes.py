@@ -581,3 +581,450 @@ def pinball_loss(cols, binding, convention=None):
     q = _conv_float(convention, "q", 0.5)
     val = N.pinball(cols[binding["prediction"]], cols[binding["target"]], q)
     return _result(val, {"n": len(cols[binding["target"]]), "q": q})
+
+
+# ======================================================================================
+# Pack 7 - quant risk & relative performance
+# ======================================================================================
+
+def _periods(convention, binding, default=252):
+    return _conv_int(convention, "periods", int(binding.get("periods") or default))
+
+
+@register("volatility", family="quant", required_tags=["return"], periodicity_param="periods",
+          set_maturity="reviewed", accepted_conventions=["252", "365", "52"])
+def volatility(cols, binding, convention=None):
+    rets = cols[binding["return"]]
+    p = _periods(convention, binding)
+    return _result(N.volatility(rets, p), {"n": len(rets), "periods": p})
+
+
+@register("downside_deviation", family="quant", required_tags=["return"], set_maturity="reviewed",
+          accepted_conventions=["252", "365", "52"])
+def downside_deviation(cols, binding, convention=None):
+    rets = cols[binding["return"]]
+    p = _periods(convention, binding)
+    return _result(N.downside_deviation(rets, p), {"n": len(rets), "periods": p})
+
+
+@register("sortino", family="quant", required_tags=["return"], set_maturity="reviewed",
+          accepted_conventions=["252", "365", "52"])
+def sortino(cols, binding, convention=None):
+    rets = cols[binding["return"]]
+    p = _periods(convention, binding)
+    return _result(N.sortino(rets, p), {"n": len(rets), "periods": p, "target": 0.0})
+
+
+@register("calmar", family="quant", required_tags=["return"], set_maturity="reviewed",
+          accepted_conventions=["252", "365", "52"])
+def calmar(cols, binding, convention=None):
+    rets = cols[binding["return"]]
+    p = _periods(convention, binding)
+    return _result(N.calmar(rets, p), {"n": len(rets), "periods": p}, path_dependent=True)
+
+
+@register("value_at_risk", family="quant", required_tags=["return"], set_maturity="reviewed",
+          accepted_conventions=["p95", "p99"])
+def value_at_risk(cols, binding, convention=None):
+    rets = cols[binding["return"]]
+    level = _conv_q(convention) if convention else 0.95
+    return _result(N.value_at_risk(rets, level), {"n": len(rets), "level": level, "sign": "loss-positive"})
+
+
+@register("cvar", family="quant", required_tags=["return"], set_maturity="reviewed",
+          accepted_conventions=["p95", "p99"])
+def cvar(cols, binding, convention=None):
+    rets = cols[binding["return"]]
+    level = _conv_q(convention) if convention else 0.95
+    return _result(N.cvar(rets, level), {"n": len(rets), "level": level, "sign": "loss-positive"})
+
+
+@register("win_rate", family="quant", required_tags=["return"], set_maturity="reviewed")
+def win_rate(cols, binding, convention=None):
+    rets = cols[binding["return"]]
+    return _result(N.win_rate(rets), {"n": len(rets)})
+
+
+@register("profit_factor", family="quant", required_tags=["return"], set_maturity="reviewed")
+def profit_factor(cols, binding, convention=None):
+    rets = cols[binding["return"]]
+    return _result(N.profit_factor(rets), {"n": len(rets)})
+
+
+@register("omega_ratio", family="quant", required_tags=["return"], set_maturity="reviewed",
+          accepted_conventions=["threshold=<frac>"])
+def omega_ratio(cols, binding, convention=None):
+    rets = cols[binding["return"]]
+    th = _conv_float(convention, "threshold", 0.0)
+    return _result(N.omega_ratio(rets, th), {"n": len(rets), "threshold": th})
+
+
+@register("beta", family="quant", required_tags=["return", "benchmark"], set_maturity="reviewed")
+def beta(cols, binding, convention=None):
+    rets, bench = cols[binding["return"]], cols[binding["benchmark"]]
+    return _result(N.beta(rets, bench), {"n": len(rets)})
+
+
+@register("alpha", family="quant", required_tags=["return", "benchmark"], set_maturity="reviewed",
+          accepted_conventions=["252", "365", "52"])
+def alpha(cols, binding, convention=None):
+    rets, bench = cols[binding["return"]], cols[binding["benchmark"]]
+    p = _periods(convention, binding)
+    return _result(N.alpha(rets, bench, p), {"n": len(rets), "periods": p, "rf": 0.0})
+
+
+@register("information_ratio", family="quant", required_tags=["return", "benchmark"],
+          set_maturity="reviewed", accepted_conventions=["252", "365", "52"])
+def information_ratio(cols, binding, convention=None):
+    rets, bench = cols[binding["return"]], cols[binding["benchmark"]]
+    p = _periods(convention, binding)
+    return _result(N.information_ratio(rets, bench, p), {"n": len(rets), "periods": p})
+
+
+@register("tracking_error", family="quant", required_tags=["return", "benchmark"],
+          set_maturity="reviewed", accepted_conventions=["252", "365", "52"])
+def tracking_error(cols, binding, convention=None):
+    rets, bench = cols[binding["return"]], cols[binding["benchmark"]]
+    p = _periods(convention, binding)
+    return _result(N.tracking_error(rets, bench, p), {"n": len(rets), "periods": p})
+
+
+# ======================================================================================
+# Pack 8 - classification & regression depth II
+# ======================================================================================
+
+@register("balanced_accuracy", family="classification", required_tags=["prediction", "label"],
+          set_maturity="reviewed")
+def balanced_accuracy(cols, binding, convention=None):
+    return _result(N.balanced_accuracy(cols[binding["prediction"]], cols[binding["label"]]),
+                   {"n": len(cols[binding["label"]])})
+
+
+@register("cohen_kappa", family="classification", required_tags=["prediction", "label"],
+          set_maturity="reviewed")
+def cohen_kappa(cols, binding, convention=None):
+    return _result(N.cohen_kappa(cols[binding["prediction"]], cols[binding["label"]]),
+                   {"n": len(cols[binding["label"]])})
+
+
+@register("specificity", family="classification", required_tags=["prediction", "label"],
+          set_maturity="reviewed")
+def specificity(cols, binding, convention=None):
+    return _result(N.specificity(cols[binding["prediction"]], cols[binding["label"]]),
+                   {"n": len(cols[binding["label"]])})
+
+
+@register("fbeta", family="classification", required_tags=["prediction", "label"],
+          set_maturity="reviewed", accepted_conventions=["beta=<v>"])
+def fbeta(cols, binding, convention=None):
+    b = _conv_float(convention, "beta", 1.0)
+    return _result(N.fbeta(cols[binding["prediction"]], cols[binding["label"]], b),
+                   {"n": len(cols[binding["label"]]), "beta": b})
+
+
+@register("jaccard", family="classification", required_tags=["prediction", "label"],
+          set_maturity="reviewed")
+def jaccard(cols, binding, convention=None):
+    return _result(N.jaccard(cols[binding["prediction"]], cols[binding["label"]]),
+                   {"n": len(cols[binding["label"]])})
+
+
+@register("weighted_f1", family="classification", required_tags=["prediction", "label"],
+          set_maturity="reviewed")
+def weighted_f1(cols, binding, convention=None):
+    return _result(N.weighted_f1(cols[binding["prediction"]], cols[binding["label"]]),
+                   {"n": len(cols[binding["label"]])})
+
+
+@register("ks_statistic", family="classification", required_tags=["score", "label"],
+          set_maturity="reviewed")
+def ks_statistic(cols, binding, convention=None):
+    return _result(N.ks_statistic(cols[binding["score"]], cols[binding["label"]]),
+                   {"n": len(cols[binding["label"]])})
+
+
+@register("gini_norm", family="classification", required_tags=["score", "label"],
+          set_maturity="reviewed")
+def gini_norm(cols, binding, convention=None):
+    return _result(N.gini_norm(cols[binding["score"]], cols[binding["label"]]),
+                   {"n": len(cols[binding["label"]]), "definition": "2*AUC-1"})
+
+
+@register("msle", family="regression", required_tags=["prediction", "target"],
+          set_maturity="reviewed", accepted_conventions=["msle", "rmsle"])
+def msle(cols, binding, convention=None):
+    root = _conv_str(convention) == "rmsle"
+    return _result(N.msle(cols[binding["prediction"]], cols[binding["target"]], root),
+                   {"n": len(cols[binding["target"]]), "root": root})
+
+
+@register("medae", family="regression", required_tags=["prediction", "target"], set_maturity="reviewed")
+def medae(cols, binding, convention=None):
+    return _result(N.medae(cols[binding["prediction"]], cols[binding["target"]]),
+                   {"n": len(cols[binding["target"]])})
+
+
+@register("max_error", family="regression", required_tags=["prediction", "target"], set_maturity="reviewed")
+def max_error(cols, binding, convention=None):
+    return _result(N.max_error(cols[binding["prediction"]], cols[binding["target"]]),
+                   {"n": len(cols[binding["target"]])})
+
+
+@register("explained_variance", family="regression", required_tags=["prediction", "target"],
+          set_maturity="reviewed")
+def explained_variance(cols, binding, convention=None):
+    return _result(N.explained_variance(cols[binding["prediction"]], cols[binding["target"]]),
+                   {"n": len(cols[binding["target"]])})
+
+
+@register("wape", family="forecasting", required_tags=["prediction", "target"], set_maturity="reviewed")
+def wape(cols, binding, convention=None):
+    return _result(N.wape(cols[binding["prediction"]], cols[binding["target"]]),
+                   {"n": len(cols[binding["target"]])})
+
+
+@register("forecast_bias", family="forecasting", required_tags=["prediction", "target"],
+          set_maturity="reviewed")
+def forecast_bias(cols, binding, convention=None):
+    return _result(N.forecast_bias(cols[binding["prediction"]], cols[binding["target"]]),
+                   {"n": len(cols[binding["target"]]), "sign": "positive=over-forecast"})
+
+
+@register("adjusted_r2", family="regression", required_tags=["prediction", "target"],
+          set_maturity="reviewed", accepted_conventions=["p=<predictors> (required)"])
+def adjusted_r2(cols, binding, convention=None):
+    p = _conv_int(convention, "p", 0) or None
+    return _result(N.adjusted_r2(cols[binding["prediction"]], cols[binding["target"]], p),
+                   {"n": len(cols[binding["target"]]), "predictors": p})
+
+
+@register("nrmse", family="regression", required_tags=["prediction", "target"],
+          set_maturity="reviewed", accepted_conventions=["mean", "range"])
+def nrmse(cols, binding, convention=None):
+    mode = _conv_str(convention) or "mean"
+    return _result(N.nrmse(cols[binding["prediction"]], cols[binding["target"]], mode),
+                   {"n": len(cols[binding["target"]]), "mode": mode})
+
+
+@register("durbin_watson", family="regression", required_tags=["prediction", "target"],
+          set_maturity="reviewed")
+def durbin_watson(cols, binding, convention=None):
+    return _result(N.durbin_watson(cols[binding["prediction"]], cols[binding["target"]]),
+                   {"n": len(cols[binding["target"]]), "residual": "target - prediction"})
+
+
+# ======================================================================================
+# Pack 9 - analytics & engineering depth II
+# ======================================================================================
+
+@register("column_min", family="analytics", required_tags=["value"], set_maturity="reviewed")
+def column_min(cols, binding, convention=None):
+    xs = cols[binding["value"]]
+    return _result(N.col_min(xs), {"n": len(xs)})
+
+
+@register("column_max", family="analytics", required_tags=["value"], set_maturity="reviewed")
+def column_max(cols, binding, convention=None):
+    xs = cols[binding["value"]]
+    return _result(N.col_max(xs), {"n": len(xs)})
+
+
+@register("column_std", family="analytics", required_tags=["value"], set_maturity="reviewed",
+          accepted_conventions=["ddof=1", "ddof=0"])
+def column_std(cols, binding, convention=None):
+    xs = cols[binding["value"]]
+    ddof = _conv_int(convention, "ddof", 1)
+    return _result(N.col_std(xs, ddof), {"n": len(xs), "ddof": ddof})
+
+
+@register("iqr", family="analytics", required_tags=["value"], set_maturity="reviewed")
+def iqr(cols, binding, convention=None):
+    xs = cols[binding["value"]]
+    return _result(N.iqr(xs), {"n": len(xs), "method": "linear"})
+
+
+@register("outlier_count", family="analytics", required_tags=["value"], set_maturity="reviewed",
+          accepted_conventions=["k=<fence> (1.5)"])
+def outlier_count(cols, binding, convention=None):
+    xs = cols[binding["value"]]
+    k = _conv_float(convention, "k", 1.5)
+    return _result(N.outlier_count(xs, k), {"n": len(xs), "k": k, "rule": "tukey"})
+
+
+@register("mode_share", family="analytics", required_tags=["value"], set_maturity="reviewed",
+          string_tags=["value"])
+def mode_share(cols, binding, convention=None):
+    raw = cols[binding["value"]]
+    return _result(N.mode_share(raw), {"n": len(raw)})
+
+
+@register("gini_coefficient", family="analytics", required_tags=["value"], set_maturity="reviewed")
+def gini_coefficient(cols, binding, convention=None):
+    xs = cols[binding["value"]]
+    return _result(N.gini_coefficient(xs), {"n": len(xs)})
+
+
+@register("hhi", family="analytics", required_tags=["value"], set_maturity="reviewed")
+def hhi(cols, binding, convention=None):
+    xs = cols[binding["value"]]
+    return _result(N.hhi(xs), {"n": len(xs), "scale": "0-1"})
+
+
+@register("entropy", family="analytics", required_tags=["value"], set_maturity="reviewed",
+          string_tags=["value"], accepted_conventions=["bits", "nats"])
+def entropy(cols, binding, convention=None):
+    raw = cols[binding["value"]]
+    base = _conv_str(convention) or "bits"
+    return _result(N.cat_entropy(raw, base), {"n": len(raw), "base": base})
+
+
+@register("latency_p90", family="engineering", required_tags=["duration"], set_maturity="reviewed")
+def latency_p90(cols, binding, convention=None):
+    return _latency(cols, binding, 0.90)
+
+
+@register("apdex", family="engineering", required_tags=["duration"], set_maturity="reviewed",
+          accepted_conventions=["t=<seconds> (required)"])
+def apdex(cols, binding, convention=None):
+    durs = cols[binding["duration"]]
+    t = _conv_float(convention, "t", None)
+    val = N.apdex(durs, t) if t is not None else float("nan")
+    return _result(val, {"n": len(durs), "t": t})
+
+
+@register("uptime_pct", family="engineering", required_tags=["flag"], set_maturity="reviewed")
+def uptime_pct(cols, binding, convention=None):
+    flags = cols[binding["flag"]]
+    return _result(N.ratio_share(flags), {"n": len(flags), "flag": "nonzero=up"})
+
+
+@register("cache_hit_rate", family="engineering", required_tags=["flag"], set_maturity="reviewed")
+def cache_hit_rate(cols, binding, convention=None):
+    flags = cols[binding["flag"]]
+    return _result(N.ratio_share(flags), {"n": len(flags), "flag": "nonzero=hit"})
+
+
+# ======================================================================================
+# Pack 10 - statistical tests II
+# ======================================================================================
+
+@register("mann_whitney", family="stats", required_tags=["sample_a", "sample_b"],
+          set_maturity="reviewed")
+def mann_whitney(cols, binding, convention=None):
+    a, b = cols[binding["sample_a"]], cols[binding["sample_b"]]
+    return _result(N.mann_whitney_p(a, b),
+                   {"n_a": len(a), "n_b": len(b), "method": "asymptotic+ties+continuity"})
+
+
+@register("ks_test", family="stats", required_tags=["sample_a", "sample_b"], set_maturity="reviewed")
+def ks_test(cols, binding, convention=None):
+    a, b = cols[binding["sample_a"]], cols[binding["sample_b"]]
+    return _result(N.ks_p(a, b), {"n_a": len(a), "n_b": len(b), "method": "asymptotic"})
+
+
+@register("anova", family="stats", required_tags=["group", "value"], set_maturity="reviewed",
+          string_tags=["group"], accepted_conventions=["p", "statistic"])
+def anova(cols, binding, convention=None):
+    groups, values = cols[binding["group"]], cols[binding["value"]]
+    output = "statistic" if _conv_str(convention) == "statistic" else "p"
+    return _result(N.anova_p(groups, values, output), {"n": len(values), "output": output})
+
+
+@register("proportion_z", family="stats", required_tags=["sample_a", "sample_b"],
+          set_maturity="reviewed")
+def proportion_z(cols, binding, convention=None):
+    a, b = cols[binding["sample_a"]], cols[binding["sample_b"]]
+    return _result(N.proportion_z_p(a, b), {"n_a": len(a), "n_b": len(b), "pooled": True})
+
+
+@register("fisher_exact", family="stats", required_tags=["group", "outcome"], set_maturity="reviewed",
+          string_tags=["group", "outcome"])
+def fisher_exact(cols, binding, convention=None):
+    g, o = cols[binding["group"]], cols[binding["outcome"]]
+    return _result(N.fisher_exact_p(g, o), {"n": len(g), "method": "exact-two-sided"})
+
+
+@register("odds_ratio", family="stats", required_tags=["group", "outcome"], set_maturity="reviewed",
+          string_tags=["group", "outcome"], accepted_conventions=["sample", "haldane"])
+def odds_ratio(cols, binding, convention=None):
+    g, o = cols[binding["group"]], cols[binding["outcome"]]
+    haldane = _conv_str(convention) == "haldane"
+    return _result(N.odds_ratio_2x2(g, o, haldane), {"n": len(g), "haldane": haldane})
+
+
+@register("relative_risk", family="stats", required_tags=["group", "outcome"], set_maturity="reviewed",
+          string_tags=["group", "outcome"])
+def relative_risk(cols, binding, convention=None):
+    g, o = cols[binding["group"]], cols[binding["outcome"]]
+    return _result(N.relative_risk_2x2(g, o), {"n": len(g), "rows": "sorted group keys"})
+
+
+@register("cramers_v", family="stats", required_tags=["group", "outcome"], set_maturity="reviewed",
+          string_tags=["group", "outcome"])
+def cramers_v(cols, binding, convention=None):
+    g, o = cols[binding["group"]], cols[binding["outcome"]]
+    return _result(N.cramers_v(g, o), {"n": len(g), "correction": False})
+
+
+@register("skewness", family="stats", required_tags=["value"], set_maturity="reviewed")
+def skewness(cols, binding, convention=None):
+    xs = cols[binding["value"]]
+    return _result(N.skewness(xs), {"n": len(xs), "bias": "biased-g1"})
+
+
+@register("kurtosis", family="stats", required_tags=["value"], set_maturity="reviewed")
+def kurtosis(cols, binding, convention=None):
+    xs = cols[binding["value"]]
+    return _result(N.kurtosis_excess(xs), {"n": len(xs), "definition": "excess (Fisher)"})
+
+
+@register("jarque_bera", family="stats", required_tags=["value"], set_maturity="reviewed",
+          accepted_conventions=["p", "statistic"])
+def jarque_bera(cols, binding, convention=None):
+    xs = cols[binding["value"]]
+    output = "statistic" if _conv_str(convention) == "statistic" else "p"
+    return _result(N.jarque_bera_p(xs, output), {"n": len(xs), "output": output})
+
+
+@register("autocorrelation", family="stats", required_tags=["value"], set_maturity="reviewed",
+          accepted_conventions=["lag=<k> (1)"])
+def autocorrelation(cols, binding, convention=None):
+    xs = cols[binding["value"]]
+    lag = _conv_int(convention, "lag", 1)
+    return _result(N.autocorrelation(xs, lag), {"n": len(xs), "lag": lag})
+
+
+# ======================================================================================
+# Pack 11 - retrieval / LLM evals II
+# ======================================================================================
+
+@register("precision_at_k", family="retrieval", required_tags=["query", "rank", "relevance"],
+          set_maturity="reviewed", string_tags=["query"], accepted_conventions=["k=<int>"])
+def precision_at_k(cols, binding, convention=None):
+    k = _conv_int(convention, "k", 10)
+    val = N.precision_at_k(cols[binding["query"]], cols[binding["rank"]], cols[binding["relevance"]], k)
+    return _result(val, {"k": k, "n_rows": len(cols[binding["rank"]])})
+
+
+@register("map_at_k", family="retrieval", required_tags=["query", "rank", "relevance"],
+          set_maturity="reviewed", string_tags=["query"], accepted_conventions=["k=<int>"])
+def map_at_k(cols, binding, convention=None):
+    k = _conv_int(convention, "k", 10)
+    val = N.map_at_k(cols[binding["query"]], cols[binding["rank"]], cols[binding["relevance"]], k)
+    return _result(val, {"k": k, "denominator": "min(R,k)", "n_rows": len(cols[binding["rank"]])})
+
+
+@register("perplexity", family="llm-eval", required_tags=["value"], set_maturity="reviewed")
+def perplexity(cols, binding, convention=None):
+    lps = cols[binding["value"]]
+    return _result(N.perplexity(lps), {"n_tokens": len(lps), "log_base": "natural"})
+
+
+@register("wer", family="llm-eval", required_tags=["prediction", "reference"],
+          set_maturity="reviewed", string_tags=["prediction", "reference"],
+          accepted_conventions=["wer", "cer"])
+def wer(cols, binding, convention=None):
+    char_level = _conv_str(convention) == "cer"
+    preds, refs = cols[binding["prediction"]], cols[binding["reference"]]
+    return _result(N.wer(preds, refs, char_level),
+                   {"n": len(preds), "level": "char" if char_level else "word"})

@@ -99,8 +99,10 @@ MAPE/sMAPE, MASE, pinball), **retrieval & LLM evals** (recall@k, NDCG, MRR, top-
 **analytics** (sums, means, medians, percentiles, group-bys, distinct/null/duplicate counts, join row-loss),
 **engineering** ("2.3× faster", latency p50–p99, throughput, peak memory, test coverage, error rates),
 **statistics** (p-values, confidence intervals, A/B lift, chi-square, correlation, effect size), and
-**business/finance** (CAGR, NPV/IRR, churn, margin, ledger reconciliation) — **59 recipes**, each validated
-against the published reference implementation (scikit-learn, SciPy, NumPy, numpy-financial; see
+**business/finance** (CAGR, NPV/IRR, churn, margin, ledger reconciliation), **quant risk** (Sortino, Calmar,
+VaR/CVaR, beta/alpha, information ratio), and **deeper stats/ML/analytics** (Mann-Whitney, ANOVA, Fisher exact,
+KS, Cohen's κ, balanced accuracy, WER, perplexity, MAP@k, HHI, Gini, entropy…) — **118 recipes**, each validated
+against the published reference implementation (scikit-learn, SciPy, NumPy, numpy-financial, statsmodels, jiwer; see
 `.claude/skills/calma/references/recipes.md`). It works on programs written in **Python, R, Julia, C++, or
 Rust** — Calma treats your program as a black box and does the recompute itself.
 
@@ -175,7 +177,7 @@ No. Everything runs locally; nothing is uploaded. On macOS the run is inside a v
 sandbox; on hosts without one, the verdict says so explicitly instead of pretending.
 
 **Is it only for trading/quant?**
-No. It ships 59 metrics across trading, ML (classification, regression, retrieval/RAG, LLM evals),
+No. It ships 118 metrics across trading, ML (classification, regression, retrieval/RAG, LLM evals),
 analytics, engineering/performance, statistics, and business/finance, and treats your program as a black
 box, so it works across Python, R, Julia, C++, and Rust.
 

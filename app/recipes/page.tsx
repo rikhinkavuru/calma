@@ -42,7 +42,7 @@ export default function RecipesPage() {
                 runs on <b>bit-stable deterministic kernels</b> (no GPU, no platform math
                 libraries, no model anywhere in the path); it is{" "}
                 <b>validated against the published reference implementation</b> — scikit-learn,
-                SciPy, NumPy, numpy-financial, the HumanEval estimator — across 312 pinned
+                SciPy, NumPy, numpy-financial, the HumanEval estimator — across 385 pinned
                 reference vectors before it ships; and when its input is broken or ambiguous it{" "}
                 <b>degrades to “can&apos;t confirm”</b> instead of guessing.
               </p>

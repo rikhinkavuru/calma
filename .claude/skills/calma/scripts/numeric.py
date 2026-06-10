@@ -1132,3 +1132,736 @@ def pinball(pred, actual, q):
         d = a - p
         terms.append(max(q * d, (q - 1.0) * d))
     return math.fsum(terms) / len(pred)
+
+
+# ======================================================================================
+# Pack 7 - quant risk & relative-performance kernels
+# (annualized via sqrt(periods) like sharpe; the deep overfitting stats stay in R1)
+# ======================================================================================
+
+def volatility(rets, periods):
+    """Annualized volatility: std(ddof=1) * sqrt(periods)."""
+    if len(rets) < 2 or _has_nan(rets):
+        return float("nan")
+    return fstd(rets, 1) * math.sqrt(periods)
+
+
+def downside_deviation(rets, periods):
+    """Annualized downside deviation, target 0, full-sample denominator (the common
+    convention): sqrt(mean(min(r,0)^2)) * sqrt(periods)."""
+    if not rets or _has_nan(rets):
+        return float("nan")
+    dd2 = math.fsum(min(r, 0.0) ** 2 for r in rets) / len(rets)
+    return math.sqrt(dd2) * math.sqrt(periods)
+
+
+def sortino(rets, periods):
+    """Sortino ratio: mean / downside-deviation * sqrt(periods); zero downside degrades."""
+    if len(rets) < 2 or _has_nan(rets):
+        return float("nan")
+    dd2 = math.fsum(min(r, 0.0) ** 2 for r in rets) / len(rets)
+    if dd2 <= 0:
+        return float("nan")
+    return fmean(rets) / math.sqrt(dd2) * math.sqrt(periods)
+
+
+def calmar(rets, periods):
+    """Calmar ratio: annualized (CAGR-style) return / |max drawdown|. Path-dependent."""
+    if len(rets) < 2 or _has_nan(rets):
+        return float("nan")
+    growth = pairwise_prod([1.0 + r for r in rets])
+    if growth <= 0:
+        return float("nan")
+    ann = dpow(growth, periods / len(rets)) - 1.0
+    mdd = max_drawdown(rets)
+    if not (mdd < 0):
+        return float("nan")
+    return ann / abs(mdd)
+
+
+def value_at_risk(rets, level):
+    """Historical VaR at `level` (e.g. 0.95): the loss at the (1-level) return quantile,
+    reported as a POSITIVE loss fraction."""
+    if not rets or _has_nan(rets) or not (0.5 < level < 1.0):
+        return float("nan")
+    return -quantile(rets, 1.0 - level)
+
+
+def cvar(rets, level):
+    """Historical CVaR / expected shortfall at `level`: mean loss beyond the VaR cut,
+    reported positive."""
+    if not rets or _has_nan(rets) or not (0.5 < level < 1.0):
+        return float("nan")
+    cut = quantile(rets, 1.0 - level)
+    tail = [r for r in rets if r <= cut]
+    return -fmean(tail) if tail else float("nan")
+
+
+def win_rate(rets):
+    """Fraction of strictly positive periods."""
+    if not rets or _has_nan(rets):
+        return float("nan")
+    return sum(1 for r in rets if r > 0) / len(rets)
+
+
+def profit_factor(rets):
+    """Gross gains / gross losses; no losing periods -> degenerate (nothing to divide by)."""
+    if not rets or _has_nan(rets):
+        return float("nan")
+    gains = math.fsum(r for r in rets if r > 0)
+    losses = -math.fsum(r for r in rets if r < 0)
+    return gains / losses if losses > 0 else float("nan")
+
+
+def omega_ratio(rets, threshold=0.0):
+    """Omega(theta): sum of gains above theta / sum of shortfalls below theta."""
+    if not rets or _has_nan(rets) or threshold != threshold:
+        return float("nan")
+    up = math.fsum(max(r - threshold, 0.0) for r in rets)
+    down = math.fsum(max(threshold - r, 0.0) for r in rets)
+    return up / down if down > 0 else float("nan")
+
+
+def beta(rets, bench):
+    """CAPM beta: cov(r, b) / var(b), sample (ddof=1)."""
+    n = len(rets)
+    if n != len(bench) or n < 2 or _has_nan(rets) or _has_nan(bench):
+        return float("nan")
+    mr, mb = fmean(rets), fmean(bench)
+    cov = math.fsum((r - mr) * (b - mb) for r, b in zip(rets, bench)) / (n - 1)
+    vb = fvar(bench, 1)
+    return cov / vb if vb > 0 else float("nan")
+
+
+def alpha(rets, bench, periods):
+    """Simple annualized CAPM alpha (rf = 0): (mean(r) - beta * mean(b)) * periods."""
+    b = beta(rets, bench)
+    if b != b:
+        return float("nan")
+    return (fmean(rets) - b * fmean(bench)) * periods
+
+
+def tracking_error(rets, bench, periods):
+    """Annualized std of the active return (r - b), ddof=1."""
+    if len(rets) != len(bench) or len(rets) < 2 or _has_nan(rets) or _has_nan(bench):
+        return float("nan")
+    diff = [r - b for r, b in zip(rets, bench)]
+    return fstd(diff, 1) * math.sqrt(periods)
+
+
+def information_ratio(rets, bench, periods):
+    """Annualized mean active return / tracking error."""
+    if len(rets) != len(bench) or len(rets) < 2 or _has_nan(rets) or _has_nan(bench):
+        return float("nan")
+    diff = [r - b for r, b in zip(rets, bench)]
+    s = fstd(diff, 1)
+    if not (s > 0):
+        return float("nan")
+    return fmean(diff) / s * math.sqrt(periods)
+
+
+# ======================================================================================
+# Pack 8 - classification depth II
+# ======================================================================================
+
+def balanced_accuracy(preds, labels):
+    """Mean per-class recall over the classes present in labels (sklearn)."""
+    if not labels or len(preds) != len(labels) or _has_nan(preds) or _has_nan(labels):
+        return float("nan")
+    classes = sorted(set(labels))
+    recalls = []
+    for c in classes:
+        tp = sum(1 for p, y in zip(preds, labels) if y == c and p == c)
+        n_c = sum(1 for y in labels if y == c)
+        recalls.append(tp / n_c)
+    return fmean(recalls)
+
+
+def cohen_kappa(preds, labels):
+    """Cohen's kappa, multiclass: (po - pe) / (1 - pe) with exact integer marginals."""
+    if not labels or len(preds) != len(labels) or _has_nan(preds) or _has_nan(labels):
+        return float("nan")
+    n = len(labels)
+    classes = sorted(set(labels) | set(preds))
+    po = sum(1 for p, y in zip(preds, labels) if p == y) / n
+    pred_ct = {c: 0 for c in classes}
+    true_ct = {c: 0 for c in classes}
+    for p, y in zip(preds, labels):
+        pred_ct[p] += 1
+        true_ct[y] += 1
+    pe = math.fsum(pred_ct[c] * true_ct[c] for c in classes) / (n * n)
+    return (po - pe) / (1.0 - pe) if pe != 1.0 else float("nan")
+
+
+def specificity(preds, labels):
+    """True-negative rate: tn / (tn + fp), binary 0/1."""
+    if _has_nan(preds) or _has_nan(labels):
+        return float("nan")
+    _, fp, _, tn = _confusion(preds, labels)
+    return tn / (tn + fp) if (tn + fp) else float("nan")
+
+
+def fbeta(preds, labels, beta_v=1.0):
+    """F-beta, binary: (1+b^2) P R / (b^2 P + R); zero denominator -> nan."""
+    if beta_v != beta_v or beta_v <= 0:
+        return float("nan")
+    pr, rc = precision(preds, labels), recall(preds, labels)
+    if pr != pr or rc != rc:
+        return float("nan")
+    b2 = beta_v * beta_v
+    denom = b2 * pr + rc
+    return (1 + b2) * pr * rc / denom if denom > 0 else float("nan")
+
+
+def jaccard(preds, labels):
+    """Jaccard / IoU on the positive class: tp / (tp + fp + fn) (sklearn binary)."""
+    if _has_nan(preds) or _has_nan(labels):
+        return float("nan")
+    tp, fp, fn, _ = _confusion(preds, labels)
+    denom = tp + fp + fn
+    return tp / denom if denom else float("nan")
+
+
+def weighted_f1(preds, labels):
+    """Support-weighted mean of per-class F1 over classes in labels (sklearn 'weighted',
+    zero_division=0)."""
+    if not labels or len(preds) != len(labels) or _has_nan(preds) or _has_nan(labels):
+        return float("nan")
+    classes, tp, fp, fn = _multiclass_counts(preds, labels)
+    total = len(labels)
+    out = []
+    for c in classes:
+        support = sum(1 for y in labels if y == c)
+        if support == 0:
+            continue
+        denom = 2 * tp[c] + fp[c] + fn[c]
+        f1c = 2 * tp[c] / denom if denom else 0.0
+        out.append(f1c * support / total)
+    return math.fsum(out)
+
+
+def ks_statistic(scores, labels):
+    """Two-sample KS statistic between the score distributions of the two classes -
+    the credit-scoring 'KS'. max |ECDF_pos - ECDF_neg|."""
+    if _has_nan(scores) or _has_nan(labels):
+        return float("nan")
+    pos = sorted(s for s, y in zip(scores, labels) if y == 1)
+    neg = sorted(s for s, y in zip(scores, labels) if y == 0)
+    if not pos or not neg:
+        return float("nan")
+    return _ks_d(pos, neg)
+
+
+def _ks_d(a_sorted, b_sorted):
+    """max |ECDF_a - ECDF_b| over the pooled sample (both inputs sorted)."""
+    import bisect
+    best = 0.0
+    for v in a_sorted + b_sorted:
+        ca = bisect.bisect_right(a_sorted, v) / len(a_sorted)
+        cb = bisect.bisect_right(b_sorted, v) / len(b_sorted)
+        best = max(best, abs(ca - cb))
+    return best
+
+
+def gini_norm(scores, labels):
+    """Normalized Gini (credit-model accuracy ratio): 2*AUC - 1."""
+    a = auc(scores, labels)
+    return 2.0 * a - 1.0 if a == a else float("nan")
+
+
+# ======================================================================================
+# Pack 8 - regression & forecast depth II
+# ======================================================================================
+
+def msle(pred, actual, root=False):
+    """Mean squared log error (sklearn): mean((ln(1+p) - ln(1+a))^2); any value <= -1
+    degrades. root=True -> RMSLE."""
+    if len(pred) != len(actual) or not pred or _has_nan(pred) or _has_nan(actual):
+        return float("nan")
+    if any(v <= -1.0 for v in pred) or any(v <= -1.0 for v in actual):
+        return float("nan")
+    s = math.fsum((dlog(1.0 + p) - dlog(1.0 + a)) ** 2 for p, a in zip(pred, actual)) / len(pred)
+    return math.sqrt(s) if root else s
+
+
+def medae(pred, actual):
+    """Median absolute error (sklearn)."""
+    if len(pred) != len(actual) or not pred or _has_nan(pred) or _has_nan(actual):
+        return float("nan")
+    return quantile([abs(p - a) for p, a in zip(pred, actual)], 0.5)
+
+
+def max_error(pred, actual):
+    """Largest absolute error (sklearn max_error)."""
+    if len(pred) != len(actual) or not pred or _has_nan(pred) or _has_nan(actual):
+        return float("nan")
+    return max(abs(p - a) for p, a in zip(pred, actual))
+
+
+def explained_variance(pred, actual):
+    """sklearn explained_variance_score: 1 - var(a - p) / var(a) (population variance)."""
+    n = len(actual)
+    if len(pred) != n or n < 2 or _has_nan(pred) or _has_nan(actual):
+        return float("nan")
+    err = [a - p for p, a in zip(pred, actual)]
+    va = fvar(actual, 0)
+    if not (va > 0):
+        return float("nan")
+    return 1.0 - fvar(err, 0) / va
+
+
+def wape(pred, actual):
+    """Weighted absolute percentage error: sum|p - a| / sum|a| (retail-forecasting standard)."""
+    if len(pred) != len(actual) or not pred or _has_nan(pred) or _has_nan(actual):
+        return float("nan")
+    denom = math.fsum(abs(a) for a in actual)
+    if denom == 0:
+        return float("nan")
+    return math.fsum(abs(p - a) for p, a in zip(pred, actual)) / denom
+
+
+def forecast_bias(pred, actual):
+    """Aggregate bias: (sum(p) - sum(a)) / sum(a). Positive = over-forecast."""
+    if len(pred) != len(actual) or not pred or _has_nan(pred) or _has_nan(actual):
+        return float("nan")
+    sa = math.fsum(actual)
+    if sa == 0:
+        return float("nan")
+    return (math.fsum(pred) - sa) / sa
+
+
+def adjusted_r2(pred, actual, p):
+    """Adjusted R^2 for p predictors: 1 - (1 - R2)(n - 1)/(n - p - 1)."""
+    n = len(actual)
+    if p is None or p < 1 or n - p - 1 <= 0:
+        return float("nan")
+    r = r2(pred, actual)
+    if r != r:
+        return float("nan")
+    return 1.0 - (1.0 - r) * (n - 1) / (n - p - 1)
+
+
+def nrmse(pred, actual, mode="mean"):
+    """RMSE normalized by mean(actual) (default) or by the actual range."""
+    r = rmse(pred, actual)
+    if r != r:
+        return float("nan")
+    if mode == "range":
+        denom = max(actual) - min(actual)
+    else:
+        denom = fmean(actual)
+    return r / denom if denom != 0 else float("nan")
+
+
+def durbin_watson(pred, actual):
+    """Durbin-Watson on the residuals e = a - p: sum((e_t - e_{t-1})^2) / sum(e^2)."""
+    n = len(actual)
+    if len(pred) != n or n < 2 or _has_nan(pred) or _has_nan(actual):
+        return float("nan")
+    e = [a - p for p, a in zip(pred, actual)]
+    den = math.fsum(v * v for v in e)
+    if den == 0:
+        return float("nan")
+    num = math.fsum((e[t] - e[t - 1]) ** 2 for t in range(1, n))
+    return num / den
+
+
+# ======================================================================================
+# Pack 9 - analytics depth II
+# ======================================================================================
+
+def col_min(xs):
+    return float("nan") if (not xs or _has_nan(xs)) else float(min(xs))
+
+
+def col_max(xs):
+    return float("nan") if (not xs or _has_nan(xs)) else float(max(xs))
+
+
+def col_std(xs, ddof=1):
+    """Sample standard deviation (ddof=1 default; ddof=0 via convention)."""
+    if len(xs) < 2 or _has_nan(xs):
+        return float("nan")
+    return fstd(xs, ddof)
+
+
+def iqr(xs):
+    """Interquartile range with linear-interpolation quartiles (scipy default)."""
+    if not xs or _has_nan(xs):
+        return float("nan")
+    return quantile(xs, 0.75) - quantile(xs, 0.25)
+
+
+def outlier_count(xs, k=1.5):
+    """Tukey-fence outliers: values outside [q1 - k*iqr, q3 + k*iqr]."""
+    if not xs or _has_nan(xs) or k != k or k <= 0:
+        return float("nan")
+    q1, q3 = quantile(xs, 0.25), quantile(xs, 0.75)
+    spread = q3 - q1
+    lo, hi = q1 - k * spread, q3 + k * spread
+    return float(sum(1 for v in xs if v < lo or v > hi))
+
+
+def mode_share(raw):
+    """Share of the most frequent (stripped) cell value, nulls counted as values."""
+    if not raw:
+        return float("nan")
+    counts = {}
+    for s in raw:
+        key = s.strip()
+        counts[key] = counts.get(key, 0) + 1
+    return max(counts.values()) / len(raw)
+
+
+def gini_coefficient(xs):
+    """Gini inequality of a non-negative column: sum((2i - n - 1) x_(i)) / (n * sum(x))."""
+    if not xs or _has_nan(xs) or any(v < 0 for v in xs):
+        return float("nan")
+    ys = sorted(xs)
+    n = len(ys)
+    total = math.fsum(ys)
+    if total <= 0:
+        return float("nan")
+    return math.fsum((2 * (i + 1) - n - 1) * v for i, v in enumerate(ys)) / (n * total)
+
+
+def hhi(xs):
+    """Herfindahl-Hirschman concentration of non-negative amounts: sum((x/sum)^2) in [0,1]."""
+    if not xs or _has_nan(xs) or any(v < 0 for v in xs):
+        return float("nan")
+    total = math.fsum(xs)
+    if total <= 0:
+        return float("nan")
+    return math.fsum((v / total) ** 2 for v in xs)
+
+
+def cat_entropy(raw, base="bits"):
+    """Shannon entropy of a categorical column from its value counts; 'bits' (default) or 'nats'."""
+    if not raw:
+        return float("nan")
+    counts = {}
+    for s in raw:
+        key = s.strip()
+        counts[key] = counts.get(key, 0) + 1
+    n = len(raw)
+    h = -math.fsum((c / n) * dlog(c / n) for c in counts.values() if c > 0)
+    return h * _LOG2E if base == "bits" else h
+
+
+# ======================================================================================
+# Pack 9 - engineering depth II
+# ======================================================================================
+
+def apdex(durations, t):
+    """Apdex: (satisfied + tolerating/2) / n with satisfied <= T, tolerating <= 4T."""
+    if not durations or _has_nan(durations) or t != t or t <= 0:
+        return float("nan")
+    sat = sum(1 for d in durations if d <= t)
+    tol = sum(1 for d in durations if t < d <= 4 * t)
+    return (sat + tol / 2.0) / len(durations)
+
+
+# ======================================================================================
+# Pack 10 - statistical tests II (all on the deterministic special-function kernels)
+# ======================================================================================
+
+def mann_whitney_p(a, b):
+    """Two-sided Mann-Whitney U, normal approximation with tie correction and continuity
+    correction (scipy's asymptotic method)."""
+    n1, n2 = len(a), len(b)
+    if n1 < 1 or n2 < 1 or _has_nan(a) or _has_nan(b):
+        return float("nan")
+    ranks = _avg_ranks(list(a) + list(b))
+    r1 = math.fsum(ranks[:n1])
+    u1 = r1 - n1 * (n1 + 1) / 2.0
+    n = n1 + n2
+    # tie correction over pooled tie groups
+    pooled = sorted(list(a) + list(b))
+    tie_term = 0.0
+    i = 0
+    while i < n:
+        j = i
+        while j < n and pooled[j] == pooled[i]:
+            j += 1
+        t = j - i
+        tie_term += t ** 3 - t
+        i = j
+    var = n1 * n2 / 12.0 * ((n + 1) - tie_term / (n * (n - 1)))
+    if var <= 0:
+        return float("nan")
+    mu = n1 * n2 / 2.0
+    z = (abs(u1 - mu) - 0.5) / math.sqrt(var)   # continuity-corrected
+    return min(1.0, 2.0 * normal_sf(z))
+
+
+def _kolmogorov_sf(x):
+    """Kolmogorov distribution survival function Q(x) = 2 sum (-1)^(j-1) exp(-2 j^2 x^2)."""
+    if x <= 0:
+        return 1.0
+    terms = []
+    for j in range(1, 101):
+        t = 2.0 * ((-1.0) ** (j - 1)) * dexp(-2.0 * j * j * x * x)
+        terms.append(t)
+        if abs(t) < 1e-18:
+            break
+    return min(1.0, max(0.0, math.fsum(terms)))
+
+
+def ks_p(a, b):
+    """Two-sided two-sample KS p, asymptotic (scipy ks_2samp method='asymp')."""
+    n1, n2 = len(a), len(b)
+    if n1 < 1 or n2 < 1 or _has_nan(a) or _has_nan(b):
+        return float("nan")
+    d = _ks_d(sorted(a), sorted(b))
+    en = math.sqrt(n1 * n2 / (n1 + n2))
+    return _kolmogorov_sf(en * d)
+
+
+def f_sf(f, d1, d2):
+    """F-distribution survival function via the regularized incomplete beta."""
+    if f != f or f < 0 or d1 <= 0 or d2 <= 0:
+        return float("nan")
+    return betainc_reg(d2 / 2.0, d1 / 2.0, d2 / (d2 + d1 * f))
+
+
+def anova_p(groups, values, output="p"):
+    """One-way ANOVA from raw (group, value) rows (scipy f_oneway). Returns p or the F stat."""
+    if not groups or len(groups) != len(values) or _has_nan(values):
+        return float("nan")
+    buckets = {}
+    for g, v in zip(groups, values):
+        buckets.setdefault(g.strip(), []).append(v)
+    k = len(buckets)
+    n = len(values)
+    if k < 2 or n - k <= 0:
+        return float("nan")
+    grand = fmean(values)
+    ssb = math.fsum(len(vs) * (fmean(vs) - grand) ** 2 for vs in buckets.values())
+    ssw = math.fsum(math.fsum((v - fmean(vs)) ** 2 for v in vs) for vs in buckets.values())
+    if ssw <= 0:
+        return float("nan")
+    f = (ssb / (k - 1)) / (ssw / (n - k))
+    return f if output == "statistic" else f_sf(f, k - 1, n - k)
+
+
+def proportion_z_p(a, b):
+    """Two-sided two-proportion pooled z-test from raw 0/1 outcome columns
+    (statsmodels proportions_ztest)."""
+    n1, n2 = len(a), len(b)
+    if n1 < 1 or n2 < 1 or _has_nan(a) or _has_nan(b):
+        return float("nan")
+    x1 = sum(1 for v in a if v != 0)
+    x2 = sum(1 for v in b if v != 0)
+    pool = (x1 + x2) / (n1 + n2)
+    var = pool * (1 - pool) * (1.0 / n1 + 1.0 / n2)
+    if var <= 0:
+        return float("nan")
+    z = (x1 / n1 - x2 / n2) / math.sqrt(var)
+    return 2.0 * normal_sf(abs(z))
+
+
+def _table_2x2(groups, outcomes):
+    """Exact 2x2 integer table from raw (group, outcome) string pairs, keys sorted."""
+    rows = sorted(set(g.strip() for g in groups))
+    cols = sorted(set(o.strip() for o in outcomes))
+    if len(rows) != 2 or len(cols) != 2:
+        return None
+    t = {(r, c): 0 for r in rows for c in cols}
+    for g, o in zip(groups, outcomes):
+        t[(g.strip(), o.strip())] += 1
+    return (t[(rows[0], cols[0])], t[(rows[0], cols[1])],
+            t[(rows[1], cols[0])], t[(rows[1], cols[1])])
+
+
+def fisher_exact_p(groups, outcomes):
+    """Fisher's exact test, two-sided, on the 2x2 table from raw pairs - exact hypergeometric
+    arithmetic via integer combinatorics (scipy's two-sided definition incl. its relative
+    tolerance on 'as extreme')."""
+    tab = _table_2x2(groups, outcomes)
+    if tab is None:
+        return float("nan")
+    a_, b_, c_, d_ = tab
+    r1, r2 = a_ + b_, c_ + d_
+    c1 = a_ + c_
+    n = r1 + r2
+    if min(r1, r2, c1, n - c1) < 0 or n == 0:
+        return float("nan")
+    denom = math.comb(n, c1)
+
+    def pmf_num(x):
+        if x < max(0, c1 - r2) or x > min(c1, r1):
+            return 0
+        return math.comb(r1, x) * math.comb(r2, c1 - x)
+
+    obs = pmf_num(a_)
+    # scipy: sum P(x) for all x with pmf <= pmf(observed) * (1 + 1e-7)
+    gate = obs + obs // 10 ** 7 + 1   # integer-safe ceiling of obs*(1+1e-7)
+    total = sum(pn for x in range(max(0, c1 - r2), min(c1, r1) + 1)
+                if (pn := pmf_num(x)) <= gate)
+    return min(1.0, total / denom)
+
+
+def odds_ratio_2x2(groups, outcomes, haldane=False):
+    """Sample odds ratio (a*d)/(b*c) from raw pairs; zero cell -> degenerate unless the
+    Haldane-Anscombe +0.5 convention is requested."""
+    tab = _table_2x2(groups, outcomes)
+    if tab is None:
+        return float("nan")
+    a_, b_, c_, d_ = tab
+    if haldane:
+        a_, b_, c_, d_ = a_ + 0.5, b_ + 0.5, c_ + 0.5, d_ + 0.5
+    if b_ * c_ == 0:
+        return float("nan")
+    return (a_ * d_) / (b_ * c_)
+
+
+def relative_risk_2x2(groups, outcomes):
+    """Relative risk from raw pairs: (a/(a+b)) / (c/(c+d)), rows sorted by group key."""
+    tab = _table_2x2(groups, outcomes)
+    if tab is None:
+        return float("nan")
+    a_, b_, c_, d_ = tab
+    if (a_ + b_) == 0 or (c_ + d_) == 0 or c_ == 0:
+        return float("nan")
+    return (a_ / (a_ + b_)) / (c_ / (c_ + d_))
+
+
+def cramers_v(groups, outcomes):
+    """Cramer's V: sqrt(chi2_nocorrection / (n * min(r-1, c-1))) from raw pairs."""
+    if not groups or len(groups) != len(outcomes):
+        return float("nan")
+    stat = chi_square(groups, outcomes, yates=False, output="statistic")
+    if stat != stat:
+        return float("nan")
+    rows = len(set(g.strip() for g in groups))
+    cols = len(set(o.strip() for o in outcomes))
+    k = min(rows - 1, cols - 1)
+    if k < 1:
+        return float("nan")
+    return math.sqrt(stat / (len(groups) * k))
+
+
+def skewness(xs):
+    """Biased sample skewness g1 = m3 / m2^1.5 (scipy.stats.skew default)."""
+    n = len(xs)
+    if n < 2 or _has_nan(xs):
+        return float("nan")
+    m = fmean(xs)
+    m2 = math.fsum((x - m) ** 2 for x in xs) / n
+    if m2 <= 0:
+        return float("nan")
+    m3 = math.fsum((x - m) ** 3 for x in xs) / n
+    return m3 / m2 ** 1.5
+
+
+def kurtosis_excess(xs):
+    """Biased excess kurtosis g2 = m4/m2^2 - 3 (scipy.stats.kurtosis default, Fisher)."""
+    n = len(xs)
+    if n < 2 or _has_nan(xs):
+        return float("nan")
+    m = fmean(xs)
+    m2 = math.fsum((x - m) ** 2 for x in xs) / n
+    if m2 <= 0:
+        return float("nan")
+    m4 = math.fsum((x - m) ** 4 for x in xs) / n
+    return m4 / (m2 * m2) - 3.0
+
+
+def jarque_bera_p(xs, output="p"):
+    """Jarque-Bera normality test: JB = n/6 (S^2 + K^2/4), p from chi2(2) (scipy)."""
+    n = len(xs)
+    if n < 4 or _has_nan(xs):
+        return float("nan")
+    s = skewness(xs)
+    k = kurtosis_excess(xs)
+    if s != s or k != k:
+        return float("nan")
+    jb = n / 6.0 * (s * s + k * k / 4.0)
+    return jb if output == "statistic" else chi2_sf(jb, 2.0)
+
+
+def autocorrelation(xs, lag=1):
+    """Sample autocorrelation at `lag` (statsmodels acf, adjusted=False):
+    sum_{t>=lag}((x_t - m)(x_{t-lag} - m)) / sum((x_t - m)^2)."""
+    n = len(xs)
+    if lag < 1 or n <= lag or _has_nan(xs):
+        return float("nan")
+    m = fmean(xs)
+    den = math.fsum((x - m) ** 2 for x in xs)
+    if den <= 0:
+        return float("nan")
+    num = math.fsum((xs[t] - m) * (xs[t - lag] - m) for t in range(lag, n))
+    return num / den
+
+
+# ======================================================================================
+# Pack 11 - retrieval / LLM evals II
+# ======================================================================================
+
+def precision_at_k(queries, ranks, rels, k):
+    """Mean over queries of (relevant in top-k) / k."""
+    if not queries or _has_nan(ranks) or _has_nan(rels) or k < 1:
+        return float("nan")
+    per = _by_query(queries, ranks, rels)
+    return fmean([sum(1 for _, rel in rows[:k] if rel > 0) / k for rows in per.values()])
+
+
+def map_at_k(queries, ranks, rels, k):
+    """MAP@k: per query AP@k = sum(P@i * rel_i, i<=k) / min(R, k) with R = total relevant
+    for the query (the recsys convention); zero-relevant queries skipped; averaged."""
+    if not queries or _has_nan(ranks) or _has_nan(rels) or k < 1:
+        return float("nan")
+    per = _by_query(queries, ranks, rels)
+    scores = []
+    for rows in per.values():
+        total_rel = sum(1 for _, rel in rows if rel > 0)
+        if total_rel == 0:
+            continue
+        hits = 0
+        ap_terms = []
+        for i, (_, rel) in enumerate(rows[:k], start=1):
+            if rel > 0:
+                hits += 1
+                ap_terms.append(hits / i)
+        scores.append(math.fsum(ap_terms) / min(total_rel, k))
+    return fmean(scores) if scores else float("nan")
+
+
+def perplexity(logprobs):
+    """exp(-mean(logprob)) over a per-token natural-log-probability column."""
+    if not logprobs or _has_nan(logprobs):
+        return float("nan")
+    if any(lp > 0 for lp in logprobs):
+        return float("nan")    # log-probabilities must be <= 0
+    return dexp(-fmean(logprobs))
+
+
+def _edit_distance(ref, hyp):
+    """Levenshtein distance between two token lists (classic DP)."""
+    m, n = len(ref), len(hyp)
+    prev = list(range(n + 1))
+    for i in range(1, m + 1):
+        cur = [i] + [0] * n
+        for j in range(1, n + 1):
+            cost = 0 if ref[i - 1] == hyp[j - 1] else 1
+            cur[j] = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + cost)
+        prev = cur
+    return prev[n]
+
+
+def wer(preds, refs, char_level=False):
+    """Corpus word error rate (jiwer): total edit distance / total reference tokens.
+    char_level=True gives CER (per-character, whitespace included as jiwer does after
+    sentence joining)."""
+    if not preds or len(preds) != len(refs):
+        return float("nan")
+    total_edits = 0
+    total_ref = 0
+    for p, r in zip(preds, refs):
+        if char_level:
+            rt, pt = list(r), list(p)
+        else:
+            rt, pt = r.split(), p.split()
+        total_edits += _edit_distance(rt, pt)
+        total_ref += len(rt)
+    return total_edits / total_ref if total_ref else float("nan")
