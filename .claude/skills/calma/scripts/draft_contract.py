@@ -38,7 +38,9 @@ TAG_PATTERNS = [
     (r"treatment|sample_?b|group_?b|variant", "sample_b"),
     (r"group|region|segment|cohort|category", "group"),
     (r"outcome", "outcome"),
-    (r"error|fail|flag|converted|is_|status", "flag"),
+    (r"error|fail|flag|converted|is_|status|churn", "flag"),
+    (r"cash_?flow|^cf$", "cashflow"),
+    (r"cost|cogs|expense", "cost"),
     (r"amount|revenue|total|sales|price_usd|value|qty|quantity|count|memory|mem_", "value"),
     (r"weight|wt", "weight"),
     (r"time|date|ts|timestamp", "timestamp"),
@@ -58,6 +60,8 @@ METRIC_BY_TAGS = [
     ({"hits"}, "test_coverage"),
     ({"duration"}, "latency_p50"),
     ({"x", "y"}, "correlation"),
+    ({"value", "cost"}, "margin_pct"),
+    ({"cashflow"}, "irr"),
     ({"value"}, "column_sum"),
 ]
 # common entrypoint names first; gen_fixture.py last (calma's own fixture convention)
@@ -96,6 +100,7 @@ CLAIM_METRIC_HINTS = [
     ("correlation", "correlation"), ("pearson", "correlation"), ("spearman", "correlation"),
     ("uplift", "lift"), ("lift", "lift"),
     ("speedup", "speedup_ratio"), ("speed-up", "speedup_ratio"), ("faster", "speedup_ratio"),
+    ("p99.9", "percentile"), ("p90", "percentile"), ("p75", "percentile"),
     ("p50", "latency_p50"), ("p95", "latency_p95"), ("p99", "latency_p99"),
     ("latency", "latency_p50"),
     ("throughput", "throughput"), ("rps", "throughput"), ("qps", "throughput"),
@@ -110,6 +115,13 @@ CLAIM_METRIC_HINTS = [
     ("share", "ratio_share"),
     ("merged", "join_row_loss"), ("merge", "join_row_loss"), ("join", "join_row_loss"),
     ("joined", "join_row_loss"),
+    ("cagr", "cagr"), ("npv", "npv"), ("irr", "irr"),
+    ("churn", "churn_rate"), ("retention", "churn_rate"),
+    ("margin", "margin_pct"),
+    ("reconciliation", "reconciliation_total"), ("reconciled", "reconciliation_total"),
+    ("ledger", "reconciliation_total"),
+    ("smape", "mape"), ("mape", "mape"), ("mase", "mase"),
+    ("pinball", "pinball_loss"), ("quantile loss", "pinball_loss"),
     # -- the original single-word hints --
     ("accuracy", "accuracy"), ("auc", "auc"), ("rmse", "rmse"), ("mae", "mae"),
     ("r2", "r2"), ("r^2", "r2"), ("sharpe", "sharpe"), ("drawdown", "max_drawdown"),
@@ -127,6 +139,71 @@ _CLAIM_NUM = re.compile(
     r"([-+]?)\s*\$?\s*(?<![\w@^.])(?<![\w@^.][-+])"
     r"((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:[eE][-+]?\d+)?|\.\d+(?:[eE][-+]?\d+)?)"
     r"\s*(%|[kKmMbB](?![a-zA-Z]))?")
+
+
+def infer_convention(text, metric_id):
+    """Pull the recompute convention OUT OF THE CLAIM TEXT, so 'pass@5 0.62' recomputes with
+    k=5 (not the k=1 default), 'monthly CAGR' annualizes 12 periods, 'spearman correlation'
+    ranks first, '99% CI' uses t99. Tight patterns only - no match means the recipe default,
+    and the inferred string is recorded on the contract for audit."""
+    if text is None or metric_id is None:
+        return None
+    s = str(text).lower()
+    if metric_id in ("pass_at_k", "recall_at_k", "ndcg_at_k", "mrr", "top_k_accuracy"):
+        m = re.search(r"(?:pass|recall|ndcg|mrr|hit|top)\s*[@\- ]\s*k?=?(\d+)", s)
+        if m:
+            k = "k=%s" % m.group(1)
+            return k + ",exp" if (metric_id == "ndcg_at_k" and "exp" in s) else k
+        return None
+    if metric_id == "cagr":
+        if "month" in s:
+            return "periods=12"
+        if "quarter" in s:
+            return "periods=4"
+        if "week" in s:
+            return "periods=52"
+        return None
+    if metric_id == "npv":
+        m = re.search(r"(?:at|@)\s*(\d+(?:\.\d+)?)\s*%", s)
+        return "rate=%g" % (float(m.group(1)) / 100.0) if m else None
+    if metric_id == "percentile":
+        m = re.search(r"\bp(\d{1,2}(?:\.\d+)?)(?![\d])", s) \
+            or re.search(r"(\d{1,2}(?:\.\d+)?)(?:st|nd|rd|th)\s*percentile", s)
+        return "p%s" % m.group(1) if m else None
+    if metric_id == "correlation" and "spearman" in s:
+        return "spearman"
+    if metric_id == "mape" and "smape" in s:
+        return "smape"
+    if metric_id == "effect_size":
+        if "hedges" in s:
+            return "hedges_g"
+        if "glass" in s:
+            return "glass_delta"
+        return None
+    if metric_id == "confidence_interval":
+        m = re.search(r"(90|95|99)\s*%", s)
+        return "t%s" % m.group(1) if m else None
+    if metric_id == "error_rate":
+        if "5xx" in s:
+            return "http5xx"
+        if "4xx" in s:
+            return "http4xx"
+        return None
+    if metric_id == "ece":
+        m = re.search(r"(\d+)[\- ]bin", s)
+        return "bins=%s" % m.group(1) if m else None
+    if metric_id == "pinball_loss":
+        m = re.search(r"q\s*=?\s*(0?\.\d+)", s)
+        return "q=%s" % m.group(1) if m else None
+    if metric_id == "speedup_ratio" and "median" in s:
+        return "median"
+    if metric_id == "churn_rate" and "retention" in s:
+        return "retention"
+    if metric_id == "chi_square" and ("statistic" in s or "stat " in s):
+        return "statistic"
+    if metric_id == "growth_rate" and ("total" in s or "overall" in s or "since" in s):
+        return "total"
+    return None
 
 
 def parse_claim(text):
@@ -583,7 +660,8 @@ def draft(target, claim=None, metric=None):
         # (degrades to INCONCLUSIVE), so a wrong auto-binding can never manufacture a refutation.
         target_confirmed = claim_value is not None and (metric is not None or grade == "independently-bound")
         contract["metrics"].append({
-            "metric_id": mid, "artifact": art, "binding": binding, "convention": None,
+            "metric_id": mid, "artifact": art, "binding": binding,
+            "convention": infer_convention(claim, mid),
             "claimed_value": claim_value,
             "headline": claim_value is not None, "binding_status": grade,
             "claim_confirmed": target_confirmed,

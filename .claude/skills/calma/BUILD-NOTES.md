@@ -152,9 +152,9 @@ The largest audit round; one true soundness blocker plus the entire first-contac
   spec path fixed. README rewritten to match real commands and real output.
 - 52 new regression checks (test_dx.py). **Total: 236 checks across 12 suites, all green.**
 
-## Recipe expansion to 50 + SOTA validation harness (2026-06-10)
+## Recipe expansion to 59 + SOTA validation harness (2026-06-10)
 
-The recipe library grew from 15 to 50, covering Packs 1-4 of the roadmap (the deep quant stats -
+The recipe library grew from 15 to 59, covering Packs 1-6 of the roadmap (the deep quant stats -
 deflated Sharpe, PBO/CSCV, Harvey-Liu, MinBTL - stay out of the skill on purpose; they are the R1
 paid-report engine):
 - **Pack 1, engineering (8):** speedup_ratio, latency_p50/p95/p99, throughput, peak_memory,
@@ -165,6 +165,9 @@ paid-report engine):
   pass_at_k, macro_f1, micro_f1, pr_auc, log_loss, mcc, ece.
 - **Pack 4, statistics (6):** p_value (Welch/pooled/z), confidence_interval, lift, chi_square,
   correlation (Pearson/Spearman), effect_size (Cohen/Hedges/Glass).
+- **Pack 5, finance (6):** cagr, npv, irr (deterministic bisection), churn_rate (churn/retention),
+  margin_pct, reconciliation_total (cross-artifact ledger diff).
+- **Pack 6, forecasting (3):** mape (mape/smape), mase (seasonal m=), pinball_loss (q=).
 
 What made this possible without breaking the determinism rule:
 - **Deterministic transcendental kernels** in numeric.py: dlog/dexp/dlog2 (range-reduction +
@@ -178,7 +181,7 @@ What made this possible without breaking the determinism rule:
 - **Cross-artifact bindings:** a binding value `left.csv::id` reads from a sibling artifact
   (join_row_loss, cross-file speedups).
 - **SOTA validation:** calibration/gen_reference_vectors.py generates
-  assets/reference_vectors.json (295 cases) from scikit-learn/SciPy/NumPy + the HumanEval
+  assets/reference_vectors.json (312 cases) from scikit-learn/SciPy/NumPy + the HumanEval
   pass@k estimator + the SQuAD normalizer + Guo et al. ECE; tests/test_recipes_sota.py
   (pure stdlib) re-runs every case through the kernels plus convention parsing, degenerate
   paths, bit-stability, and a recompute->compare e2e (REFUTED catch included). All 15
@@ -189,4 +192,5 @@ What made this possible without breaking the determinism rule:
 - **Binding grades for new tags:** durations/counts/ranks/flags/HTTP-status columns get
   independent value-plausibility checks, so true claims on sane columns CONFIRM (not CAVEAT)
   and fraudulent ones can reach REFUTED.
-- Catalog: references/recipes.md. 711 checks across 13 suites, all green.
+- Catalog: references/recipes.md. Pack 5/6 references: numpy-financial (npv/irr), sklearn
+  (MAPE, pinball), Hyndman & Koehler (MASE). 756 checks across 13 suites, all green.

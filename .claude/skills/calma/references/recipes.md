@@ -1,11 +1,11 @@
-# Recipe catalog (50 recipes, all SOTA-validated)
+# Recipe catalog (59 recipes, all SOTA-validated)
 
 Every recipe recomputes its number ONLY from raw machine-readable artifacts via the
 reference-deterministic kernels in `numeric.py` (fsum / pairwise product / sqrt, plus the
 deterministic transcendental kernels - never platform libm, never numpy). Every recipe is
 validated against published reference implementations (scikit-learn, SciPy, NumPy, the
 HumanEval pass@k estimator, the SQuAD eval normalizer, Guo et al. ECE) by
-`tests/test_recipes_sota.py` over `assets/reference_vectors.json` (295 vectors, regenerable
+`tests/test_recipes_sota.py` over `assets/reference_vectors.json` (312 vectors, regenerable
 with `calibration/gen_reference_vectors.py`).
 
 Binding = semantic tag -> column name. A binding value `other.csv::col` reads from a sibling
@@ -87,6 +87,25 @@ Retrieval layout: one row per (query *(string)*, rank, relevance); rank 1 = best
 | chi_square | group *(string)*, outcome *(string)* | p (default) \| statistic \| p-no-yates \| statistic-no-yates | independence test from RAW observation pairs; Yates only when df==1 (scipy) |
 | correlation | x, y | pearson (default) \| spearman | fsum-centered Pearson; Spearman = Pearson on midranks (ties averaged) |
 | effect_size | sample_a, sample_b | cohen_d (default) \| hedges_g \| glass_delta | pooled-SD d; Hedges' exact-gamma J; Glass = control SD |
+
+## Business & finance (6)
+
+| metric_id | binding tags | convention | definition |
+|---|---|---|---|
+| cagr | value | periods=`<per-year>` (1) | (last/first)^(1/years) - 1; years = (n-1)/periods_per_year |
+| npv | cashflow | REQUIRED: rate=`<frac>` | sum cf_t/(1+r)^t, cf[0] at t=0 (numpy-financial); no rate -> degenerate |
+| irr | cashflow | - | rate where npv=0, deterministic bisection; no sign change -> degenerate |
+| churn_rate | flag | churn (default) \| retention | churned/total from raw flags; retention = 1 - churn |
+| margin_pct | value (revenue), cost | - | (sum rev - sum cost) / sum rev |
+| reconciliation_total | value_a, value_b | - | sum(a) - sum(b); 0 = reconciled; use `ledger.csv::col` cross-artifact binding |
+
+## Forecasting (3)
+
+| metric_id | binding tags | convention | definition |
+|---|---|---|---|
+| mape | prediction, target | mape (default) \| smape | mean(\|p-a\|/\|a\|); zero actual -> degenerate (no epsilon fudge); smape = mean(2\|p-a\|/(\|p\|+\|a\|)) |
+| mase | prediction, target | m=`<season>` (1) | MAE scaled by in-sample naive-m MAE (Hyndman & Koehler) |
+| pinball_loss | prediction, target | q=`<quantile>` (0.5) | mean(max(q(a-p), (q-1)(a-p))) (sklearn mean_pinball_loss) |
 
 ## Determinism notes
 

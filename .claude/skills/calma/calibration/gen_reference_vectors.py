@@ -356,6 +356,69 @@ case("hedges_g", "cohen_d", {"a": sa, "b": sb, "mode": "hedges_g"}, d * jexact, 
 case("glass_delta", "cohen_d", {"a": sa, "b": sb, "mode": "glass_delta"},
      (np.mean(sa) - np.mean(sb)) / np.std(sb, ddof=1), atol=1e-13)
 
+# ============================ Pack 5 - business & finance ============================
+
+import numpy_financial as npf  # noqa: E402
+
+monthly = []
+v = 100000.0
+for u in uniforms(40, 36, -0.02, 0.045):
+    v *= (1.0 + u)
+    monthly.append(v)
+years = (len(monthly) - 1) / 12.0
+case("cagr_monthly", "cagr", {"xs": monthly, "ppy": 12.0},
+     (monthly[-1] / monthly[0]) ** (1.0 / years) - 1.0, atol=1e-13)
+annual = monthly[::12]
+case("cagr_annual", "cagr", {"xs": annual, "ppy": 1.0},
+     (annual[-1] / annual[0]) ** (1.0 / (len(annual) - 1)) - 1.0, atol=1e-13)
+
+cfs = [-2500.0] + uniforms(41, 8, 200.0, 700.0)
+case("npv_8pct", "npv", {"cashflows": cfs, "rate": 0.08}, npf.npv(0.08, cfs), atol=1e-9)
+case("npv_0pct", "npv", {"cashflows": cfs, "rate": 0.0}, np.sum(np.array(cfs)), atol=1e-10)
+case("irr", "irr", {"cashflows": cfs}, npf.irr(cfs), atol=1e-10)
+cfs2 = [-1000.0, 400.0, 400.0, 400.0]
+case("irr_simple", "irr", {"cashflows": cfs2}, npf.irr(cfs2), atol=1e-10)
+
+churn_flags = [1.0 if u < 0.031 else 0.0 for u in uniforms(42, 900)]
+case("churn", "churn_rate", {"flags": churn_flags, "mode": "churn"}, np.mean(np.array(churn_flags)))
+case("retention", "churn_rate", {"flags": churn_flags, "mode": "retention"},
+     1.0 - np.mean(np.array(churn_flags)))
+
+rev = uniforms(43, 150, 100.0, 900.0)
+cost = [r * u for r, u in zip(rev, uniforms(44, 150, 0.3, 0.6))]
+case("margin_pct", "margin_pct", {"revenue": rev, "cost": cost},
+     (np.sum(np.array(rev)) - np.sum(np.array(cost))) / np.sum(np.array(rev)), atol=1e-12)
+
+ledger_b = uniforms(45, 220, 10.0, 400.0)
+ledger_a = list(ledger_b)
+ledger_a[17] += 12.5   # a deliberate 12.5 mismatch
+case("reconciliation_diff", "reconciliation", {"a": ledger_a, "b": ledger_b}, 12.5, atol=1e-9)
+
+# ============================ Pack 6 - forecasting ============================
+
+f_actual = uniforms(46, 120, 50.0, 250.0)
+f_pred = [a + e for a, e in zip(f_actual, uniforms(47, 120, -12.0, 12.0))]
+case("mape", "mape", {"pred": f_pred, "actual": f_actual, "symmetric": False},
+     skm.mean_absolute_percentage_error(f_actual, f_pred), atol=1e-13)
+smape_ref = float(np.mean(2.0 * np.abs(np.array(f_pred) - np.array(f_actual))
+                          / (np.abs(np.array(f_pred)) + np.abs(np.array(f_actual)))))
+case("smape", "mape", {"pred": f_pred, "actual": f_actual, "symmetric": True}, smape_ref, atol=1e-13)
+
+
+def ref_mase(pred, actual, m):
+    a = np.array(actual)
+    scale = np.mean(np.abs(a[m:] - a[:-m]))
+    return float(np.mean(np.abs(np.array(pred) - a)) / scale)
+
+
+case("mase_m1", "mase", {"pred": f_pred, "actual": f_actual, "m": 1}, ref_mase(f_pred, f_actual, 1),
+     atol=1e-13)
+case("mase_m12", "mase", {"pred": f_pred, "actual": f_actual, "m": 12}, ref_mase(f_pred, f_actual, 12),
+     atol=1e-13)
+for q in (0.1, 0.5, 0.9):
+    case("pinball_q%g" % q, "pinball", {"pred": f_pred, "actual": f_actual, "q": q},
+         skm.mean_pinball_loss(f_actual, f_pred, alpha=q), atol=1e-13)
+
 # ============================ special-function kernels ============================
 
 for x in (1e-300, 1e-12, 0.1, 0.5, 1.0, 1.5, 2.0, 2.718281828459045, 10.0, 1e5, 1e150, 1e300):

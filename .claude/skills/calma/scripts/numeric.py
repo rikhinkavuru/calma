@@ -995,3 +995,140 @@ def cohen_d(a, b, mode="cohen_d"):
         j = dexp(dlgamma(df / 2.0) - dlgamma((df - 1) / 2.0)) / math.sqrt(df / 2.0)
         return d * j
     return d
+
+
+# ======================================================================================
+# Pack 5 - business & finance kernels
+# ======================================================================================
+
+def dpow(base, expo):
+    """Deterministic real power for base > 0: exp(expo * ln(base))."""
+    if base != base or expo != expo or base < 0.0:
+        return float("nan")
+    if base == 0.0:
+        return 0.0 if expo > 0 else float("nan")
+    return dexp(expo * dlog(base))
+
+
+def cagr(xs, periods_per_year=1.0):
+    """Compound annual growth rate from a time-ordered value series:
+    (last/first)^(1/years) - 1 with years = (n-1)/periods_per_year."""
+    if len(xs) < 2 or _has_nan(xs) or xs[0] <= 0 or xs[-1] <= 0 or periods_per_year <= 0:
+        return float("nan")
+    years = (len(xs) - 1) / periods_per_year
+    return dpow(xs[-1] / xs[0], 1.0 / years) - 1.0
+
+
+def npv(cashflows, rate):
+    """Net present value, cashflows[0] at t=0 (numpy-financial convention):
+    sum cf_t / (1+rate)^t. Integer powers by exact repeated multiplication."""
+    if not cashflows or _has_nan(cashflows) or rate != rate or rate <= -1.0:
+        return float("nan")
+    terms = []
+    denom = 1.0
+    for cf in cashflows:
+        terms.append(cf / denom)
+        denom *= (1.0 + rate)
+    return math.fsum(terms)
+
+
+def irr(cashflows):
+    """Internal rate of return: the rate in (-1, inf) where npv = 0, found by deterministic
+    expansion + bisection. Requires at least one sign change in the cashflows; ambiguous or
+    rootless series -> NaN."""
+    if not cashflows or _has_nan(cashflows):
+        return float("nan")
+    has_pos = any(cf > 0 for cf in cashflows)
+    has_neg = any(cf < 0 for cf in cashflows)
+    if not (has_pos and has_neg):
+        return float("nan")
+    lo, hi = -0.9999, 1.0
+    f_lo = npv(cashflows, lo)
+    while npv(cashflows, hi) * f_lo > 0:
+        hi *= 2.0
+        if hi > 1e6:
+            return float("nan")
+    # bisection on a sign change; npv is continuous in rate
+    f_l = f_lo
+    for _ in range(200):
+        mid = 0.5 * (lo + hi)
+        if mid <= lo or mid >= hi:
+            break
+        f_m = npv(cashflows, mid)
+        if (f_m > 0) == (f_l > 0):
+            lo, f_l = mid, f_m
+        else:
+            hi = mid
+    return 0.5 * (lo + hi)
+
+
+def churn_rate(flags, mode="churn"):
+    """Churned over total from raw 0/1 churn flags; 'retention' = 1 - churn."""
+    if not flags or _has_nan(flags):
+        return float("nan")
+    c = sum(1 for v in flags if v != 0) / len(flags)
+    return 1.0 - c if mode == "retention" else c
+
+
+def margin_pct(revenue, cost):
+    """Gross margin fraction: (sum(revenue) - sum(cost)) / sum(revenue)."""
+    if not revenue or not cost or _has_nan(revenue) or _has_nan(cost):
+        return float("nan")
+    rev = math.fsum(revenue)
+    if rev == 0:
+        return float("nan")
+    return (rev - math.fsum(cost)) / rev
+
+
+def reconciliation_diff(a, b):
+    """'The totals match the ledger': sum(a) - sum(b). 0 = reconciled."""
+    if not a or not b or _has_nan(a) or _has_nan(b):
+        return float("nan")
+    return math.fsum(a) - math.fsum(b)
+
+
+# ======================================================================================
+# Pack 6 - forecasting kernels
+# ======================================================================================
+
+def mape(pred, actual, symmetric=False):
+    """MAPE = mean(|p-a|/|a|); any zero actual -> NaN (degenerate), never an epsilon fudge.
+    symmetric (sMAPE) = mean(2|p-a| / (|p|+|a|)); zero denominator -> NaN."""
+    if len(pred) != len(actual) or not pred or _has_nan(pred) or _has_nan(actual):
+        return float("nan")
+    terms = []
+    for p, a in zip(pred, actual):
+        if symmetric:
+            denom = abs(p) + abs(a)
+        else:
+            denom = abs(a)
+        if denom == 0:
+            return float("nan")
+        factor = 2.0 if symmetric else 1.0
+        terms.append(factor * abs(p - a) / denom)
+    return math.fsum(terms) / len(pred)
+
+
+def mase(pred, actual, m=1):
+    """Mean absolute scaled error (Hyndman & Koehler 2006): mean|p-a| scaled by the in-sample
+    naive seasonal forecast MAE, mean(|a_t - a_{t-m}|) for t = m..n-1."""
+    n = len(actual)
+    if len(pred) != n or n <= m or m < 1 or _has_nan(pred) or _has_nan(actual):
+        return float("nan")
+    scale = math.fsum(abs(actual[t] - actual[t - m]) for t in range(m, n)) / (n - m)
+    if scale == 0:
+        return float("nan")
+    err = math.fsum(abs(p - a) for p, a in zip(pred, actual)) / n
+    return err / scale
+
+
+def pinball(pred, actual, q):
+    """Pinball (quantile) loss at quantile q: mean(max(q*(a-p), (q-1)*(a-p))) (sklearn)."""
+    if len(pred) != len(actual) or not pred or _has_nan(pred) or _has_nan(actual) \
+            or q != q or not (0.0 < q < 1.0):
+        return float("nan")
+    terms = []
+    for p, a in zip(pred, actual):
+        d = a - p
+        terms.append(max(q * d, (q - 1.0) * d))
+    return math.fsum(terms) / len(pred)

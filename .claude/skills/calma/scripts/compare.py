@@ -48,14 +48,23 @@ def _load_calibration():
 
 
 def _infer_precision(claimed):
-    """The half-ULP of the claim's REPORTED precision: '0.42' -> 0.005, integer -> 0.5, sci/long -> ~0."""
-    s = repr(float(claimed))
+    """The half-ULP of the claim's REPORTED precision: '0.42' -> 0.005, integer -> 0.5, sci/long -> ~0.
+    Claims scaled in parsing ('23.87%' -> 0.23870000000000002) have float-artifact reprs; the
+    shortest decimal that round-trips within float tolerance recovers the reported precision."""
+    c = float(claimed)
+    s = repr(c)
     if "e" in s or "E" in s:
         return 0.0
-    if "." in s:
-        d = len(s.split(".", 1)[1])
-        return 0.5 * 10 ** (-d) if d <= 6 else 0.0
-    return 0.5
+    if "." not in s or c == int(c):
+        return 0.5
+    d = len(s.split(".", 1)[1])
+    if d > 6:
+        tol = 1e-12 * max(1.0, abs(c))
+        for k in range(1, 13):
+            if abs(round(c, k) - c) <= tol:
+                return 0.5 * 10 ** (-k)
+        return 0.0
+    return 0.5 * 10 ** (-d)
 
 
 def _sign(x):

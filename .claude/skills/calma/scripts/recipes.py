@@ -489,3 +489,95 @@ def effect_size(cols, binding, convention=None):
     a, b = cols[binding["sample_a"]], cols[binding["sample_b"]]
     mode = _conv_str(convention) or "cohen_d"
     return _result(N.cohen_d(a, b, mode), {"n_a": len(a), "n_b": len(b), "mode": mode})
+
+
+def _conv_float(convention, key, default):
+    """Parse 'rate=0.08' / 'q=0.9' / bare '0.08' -> float."""
+    s = _conv_str(convention)
+    if not s:
+        return default
+    if "=" in s:
+        k, _, v = s.partition("=")
+        if k.strip() != key:
+            return default
+        s = v.strip()
+    try:
+        return float(s)
+    except ValueError:
+        return default
+
+
+# ======================================================================================
+# Pack 5 - business & finance beyond trading
+# ======================================================================================
+
+@register("cagr", family="finance", required_tags=["value"], set_maturity="reviewed",
+          accepted_conventions=["periods=<per-year>"])
+def cagr(cols, binding, convention=None):
+    xs = cols[binding["value"]]
+    ppy = _conv_int(convention, "periods", 1)
+    return _result(N.cagr(xs, float(ppy)), {"n": len(xs), "periods_per_year": ppy})
+
+
+@register("npv", family="finance", required_tags=["cashflow"], set_maturity="reviewed",
+          accepted_conventions=["rate=<frac>"])
+def npv(cols, binding, convention=None):
+    cf = cols[binding["cashflow"]]
+    rate = _conv_float(convention, "rate", None)
+    val = N.npv(cf, rate) if rate is not None else float("nan")
+    return _result(val, {"n": len(cf), "rate": rate})
+
+
+@register("irr", family="finance", required_tags=["cashflow"], set_maturity="reviewed")
+def irr(cols, binding, convention=None):
+    cf = cols[binding["cashflow"]]
+    return _result(N.irr(cf), {"n": len(cf)})
+
+
+@register("churn_rate", family="finance", required_tags=["flag"], set_maturity="reviewed",
+          accepted_conventions=["churn", "retention"])
+def churn_rate(cols, binding, convention=None):
+    flags = cols[binding["flag"]]
+    mode = _conv_str(convention) or "churn"
+    return _result(N.churn_rate(flags, mode), {"n": len(flags), "mode": mode})
+
+
+@register("margin_pct", family="finance", required_tags=["value", "cost"], set_maturity="reviewed")
+def margin_pct(cols, binding, convention=None):
+    rev, cost = cols[binding["value"]], cols[binding["cost"]]
+    return _result(N.margin_pct(rev, cost), {"n_revenue": len(rev), "n_cost": len(cost)})
+
+
+@register("reconciliation_total", family="finance", required_tags=["value_a", "value_b"],
+          set_maturity="reviewed")
+def reconciliation_total(cols, binding, convention=None):
+    a, b = cols[binding["value_a"]], cols[binding["value_b"]]
+    return _result(N.reconciliation_diff(a, b), {"n_a": len(a), "n_b": len(b)})
+
+
+# ======================================================================================
+# Pack 6 - forecasting
+# ======================================================================================
+
+@register("mape", family="forecasting", required_tags=["prediction", "target"], set_maturity="reviewed",
+          accepted_conventions=["mape", "smape"])
+def mape(cols, binding, convention=None):
+    mode = _conv_str(convention) or "mape"
+    val = N.mape(cols[binding["prediction"]], cols[binding["target"]], symmetric=(mode == "smape"))
+    return _result(val, {"n": len(cols[binding["target"]]), "mode": mode})
+
+
+@register("mase", family="forecasting", required_tags=["prediction", "target"], set_maturity="reviewed",
+          accepted_conventions=["m=<season>"])
+def mase(cols, binding, convention=None):
+    m = _conv_int(convention, "m", 1)
+    val = N.mase(cols[binding["prediction"]], cols[binding["target"]], m)
+    return _result(val, {"n": len(cols[binding["target"]]), "m": m})
+
+
+@register("pinball_loss", family="forecasting", required_tags=["prediction", "target"],
+          set_maturity="reviewed", accepted_conventions=["q=<quantile>"])
+def pinball_loss(cols, binding, convention=None):
+    q = _conv_float(convention, "q", 0.5)
+    val = N.pinball(cols[binding["prediction"]], cols[binding["target"]], q)
+    return _result(val, {"n": len(cols[binding["target"]]), "q": q})
