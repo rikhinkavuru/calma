@@ -81,6 +81,7 @@ export function Nav({ onRequest }: { onRequest: () => void }) {
           <a href="#overview">How it works</a>
           <a href="#features">Features</a>
           <a href="#benefits">Who it&apos;s for</a>
+          <a href="/lab">The lab</a>
           <a href="#about">About</a>
           <button className="nav__cta" onClick={onRequest}>
             Request verification
