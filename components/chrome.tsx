@@ -100,9 +100,10 @@ export function Nav({ onRequest }: { onRequest: () => void }) {
           CALMA
         </a>
         <nav className="nav__links">
-          <a href="#catch">The catch</a>
-          <a href="#method">Method</a>
-          <a href="#get">Get it</a>
+          <a href="#problem">The problem</a>
+          <a href="#overview">Overview</a>
+          <a href="#features">Features</a>
+          <a href="#about">About</a>
           <button className="nav__cta" onClick={onRequest}>
             Request verification
           </button>

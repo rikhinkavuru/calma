@@ -3,11 +3,12 @@
 import { useState } from "react";
 import { Nav } from "./chrome";
 import { Hero } from "./Hero";
-import { Catch } from "./Catch";
-import { Specimen } from "./Specimen";
-import { Method } from "./Method";
-import { Vstrip } from "./Vstrip";
-import { Get } from "./Get";
+import { Problem } from "./Catch";
+import { Overview } from "./Overview";
+import { Features } from "./Features";
+import { Benefits } from "./Benefits";
+import { About } from "./About";
+import { Faqs } from "./Faqs";
 import { Outro } from "./Outro";
 import { RequestDialog } from "./RequestDialog";
 
@@ -21,11 +22,12 @@ export default function App() {
       <Nav onRequest={openDlg} />
       <main>
         <Hero onRequest={openDlg} />
-        <Catch />
-        <Specimen />
-        <Method />
-        <Vstrip />
-        <Get onRequest={openDlg} />
+        <Problem />
+        <Overview />
+        <Features />
+        <Benefits onRequest={openDlg} />
+        <About />
+        <Faqs />
       </main>
       <Outro />
       <RequestDialog open={dlg} onClose={() => setDlg(false)} />
