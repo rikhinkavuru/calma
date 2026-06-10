@@ -2,57 +2,57 @@
 
 import { Reveal } from "./chrome";
 
-/* The two actual differentiators get the marquee; everything else consolidates. */
+/* The two differentiators get the marquee; the grid is the actual machinery. */
 const MARQUEE: [string, string, string][] = [
   [
-    "Tamper-proof",
+    "Adversarial by design",
     "A verdict nobody can argue with — including the AI that did the work",
-    "Every number and the verdict itself come from deterministic code, and the ledger re-derives each verdict byte-for-byte from its recorded inputs. A persuasive model — or a motivated human — cannot author a pass.",
+    "Every number and the verdict itself come from deterministic code, and the ledger re-derives each verdict byte-for-byte from its recorded inputs. A persuasive model — or a motivated author — cannot argue, edit, or charm their way to a pass.",
   ],
   [
-    "Self-proving",
+    "Self-proving isolation",
     "It proves its own sandbox before trusting it",
-    "Before any run, Calma plants a fake secret and tries to steal it — and tries to reach the network — under its own sandbox. Only when every attempt fails does it claim isolation. If your machine can't provide that, the verdict says so instead of pretending.",
+    "Before any run, Calma plants a fake secret and tries to steal it — and tries to reach the network — under its own sandbox. Only when every attempt fails does it claim isolation; a machine that can't provide it is stamped honestly. Nothing is uploaded: your code and data never leave the machine.",
   ],
 ];
 
 const FEATS: [string, string][] = [
   [
-    "Plain English in, plain English out",
-    "“p95 latency 120ms.” “pass@5 0.62.” The number, the metric, even the convention are parsed from the words. Back comes one of four answers — confirmed, refuted, can't confirm, or confirmed with caveats.",
+    "Deterministic to the bit",
+    "Same inputs, same number, on any machine. The recompute runs on correctly-rounded kernels with Calma's own deterministic math — no GPU noise, no platform library drift, anywhere in the path.",
   ],
   [
-    "It never cries wolf",
-    "Tolerances are calibrated to the claim's own precision — “$4.2M” is a ±$50k claim. And when something can't be verified, you get a fix: line naming the exact change, never a guess or a false alarm.",
+    "Calibrated tolerance budgets",
+    "A claim is only refuted when the gap is statistically distinguishable: the budget comes from the claim's own reported precision — “$4.2M” is a ±$50k claim — plus the metric's sampling error and a measured noise floor.",
   ],
   [
-    "Anyone can replay it",
-    "Every verdict ships with one command that re-runs the entire check, on their machine. You never have to take Calma's word for it either.",
+    "Honesty guards",
+    "REFUTED is structurally blocked on an ambiguous column binding, a failed re-run, flaky outputs, or uncontrolled randomness. It degrades to can't-confirm with a fix: line naming the exact unblock — a caveat over a false alarm, every time.",
   ],
   [
-    "Cheap enough to run in a loop",
-    "Verifications are cached by the content hash of code, data, and claim — unchanged work answers instantly. Agents verify their own results mid-task, so the mistake dies before anyone sees it.",
+    "Plain-English claims",
+    "“p95 latency 120ms.” “pass@5 0.62.” “monthly CAGR 23.9%.” The number, the metric, and even the convention — which k, which period, Welch or pooled — are parsed straight from the words.",
   ],
   [
-    "Any language, zero config",
-    "Python, R, Julia, C++, Rust — your program runs as a black box and Calma rebuilds the number itself. The contract is auto-drafted from your files; pin it with one small verify.yaml when you want control.",
+    "Auto-drafted, graded contracts",
+    "Calma scans the output files, infers which column is the metric, and grades each binding by an independent sanity check. Only an independently-verified binding can ever refute. Pin everything with one small verify.yaml.",
   ],
   [
-    "Nothing leaves your machine",
-    "The work runs locally, in a sandbox with no network access. Your code and data are never uploaded, anywhere.",
+    "Forensic replay & attestation",
+    "Every run leaves a content-addressed manifest (in-toto/SLSA, CycloneDX ML-BOM) and one command that re-runs the whole check. The proof is built for the counterparty, not the author.",
   ],
-];
-
-const ALSO = [
-  "flaky-result detection (runs twice, diffs the bytes)",
-  "stale-output guard — a crashed re-run can never confirm",
-  "bit-identical recompute kernels",
-  "in-toto/SLSA attestation manifests",
-  "CycloneDX ML-BOM",
-  "GitHub Action CI gate",
-  "--json verdicts for agents",
-  "shareable teardown cards",
-  "verification history per project",
+  [
+    "Built for agent loops & CI",
+    "Verifications are cached by the content hash of code, data, and claim — unchanged work answers instantly. Agents branch on --json verdicts mid-task; the GitHub Action gates CI only when a claim actually breaks.",
+  ],
+  [
+    "Any language, black box",
+    "Python, R, Julia, C++, Rust — the program runs as a sealed box and Calma rebuilds the number in its own layer. No instrumentation, no SDK, no changes to the code under test.",
+  ],
+  [
+    "Every catch leaves a record",
+    "A break produces a shareable teardown — claimed X, recomputed Y, here's the reproduction — and every verification appends to a per-project history. The track record compounds; it can't be retconned.",
+  ],
 ];
 
 export function Features() {
@@ -92,20 +92,6 @@ export function Features() {
         </Reveal>
 
         <Reveal delay={300}>
-          <div className="alsobox">
-            <span className="alsobox__k">Also in the box</span>
-            <p className="alsobox__items">
-              {ALSO.map((item, i) => (
-                <span key={item}>
-                  {item}
-                  {i < ALSO.length - 1 ? <i aria-hidden="true"> · </i> : null}
-                </span>
-              ))}
-            </p>
-          </div>
-        </Reveal>
-
-        <Reveal delay={350}>
           <div className="rband">
             <div className="rband__n">
               <span className="rband__num">59</span>
