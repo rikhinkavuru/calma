@@ -66,8 +66,11 @@ calma verify <folder> "<claim>"
 
 ```bash
 calma verify <folder> "<claim>"     # check a result   (exit 0 = clean, 1 = not clean, 2 = bad input)
-calma teardown <folder> "<claim>"   # print a shareable "claimed X -> really Y" card when something breaks
+calma verify <folder> "<claim>" --json               # machine-readable verdict (for agents/CI)
+calma verify <folder> "<claim>" --check-determinism  # run twice; flaky outputs can't confirm anything
+calma teardown <folder> "<claim>" [--svg card.svg]   # shareable "claimed X -> really Y" card (+ SVG image)
 calma replay <run_dir>              # re-run a saved verification; exit 0 iff the verdict reproduces
+calma stats <folder>                # verification history: counts and recent catches
 python3 .claude/skills/calma/scripts/run_hermetic.py doctor   # prove the sandbox works on your machine
 ```
 

@@ -30,6 +30,7 @@ _FIXES = [
     ("untrusted code", "third-party code needs a verified container/VM tier - or set trust: own-code if you wrote it"),
     ("killed or isolation was refused", "the run was killed or refused - raise the timeout, or check `run_hermetic.py doctor`"),
     ("degenerate recompute", "the recompute hit NaN/Inf - check for missing values in the output file"),
+    ("outputs differ across identical re-runs", "set a fixed seed (and write outputs deterministically), then re-run"),
     ("plausibly-bound", "confirm which column is the metric: pass --metric, or pin the binding in verify.yaml"),
     ("author-asserted", "the input binding could not be independently sanity-checked - pin it in verify.yaml"),
 ]
@@ -130,6 +131,47 @@ def render(led, diff=None):
         if sc.get("binding_note"):
             lines.append("  checked: " + sc["binding_note"])
     return "\n".join(lines)
+
+
+fix_line = _fix_line  # public alias (agent/JSON consumers)
+
+
+def _esc(s):
+    return (str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            .replace('"', "&quot;"))
+
+
+def svg_card(led, width=820):
+    """A self-contained dark SVG share card for a REFUTED result - the local, no-SaaS version of an
+    OG image. Deterministic output (no timestamps)."""
+    if led.get("repo_verdict") not in ("REFUTED", "MIXED"):
+        return None
+    c = (led.get("claims") or [{}])[0]
+    mid = c.get("metric")
+    claimed = fmt_value(c.get("claimed_value"), mid)
+    recomputed = fmt_value(c.get("recomputed_value"), mid)
+    blockers = [f for f in led.get("findings", []) if f.get("severity") in ("blocker", "major")]
+    why = _DIMENSION_GLOSS.get(blockers[0].get("dimension"), blockers[0].get("dimension")) \
+        if blockers else "the number doesn't recompute"
+    sc = led.get("scope", {})
+    h = 430
+    return """<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d">
+  <rect width="%d" height="%d" rx="16" fill="#0A0A0B"/>
+  <rect x="1" y="1" width="%d" height="%d" rx="15" fill="none" stroke="#26262B" stroke-width="2"/>
+  <text x="48" y="64" font-family="ui-monospace,Menlo,monospace" font-size="15" fill="#71717A" letter-spacing="3">CALMA TEARDOWN — %s</text>
+  <text x="48" y="120" font-family="ui-monospace,Menlo,monospace" font-size="17" fill="#A1A1AA">CLAIMED</text>
+  <text x="48" y="172" font-family="ui-monospace,Menlo,monospace" font-size="44" font-weight="700" fill="#FAFAFA">%s</text>
+  <text x="48" y="218" font-family="ui-monospace,Menlo,monospace" font-size="17" fill="#A1A1AA">RECOMPUTED — by re-running the code</text>
+  <text x="48" y="272" font-family="ui-monospace,Menlo,monospace" font-size="44" font-weight="700" fill="#F87171">%s</text>
+  <rect x="48" y="300" width="%d" height="1" fill="#26262B"/>
+  <text x="48" y="336" font-family="ui-monospace,Menlo,monospace" font-size="15" fill="#FCA5A5">REFUTED — %s</text>
+  <text x="48" y="372" font-family="ui-monospace,Menlo,monospace" font-size="13" fill="#71717A">verified by RE-EXECUTION, not opinion · isolation: %s · determinism: %s</text>
+  <text x="48" y="398" font-family="ui-monospace,Menlo,monospace" font-size="13" fill="#4ADE80">$ calma verify · github.com/rikhinkavuru/calma</text>
+</svg>
+""" % (width, h, width, h, width, h, width - 2, h - 2,
+       _esc(led.get("target", "result")), _esc(claimed), _esc(recomputed),
+       width - 96, _esc(why),
+       _esc(sc.get("isolation_tier", "?")), _esc(sc.get("determinism_mode", "?")))
 
 
 _DIMENSION_GLOSS = {

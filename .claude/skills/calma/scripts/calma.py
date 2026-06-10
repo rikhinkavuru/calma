@@ -26,7 +26,7 @@ import report as REP
 import run_hermetic as H
 import verdict as V
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 QUANT_METRICS = {"total_return", "sharpe", "max_drawdown"}
 
@@ -92,6 +92,19 @@ def _assemble_ledger(contract, diff, run_res):
                              "expected": "recomputed within budget of claimed"},
             })
         claims.append(claim)
+    # FLAKY: two identical re-executions disagreed -> blocking finding with the seed fix
+    recheck = run_res.get("determinism_recheck")
+    if recheck and not recheck.get("stable", True):
+        findings.append({
+            "id": "f-flaky", "claim_id": claims[0]["id"] if claims else None,
+            "dimension": "reproducibility", "severity": "blocker", "status": "open",
+            "confidence": "deterministic", "fixable_by": "author",
+            "locator": "outputs differ across identical re-runs (FLAKY): %s"
+                       % ", ".join(recheck.get("differing_artifacts", [])[:4]),
+            "unblock": "set a fixed seed (and write outputs deterministically), then re-run calma verify",
+            "reverify": {"kind": "requires-reexecution", "source": "run",
+                         "expected": "identical artifacts across re-runs"},
+        })
     # a failed re-execution is itself a blocking finding (the verdict guard already forced INCONCLUSIVE)
     rc = run_res.get("exit_code", 0)
     if rc not in (0, 3, 4):
@@ -130,6 +143,10 @@ def _assemble_ledger(contract, diff, run_res):
             "determinism_mode": run_res.get("determinism_mode"),
             "run_network": run_res.get("run_network"),
             "reproducibility_scope": "same-platform",
+            "determinism_recheck": (
+                "stable across %d re-runs" % run_res["determinism_recheck"]["reruns"]
+                if run_res.get("determinism_recheck", {}).get("stable")
+                else ("FLAKY across re-runs" if run_res.get("determinism_recheck") else None)),
             "binding_note": binding_note,
             "families": {"reproducibility": "checked" if run_res.get("exit_code", 0) == 0 else "FAILED",
                          "recomputation": "checked",
@@ -214,7 +231,28 @@ def _store_cache(target, fingerprint, run_id, repo_verdict):
     json.dump(cache, open(cache_path, "w"), indent=2)
 
 
-def verify(target, claim=None, metric=None, run_id="run", force=False):
+def _artifact_hashes(target, contract):
+    """Hash every bound artifact (not the entrypoint): the re-run comparison set for FLAKY detection."""
+    out = {}
+    rt = os.path.realpath(target)
+    for a in contract.get("artifacts", []):
+        if not (isinstance(a, dict) and a.get("path")):
+            continue
+        full = os.path.realpath(os.path.join(rt, a["path"]))
+        if full != rt and not full.startswith(rt + os.sep):
+            continue
+        h = hashlib.sha256()
+        try:
+            with open(full, "rb") as fh:
+                for chunk in iter(lambda: fh.read(65536), b""):
+                    h.update(chunk)
+            out[a["path"]] = h.hexdigest()
+        except OSError:
+            out[a["path"]] = "<missing>"
+    return out
+
+
+def verify(target, claim=None, metric=None, run_id="run", force=False, check_determinism=False):
     target = os.path.realpath(target)
     if not os.path.isdir(target):
         raise ValueError("target directory does not exist: %s" % target)
@@ -245,8 +283,9 @@ def verify(target, claim=None, metric=None, run_id="run", force=False):
         json.dump(contract, open(contract_path, "w"), indent=2)
 
     # the cache: same contract + same entrypoint bytes + same artifact bytes => same verdict.
-    # Inline/agent-loop use re-verifies only what changed; --force always re-executes.
-    if not force:
+    # Inline/agent-loop use re-verifies only what changed; --force always re-executes, and a
+    # determinism check is new evidence, so it never reads the cache (it still stores).
+    if not force and not check_determinism:
         hit = _cached_result(target, _input_fingerprint(target, contract))
         if hit:
             return hit
@@ -293,6 +332,22 @@ def verify(target, claim=None, metric=None, run_id="run", force=False):
                 if redrafted.get("metrics"):
                     contract = redrafted
                     json.dump(contract, open(contract_path, "w"), indent=2)
+            # optional FLAKY check: re-execute a second time and diff the artifact bytes. Identical
+            # inputs producing different outputs is itself a verdict-blocking finding (G1c).
+            outputs_unstable = False
+            if check_determinism and run_res.get("exit_code") == 0:
+                h1 = _artifact_hashes(target, contract)
+                run2 = H.run(contract_path, base=target)
+                if run2.get("exit_code") == 0:
+                    h2 = _artifact_hashes(target, contract)
+                    unstable_paths = sorted(p for p in set(h1) | set(h2) if h1.get(p) != h2.get(p))
+                else:
+                    unstable_paths = ["<second run exited %s>" % run2.get("exit_code")]
+                outputs_unstable = bool(unstable_paths)
+                run_res["determinism_recheck"] = {
+                    "reruns": 2, "stable": not outputs_unstable,
+                    "differing_artifacts": unstable_paths,
+                }
             rec = RC.recompute_contract(contract_path, base=target)
             json.dump(rec, open(os.path.join(run_dir, "recompute.json"), "w"), indent=2)
             man = attest.manifest_for(os.path.join(target, "runs")) if os.path.isdir(os.path.join(target, "runs")) else {}
@@ -303,7 +358,8 @@ def verify(target, claim=None, metric=None, run_id="run", force=False):
                                determinism_mode=run_res.get("determinism_mode", "uncontrolled"),
                                untrusted=(contract.get("env", {}).get("trust") == "untrusted-third-party"),
                                killed=run_res.get("killed", False),
-                               exit_codes=[run_res.get("exit_code", 0)])
+                               exit_codes=[run_res.get("exit_code", 0)],
+                               outputs_unstable=outputs_unstable)
             json.dump(diff, open(os.path.join(run_dir, "diff.json"), "w"), indent=2)
             led = _assemble_ledger(contract, diff, run_res)
             if not diff["metrics"]:
@@ -385,6 +441,58 @@ def replay(run_dir):
     return ok, "\n".join(lines)
 
 
+def stats(target):
+    """Summarize the append-only verification history for a target. Returns (data, rendered)."""
+    target = os.path.realpath(target)
+    path = os.path.join(target, ".calma", "history.jsonl")
+    if not os.path.exists(path):
+        raise ValueError("no verification history at %s - run `calma verify` first" % path)
+    rows = []
+    for line in open(path):
+        line = line.strip()
+        if line:
+            try:
+                rows.append(json.loads(line))
+            except ValueError:
+                pass
+    counts = {}
+    for r in rows:
+        v = r.get("verdict", "?")
+        counts[v] = counts.get(v, 0) + 1
+    lines = ["CALMA STATS  -  %s" % os.path.basename(target),
+             "  verifications: %d" % len(rows)]
+    for v in ("CONFIRMED", "CONFIRMED-WITH-CAVEATS", "REFUTED", "MIXED", "INCONCLUSIVE"):
+        if counts.get(v):
+            lines.append("  %-24s %d" % (v, counts[v]))
+    catches = [r for r in rows if r.get("verdict") in ("REFUTED", "MIXED")]
+    for c in catches[-3:]:
+        lines.append("  catch: claimed %s -> recomputed %s (%s)"
+                     % (REP.fmt_value(c.get("claimed"), c.get("metric")),
+                        REP.fmt_value(c.get("recomputed"), c.get("metric")), c.get("metric")))
+    return {"total": len(rows), "counts": counts}, "\n".join(lines)
+
+
+def _json_result(res):
+    """The agent-consumable structured verdict (stable shape; no prose parsing needed)."""
+    led = res["ledger"]
+    c0 = (led.get("claims") or [{}])[0]
+    return {
+        "verdict": res["repo_verdict"],
+        "clean": res["gate_exit"] == 0,
+        "gate_exit": res["gate_exit"],
+        "cached": bool(res.get("cached")),
+        "confidence": c0.get("headline_confidence"),
+        "metric": c0.get("metric"),
+        "claimed": c0.get("claimed_value"),
+        "recomputed": c0.get("recomputed_value"),
+        "reason": c0.get("reason"),
+        "fix": REP.fix_line(led) if res["repo_verdict"] != "CONFIRMED" else None,
+        "isolation_tier": led.get("scope", {}).get("isolation_tier"),
+        "determinism_mode": led.get("scope", {}).get("determinism_mode"),
+        "run_dir": res["run_dir"],
+    }
+
+
 def main():
     ap = argparse.ArgumentParser(
         prog="calma",
@@ -402,31 +510,52 @@ def main():
                    help="process exit policy: not-clean (default; INCONCLUSIVE also fails) or refuted")
     v.add_argument("--force", action="store_true",
                    help="re-execute even if code, data, and claim are unchanged since the last verification")
+    v.add_argument("--check-determinism", action="store_true",
+                   help="re-execute TWICE and require identical artifacts (catches FLAKY results)")
+    v.add_argument("--json", action="store_true", dest="as_json",
+                   help="print a machine-readable verdict object instead of the report")
     t = sub.add_parser("teardown", help="print a shareable card when a claim breaks")
     t.add_argument("target")
     t.add_argument("claim_text", nargs="?", default=None)
     t.add_argument("--claim")
     t.add_argument("--metric")
     t.add_argument("--force", action="store_true")
+    t.add_argument("--svg", help="also write the share card as a dark SVG image to this path")
     r = sub.add_parser("replay", help="re-run a saved verification and check it reproduces")
     r.add_argument("run_dir", help="the .calma/<run-id> dir printed on the original verdict")
+    s = sub.add_parser("stats", help="summarize this target's verification history")
+    s.add_argument("target")
+    s.add_argument("--json", action="store_true", dest="as_json")
     a = ap.parse_args()
     try:
         if a.cmd == "verify":
-            res = verify(a.target, a.claim_text or a.claim, a.metric, a.run_id, force=a.force)
-            print(res["report"])
-            print("\n[gate exit %d - %s]" % (res["gate_exit"], res["repo_verdict"]))
+            res = verify(a.target, a.claim_text or a.claim, a.metric, a.run_id,
+                         force=a.force, check_determinism=a.check_determinism)
+            if a.as_json:
+                print(json.dumps(_json_result(res), indent=2))
+            else:
+                print(res["report"])
+                print("\n[gate exit %d - %s]" % (res["gate_exit"], res["repo_verdict"]))
             if a.fail_on == "refuted":
                 return 1 if res["repo_verdict"] in ("REFUTED", "MIXED") else 0
             return res["gate_exit"]
         if a.cmd == "teardown":
             res = verify(a.target, a.claim_text or a.claim, a.metric, "teardown", force=a.force)
             print(res.get("teardown") or "(no teardown: result was not REFUTED)")
+            if a.svg and res.get("teardown"):
+                svg = REP.svg_card(res["ledger"])
+                if svg:
+                    open(a.svg, "w").write(svg)
+                    print("\n[share card written: %s]" % a.svg)
             return 0 if res.get("teardown") else 1
         if a.cmd == "replay":
             ok, text = replay(a.run_dir)
             print(text)
             return 0 if ok else 1
+        if a.cmd == "stats":
+            data, rendered = stats(a.target)
+            print(json.dumps(data, indent=2) if a.as_json else rendered)
+            return 0
     except ValueError as e:
         print("error: %s" % e, file=sys.stderr)
         return 2
