@@ -43,7 +43,7 @@ TAG_PATTERNS = [
     (r"error|fail|flag|converted|is_|status|churn", "flag"),
     (r"cash_?flow|^cf$", "cashflow"),
     (r"cost|cogs|expense", "cost"),
-    (r"amount|revenue|total|sales|price_usd|value|qty|quantity|count|memory|mem_", "value"),
+    (r"amount|revenue|total|sales|price_usd|value|qty|quantity|count|memory|mem_|measurement|reading", "value"),
     (r"weight|wt", "weight"),
     (r"time|date|ts|timestamp", "timestamp"),
     (r"^x$", "x"),
@@ -179,6 +179,40 @@ CLAIM_METRIC_HINTS = [
     ("sum", "column_sum"), ("total", "column_sum"), ("revenue", "column_sum"),
     ("mean", "column_mean"), ("average", "column_mean"),
 ]
+
+# anchor of the generic single-word tail above: compiled-recipe hints insert BEFORE it, so a
+# multi-word compiled hint ("standard error of the mean") wins over a generic substring ("mean")
+_GENERIC_TAIL_ANCHOR = ("accuracy", "accuracy")
+
+
+def _load_compiled_hints():
+    """Claim hints from admitted compiled recipes (assets/compiled_recipes.json). Inserted
+    before the generic tail, after every hand-ordered specific hint - so they can never shadow
+    a reviewed recipe, and generic words can never shadow them."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                        "..", "assets", "compiled_recipes.json")
+    if not os.path.exists(path):
+        return
+    try:
+        book = json.load(open(path))
+    except (OSError, ValueError):
+        return
+    hints = []
+    for r in book.get("recipes", []):
+        for h in r.get("claim_hints", []):
+            pair = (str(h).lower(), r.get("metric_id"))
+            if pair[0] and pair[1] and pair not in CLAIM_METRIC_HINTS:
+                hints.append(pair)
+    if not hints:
+        return
+    try:
+        idx = CLAIM_METRIC_HINTS.index(_GENERIC_TAIL_ANCHOR)
+    except ValueError:
+        idx = len(CLAIM_METRIC_HINTS)
+    CLAIM_METRIC_HINTS[idx:idx] = sorted(hints, key=lambda p: -len(p[0]))
+
+
+_load_compiled_hints()
 
 # The leading lookbehind keeps digits glued to identifiers out of the claim value:
 # "f1 0.84" must parse 0.84 (not the 1 in f1), "top-5 accuracy 0.91" -> 0.91 (not -5),

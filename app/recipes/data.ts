@@ -1078,6 +1078,35 @@ export const FAMILIES: Family[] = [
       },
     ],
   },
+  {
+    key: "compiled",
+    title: "Compiled recipes",
+    blurb:
+      "Drafted offline as compositions of the existing deterministic kernels, then admitted by a " +
+      "deterministic gate: differential testing against the named reference implementation, a " +
+      "metamorphic property suite, degeneracy checks, and a bit-stability double-run. Frozen under " +
+      "a content hash — never improvised at verify time.",
+    recipes: [
+      {
+        id: "sem",
+        name: "Standard error of the mean",
+        claim: "“mean 4.2 ± 0.3 (SEM)”",
+        what: "The ± a mean is reported with: sample dispersion shrunk by √n.",
+        how: "Compiled composition: fstd(ddof=1) / √n on the fsum kernels.",
+        ref: "SciPy sem",
+        conv: "compiled-validated · gate: differential + metamorphic + degeneracy + bit-stability",
+      },
+      {
+        id: "coefficient_of_variation",
+        name: "Coefficient of variation",
+        claim: "“CV 12%”",
+        what: "Relative dispersion — std as a fraction of the mean; scale-invariant.",
+        how: "Compiled composition: fstd(ddof=1) / fmean on the fsum kernels.",
+        ref: "SciPy variation",
+        conv: "compiled-validated · gate: differential + metamorphic + degeneracy + bit-stability",
+      },
+    ],
+  },
 ];
 
 export const RECIPE_COUNT = FAMILIES.reduce((n, f) => n + f.recipes.length, 0);

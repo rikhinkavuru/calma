@@ -3,13 +3,24 @@
 Manifest: SHA-256 over sorted `relpath:sha256` lines (the manifest's own hash excluded). Lets a
 verdict be independently re-checked.
 
-Bundle: a DSSE envelope (the exact envelope Sigstore countersigns) over an in-toto Statement v1
-whose predicate embeds the FULL ledger + manifest, signed with a local Ed25519 key (ed25519.py,
-pure stdlib). `verify_bundle` is the counterparty side and is fully offline: it checks the
-signature, then re-derives every verdict label byte-for-byte via ledger.validate_obj - so even a
-bundle re-signed by an attacker with their own key cannot carry a forged verdict label, and a
-pinned key (--key) catches the re-signing itself. Sigstore later = append to envelope.signatures
-and add tlog material under "verification"; the signed payload bytes never change.
+Bundle (three layers, each optional on top of the last - the in-toto/Sigstore stack):
+  Layer 0 - a DSSE envelope (the exact envelope Sigstore countersigns) over an in-toto
+    Statement v1 whose predicate is calma.dev/verdict/v1, modeled on the SLSA Verification
+    Summary Attestation (verifier id+version, policy = contract hash + calibration hashes,
+    verdict, claims, scope) and embedding the FULL ledger + manifest. Signed twice with the
+    same local Ed25519 key (ed25519.py, pure stdlib): a raw DSSE signature AND an OpenSSH
+    SSHSIG (sshsig.py, namespace calma-attest@v1) - so a counterparty can check the signature
+    with stock `ssh-keygen -Y verify` and ZERO installs. Sidecar files (payload + .sshsig +
+    allowed_signers) are written next to the bundle for exactly that.
+  Layer 1 - an RFC 3161 trusted timestamp over the DSSE signature (rfc3161.py), embedded under
+    "timestamps". Proves the verdict existed before a point in time; verifies offline.
+  Layer 2 - Sigstore keyless countersigning (lab tier; `calma attest sigstore`) = append to
+    envelope.signatures + tlog material; the signed payload bytes never change.
+
+`verify_bundle` is the counterparty side and is fully offline: it checks both signatures, then
+re-derives every verdict label byte-for-byte via ledger.validate_obj - so even a bundle re-signed
+by an attacker with their own key cannot carry a forged verdict label, and a pinned key (--key)
+catches the re-signing itself.
 
 Library: manifest_for(dir), sign_run(run_dir), verify_bundle(bundle).
 CLI: attest.py --run DIR [--out manifest.json]   (manifest only; keygen/sign/verify live in calma.py)
@@ -25,6 +36,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ed25519  # noqa: E402
 import ledger as LED  # noqa: E402
+import sshsig  # noqa: E402
 
 
 def _sha256(path):
@@ -108,12 +120,34 @@ def ml_bom(manifest, target, scope=None):
 # Signed attestation bundle (DSSE + in-toto Statement v1, Ed25519)
 # ---------------------------------------------------------------------------
 
-BUNDLE_SCHEMA = "calma/attestation-bundle@1"
+BUNDLE_SCHEMA = "calma/attestation-bundle@2"
+BUNDLE_SCHEMAS_ACCEPTED = {"calma/attestation-bundle@1", BUNDLE_SCHEMA}
 PAYLOAD_TYPE = "application/vnd.in-toto+json"
 STATEMENT_TYPE = "https://in-toto.io/Statement/v1"
-PREDICATE_TYPE = "https://calma.dev/attestation/verification/v1"
+PREDICATE_TYPE = "https://calma.dev/verdict/v1"  # modeled on the SLSA VSA
+PREDICATE_TYPES_ACCEPTED = {PREDICATE_TYPE, "https://calma.dev/attestation/verification/v1"}
 BUNDLE_NAME = "attestation.bundle.json"
+PAYLOAD_SIDECAR = "attestation.payload.json"
+SSHSIG_SIDECAR = "attestation.sig.sshsig"
+SIGNERS_SIDECAR = "attestation.allowed_signers"
 DEFAULT_KEY_DIR = "~/.calma/keys"
+
+
+def engine_version():
+    """The calma engine version (lazy import - calma.py imports this module)."""
+    try:
+        import calma
+        return calma.__version__
+    except Exception:
+        return "unknown"
+
+
+def _asset_sha256(name):
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets", name)
+    try:
+        return _sha256(path)
+    except OSError:
+        return None
 
 
 def _canonical(obj):
@@ -134,31 +168,48 @@ def _key_paths(kdir=None):
     return os.path.join(kdir, "ed25519.key"), os.path.join(kdir, "ed25519.pub")
 
 
-def keygen(kdir=None, force=False):
-    """Generate a local Ed25519 keypair (hex seed at 0600 + hex public key). Refuses to overwrite."""
+def keygen(kdir=None, force=False, import_key=None):
+    """Generate a local Ed25519 keypair (hex seed at 0600 + hex public key + .pub SSH line).
+    Refuses to overwrite. import_key: path to an existing UNENCRYPTED OpenSSH ed25519 private
+    key (e.g. ~/.ssh/id_ed25519) to adopt that identity instead of generating a fresh one."""
     sk_path, pk_path = _key_paths(kdir)
     if os.path.exists(sk_path) and not force:
         raise ValueError("a signing key already exists at %s (pass --force to overwrite)" % sk_path)
     os.makedirs(os.path.dirname(sk_path), exist_ok=True)
-    seed = os.urandom(32)
+    if import_key:
+        seed = sshsig.load_openssh_private_key(open(import_key).read())
+    else:
+        seed = os.urandom(32)
     pub = ed25519.secret_to_public(seed)
     fd = os.open(sk_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, stat.S_IRUSR | stat.S_IWUSR)
     with os.fdopen(fd, "w") as fh:
         fh.write(seed.hex() + "\n")
     with open(pk_path, "w") as fh:
         fh.write(pub.hex() + "\n")
+    with open(pk_path + ".ssh", "w") as fh:
+        fh.write(sshsig.pub_line(pub, comment="calma-" + _keyid(pub)[:16]) + "\n")
     return {"key_path": sk_path, "pub_path": pk_path,
-            "public_key": pub.hex(), "keyid": _keyid(pub)}
+            "public_key": pub.hex(), "keyid": _keyid(pub),
+            "ssh_public_key": sshsig.pub_line(pub, comment="calma-" + _keyid(pub)[:16])}
 
 
 def load_signing_key(path=None):
-    """The 32-byte seed from a key file (or the default location). None if absent/unreadable."""
+    """The 32-byte seed from a key file (or the default location): either calma's hex-seed form
+    or an unencrypted OpenSSH ed25519 private key. None if absent/unreadable."""
     path = path or _key_paths()[0]
     try:
-        seed = bytes.fromhex(open(path).read().strip())
-    except (OSError, ValueError):
+        text = open(path).read()
+    except OSError:
         return None
-    return seed if len(seed) == 32 else None
+    try:
+        seed = bytes.fromhex(text.strip())
+        return seed if len(seed) == 32 else None
+    except ValueError:
+        pass
+    try:
+        return sshsig.load_openssh_private_key(text)
+    except ValueError:
+        return None
 
 
 def _pae(payload_type, payload):
@@ -167,17 +218,50 @@ def _pae(payload_type, payload):
                                     len(payload), payload)
 
 
-def bundle_statement(led, manifest):
-    """in-toto Statement v1 whose subject is the canonical ledger digest and whose predicate
-    embeds the full ledger + manifest, so the counterparty can re-derive every verdict offline."""
+def claims_summary(led):
+    """The human-auditable claim digest the VSA predicate carries (derived from the ledger;
+    verify_bundle re-derives it and rejects any drift between the two)."""
+    return [{"id": c.get("id"), "metric": c.get("metric"), "headline": bool(c.get("headline")),
+             "claimed": c.get("claimed_value"), "recomputed": c.get("recomputed_value"),
+             "verdict": c.get("verdict")} for c in led.get("claims", [])]
+
+
+def _policy(manifest, contract_sha256=None):
+    """What the verdict was evaluated AGAINST (the VSA `policy`): the contract that bound the
+    claim and the calibration corpus the engine's budgets + reference vectors come from."""
+    if contract_sha256 is None:
+        for f in (manifest or {}).get("files", []):
+            if f.get("path") in ("verify.yaml", "verify.lock.json"):
+                contract_sha256 = f.get("sha256")
+                break
+    return {
+        "contract_sha256": contract_sha256,
+        "calibration_sha256": _asset_sha256("calibration.json"),
+        "reference_vectors_sha256": _asset_sha256("reference_vectors.json"),
+    }
+
+
+def bundle_statement(led, manifest, time_verified=None, contract_sha256=None):
+    """in-toto Statement v1, predicate calma.dev/verdict/v1 modeled on the SLSA Verification
+    Summary Attestation: a verifier (calma + version) evaluated subjects against a policy
+    (contract + calibration hashes) and reached a verdict. The predicate also embeds the full
+    ledger + manifest, so the counterparty can re-derive every verdict label offline."""
+    subjects = [{"name": led.get("target", "run"),
+                 "digest": {"sha256": hashlib.sha256(_canonical(led)).hexdigest()}}]
+    if (manifest or {}).get("manifest_sha256"):
+        subjects.append({"name": "%s/manifest" % led.get("target", "run"),
+                         "digest": {"sha256": manifest["manifest_sha256"]}})
     return {
         "_type": STATEMENT_TYPE,
-        "subject": [{"name": led.get("target", "run"),
-                     "digest": {"sha256": hashlib.sha256(_canonical(led)).hexdigest()}}],
+        "subject": subjects,
         "predicateType": PREDICATE_TYPE,
         "predicate": {
-            "builder": {"id": "https://calma.dev/skill"},
+            "verifier": {"id": "https://calma.dev/skill", "engine": "calma",
+                         "version": engine_version()},
+            "timeVerified": time_verified,
+            "policy": _policy(manifest, contract_sha256),
             "verdict": led.get("repo_verdict"),
+            "claims": claims_summary(led),
             "scope": led.get("scope"),
             "ledger": led,
             "manifest": manifest,
@@ -187,17 +271,28 @@ def bundle_statement(led, manifest):
     }
 
 
-def make_bundle(led, manifest, seed):
-    """Sign the statement into a self-contained DSSE bundle. Deterministic for a given key+ledger."""
-    payload = _canonical(bundle_statement(led, manifest))
+def make_bundle(led, manifest, seed, time_verified=None, contract_sha256=None):
+    """Sign the statement into a self-contained DSSE bundle, twice with the same key:
+    a raw DSSE Ed25519 signature (what Sigstore later countersigns) and an OpenSSH SSHSIG over
+    the exact payload bytes (what `ssh-keygen -Y verify` checks with zero installs).
+    Deterministic for a given (key, ledger, time_verified)."""
+    payload = _canonical(bundle_statement(led, manifest, time_verified, contract_sha256))
     pub = ed25519.secret_to_public(seed)
     sig = ed25519.sign(seed, _pae(PAYLOAD_TYPE, payload))
+    principal = "calma-" + _keyid(pub)[:16]
     return {
         "schema": BUNDLE_SCHEMA,
         "envelope": {
             "payloadType": PAYLOAD_TYPE,
             "payload": base64.b64encode(payload).decode(),
             "signatures": [{"keyid": _keyid(pub), "sig": base64.b64encode(sig).decode()}],
+        },
+        "ssh": {
+            "namespace": sshsig.NAMESPACE,
+            "principal": principal,
+            "public_key": sshsig.pub_line(pub, comment=principal),
+            "allowed_signers": sshsig.allowed_signers_line(pub, principal),
+            "signature": sshsig.sign(seed, payload),
         },
         "verification": {
             "public_keys": [{"keyid": _keyid(pub), "scheme": "ed25519",
@@ -206,8 +301,26 @@ def make_bundle(led, manifest, seed):
     }
 
 
-def sign_run(run_dir, key_path=None, out=None):
-    """Sign a completed run dir's ledger.json (+ manifest.json if present) into BUNDLE_NAME."""
+def write_ssh_sidecars(bundle, run_dir):
+    """The three files a counterparty needs to verify with ONLY stock OpenSSH (>= 8.0):
+        ssh-keygen -Y verify -f attestation.allowed_signers -I <principal> \\
+            -n calma-attest@v1 -s attestation.sig.sshsig < attestation.payload.json"""
+    ssh = bundle.get("ssh") or {}
+    payload = base64.b64decode(bundle["envelope"]["payload"])
+    paths = {
+        PAYLOAD_SIDECAR: payload,
+        SSHSIG_SIDECAR: ssh.get("signature", "").encode(),
+        SIGNERS_SIDECAR: (ssh.get("allowed_signers", "") + "\n").encode(),
+    }
+    for name, data in paths.items():
+        with open(os.path.join(run_dir, name), "wb") as fh:
+            fh.write(data)
+    return sorted(paths)
+
+
+def sign_run(run_dir, key_path=None, out=None, time_verified=None):
+    """Sign a completed run dir's ledger.json (+ manifest.json if present) into BUNDLE_NAME,
+    plus the ssh-keygen sidecar files. time_verified defaults to now (UTC, ISO 8601)."""
     led_path = os.path.join(run_dir, "ledger.json")
     if not os.path.exists(led_path):
         raise ValueError("no ledger.json under %s - run `calma verify` first" % run_dir)
@@ -220,9 +333,21 @@ def sign_run(run_dir, key_path=None, out=None):
         manifest = json.load(open(os.path.join(run_dir, "manifest.json")))
     except (OSError, ValueError):
         manifest = {}
-    bundle = make_bundle(led, manifest, seed)
+    if time_verified is None:
+        import datetime
+        time_verified = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    # the contract: drafted ones live in the run dir, committed ones at the target root
+    contract_sha = None
+    rd = os.path.abspath(run_dir)
+    for cand in (os.path.join(rd, "verify.yaml"),
+                 os.path.join(os.path.dirname(os.path.dirname(rd)), "verify.yaml")):
+        if os.path.exists(cand):
+            contract_sha = _sha256(cand)
+            break
+    bundle = make_bundle(led, manifest, seed, time_verified, contract_sha)
     out = out or os.path.join(run_dir, BUNDLE_NAME)
     json.dump(bundle, open(out, "w"), indent=2)
+    write_ssh_sidecars(bundle, os.path.dirname(out) or ".")
     return bundle, out
 
 
@@ -247,8 +372,8 @@ def verify_bundle(bundle, pinned_pub_hex=None):
         return bool(ok)
 
     env = bundle.get("envelope") or {}
-    if not chk("schema", bundle.get("schema") == BUNDLE_SCHEMA,
-               "expected %s" % BUNDLE_SCHEMA):
+    if not chk("schema", bundle.get("schema") in BUNDLE_SCHEMAS_ACCEPTED,
+               "expected one of %s" % ", ".join(sorted(BUNDLE_SCHEMAS_ACCEPTED))):
         return False, checks
     if not chk("payload-type", env.get("payloadType") == PAYLOAD_TYPE,
                "expected %s" % PAYLOAD_TYPE):
@@ -265,7 +390,7 @@ def verify_bundle(bundle, pinned_pub_hex=None):
     keys = {k.get("keyid"): k.get("public_key_hex")
             for k in (bundle.get("verification") or {}).get("public_keys", [])}
     pae = _pae(PAYLOAD_TYPE, payload)
-    signed_by = None
+    signed_by, signer_pub = None, None
     for s in env.get("signatures", []):
         pub_hex = pinned_pub_hex or keys.get(s.get("keyid"))
         if not pub_hex:
@@ -275,7 +400,7 @@ def verify_bundle(bundle, pinned_pub_hex=None):
         except (ValueError, TypeError):
             continue
         if ed25519.verify(pub, pae, sig):
-            signed_by = _keyid(pub)
+            signed_by, signer_pub = _keyid(pub), pub
             break
     if not chk("signature", signed_by is not None,
                ("no signature verifies against the pinned key" if pinned_pub_hex
@@ -284,12 +409,32 @@ def verify_bundle(bundle, pinned_pub_hex=None):
                                                   " (pinned)" if pinned_pub_hex else "")):
         return False, checks
 
+    # the SSHSIG: same payload, same key, OpenSSH envelope - the `ssh-keygen -Y verify` path.
+    # The DSSE key and SSH key must be the SAME key (no mix-and-match split possible).
+    ssh = bundle.get("ssh") or {}
+    if ssh or bundle.get("schema") == BUNDLE_SCHEMA:
+        ok_ssh, detail = (sshsig.verify(ssh.get("signature", ""), payload, expect_pub=signer_pub)
+                          if ssh.get("signature") else (False, "ssh block missing"))
+        if ok_ssh:
+            try:
+                ok_ssh, detail = (sshsig.parse_pub_line(ssh.get("public_key", "")) == signer_pub,
+                                  detail)
+                if not ok_ssh:
+                    detail = "ssh.public_key line is not the DSSE signing key"
+            except ValueError as e:
+                ok_ssh, detail = False, str(e)
+        if not chk("ssh-signature", ok_ssh, detail,
+                   ok_detail="verifiable with ssh-keygen -Y verify (namespace %s)" % sshsig.NAMESPACE):
+            return False, checks
+    else:
+        chk("ssh-signature", True, ok_detail="absent (pre-0.5 bundle; DSSE signature still binds)")
+
     # statement structure + subject digest binds the signature to the exact ledger bytes
     pred = statement.get("predicate") or {}
     led, manifest = pred.get("ledger"), pred.get("manifest") or {}
     if not chk("statement", statement.get("_type") == STATEMENT_TYPE
-               and statement.get("predicateType") == PREDICATE_TYPE
-               and isinstance(led, dict), "not a calma verification Statement v1"):
+               and statement.get("predicateType") in PREDICATE_TYPES_ACCEPTED
+               and isinstance(led, dict), "not a calma verdict Statement v1"):
         return False, checks
     subj = (statement.get("subject") or [{}])[0]
     if not chk("subject-digest",
@@ -307,6 +452,17 @@ def verify_bundle(bundle, pinned_pub_hex=None):
     chk("verdict-binding", pred.get("verdict") == led.get("repo_verdict"),
         "statement verdict %r != ledger repo_verdict %r"
         % (pred.get("verdict"), led.get("repo_verdict")))
+    # the VSA claim summary must be exactly what the ledger derives (no split between the
+    # human-auditable predicate.claims and the machine-validated ledger)
+    if statement.get("predicateType") == PREDICATE_TYPE:
+        chk("claims-binding", pred.get("claims") == claims_summary(led),
+            "predicate claims summary != derived from the embedded ledger")
+
+    # Layer 1: RFC 3161 timestamps, when present (offline structural + openssl-backed check)
+    if bundle.get("timestamps"):
+        import rfc3161
+        ok_ts, ts_detail = rfc3161.verify_bundle_timestamps(bundle)
+        chk("timestamp", ok_ts, ts_detail, ok_detail=ts_detail)
 
     return all(ok for _, ok, _ in checks), checks
 

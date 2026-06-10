@@ -1028,3 +1028,62 @@ def wer(cols, binding, convention=None):
     preds, refs = cols[binding["prediction"]], cols[binding["reference"]]
     return _result(N.wer(preds, refs, char_level),
                    {"n": len(preds), "level": "char" if char_level else "word"})
+
+
+# ---------------------------------------------------------------------------
+# Compiled recipes (the recipe compiler's output) - loaded from
+# assets/compiled_recipes.json. Each entry was admitted by the deterministic
+# gate in compiler.py (differential vs a named oracle + metamorphic suite +
+# degeneracy + bit-stability) and frozen under a content hash. The hash is
+# RE-VALIDATED here, so a tampered asset entry fails closed (skipped, with a
+# stderr warning) instead of executing a program nobody admitted.
+# Execution is the dsl.py interpreter - deterministic kernels only, no model.
+# ---------------------------------------------------------------------------
+
+def _load_compiled():
+    import json as _json
+    import os as _os
+    import sys as _sys
+    path = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)),
+                         "..", "assets", "compiled_recipes.json")
+    if not _os.path.exists(path):
+        return
+    import dsl as _dsl
+    try:
+        book = _json.load(open(path))
+    except (OSError, ValueError) as e:
+        print("calma: compiled_recipes.json unreadable, skipping: %s" % e, file=_sys.stderr)
+        return
+    for entry in book.get("recipes", []):
+        mid = entry.get("metric_id")
+        prog = entry.get("program")
+        if not mid or mid in _REGISTRY:
+            print("calma: compiled recipe %r skipped (missing/duplicate id)" % mid,
+                  file=_sys.stderr)
+            continue
+        if _dsl.program_hash(prog) != entry.get("program_sha256") or _dsl.validate(prog):
+            print("calma: compiled recipe %r skipped (program hash/validation mismatch - "
+                  "the asset was modified after admission)" % mid, file=_sys.stderr)
+            continue
+
+        def _make(p, m):
+            def _fn(cols, binding, convention=None):
+                tag_values = {t: cols[binding[t]] for t in p["inputs"] if t in binding}
+                if set(tag_values) != set(p["inputs"]):
+                    return _result(float("nan"))
+                return _result(_dsl.execute(p, tag_values))
+            return _fn
+
+        fn = _make(prog, mid)
+        fn.metric_id = mid
+        fn.manifest = {
+            "family": entry.get("family", "compiled"),
+            "required_tags": entry.get("required_tags", []),
+            "string_tags": entry.get("string_tags", []),
+            "set_maturity": entry.get("set_maturity", "compiled-validated"),
+            "program_sha256": entry.get("program_sha256"),
+        }
+        _REGISTRY[mid] = fn
+
+
+_load_compiled()

@@ -71,8 +71,12 @@ calma verify <folder> "<claim>" --check-determinism  # run twice; flaky outputs 
 calma teardown <folder> "<claim>" [--svg card.svg]   # shareable "claimed X -> really Y" card (+ SVG image)
 calma replay <run_dir>              # re-run a saved verification; exit 0 iff the verdict reproduces
 calma stats <folder>                # verification history: counts and recent catches
-calma attest keygen                 # one-time signing key; after this, every verify is signed
+calma attest keygen [--import ~/.ssh/id_ed25519]  # one-time signing key; after this, every verify is signed
 calma attest verify <bundle> [--key pub.hex] [--replay]   # check a signed bundle, fully offline
+calma attest timestamp <bundle>     # RFC 3161 trusted timestamp - makes "verified before <date>" provable
+calma attest sigstore <bundle>      # lab tier: keyless countersign into the public Rekor log
+calma publish <run_dir>             # append a REDACTED entry to the public catch-history registry
+calma registry verify [dir]         # audit the registry chain offline: hashes, links, signatures
 python3 .claude/skills/calma/scripts/run_hermetic.py doctor   # prove the sandbox works on your machine
 ```
 
@@ -103,7 +107,7 @@ MAPE/sMAPE, MASE, pinball), **retrieval & LLM evals** (recall@k, NDCG, MRR, top-
 **statistics** (p-values, confidence intervals, A/B lift, chi-square, correlation, effect size), and
 **business/finance** (CAGR, NPV/IRR, churn, margin, ledger reconciliation), **quant risk** (Sortino, Calmar,
 VaR/CVaR, beta/alpha, information ratio), and **deeper stats/ML/analytics** (Mann-Whitney, ANOVA, Fisher exact,
-KS, Cohen's κ, balanced accuracy, WER, perplexity, MAP@k, HHI, Gini, entropy…) — **118 recipes**, each validated
+KS, Cohen's κ, balanced accuracy, WER, perplexity, MAP@k, HHI, Gini, entropy…) — **120 recipes**, each validated
 against the published reference implementation (scikit-learn, SciPy, NumPy, numpy-financial, statsmodels, jiwer; see
 `.claude/skills/calma/references/recipes.md`). It works on programs written in **Python, R, Julia, C++, or
 Rust** — Calma treats your program as a black box and does the recompute itself.
@@ -121,10 +125,21 @@ Rust** — Calma treats your program as a black box and does the recompute itsel
 4. **Compare** recomputed vs claimed, allowing for the claim's own measurement noise.
 5. **Verdict** from a single deterministic function — re-checked byte-for-byte so it can't be fudged.
 6. **Attest** with a content-addressed manifest (in-toto/SLSA statement + CycloneDX ML-BOM) — and, after a
-   one-time `calma attest keygen`, every verify is signed (Ed25519) into a portable DSSE bundle. The
-   counterparty runs `calma attest verify <bundle>` fully offline: it checks the signature and re-derives
-   every verdict label byte-for-byte, so neither a tampered bundle nor one re-signed under a different key
-   with forged labels can pass. `--key` pins the expected signer; `--replay` re-executes the run.
+   one-time `calma attest keygen`, every verify is signed into a portable DSSE bundle whose predicate is a
+   VSA-style verdict statement (`calma.dev/verdict/v1`: verifier + version, the contract and calibration
+   hashes as policy, the verdict, the claims). The same Ed25519 key signs twice: a raw DSSE signature (the
+   envelope Sigstore countersigns) and an OpenSSH SSHSIG — so a counterparty can check the signature with
+   stock `ssh-keygen -Y verify` and **zero installs** (sidecar files land next to the bundle).
+   `calma attest verify <bundle>` is the full offline check: both signatures, the subject digests, and a
+   byte-for-byte re-derivation of every verdict label — neither a tampered bundle nor one re-signed under a
+   different key with forged labels can pass. `--key` pins the expected signer; `--replay` re-executes.
+   `calma attest timestamp` adds an RFC 3161 trusted timestamp (network needed only at stamping time; the
+   token verifies offline forever), and `calma attest sigstore` (lab tier, needs sigstore-python)
+   countersigns the same payload keylessly into the public Rekor transparency log.
+7. **Publish** (opt-in): `calma publish <run_dir>` appends a redacted entry — claim, metric, claimed vs
+   recomputed, verdict, content hashes; never code, never data — to a hash-chained, signed public registry
+   (the catch history at `/registry`). Publish requires attest; `calma registry verify` audits the whole
+   chain offline.
 
 ## Limitations
 
@@ -182,7 +197,7 @@ No. Everything runs locally; nothing is uploaded. On macOS the run is inside a v
 sandbox; on hosts without one, the verdict says so explicitly instead of pretending.
 
 **Is it only for trading/quant?**
-No. It ships 118 metrics across trading, ML (classification, regression, retrieval/RAG, LLM evals),
+No. It ships 120 metrics across trading, ML (classification, regression, retrieval/RAG, LLM evals),
 analytics, engineering/performance, statistics, and business/finance, and treats your program as a black
 box, so it works across Python, R, Julia, C++, and Rust.
 

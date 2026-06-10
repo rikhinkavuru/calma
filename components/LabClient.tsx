@@ -39,7 +39,7 @@ const STEPS: [string, string, string][] = [
   [
     "03",
     "Report",
-    "Per claim: confirmed, refuted, or can't-confirm — with the recomputed number, the gap, what was and wasn't verified, and a signed attestation bundle your side checks offline: verify the signature, re-derive every verdict, replay the entire run.",
+    "Per claim: confirmed, refuted, or can't-confirm — with the recomputed number, the gap, what was and wasn't verified, and a signed, trusted-timestamped attestation bundle your side checks offline: verify the signature with stock OpenSSH, re-derive every verdict, replay the entire run.",
   ],
   [
     "04",
@@ -95,6 +95,7 @@ export default function LabClient() {
           <nav className="nav__links">
             <a href="/#overview">How it works</a>
             <a href="/recipes">Recipes</a>
+            <a href="/registry">Registry</a>
             <a href="/">The free skill</a>
             <button className="nav__cta" onClick={() => setDlg(true)}>
               Request verification
