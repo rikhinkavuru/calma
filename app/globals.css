@@ -166,10 +166,44 @@ img, svg, canvas { display: block; max-width: 100%; }
 .hero__cta { display: flex; gap: 16px; margin-top: 40px; flex-wrap: wrap; }
 .hero__demo { margin-top: clamp(56px, 8vw, 90px); }
 
+/* ============================================================ demo */
+.demo {
+  display: grid; grid-template-columns: 1fr 300px;
+  gap: 56px; align-items: start;
+}
+.dsteps { display: flex; flex-direction: column; gap: 14px; padding-top: 46px; }
+.dstep {
+  position: relative; border: 1px solid var(--hairline); background: rgba(17, 15, 11, 0.82);
+  padding: 14px 16px;
+  opacity: 0; transform: translateX(14px);
+}
+.dstep.in {
+  opacity: 1; transform: none;
+  transition: opacity 0.7s var(--ease) 0.35s, transform 0.7s var(--ease) 0.35s;
+}
+/* the flowchart connector — a hairline that draws from the terminal to the box */
+.dstep::before {
+  content: ""; position: absolute; left: -56px; top: 24px; width: 50px; height: 1px;
+  background: var(--cream-35); transform: scaleX(0); transform-origin: left;
+}
+.dstep::after {
+  content: ""; position: absolute; left: -9px; top: 22px; width: 5px; height: 5px;
+  border-radius: 50%; background: var(--amber); opacity: 0; transform: scale(0.4);
+}
+.dstep.in::before { transform: scaleX(1); transition: transform 0.45s var(--ease); }
+.dstep.in::after { opacity: 1; transform: none; transition: opacity 0.3s ease 0.4s, transform 0.3s var(--ease) 0.4s; }
+.dstep__k {
+  display: block; font-family: var(--mono); font-size: 10px; letter-spacing: 0.26em;
+  text-transform: uppercase; color: var(--amber); margin-bottom: 7px;
+}
+.dstep p { font-size: 13.5px; line-height: 1.6; color: var(--cream-55); }
+.dstep--verdict { background: rgba(232, 154, 93, 0.07); border-color: rgba(232, 154, 93, 0.35); }
+.dstep--verdict p { color: var(--cream-70); }
+
 /* ============================================================ terminal */
 .term {
   border: 1px solid var(--hairline); background: rgba(17, 15, 11, 0.82);
-  position: relative; max-width: 860px;
+  position: relative; min-width: 0;
 }
 .term__bar {
   display: flex; align-items: center; justify-content: space-between;
@@ -338,6 +372,10 @@ img, svg, canvas { display: block; max-width: 100%; }
 /* ============================================================ responsive */
 @media (max-width: 980px) {
   .catch, .about { grid-template-columns: 1fr; }
+  .demo { grid-template-columns: 1fr; gap: 14px; }
+  .dsteps { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding-top: 0; }
+  .dstep { transform: translateY(12px); }
+  .dstep::before, .dstep::after { content: none; }
   .steps { grid-template-columns: 1fr; }
   .step { border-right: 0; border-bottom: 1px solid var(--hairline); }
   .step:last-child { border-bottom: 0; }
@@ -346,6 +384,7 @@ img, svg, canvas { display: block; max-width: 100%; }
 }
 @media (max-width: 640px) {
   .features { grid-template-columns: 1fr; }
+  .dsteps { grid-template-columns: 1fr; }
   .feat { border-right: 0 !important; border-bottom: 1px solid var(--hairline) !important; }
   .feat:last-child { border-bottom: 0 !important; }
   .outro__camp .lockup { text-align: left; }
