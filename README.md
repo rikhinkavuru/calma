@@ -71,6 +71,8 @@ calma verify <folder> "<claim>" --check-determinism  # run twice; flaky outputs 
 calma teardown <folder> "<claim>" [--svg card.svg]   # shareable "claimed X -> really Y" card (+ SVG image)
 calma replay <run_dir>              # re-run a saved verification; exit 0 iff the verdict reproduces
 calma stats <folder>                # verification history: counts and recent catches
+calma attest keygen                 # one-time signing key; after this, every verify is signed
+calma attest verify <bundle> [--key pub.hex] [--replay]   # check a signed bundle, fully offline
 python3 .claude/skills/calma/scripts/run_hermetic.py doctor   # prove the sandbox works on your machine
 ```
 
@@ -118,8 +120,11 @@ Rust** — Calma treats your program as a black box and does the recompute itsel
 3. **Recompute** each metric from the raw outputs, the same way every time (no floating-point surprises).
 4. **Compare** recomputed vs claimed, allowing for the claim's own measurement noise.
 5. **Verdict** from a single deterministic function — re-checked byte-for-byte so it can't be fudged.
-6. **Attest** with a content-addressed manifest (in-toto/SLSA statement + CycloneDX ML-BOM) for audit
-   trails; cryptographic signing is on the roadmap.
+6. **Attest** with a content-addressed manifest (in-toto/SLSA statement + CycloneDX ML-BOM) — and, after a
+   one-time `calma attest keygen`, every verify is signed (Ed25519) into a portable DSSE bundle. The
+   counterparty runs `calma attest verify <bundle>` fully offline: it checks the signature and re-derives
+   every verdict label byte-for-byte, so neither a tampered bundle nor one re-signed under a different key
+   with forged labels can pass. `--key` pins the expected signer; `--replay` re-executes the run.
 
 ## Limitations
 
@@ -139,7 +144,7 @@ own work; (2) nothing stops it from "fixing" the comparison instead of the code;
 reusable artifact — no tolerance model, no audit trail, no exit code for CI. Calma closes all three: the
 diff happens under a calibrated tolerance in deterministic, unit-tested scripts, the ledger re-derives
 every label byte-for-byte so a model can't author a passing verdict, and every run leaves a
-content-addressed manifest. Independent benchmarks back this up: agents *assessing* reproducibility score
+content-addressed manifest — signed into a portable attestation bundle once you've made a key. Independent benchmarks back this up: agents *assessing* reproducibility score
 ~21% accuracy (REPRO-Bench) — judgment fails where re-execution works. The auditor can't be the auditee.
 
 **What do people use for this problem today?**

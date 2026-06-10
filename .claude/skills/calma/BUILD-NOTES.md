@@ -225,3 +225,38 @@ claim hints with collision-ordering tests ("balanced accuracy" before "accuracy"
 before "hit rate", "median absolute error" before "median"...); new `benchmark` column tag;
 convention inference for VaR levels, F-beta, lags, Apdex T, predictor counts, and
 monthly/weekly/daily annualization.
+
+## Attestation chain: Ed25519-signed DSSE bundles (2026-06-10)
+
+Signing is no longer roadmap. Next-work item 1 from the handoff shipped:
+
+- **ed25519.py** - pure-stdlib RFC 8032 Ed25519 (reference algorithm over Python big ints; strict
+  verify rejects the malleated s+L form). Same no-deps rule as the numeric kernels; EdDSA is
+  deterministic, so same key + same ledger -> byte-identical bundle. Pinned to the RFC section 7.1
+  test vectors (fetched from the spec, not memory) in tests/test_attest.py.
+- **Bundle format** (attest.py) - a DSSE envelope (PAE-signed, payloadType
+  application/vnd.in-toto+json) over an in-toto Statement v1 whose predicate embeds the FULL
+  ledger + manifest; subject digest = sha256 of the canonical ledger JSON. DSSE is the envelope
+  Sigstore countersigns, so the later Sigstore step is "append to envelope.signatures" - the
+  signed payload bytes never change. keyid = sha256(raw pubkey). Keys live at ~/.calma/keys/
+  (CALMA_KEY_DIR overrides; seed file 0600).
+- **CLI** - `calma attest keygen` (one-time), `calma attest sign <run_dir>`, and the counterparty
+  side `calma attest verify <bundle> [--key pub] [--replay]`, fully offline. Once a key exists,
+  **every `calma verify` auto-signs** its run dir (failure to sign never breaks a verification).
+- **Verification has teeth beyond the signature**: verify_bundle re-derives every verdict label
+  byte-for-byte via ledger.validate_obj, checks the subject digest against the canonical embedded
+  ledger, cross-checks the manifest root hash, and binds the statement verdict to the ledger's
+  repo_verdict. The adversarial case that matters - forge the labels AND re-sign under your own
+  key, embedded in the bundle - passes the signature check and dies at ledger-rederive. A pinned
+  --key kills the re-signing itself. A REFUTED bundle verifies (the verdict is the payload, not
+  the pass condition).
+- **test_attest.py**: 43 checks - RFC vectors, PAE bytes, keygen permissions, auto-sign on a real
+  REFUTED fixture run, deterministic re-sign, pinned-key pass/fail, six tamper shapes (in-place
+  payload edit, forged-labels-re-signed, statement/ledger verdict split, subject-digest swap,
+  manifest hash swap, garbage payloads), clean-run bundle, error paths. **14 suites, ~1010 checks,
+  all green.** Dogfooded through the real CLI: true claim CONFIRMED + signed, inflated claim
+  REFUTED + signed, hand-tampered bundle FAILS at the signature, --replay reproduces.
+- Copy upgraded now that it's true: Features card "Signed, forensic attestation", lab Report step
+  ("signed attestation bundle ... checks offline"), README under-the-hood step 6 + commands,
+  SKILL.md step 5 + commands, script-interfaces.md bundle section. calma 0.3.0 -> 0.4.0 (the
+  version is part of the cache fingerprint, so old cache entries invalidate - intended).

@@ -45,6 +45,8 @@ calma verify <target> "<claim>" --check-determinism   # re-execute twice; FLAKY 
 calma teardown <target> "<claim>" [--svg card.svg]    # shareable "claimed X -> really Y" card on a break
 calma replay <run_dir>              # re-run a saved verification; exit 0 iff the verdict reproduces
 calma stats <target>                # verification history: counts + recent catches
+calma attest keygen                 # one-time local Ed25519 key; after this every verify auto-signs
+calma attest verify <bundle> [--key pub] [--replay]   # counterparty: check a bundle offline
 ```
 
 Agents: prefer `--json` - it returns `{verdict, clean, confidence, claimed, recomputed, reason, fix,
@@ -72,8 +74,11 @@ with the fix.
 4. **Gate** - `scripts/ledger.py validate` -> the single CLEAN/NOT-CLEAN authority (strict lattice +
    findings-floor). Exit 0 clean, 1 not-clean, 2 invalid. CI: `--fail-on refuted` fails only on a break.
 5. **Verdict + attestation** - `scripts/attest.py` -> a content-addressed manifest (in-toto/SLSA statement
-   + CycloneDX ML-BOM; cryptographic signing is roadmap) + the strictly-progressive report (line 1 verdict
-   + deterministic confidence, line 2 the one limiting thing, a `fix:` line on every CAN'T-CONFIRM).
+   + CycloneDX ML-BOM) and, once `calma attest keygen` has run, an Ed25519-SIGNED DSSE bundle written on
+   every verify; the counterparty checks it OFFLINE with `calma attest verify <bundle>` (signature +
+   byte-for-byte verdict re-derivation; `--key` pins the signer, `--replay` re-executes) + the
+   strictly-progressive report (line 1 verdict + deterministic confidence, line 2 the one limiting thing,
+   a `fix:` line on every CAN'T-CONFIRM).
 
 ## Machine-enforced invariants (never violate; encoded in the scripts, not prose)
 

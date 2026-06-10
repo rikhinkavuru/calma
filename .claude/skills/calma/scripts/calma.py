@@ -3,11 +3,13 @@
   calma.py verify <target> ["<claim>"] [--claim VALUE] [--metric ID] [--run-id ID] [--fail-on MODE]
   calma.py teardown <target> ["<claim>"] [--metric ID]
   calma.py replay <run_dir>
+  calma.py attest keygen|sign <run_dir>|verify <bundle> [--key PATH] [--replay]
 
 Steps: draft-or-load contract -> run_hermetic (verified isolation, re-emit raw artifacts) -> recompute
 (reference-deterministic) -> compare (calibrated budget + shared verdict()) -> assemble + gate the ledger
--> attest (SBOM manifest) -> strictly-progressive report. The model READS the report; every number and
-the verdict label come from the scripts. Writes everything under <target>/.calma/<run-id>/.
+-> attest (SBOM manifest + Ed25519-signed DSSE bundle when a key exists) -> strictly-progressive report.
+The model READS the report; every number and the verdict label come from the scripts. Writes everything
+under <target>/.calma/<run-id>/.
 """
 import argparse
 import hashlib
@@ -26,7 +28,7 @@ import report as REP
 import run_hermetic as H
 import verdict as V
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 QUANT_METRICS = {"total_return", "sharpe", "max_drawdown"}
 
@@ -382,6 +384,13 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
         json.dump(attest.ml_bom(_man, led["target"], led.get("scope")),
                   open(os.path.join(run_dir, "mlbom.json"), "w"), indent=2)
     json.dump(led, open(os.path.join(run_dir, "ledger.json"), "w"), indent=2)
+    # auto-sign when a local key exists: the bundle is the counterparty artifact, never load-bearing
+    # for the verdict itself, so a signing failure must not fail the verification
+    if attest.load_signing_key() is not None:
+        try:
+            attest.sign_run(run_dir)
+        except (OSError, ValueError):
+            pass
     code, summary = LED.validate_obj(led)
     rendered = REP.render(led, diff)
     open(os.path.join(run_dir, "report.txt"), "w").write(rendered)
@@ -526,6 +535,19 @@ def main():
     s = sub.add_parser("stats", help="summarize this target's verification history")
     s.add_argument("target")
     s.add_argument("--json", action="store_true", dest="as_json")
+    at = sub.add_parser("attest", help="sign a run into a portable bundle, or verify one offline")
+    atsub = at.add_subparsers(dest="attest_cmd", required=True)
+    kg = atsub.add_parser("keygen", help="generate a local Ed25519 signing key (~/.calma/keys)")
+    kg.add_argument("--force", action="store_true", help="overwrite an existing key")
+    sg = atsub.add_parser("sign", help="sign a run dir's ledger+manifest into attestation.bundle.json")
+    sg.add_argument("run_dir", help="the .calma/<run-id> dir from a previous verify")
+    sg.add_argument("--key", help="signing key file (default: ~/.calma/keys/ed25519.key)")
+    sg.add_argument("--out", help="bundle output path (default: <run_dir>/attestation.bundle.json)")
+    av = atsub.add_parser("verify", help="verify a bundle offline: signature + verdict re-derivation")
+    av.add_argument("bundle", help="path to attestation.bundle.json")
+    av.add_argument("--key", help="pin the signer: hex public key, or a path to the .pub file")
+    av.add_argument("--replay", action="store_true",
+                    help="also re-execute the run next to the bundle and check the verdict reproduces")
     a = ap.parse_args()
     try:
         if a.cmd == "verify":
@@ -556,6 +578,32 @@ def main():
             data, rendered = stats(a.target)
             print(json.dumps(data, indent=2) if a.as_json else rendered)
             return 0
+        if a.cmd == "attest":
+            if a.attest_cmd == "keygen":
+                info = attest.keygen(force=a.force)
+                print("key written: %s (0600)\npublic key:  %s\nkeyid:       %s"
+                      % (info["key_path"], info["public_key"], info["keyid"]))
+                return 0
+            if a.attest_cmd == "sign":
+                bundle, out = attest.sign_run(os.path.realpath(a.run_dir), key_path=a.key, out=a.out)
+                print("signed: %s\nkeyid:  %s" % (out, bundle["envelope"]["signatures"][0]["keyid"]))
+                return 0
+            if a.attest_cmd == "verify":
+                try:
+                    bundle = json.load(open(a.bundle))
+                except (OSError, ValueError) as e:
+                    print("error: cannot read bundle: %s" % e, file=sys.stderr)
+                    return 2
+                pinned = None
+                if a.key:
+                    pinned = open(a.key).read().strip() if os.path.exists(a.key) else a.key.strip()
+                ok, checks = attest.verify_bundle(bundle, pinned_pub_hex=pinned)
+                print(attest.render_verify(bundle, ok, checks))
+                if ok and a.replay:
+                    rok, text = replay(os.path.dirname(os.path.realpath(a.bundle)))
+                    print("\n" + text)
+                    ok = ok and rok
+                return 0 if ok else 1
     except ValueError as e:
         print("error: %s" % e, file=sys.stderr)
         return 2

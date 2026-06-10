@@ -28,9 +28,14 @@ Onboarding for a fresh Claude Code session. Read this, then `.claude/skills/calm
 - **Every recipe is validated against its published reference implementation** (scikit-learn,
   SciPy, NumPy, numpy-financial, statsmodels, jiwer, HumanEval estimator, SQuAD normalizer, Guo
   ECE) via **385 byte-reproducible reference vectors** in `assets/reference_vectors.json`.
-- **Test suite: 13 suites, ~940 checks, pure stdlib** — `python3 .claude/skills/calma/scripts/tests/run_all.py`.
+- **Test suite: 14 suites, ~1010 checks, pure stdlib** — `python3 .claude/skills/calma/scripts/tests/run_all.py`.
   The big one is `test_recipes_sota.py` (reference vectors + conventions + degenerate paths +
   e2e + claim-parser regressions + registry↔site sync).
+- **Attestation chain (SHIPPED)**: pure-stdlib Ed25519 (`ed25519.py`, RFC 8032 vectors) signs every
+  run into a DSSE/in-toto bundle once `calma attest keygen` has run; `calma attest verify <bundle>
+  [--key pub] [--replay]` is the offline counterparty check (signature + byte-for-byte verdict
+  re-derivation — a forged-label bundle re-signed under a new key dies at ledger-rederive).
+  Bundle format is Sigstore-countersignature-ready (append to envelope.signatures). calma 0.4.0.
 - **Site** (Next.js, static): landing (hero → problem → how-it-works → features w/ marquee +
   9-card grid + 118-recipe band → benefits → about → FAQ → outro), `/recipes` (all 118, grouped,
   per-recipe claim/how/reference/conventions), `/lab` (the capital-allocation surface per
@@ -47,8 +52,9 @@ Onboarding for a fresh Claude Code session. Read this, then `.claude/skills/calm
   no numpy, no platform libm; it has its own log/exp/lgamma/incomplete-beta/gamma/erfc kernels).
 - No REFUTED on ambiguous bindings / failed re-runs / flaky outputs / unconfirmed claim targets
   → degrade to INCONCLUSIVE with a `fix:` line. Bias caveat over false alarm, always.
-- New recipes ship ONLY with reference-vector validation. Honesty in copy: don't claim signing,
-  insurers, accreditation, or a named methodologist — none exist yet.
+- New recipes ship ONLY with reference-vector validation. Honesty in copy: signing is now real and
+  may be claimed; still don't claim Sigstore/transparency-log, insurers, accreditation, or a named
+  methodologist — none exist yet.
 
 ## How to work on it
 
@@ -77,11 +83,8 @@ python3 .claude/skills/calma/scripts/calma.py verify <dir> "<claim>" --json   # 
 
 ## Next work (agreed with the founder, in order)
 
-1. **Attestation chain** — sign the ledger+manifest (local Ed25519 first, bundle format designed
-   so a Sigstore countersignature can be added later); `calma attest verify <bundle>` for the
-   counterparty: checks signature, re-derives all verdicts, optionally replays, offline. Tests
-   against tampered bundles. Then upgrade site copy ("Forensic replay & attestation" card,
-   lab Report step) to "signed".
+1. ~~**Attestation chain**~~ — SHIPPED 2026-06-10 (see Current state above + BUILD-NOTES tail).
+   Site copy upgraded to "signed". Remaining future step: the Sigstore countersignature itself.
 2. **Catch history** — opt-in `calma publish`: a redacted (claim/verdict/gap only), attested,
    static registry entry; in-repo `registry/` rendered by the site; git history = tamper
    evidence. This is also the engagement-registry machinery for /lab.
