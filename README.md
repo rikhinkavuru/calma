@@ -93,10 +93,16 @@ Action (`.github/actions/calma`) — `fail_on: refuted` fails the build only whe
 - **Does it beat a basic baseline?** (e.g. buy-and-hold, or majority-class.)
 - **Is it stable?** A calibrated tolerance so normal hardware/threading noise never causes a false alarm.
 
-Built-in metrics cover **trading** (Sharpe, return, drawdown), **machine learning** (accuracy, AUC, F1,
-precision, recall, Brier), **regression** (RMSE, MAE, R²), and **data/analytics** (sums, means, row counts) —
-15 recipes. It works on programs written in **Python, R, Julia, C++, or Rust** — Calma treats your program
-as a black box and does the recompute itself.
+Built-in metrics cover **trading** (Sharpe, return, drawdown), **machine learning** (accuracy, AUC,
+F1/macro/micro, PR-AUC, log-loss, MCC, calibration/ECE, Brier), **regression & forecasting** (RMSE, MAE, R²,
+MAPE/sMAPE, MASE, pinball), **retrieval & LLM evals** (recall@k, NDCG, MRR, top-k, exact-match, pass@k),
+**analytics** (sums, means, medians, percentiles, group-bys, distinct/null/duplicate counts, join row-loss),
+**engineering** ("2.3× faster", latency p50–p99, throughput, peak memory, test coverage, error rates),
+**statistics** (p-values, confidence intervals, A/B lift, chi-square, correlation, effect size), and
+**business/finance** (CAGR, NPV/IRR, churn, margin, ledger reconciliation) — **59 recipes**, each validated
+against the published reference implementation (scikit-learn, SciPy, NumPy, numpy-financial; see
+`.claude/skills/calma/references/recipes.md`). It works on programs written in **Python, R, Julia, C++, or
+Rust** — Calma treats your program as a black box and does the recompute itself.
 
 ## Under the hood
 
@@ -169,8 +175,9 @@ No. Everything runs locally; nothing is uploaded. On macOS the run is inside a v
 sandbox; on hosts without one, the verdict says so explicitly instead of pretending.
 
 **Is it only for trading/quant?**
-No. It ships metrics for trading, ML (classification + regression), and analytics, and treats your program
-as a black box, so it works across Python, R, Julia, C++, and Rust.
+No. It ships 59 metrics across trading, ML (classification, regression, retrieval/RAG, LLM evals),
+analytics, engineering/performance, statistics, and business/finance, and treats your program as a black
+box, so it works across Python, R, Julia, C++, and Rust.
 
 **What if it can't fully verify something?**
 It returns CAN'T-CONFIRM with a `fix:` line naming the exact change to make it checkable (e.g. "set a
