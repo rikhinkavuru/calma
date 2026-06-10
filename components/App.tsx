@@ -1,15 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Atmos } from "./Atmos";
-import { Nav } from "./Nav";
+import { Topbar, Footer } from "./chrome";
+import { Masthead } from "./Masthead";
 import { Hero } from "./Hero";
+import { ClaimSection } from "./ClaimSection";
 import { Method } from "./Method";
-import { Palette } from "./Palette";
 import { Evidence } from "./Evidence";
-import { Get } from "./Get";
+import { Verdicts } from "./Verdicts";
+import { Access } from "./Access";
 import { Faq } from "./Faq";
-import { Footer } from "./Footer";
 import { RequestDialog } from "./RequestDialog";
 
 export default function App() {
@@ -18,14 +18,21 @@ export default function App() {
 
   return (
     <>
-      <Atmos />
-      <Nav onRequest={openDlg} />
+      <div className="grain" aria-hidden="true"></div>
+      <Topbar />
       <main>
-        <Hero />
+        <Masthead />
+        <Hero onRequest={openDlg} />
+        <ClaimSection />
+        <hr className="rule" />
         <Method />
-        <Palette />
+        <hr className="rule" />
         <Evidence />
-        <Get onRequest={openDlg} />
+        <hr className="rule" />
+        <Verdicts />
+        <hr className="rule" />
+        <Access onRequest={openDlg} />
+        <hr className="rule" />
         <Faq />
       </main>
       <Footer />
