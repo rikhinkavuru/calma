@@ -5,7 +5,9 @@ import { Reveal } from "./chrome";
 /* HOW IT WORKS — three steps, no jargon. */
 export function Overview() {
   return (
-    <section className="sec" id="overview">
+    <section className="sec sec--orbed" id="overview">
+      <i className="orb orb--amber" aria-hidden="true"
+         style={{ width: 460, height: 460, right: -160, top: -120, opacity: 0.55 }} />
       <div className="wrap">
         <div className="sec__head">
           <Reveal>

@@ -5,6 +5,10 @@ import { Reveal } from "./chrome";
 export function Outro() {
   return (
     <section className="outro">
+      <i className="orb orb--amber" aria-hidden="true"
+         style={{ width: 1100, height: 700, left: "50%", marginLeft: -550, bottom: -430 }} />
+      <i className="orb-lines" aria-hidden="true"
+         style={{ width: 1100, height: 540, left: "50%", marginLeft: -550, bottom: -220 }} />
       <div className="wrap">
         <Reveal>
           <div className="outro__grid">

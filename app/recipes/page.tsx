@@ -28,7 +28,11 @@ export default function RecipesPage() {
       </header>
 
       <main className="rpage">
-        <section className="sec rpage__head">
+        <section className="sec rpage__head sec--orbed">
+          <i className="orb orb--amber" aria-hidden="true"
+             style={{ width: 640, height: 640, right: -220, top: -260, opacity: 0.6 }} />
+          <i className="orb-lines" aria-hidden="true"
+             style={{ width: 640, height: 460, right: -180, top: -160, opacity: 0.05 }} />
           <div className="wrap">
             <div className="sec__head">
               <span className="kicker">The recipe library</span>
