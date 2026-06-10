@@ -7,7 +7,11 @@ Run: python3 scripts/teardowns/btc_overfit_teardown.py
 """
 import json, time, urllib.request, datetime as dt, math, os
 
-SNAPSHOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "btc_snapshot.json")
+# the ONE vendored snapshot lives with the skill's BTC fixture — this demo and the skill's
+# e2e fixture recompute from the same raw data (no duplicate 71KB copies in the repo)
+SNAPSHOT = os.path.normpath(os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "..", "..",
+    ".claude", "skills", "calma", "assets", "btc", "btc_snapshot.json"))
 
 def fetch_btc_daily(years=4):
     """Coinbase daily candles, paginated backwards (<=300 per call). Returns [(epoch, close)] asc.
