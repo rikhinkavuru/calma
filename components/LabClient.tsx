@@ -104,11 +104,7 @@ export default function LabClient() {
       </header>
 
       <main className="rpage">
-        <section className="sec rpage__head sec--orbed">
-          <i className="orb orb--amber" aria-hidden="true"
-             style={{ width: 700, height: 700, right: -240, top: -280, opacity: 0.6 }} />
-          <i className="orb-lines" aria-hidden="true"
-             style={{ width: 700, height: 500, right: -200, top: -170, opacity: 0.05 }} />
+        <section className="sec rpage__head">
           <div className="wrap">
             <div className="sec__head">
               <Reveal>
@@ -232,9 +228,7 @@ export default function LabClient() {
           </div>
         </section>
 
-        <section className="sec rpage__foot sec--orbed">
-          <i className="orb orb--amber" aria-hidden="true"
-             style={{ width: 520, height: 520, right: -60, bottom: -240, opacity: 0.5 }} />
+        <section className="sec rpage__foot">
           <div className="wrap">
             <hr className="hline" />
             <Reveal>

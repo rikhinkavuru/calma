@@ -5,9 +5,7 @@ import { Reveal } from "./chrome";
 
 export function Benefits({ onRequest }: { onRequest: () => void }) {
   return (
-    <section className="sec sec--orbed" id="benefits">
-      <i className="orb orb--deep" aria-hidden="true"
-         style={{ width: 780, height: 560, left: "50%", marginLeft: -390, bottom: -300, opacity: 0.7 }} />
+    <section className="sec" id="benefits">
       <div className="wrap">
         <div className="sec__head">
           <Reveal>

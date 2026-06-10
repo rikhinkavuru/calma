@@ -4,9 +4,7 @@ import { Cross, Reveal } from "./chrome";
 
 export function About() {
   return (
-    <section className="sec sec--orbed" id="about">
-      <i className="orb orb--teal" aria-hidden="true"
-         style={{ width: 520, height: 520, right: -140, top: "12%" }} />
+    <section className="sec" id="about">
       <div className="wrap">
         <div className="sec__head">
           <Reveal>
