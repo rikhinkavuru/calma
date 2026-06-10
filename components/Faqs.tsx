@@ -29,8 +29,8 @@ const ITEMS: [string, React.ReactNode][] = [
   [
     "Does my code or data leave my machine?",
     <>
-      No. Everything runs locally, inside a sandbox that blocks the network and proves it before
-      running. <b>Nothing is uploaded, ever.</b>
+      No. Everything runs locally, inside a sandbox that blocks the network.{" "}
+      <b>Nothing is uploaded, ever.</b>
     </>,
   ],
   [

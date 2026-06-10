@@ -2,36 +2,22 @@
 
 import { Reveal } from "./chrome";
 
-const FEATS: [string, string, React.ReactNode][] = [
+const FEATS: [string, string][] = [
   [
-    "Plain-language claims",
-    "Say what was claimed the way you'd say it out loud. Calma finds the number and the metric.",
-    <>verify . &quot;+14,698% backtest&quot;</>,
+    "Plain English in, plain English out",
+    "Describe the claim the way you'd say it out loud. Get back one of four answers: confirmed, refuted, can't confirm, or confirmed with caveats.",
   ],
   [
-    "Four fixed verdicts",
-    "Confirmed, refuted, can't confirm, or confirmed with caveats. JSON for machines, words for people.",
-    <>= &nbsp;≠&nbsp; ? &nbsp;≈ <span className="dim">· {`{"verdict": "REFUTED"}`}</span></>,
+    "Anyone can replay it",
+    "Every verdict ships with one command that re-runs the entire check. You never have to take Calma's word for it either.",
   ],
   [
-    "Replayable proof",
-    "Every verdict can be re-run by anyone, with one command. Trust nothing — replay it.",
-    <>calma replay ./.calma/run <span className="dim">· exit 0 if it holds</span></>,
+    "Nothing leaves your machine",
+    "The work runs locally, in a sandbox with no network access. Your code and data are never uploaded, anywhere.",
   ],
   [
-    "Private by design",
-    "Runs on your machine, in a sandbox that proves itself before it's trusted. Nothing is uploaded.",
-    <>secret read — blocked <span className="dim">·</span> network — blocked</>,
-  ],
-  [
-    "Any stack",
-    "Fifteen metrics across trading, machine learning, and analytics. Five languages, run as a black box.",
-    <>python · r · julia · c++ · rust</>,
-  ],
-  [
-    "Fast enough for loops",
-    "Agents call it after every result. Anything unchanged answers from cache instantly.",
-    <>re-check 0.08s <span className="dim">· first run 2.2s</span></>,
+    "Your agents can use it",
+    "AI agents call Calma to check their own results mid-task — so the mistake is caught before anyone sees it.",
   ],
 ];
 
@@ -41,16 +27,18 @@ export function Features() {
       <div className="wrap">
         <div className="sec__head">
           <Reveal>
-            <span className="kicker">Features — the instrument</span>
+            <span className="kicker">Features</span>
+          </Reveal>
+          <Reveal delay={150}>
+            <h2 className="h2">Simple to use. Hard to fool.</h2>
           </Reveal>
         </div>
-        <Reveal delay={120}>
+        <Reveal delay={200}>
           <div className="features">
-            {FEATS.map(([t, d, art]) => (
+            {FEATS.map(([t, d]) => (
               <div className="feat" key={t}>
-                <b>{t}</b>
+                <h3>{t}</h3>
                 <p>{d}</p>
-                <span className="art">{art}</span>
               </div>
             ))}
           </div>

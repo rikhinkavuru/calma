@@ -1,5 +1,6 @@
 "use client";
 
+import { CardArt } from "./CardArt";
 import { Reveal } from "./chrome";
 
 export function Benefits({ onRequest }: { onRequest: () => void }) {
@@ -8,20 +9,22 @@ export function Benefits({ onRequest }: { onRequest: () => void }) {
       <div className="wrap">
         <div className="sec__head">
           <Reveal>
-            <span className="kicker">Benefits — who this is for</span>
+            <span className="kicker">Who it&apos;s for</span>
+          </Reveal>
+          <Reveal delay={150}>
+            <h2 className="h2">Three ways people use Calma.</h2>
           </Reveal>
         </div>
         <div className="benefits">
           <Reveal>
             <div className="benefit">
-              <hr className="hline" />
-              <span className="who">For builders</span>
-              <h3>Ship numbers you can stand behind</h3>
+              <div className="benefit__art"><CardArt kind="builder" /></div>
+              <span className="who">Builders</span>
+              <h3>Catch the mistake before your users do</h3>
               <p>
-                Your agent checks its own work before reporting it. <b>The mistake is caught in the
-                loop</b> — not by your user.
+                Your agent checks its own work as it goes — so the wrong number dies in the loop,
+                not in production.
               </p>
-              <span className="codeline">/plugin install calma@calma</span>
               <div className="cta">
                 <a
                   className="pbtn"
@@ -32,20 +35,19 @@ export function Benefits({ onRequest }: { onRequest: () => void }) {
                   Get the free skill
                 </a>
               </div>
-              <span className="fine">Open source · MIT · zero dependencies</span>
+              <span className="fine">Free · open source · MIT</span>
             </div>
           </Reveal>
 
           <Reveal delay={130}>
             <div className="benefit">
-              <hr className="hline" />
-              <span className="who">For teams</span>
-              <h3>Stop bad numbers at the gate</h3>
+              <div className="benefit__art"><CardArt kind="team" /></div>
+              <span className="who">Teams</span>
+              <h3>A result that doesn&apos;t reproduce never ships</h3>
               <p>
-                Run it in CI: <b>a result that doesn&apos;t reproduce never ships.</b> The proof
-                travels with the work, and anyone can replay it later.
+                Run Calma in CI as a gate. The proof travels with the work, and anyone can replay
+                it later.
               </p>
-              <span className="codeline">fail only on a real break</span>
               <div className="cta">
                 <a
                   className="pbtn"
@@ -62,14 +64,13 @@ export function Benefits({ onRequest }: { onRequest: () => void }) {
 
           <Reveal delay={260}>
             <div className="benefit">
-              <hr className="hline" />
-              <span className="who">For funds &amp; allocators</span>
+              <div className="benefit__art"><CardArt kind="fund" /></div>
+              <span className="who">Investors &amp; funds</span>
               <h3>Proof before the money moves</h3>
               <p>
-                An independent re-execution of the research, delivered as{" "}
-                <b>a signed report your counterparty can re-check</b> command-for-command.
+                Before you act on a number, the lab independently re-runs the research and signs a
+                report your counterparty can re-check.
               </p>
-              <span className="codeline">claimed +14,698% → found −32.4%</span>
               <div className="cta">
                 <button className="pbtn pbtn--amber" onClick={onRequest}>
                   Request verification

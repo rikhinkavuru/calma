@@ -4,11 +4,10 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "CALMA — proof is here",
   description:
-    "In the race to hand real work to AI, whoever trusted the number loses. Calma re-runs the work, recomputes the result, and decides with code — before the money moves.",
+    "AI did the work. Calma checks it. Calma re-runs your AI's work, rebuilds the numbers it reported, and tells you whether to trust them.",
   openGraph: {
     title: "CALMA — proof is here",
-    description:
-      "Re-run the work. Recompute the number. Decide with code.",
+    description: "AI did the work. Calma checks it.",
   },
 };
 

@@ -1,12 +1,10 @@
 "use client";
 
-import { Dots, Reveal } from "./chrome";
+import { Reveal } from "./chrome";
 
 export function Outro() {
   return (
     <section className="outro">
-      <Dots style={{ top: 30, left: "7%" }} />
-      <Dots style={{ top: 30, right: "7%" }} />
       <div className="wrap">
         <Reveal>
           <div className="outro__grid">
@@ -28,7 +26,7 @@ export function Outro() {
         </Reveal>
         <Reveal delay={300}>
           <p className="outro__cta">
-            Read more at:{" "}
+            Read more at{" "}
             <a href="https://github.com/rikhinkavuru/calma" target="_blank" rel="noreferrer">
               github.com/rikhinkavuru/calma
             </a>
