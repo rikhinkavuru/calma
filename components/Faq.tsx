@@ -1,57 +1,45 @@
 "use client";
 
-import { SectionHead } from "./chrome";
+import { Reveal, SectionHead } from "./chrome";
 
 const ITEMS: [string, React.ReactNode][] = [
   [
     "Why not ask the agent to check its own work?",
     <>
-      Asked to &quot;double-check,&quot; a model re-reads its reasoning and agrees with itself. Even
-      when it re-runs the code it still judges the match — and nothing stops it from fixing the
-      comparison instead of the code. Calma&apos;s diff happens in deterministic scripts under a
-      calibrated tolerance, and the ledger re-derives every label byte-for-byte. On REPRO-Bench,
-      agents judging reproducibility score ~21%. The producer is never the verifier.
+      Even when an agent re-runs its code, it still judges the match itself — and nothing stops it
+      from fixing the comparison instead of the code. Calma&apos;s diff happens in deterministic
+      scripts, and every stored verdict is re-derived byte-for-byte. The producer is never the
+      verifier.
     </>,
   ],
   [
     "What do people use for this today?",
     <>
-      Mostly nothing — the printed number is trusted. Eval platforms score with model judges for the
-      builder; data validators check schemas; CI tests what the author thought to test. In quant,
-      independent validation is bespoke human consulting. None re-execute the work and recompute the
-      claimed number.
+      Mostly nothing — the printed number is trusted. Eval platforms score with model judges; data
+      validators check schemas; CI tests what the author thought to test. None re-execute the work
+      and recompute the claimed number.
     </>,
   ],
   [
     "Does code or data leave the machine?",
     <>
-      No. Everything runs locally. On macOS the run sits inside a verified network-off sandbox
-      proven by a self-test; elsewhere the verdict prints <code>host-not-isolated</code> instead of
-      pretending.
-    </>,
-  ],
-  [
-    "What if there's no number to check?",
-    <>
-      It still verifies the result reproduces — including <code>--check-determinism</code>, which
-      re-executes twice and refuses to confirm anything whose outputs differ across identical runs.
+      No. Everything runs locally, in a network-off sandbox that proves itself with a self-test.
+      Where no verified sandbox exists, the verdict says so instead of pretending.
     </>,
   ],
   [
     "Won't better models make this unnecessary?",
     <>
-      Better models mean more delegation and more money moving on AI-produced numbers — every dollar
-      needing a referee the producer doesn&apos;t own. The failures Calma catches — overfitting,
-      leakage, cherry-picking — are incentive problems, not capability problems. A stronger
-      optimizer makes more convincing overfits. Humans are very capable; we still audit them.
+      Better models mean more delegation and more money moving on AI-produced numbers. The failures
+      Calma catches — overfitting, leakage, cherry-picking — are incentive problems, not capability
+      problems. Humans are very capable; we still audit them.
     </>,
   ],
   [
     "Is it only for trading?",
     <>
-      No. Fifteen recipes across ML, analytics, and trading; Python, R, Julia, C++, and Rust run as
-      a black box. Quant is where independent verification is already bought, so the lab starts
-      there.
+      No. Fifteen metrics across ML, analytics, and trading; five languages run as a black box.
+      Quant is simply where independent verification is already bought, so the lab starts there.
     </>,
   ],
 ];
@@ -60,13 +48,15 @@ export function Faq() {
   return (
     <section className="section" id="faq">
       <div className="wrap">
-        <SectionHead num="006 / Questions" title="Asked" note="Spec-sheet answers. No padding." />
+        <SectionHead idx="06" title="Questions" />
         <div className="faq">
-          {ITEMS.map(([q, a]) => (
-            <details key={q as string}>
-              <summary>{q}</summary>
-              <div className="a">{a}</div>
-            </details>
+          {ITEMS.map(([q, a], i) => (
+            <Reveal key={q as string} delay={i * 70}>
+              <details>
+                <summary>{q}</summary>
+                <div className="a">{a}</div>
+              </details>
+            </Reveal>
           ))}
         </div>
       </div>

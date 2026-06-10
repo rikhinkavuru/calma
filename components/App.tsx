@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Topbar, Footer } from "./chrome";
-import { Masthead } from "./Masthead";
 import { Hero } from "./Hero";
 import { ClaimSection } from "./ClaimSection";
 import { Method } from "./Method";
@@ -19,20 +18,14 @@ export default function App() {
   return (
     <>
       <div className="grain" aria-hidden="true"></div>
-      <Topbar />
+      <Topbar onRequest={openDlg} />
       <main>
-        <Masthead />
         <Hero onRequest={openDlg} />
         <ClaimSection />
-        <hr className="rule" />
         <Method />
-        <hr className="rule" />
         <Evidence />
-        <hr className="rule" />
         <Verdicts />
-        <hr className="rule" />
         <Access onRequest={openDlg} />
-        <hr className="rule" />
         <Faq />
       </main>
       <Footer />

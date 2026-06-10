@@ -1,59 +1,36 @@
 "use client";
 
-import { SectionHead } from "./chrome";
+import { Reveal, SectionHead } from "./chrome";
 
 const VERDICTS = [
-  {
-    chip: "is-ink",
-    glyph: "=",
-    name: "Confirmed",
-    hex: "exit 0",
-    p: "Re-runs, and the rebuilt number matches the claim within the calibrated budget.",
-  },
-  {
-    chip: "is-flare",
-    glyph: "≠",
-    name: "Refuted",
-    hex: "exit 1 · repro attached",
-    p: "The recomputed number contradicts the claim. Ships a teardown card and a one-command replay.",
-  },
-  {
-    chip: "is-bone2",
-    glyph: "?",
-    name: "Can't confirm",
-    hex: "exit 1 · fix named",
-    p: "Not verifiable yet — the report names the exact change. Never a shrug, never a guess.",
-  },
-  {
-    chip: "is-chalk",
-    glyph: "≈",
-    name: "With caveats",
-    hex: "exit 0 · scope stamped",
-    p: "Holds, but narrower than claimed — and the caveat is printed on the verdict.",
-  },
-];
+  ["is-ink", "=", "Confirmed", "It re-runs, and the rebuilt number matches the claim."],
+  ["is-flare", "≠", "Refuted", "The recomputed number contradicts the claim — replay attached."],
+  ["is-bone", "?", "Can't confirm", "Not verifiable yet. The report names the exact fix."],
+  ["", "≈", "With caveats", "Holds, but narrower than claimed — the caveat is printed."],
+] as const;
 
 export function Verdicts() {
   return (
-    <section className="section" id="verdicts">
+    <section className="section section--tint" id="verdicts">
       <div className="wrap">
         <SectionHead
-          num="004 / Vocabulary"
-          title="Verdicts"
-          note="Fixed vocabulary, machine-consumable, biased toward a caveat over a false alarm."
+          idx="04"
+          title="Four possible answers"
+          sub="Fixed vocabulary, biased toward a caveat over a false alarm. It never cries wolf."
         />
         <div className="verdicts">
-          {VERDICTS.map((v) => (
-            <div className="verdict" key={v.name}>
-              <div className={"verdict__chip " + v.chip} aria-hidden="true">
-                {v.glyph}
+          {VERDICTS.map(([chip, glyph, name, p], i) => (
+            <Reveal key={name} delay={i * 110} dir={i < 2 ? "left" : "right"}>
+              <div className="verdict">
+                <div className={"verdict__chip " + chip} aria-hidden="true">
+                  {glyph}
+                </div>
+                <div className="verdict__meta">
+                  <b>{name}</b>
+                  <p>{p}</p>
+                </div>
               </div>
-              <div className="verdict__meta">
-                <b>{v.name}</b>
-                <span className="hx">{v.hex}</span>
-                <p>{v.p}</p>
-              </div>
-            </div>
+            </Reveal>
           ))}
         </div>
       </div>
