@@ -353,5 +353,66 @@ truth(C._infer_precision(0.42) == 0.005, "plain decimal precision unchanged")
 truth(C._infer_precision(120.0) == 0.5, "integer claim precision unchanged")
 truth(C._infer_precision(0.123456789012345) <= 5e-13, "genuinely long claims keep a tight budget")
 
+# claim_precision: the suffix scale is part of the REPORTED precision ('$4.2M' is +/-50k, not +/-0.5)
+truth(D.claim_precision("$4.2M revenue") == 50000.0, "claim_precision $4.2M -> 50k")
+truth(abs(D.claim_precision("23.87%") - 5e-5) < 1e-18, "claim_precision 23.87%% -> 5e-5")
+truth(D.claim_precision("processed 10,000 rows") == 0.5, "claim_precision integer -> 0.5")
+truth(D.claim_precision("accuracy 0.87") == 0.005, "claim_precision 0.87 -> 0.005")
+truth(D.claim_precision("no number here") is None, "claim_precision without a number -> None")
+
+# ---------------- part G: audit fixes - tag aliases + degenerate (not crashed) bad bindings ----------------
+
+with tempfile.TemporaryDirectory() as td2:
+    with open(os.path.join(td2, "preds.csv"), "w", newline="") as fh:
+        w = csv.writer(fh)
+        w.writerow(["y_true", "y_pred", "prob"])
+        for y, p, pr in [(1, 1, 0.9), (0, 0, 0.2), (1, 0, 0.4), (0, 0, 0.1)]:
+            w.writerow([y, p, pr])
+    # named metrics bind through aliases: log_loss needs `prob` (column tags as `score`),
+    # rmse needs `target` (column y_true tags as `label`)
+    c_ll = D.draft(td2, claim="log loss 0.3")
+    truth(c_ll["metrics"] and c_ll["metrics"][0]["metric_id"] == "log_loss"
+          and c_ll["metrics"][0]["binding"].get("prob") == "prob",
+          "named log_loss claim binds the probability column via the score->prob alias")
+    c_rmse = D.draft(td2, claim="rmse 0.5")
+    truth(c_rmse["metrics"] and c_rmse["metrics"][0]["binding"].get("target") == "y_true",
+          "named rmse claim binds y_true via the label->target alias")
+    # auto-pick (no named metric) keeps the strict table: y_true/y_pred -> accuracy, never rmse
+    c_auto = D.draft(td2, claim="0.75")
+    truth(c_auto["metrics"] and c_auto["metrics"][0]["metric_id"] == "auc",
+          "auto-pick unchanged by aliases (score+label -> auc), got %s"
+          % (c_auto["metrics"][0]["metric_id"] if c_auto["metrics"] else None))
+
+    # a contract binding a MISSING column degrades to a degenerate recompute, never a traceback
+    bad = {"run": {"entrypoint": "MANUAL"}, "artifacts": [{"path": "preds.csv", "columns": {}}],
+           "metrics": [{"metric_id": "accuracy", "artifact": "preds.csv",
+                        "binding": {"prediction": "no_such_col", "label": "y_true"},
+                        "convention": None, "claimed_value": 0.9, "headline": True,
+                        "binding_status": "independently-bound", "claim_confirmed": True}],
+           "baselines": []}
+    bp = os.path.join(td2, "verify.yaml")
+    json.dump(bad, open(bp, "w"))
+    rec_bad = RC.recompute_contract(bp, td2)
+    truth(rec_bad["metrics"][0]["degenerate"] and "binding failed" in rec_bad["metrics"][0]["error"],
+          "missing column -> degenerate recompute with a named error")
+    diff_bad = C.compare(rec_bad, bad)
+    truth(diff_bad["metrics"][0]["verdict"] == "INCONCLUSIVE",
+          "missing column -> INCONCLUSIVE, never a crash or a verdict")
+    # a non-numeric cell in a numeric column likewise degrades
+    with open(os.path.join(td2, "dirty.csv"), "w", newline="") as fh:
+        w = csv.writer(fh)
+        w.writerow(["value"])
+        w.writerow([3.0])
+        w.writerow(["oops-text"])
+    dirty = {"run": {"entrypoint": "MANUAL"}, "artifacts": [{"path": "dirty.csv", "columns": {}}],
+             "metrics": [{"metric_id": "column_sum", "artifact": "dirty.csv",
+                          "binding": {"value": "value"}, "convention": None, "claimed_value": 3.0,
+                          "headline": True, "binding_status": "independently-bound",
+                          "claim_confirmed": True}], "baselines": []}
+    dp = os.path.join(td2, "verify2.yaml")
+    json.dump(dirty, open(dp, "w"))
+    rec_dirty = RC.recompute_contract(dp, td2)
+    truth(rec_dirty["metrics"][0]["degenerate"], "non-numeric cell -> degenerate, not a traceback")
+
 print("recipes-sota: %d checks, %d failures" % (_n, _fail))
 sys.exit(1 if _fail else 0)

@@ -16,8 +16,11 @@ _TOPLINE = {
     "MIXED": ("MIXED", "some claims hold, at least one is broken"),
 }
 
-# metrics whose natural display is a percentage of the raw ratio
-PERCENT_METRICS = {"total_return", "max_drawdown"}
+# metrics whose natural display is a percentage of the raw ratio: signed (direction matters)
+# vs unsigned (rates/fractions)
+PERCENT_METRICS = {"total_return", "max_drawdown", "growth_rate", "cagr", "irr", "lift"}
+UNSIGNED_PERCENT_METRICS = {"test_coverage", "error_rate", "ratio_share", "null_fraction",
+                            "churn_rate", "margin_pct", "mape"}
 
 # INCONCLUSIVE reason -> the concrete unblock ('who-can-act' fix). Substring-matched, first hit wins.
 _FIXES = [
@@ -46,13 +49,14 @@ def fmt_value(value, metric_id=None):
     v = float(value)
     if v != v:
         return "NaN"
-    if metric_id in PERCENT_METRICS:
+    if metric_id in PERCENT_METRICS or metric_id in UNSIGNED_PERCENT_METRICS:
         pct = v * 100.0
+        sign = "+" if metric_id in PERCENT_METRICS else ""
         if abs(pct) >= 100:
-            return "{:+,.0f}%".format(pct)
+            return ("{:" + sign + ",.0f}%").format(pct)
         if abs(pct) >= 1:
-            return "{:+.1f}%".format(pct)
-        return "{:+.2f}%".format(pct)
+            return ("{:" + sign + ".1f}%").format(pct)
+        return ("{:" + sign + ".2f}%").format(pct)
     if v.is_integer() and abs(v) < 1e15:
         return "{:,.0f}".format(v)
     return "%.4g" % v

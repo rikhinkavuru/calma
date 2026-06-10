@@ -141,6 +141,25 @@ _CLAIM_NUM = re.compile(
     r"\s*(%|[kKmMbB](?![a-zA-Z]))?")
 
 
+def claim_precision(text):
+    """Half-ULP of the claim's REPORTED precision, including the suffix scale the parser applied:
+    '$4.2M' -> 50,000 (one decimal at 1e6 scale), '23.87%' -> 5e-5, '10,000 rows' -> 0.5.
+    Without this, a scaled claim's precision is unrecoverable from the bare float (repr of
+    23.87/100 carries float artifacts; 4.2e6 looks integer-exact). None when no number."""
+    if text is None or isinstance(text, (int, float)):
+        return None
+    m = _CLAIM_NUM.search(str(text).strip())
+    if not m:
+        return None
+    raw = m.group(2).replace(",", "")
+    if "e" in raw.lower():
+        return None
+    d = len(raw.split(".", 1)[1]) if "." in raw else 0
+    scale = {"%": 0.01, "k": 1e3, "K": 1e3, "m": 1e6, "M": 1e6, "b": 1e9, "B": 1e9}.get(
+        m.group(3) or "", 1.0)
+    return 0.5 * 10 ** (-d) * scale
+
+
 def infer_convention(text, metric_id):
     """Pull the recompute convention OUT OF THE CLAIM TEXT, so 'pass@5 0.62' recomputes with
     k=5 (not the k=1 default), 'monthly CAGR' annualizes 12 periods, 'spearman correlation'
@@ -594,6 +613,14 @@ def _detect_entrypoint(target):
     return "MANUAL"
 
 
+# When the user NAMES the metric (claim text or --metric), a required tag may bind through an
+# alias: probability columns are tagged `score` by name-inference but brier/log_loss/ece require
+# `prob` (same data); regression's `target` is often a column tagged `label` (y_true); quantile
+# metrics' `value` may be a latency column tagged `duration`. Aliases apply ONLY to forced/named
+# metrics - auto-pick keeps the strict tag table so it never reinterprets columns on its own.
+TAG_ALIASES = {"prob": ("score",), "target": ("label",), "value": ("duration",)}
+
+
 def _pick_metric(arts, forced=None):
     """Return (metric_id, artifact_rel, binding, binding_status) or None."""
     # map tag -> (artifact, column, grade)
@@ -621,9 +648,12 @@ def _pick_metric(arts, forced=None):
     grades = []
     art = None
     for t in tags:
-        if t not in available:
+        source = t
+        if t not in available and forced:
+            source = next((a for a in TAG_ALIASES.get(t, ()) if a in available), t)
+        if source not in available:
             return None
-        art, col, grade = available[t]
+        art, col, grade = available[source]
         binding[t] = col
         grades.append(grade)
     order = ["author-asserted", "plausibly-bound", "independently-bound"]
@@ -663,6 +693,7 @@ def draft(target, claim=None, metric=None):
             "metric_id": mid, "artifact": art, "binding": binding,
             "convention": infer_convention(claim, mid),
             "claimed_value": claim_value,
+            "claimed_precision": claim_precision(claim) if claim_value is not None else None,
             "headline": claim_value is not None, "binding_status": grade,
             "claim_confirmed": target_confirmed,
             "binding_source": "named-in-claim" if (metric is not None) else "auto-detected",

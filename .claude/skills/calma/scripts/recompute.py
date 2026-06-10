@@ -112,16 +112,29 @@ def recompute_contract(contract_path, base=None, k=3):
     base = base or os.path.dirname(os.path.abspath(contract_path))
     out = {"metrics": [], "baselines": []}
     for m in contract.get("metrics", []):
-        cols = _numeric_cols(contract, m["artifact"], m["binding"], base, m["metric_id"])
-        rec = _run_recipe(m["metric_id"], cols, m["binding"], m.get("convention"), k)
+        rec = _recompute_one(contract, m, base, k)
         rec["artifact"] = m["artifact"]
         out["metrics"].append(rec)
     for b in contract.get("baselines", []):
-        cols = _numeric_cols(contract, b["artifact"], b["binding"], base, b["metric_id"])
-        rec = _run_recipe(b["metric_id"], cols, b["binding"], b.get("convention"), k)
+        rec = _recompute_one(contract, b, base, k)
         rec["label"] = b.get("label")
         out["baselines"].append(rec)
     return out
+
+
+def _recompute_one(contract, m, base, k):
+    """Recompute a single contract metric. A broken binding (missing file/column, a non-numeric
+    cell in a numeric column, a path escape) is a DEGENERATE recompute - the verdict guard turns
+    it into INCONCLUSIVE with the error named - never an uncaught traceback."""
+    try:
+        cols = _numeric_cols(contract, m["artifact"], m["binding"], base, m["metric_id"])
+        return _run_recipe(m["metric_id"], cols, m["binding"], m.get("convention"), k)
+    except (KeyError, ValueError, OSError) as e:
+        detail = ("column %s not found in the artifact" % e) if isinstance(e, KeyError) else str(e)
+        return {"metric_id": m["metric_id"], "value": float("nan"), "terms": {},
+                "k": 0, "k_spread": 0.0, "degenerate": True,
+                "near_zero_vol": False, "path_dependent": False,
+                "error": "binding failed: %s" % detail}
 
 
 def main():
