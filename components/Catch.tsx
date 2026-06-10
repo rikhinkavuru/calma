@@ -2,20 +2,22 @@
 
 import { Cross, Reveal, useInView } from "./chrome";
 
-export function Catch() {
+/* THE PROBLEM — shown, not told: a real number that looked great and wasn't. */
+export function Problem() {
   const [ref, seen] = useInView<HTMLDivElement>(0.3);
 
   return (
-    <section className="sec" id="catch">
+    <section className="sec" id="problem">
       <div className="wrap">
         <div className="sec__head">
           <Reveal>
-            <span className="kicker">Field report — 001</span>
+            <span className="kicker">The problem — 001</span>
           </Reveal>
           <Reveal delay={150}>
             <div className="cascade" style={{ marginTop: 8 }}>
-              <span>The number looked great.</span>
-              <span>Re-running it didn&apos;t.</span>
+              <span>AI gives you a number.</span>
+              <span>Sometimes it&apos;s wrong.</span>
+              <span>Nothing looks wrong.</span>
             </div>
           </Reveal>
         </div>
@@ -29,17 +31,17 @@ export function Catch() {
                 className={"chart" + (seen ? " draw" : "")}
                 viewBox="0 0 860 330"
                 role="img"
-                aria-label="Chart: an AI reported +14,698% in-sample; re-execution on unseen data found −32.4%"
+                aria-label="Chart: an AI reported +14,698%; re-running the work on unseen data found −32.4%"
               >
                 <line className="axis" x1="64" y1="22" x2="64" y2="288" />
                 <line className="axis" x1="64" y1="288" x2="830" y2="288" />
                 <line className="zero" x1="64" y1="254" x2="830" y2="254" />
                 <line className="axis" x1="540" y1="22" x2="540" y2="288" />
 
-                <text className="lbl lbl--amber" x="70" y="48">+14,698% — as reported</text>
+                <text className="lbl lbl--amber" x="70" y="48">+14,698% — what the AI reported</text>
                 <text className="lbl" x="70" y="249">0%</text>
                 <text className="lbl" x="548" y="36">data the AI never saw →</text>
-                <text className="lbl lbl--teal" x="650" y="242">−32.4% — re-executed</text>
+                <text className="lbl lbl--teal" x="660" y="242">−32.4% — the truth</text>
 
                 <polyline
                   className="claimline"
@@ -65,27 +67,22 @@ export function Catch() {
           <Reveal delay={200}>
             <div>
               <p className="col" style={{ marginBottom: 26 }}>
-                An agent backtested a trading strategy and reported{" "}
-                <b>the best of one hundred attempts</b>. Calma re-ran the code on data it had never
-                seen.
+                An AI agent tested a trading strategy and reported its best result. The report
+                looked perfect. <b>Nobody re-checks these numbers</b> — they get believed, shipped,
+                and spent on.
               </p>
               <div className="figs">
                 <div className="fig">
-                  <span className="k">As reported</span>
+                  <span className="k">What the AI reported</span>
                   <span className="v v--amber">+14,698%</span>
                 </div>
                 <div className="fig">
-                  <span className="k">Re-executed</span>
+                  <span className="k">What was actually true</span>
                   <span className="v v--teal">−32.4%</span>
                 </div>
-                <div className="fig">
-                  <span className="k">Verdict</span>
-                  <span className="v">Refuted</span>
-                </div>
               </div>
-              <p className="replay">
-                Rebuilt from the run&apos;s own output files — never the report. Replay it:{" "}
-                <b>calma replay ./.calma/run</b>
+              <p className="fieldnote">
+                Field note: Deloitte refunded AU$440K after unverified AI work shipped to a client.
               </p>
             </div>
           </Reveal>
