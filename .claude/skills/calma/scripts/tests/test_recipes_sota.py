@@ -94,6 +94,15 @@ KINDS = {
     "correlation": lambda a: (N.spearman_r(a["xs"], a["ys"]) if a["mode"] == "spearman"
                               else N.pearson_r(a["xs"], a["ys"])),
     "cohen_d": lambda a: N.cohen_d(a["a"], a["b"], a["mode"]),
+    "cagr": lambda a: N.cagr(a["xs"], a["ppy"]),
+    "npv": lambda a: N.npv(a["cashflows"], a["rate"]),
+    "irr": lambda a: N.irr(a["cashflows"]),
+    "churn_rate": lambda a: N.churn_rate(a["flags"], a["mode"]),
+    "margin_pct": lambda a: N.margin_pct(a["revenue"], a["cost"]),
+    "reconciliation": lambda a: N.reconciliation_diff(a["a"], a["b"]),
+    "mape": lambda a: N.mape(a["pred"], a["actual"], a["symmetric"]),
+    "mase": lambda a: N.mase(a["pred"], a["actual"], a["m"]),
+    "pinball": lambda a: N.pinball(a["pred"], a["actual"], a["q"]),
     "dlog": lambda a: N.dlog(a["x"]),
     "dexp": lambda a: N.dexp(a["x"]),
     "dlgamma": lambda a: N.dlgamma(a["z"]),
@@ -132,8 +141,12 @@ EXPECTED = {
     "macro_f1", "micro_f1", "pr_auc", "log_loss", "mcc", "ece",
     # pack 4
     "p_value", "confidence_interval", "lift", "chi_square", "correlation", "effect_size",
+    # pack 5
+    "cagr", "npv", "irr", "churn_rate", "margin_pct", "reconciliation_total",
+    # pack 6
+    "mape", "mase", "pinball_loss",
 }
-truth(set(R.ids()) == EXPECTED, "registry holds exactly the 50 recipes (got %d)" % len(R.ids()))
+truth(set(R.ids()) == EXPECTED, "registry holds exactly the 59 recipes (got %d)" % len(R.ids()))
 for mid in R.ids():
     fn = R.get(mid)
     truth(isinstance(fn.manifest.get("family"), str) and fn.manifest.get("required_tags") is not None,
@@ -188,6 +201,24 @@ truth(R.get("log_loss")(ll, {"prob": "p", "label": "y"}, None)["degenerate"],
       "log_loss exact mode: p=0 on a positive -> degenerate (inf), never a quiet number")
 truth(not R.get("log_loss")(ll, {"prob": "p", "label": "y"}, "clip")["degenerate"],
       "log_loss clip mode stays finite")
+
+# pack 5/6 recipe layer: conventions + degenerate paths
+truth(R.get("npv")({"cf": [-100.0, 60.0, 60.0]}, {"cashflow": "cf"}, None)["degenerate"],
+      "npv without a rate convention degrades to degenerate")
+res = R.get("npv")({"cf": [-100.0, 60.0, 60.0]}, {"cashflow": "cf"}, "rate=0.0")
+approx(res["value"], 20.0, 1e-12, 0, "npv rate=0 = plain sum")
+truth(isnan(N.irr([100.0, 50.0])), "irr with no sign change -> nan")
+r_irr = N.irr([-1000.0, 1100.0])
+approx(r_irr, 0.1, 1e-10, 0, "irr single-period hand case = 10%")
+truth(isnan(N.mape([1.0, 2.0], [0.0, 2.0])), "mape with a zero actual -> nan, never an epsilon fudge")
+res = R.get("pinball_loss")({"p": [1.0, 3.0], "t": [2.0, 2.0]}, {"prediction": "p", "target": "t"}, None)
+approx(res["value"], 0.5, 1e-12, 0, "pinball default q=0.5 hand case")
+res = R.get("cagr")({"v": [100.0, 121.0]}, {"value": "v"}, None)
+approx(res["value"], 0.21, 1e-12, 0, "cagr 1 period annual = simple growth")
+res = R.get("churn_rate")({"f": [1.0, 0.0, 0.0, 0.0]}, {"flag": "f"}, "retention")
+approx(res["value"], 0.75, 1e-12, 0, "churn_rate retention convention")
+truth(isnan(N.mase([1.0, 2.0], [5.0, 5.0], 1)), "mase on a flat series -> nan (zero scale)")
+truth(isnan(N.margin_pct([0.0, 0.0], [1.0])), "margin with zero revenue -> nan")
 
 # NaN propagation across the new families
 nan = float("nan")
@@ -297,6 +328,30 @@ for claim, want_v, want_hint in [
     v, hint = D.parse_claim(claim)
     truth(v == want_v and hint == want_hint,
           "claim %r -> (%r, %s) want (%r, %s)" % (claim, v, hint, want_v, want_hint))
+
+# ---------------- part F: convention inference from claim text + percent-precision fix ----------------
+
+for claim, mid, want_conv in [
+    ("pass@5 0.62", "pass_at_k", "k=5"), ("recall@20 was 0.91", "recall_at_k", "k=20"),
+    ("ndcg@5 0.7 with exp gains", "ndcg_at_k", "k=5,exp"), ("monthly CAGR 23.87%", "cagr", "periods=12"),
+    ("NPV $310 at 8%", "npv", "rate=0.08"), ("spearman correlation 0.8", "correlation", "spearman"),
+    ("99% confidence interval 0.4", "confidence_interval", "t99"), ("5xx error rate 0.3%", "error_rate", "http5xx"),
+    ("92% retention", "churn_rate", "retention"), ("sMAPE 11%", "mape", "smape"),
+    ("90th percentile 120", "percentile", "p90"), ("p99.9 latency 480ms", "percentile", "p99.9"),
+    ("accuracy 0.87", "accuracy", None),
+]:
+    _, hint = D.parse_claim(claim)
+    got = D.infer_convention(claim, mid)
+    truth(hint == mid and got == want_conv,
+          "convention %r -> (%s, %s) want (%s, %s)" % (claim, hint, got, mid, want_conv))
+
+# percent-scaled claims must keep their REPORTED precision ('23.87%' -> 0.2387 +/- 5e-5,
+# despite repr(23.87/100) carrying float artifacts)
+truth(abs(C._infer_precision(23.87 / 100.0) - 5e-5) < 1e-18,
+      "percent claim precision survives the /100 float artifact")
+truth(C._infer_precision(0.42) == 0.005, "plain decimal precision unchanged")
+truth(C._infer_precision(120.0) == 0.5, "integer claim precision unchanged")
+truth(C._infer_precision(0.123456789012345) <= 5e-13, "genuinely long claims keep a tight budget")
 
 print("recipes-sota: %d checks, %d failures" % (_n, _fail))
 sys.exit(1 if _fail else 0)
