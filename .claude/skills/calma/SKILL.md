@@ -4,11 +4,15 @@ description: >-
   Independently verify a computational result by RE-EXECUTING it to ground truth and recomputing the
   headline number from raw outputs - then prove or break the claim. Use to check what an AI agent just
   produced (a metric, a backtest, a cleaned dataset, a "tests pass"), or as an inline guardrail an agent
-  calls while it works. Recompute-and-diff against the claim + trivial-baseline edge, across domains and languages
-  (quant Sharpe/return/drawdown; classification accuracy/AUC/F1/precision/recall; regression RMSE/MAE/R2;
-  analytics row-count/column-sum/mean). Runs Python/R/Julia/C++/Rust as a black box. Deeper validity checks - leakage re-run, deflated-Sharpe/overfitting, realism deflators,
+  calls while it works. Recompute-and-diff against the claim + trivial-baseline edge, across domains and languages:
+  50 SOTA-validated recipes - trading (Sharpe/return/drawdown), classification (accuracy/AUC/F1/macro-micro-F1/
+  PR-AUC/log-loss/MCC/ECE/Brier), regression (RMSE/MAE/R2), analytics (sum/mean/median/percentile/groupby/
+  distinct/nulls/duplicates/growth/share/join-loss), engineering ("2.3x faster"/latency p50-p99/throughput/
+  peak-memory/coverage/error-rate), retrieval+LLM evals (recall@k/NDCG/MRR/top-k/exact-match/pass@k), and
+  statistics (p-value/CI/lift/chi-square/correlation/effect-size). Runs Python/R/Julia/C++/Rust as a black box.
+  Deeper validity checks - leakage re-run, deflated-Sharpe/overfitting, realism deflators,
   contamination - are named roadmap (M3-M4), not yet delivered. Triggers: "verify", "is this result real", "did the number reproduce", "recompute this metric",
-  "check this backtest/AUC/accuracy", "I processed N rows", "the total is", "before I report this".
+  "check this backtest/AUC/accuracy/p95/speedup/pass@k", "I processed N rows", "the total is", "the experiment was significant", "before I report this".
 ---
 
 # Calma - the trust layer for agentic work
@@ -87,5 +91,6 @@ with the fix.
 7. **Any "validity layer / five families / language-agnostic" claim carries the installed-milestone gate.**
 
 Build status + what is real vs deferred: `BUILD-NOTES.md`. Script I/O contract:
-`references/script-interfaces.md`. Full spec (repo checkout only, not shipped with the skill folder):
-`docs/internal/calma-skill-blueprint.md`.
+`references/script-interfaces.md`. The full 50-recipe catalog (binding tags, conventions, data
+layouts, reference implementations each is validated against): `references/recipes.md`. Full spec
+(repo checkout only, not shipped with the skill folder): `docs/internal/calma-skill-blueprint.md`.

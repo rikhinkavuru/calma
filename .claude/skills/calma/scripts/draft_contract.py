@@ -20,20 +20,44 @@ import sys
 TAG_PATTERNS = [
     (r"(strat|portfolio|daily).*(ret|return)|^ret(urn)?s?$|pnl", "return"),
     (r"price|close|open|high|low|adj", "price"),
-    (r"prob|proba|p_hat|phat|score|logit", "score"),
+    (r"prob(?!lem)|p_hat|phat|score|logit", "score"),
     (r"y_?pred|prediction|pred(icted)?|yhat", "prediction"),
     (r"y_?true|ground.?truth|gt|\bclass\b|\blabel\b", "label"),
     (r"target|actual|y_?act|observed|true_?val", "target"),
-    (r"amount|revenue|total|sales|price_usd|value|qty|quantity|count", "value"),
+    (r"reference|answer|gold", "reference"),
+    (r"before|baseline_(ms|time|sec)", "before"),
+    (r"after|optimized|new_(ms|time|sec)", "after"),
+    (r"duration|latency|elapsed|response_?(time|ms)|_ms$|_sec$", "duration"),
+    (r"hits?$|covered|coverage", "hits"),
+    (r"query|qid", "query"),
+    (r"relevan|judg", "relevance"),
+    (r"\brank\b|position", "rank"),
+    (r"problem|task_?id", "problem"),
+    (r"correct|passed", "correct"),
+    (r"control|sample_?a|group_?a", "sample_a"),
+    (r"treatment|sample_?b|group_?b|variant", "sample_b"),
+    (r"group|region|segment|cohort|category", "group"),
+    (r"outcome", "outcome"),
+    (r"error|fail|flag|converted|is_|status", "flag"),
+    (r"amount|revenue|total|sales|price_usd|value|qty|quantity|count|memory|mem_", "value"),
     (r"weight|wt", "weight"),
     (r"time|date|ts|timestamp", "timestamp"),
+    (r"^x$", "x"),
+    (r"^y$", "y"),
 ]
-# metric selection by available tags
+# metric selection by available tags (first satisfiable wins; specific before generic)
 METRIC_BY_TAGS = [
     ({"return"}, "total_return"),
     ({"score", "label"}, "auc"),
+    ({"prediction", "reference"}, "exact_match"),
     ({"prediction", "target"}, "rmse"),
     ({"prediction", "label"}, "accuracy"),
+    ({"query", "rank", "relevance"}, "recall_at_k"),
+    ({"problem", "correct"}, "pass_at_k"),
+    ({"before", "after"}, "speedup_ratio"),
+    ({"hits"}, "test_coverage"),
+    ({"duration"}, "latency_p50"),
+    ({"x", "y"}, "correlation"),
     ({"value"}, "column_sum"),
 ]
 # common entrypoint names first; gen_fixture.py last (calma's own fixture convention)
@@ -41,8 +65,52 @@ ENTRYPOINT_CANDIDATES = ["run.sh", "main.py", "run.py", "train.py", "pipeline.py
                          "analyze.py", "gen_fixture.py"]
 
 # free-text claim -> metric hint (first match wins; word-boundary matched). Order matters:
-# "total return" must hit total_return before "total" hits column_sum.
+# "total return" must hit total_return before "total" hits column_sum; "average precision"
+# before "average"/"precision"; "macro f1" before "f1"; "recall@10" before "recall"; the
+# pr-auc spellings before "auc"; "top-5" before "accuracy".
 CLAIM_METRIC_HINTS = [
+    # -- multi-word / decorated hints first (most specific) --
+    ("average precision", "pr_auc"), ("pr auc", "pr_auc"), ("pr-auc", "pr_auc"),
+    ("auprc", "pr_auc"),
+    ("macro f1", "macro_f1"), ("macro-f1", "macro_f1"),
+    ("micro f1", "micro_f1"), ("micro-f1", "micro_f1"),
+    ("recall@5", "recall_at_k"), ("recall@10", "recall_at_k"), ("recall@20", "recall_at_k"),
+    ("recall@50", "recall_at_k"), ("recall@100", "recall_at_k"),
+    ("ndcg", "ndcg_at_k"), ("mrr", "mrr"),
+    ("exact match", "exact_match"), ("exact-match", "exact_match"),
+    ("pass@1", "pass_at_k"), ("pass@5", "pass_at_k"), ("pass@10", "pass_at_k"),
+    ("pass@100", "pass_at_k"), ("pass@k", "pass_at_k"),
+    ("top-1", "top_k_accuracy"), ("top-3", "top_k_accuracy"), ("top-5", "top_k_accuracy"),
+    ("top-10", "top_k_accuracy"), ("top-k", "top_k_accuracy"), ("hit rate", "top_k_accuracy"),
+    ("log loss", "log_loss"), ("logloss", "log_loss"), ("cross entropy", "log_loss"),
+    ("mcc", "mcc"), ("matthews", "mcc"),
+    ("calibration error", "ece"), ("ece", "ece"),
+    ("error rate", "error_rate"), ("failure rate", "error_rate"),
+    ("p-value", "p_value"), ("p value", "p_value"), ("pvalue", "p_value"),
+    ("significant", "p_value"), ("significance", "p_value"), ("t-test", "p_value"),
+    ("confidence interval", "confidence_interval"), ("margin of error", "confidence_interval"),
+    ("effect size", "effect_size"), ("cohen's d", "effect_size"), ("cohens d", "effect_size"),
+    ("hedges", "effect_size"),
+    ("chi-square", "chi_square"), ("chi-squared", "chi_square"), ("chi2", "chi_square"),
+    ("chi square", "chi_square"),
+    ("correlation", "correlation"), ("pearson", "correlation"), ("spearman", "correlation"),
+    ("uplift", "lift"), ("lift", "lift"),
+    ("speedup", "speedup_ratio"), ("speed-up", "speedup_ratio"), ("faster", "speedup_ratio"),
+    ("p50", "latency_p50"), ("p95", "latency_p95"), ("p99", "latency_p99"),
+    ("latency", "latency_p50"),
+    ("throughput", "throughput"), ("rps", "throughput"), ("qps", "throughput"),
+    ("ops/sec", "throughput"), ("ops/s", "throughput"),
+    ("peak memory", "peak_memory"), ("memory", "peak_memory"),
+    ("coverage", "test_coverage"),
+    ("percentile", "percentile"), ("median", "column_median"),
+    ("distinct", "distinct_count"), ("unique", "distinct_count"),
+    ("duplicates", "duplicate_count"), ("duplicate", "duplicate_count"),
+    ("null", "null_fraction"), ("missing", "null_fraction"),
+    ("growth", "growth_rate"), ("mom", "growth_rate"), ("yoy", "growth_rate"),
+    ("share", "ratio_share"),
+    ("merged", "join_row_loss"), ("merge", "join_row_loss"), ("join", "join_row_loss"),
+    ("joined", "join_row_loss"),
+    # -- the original single-word hints --
     ("accuracy", "accuracy"), ("auc", "auc"), ("rmse", "rmse"), ("mae", "mae"),
     ("r2", "r2"), ("r^2", "r2"), ("sharpe", "sharpe"), ("drawdown", "max_drawdown"),
     ("return", "total_return"), ("backtest", "total_return"), ("f1", "f1"),
@@ -52,8 +120,13 @@ CLAIM_METRIC_HINTS = [
     ("mean", "column_mean"), ("average", "column_mean"),
 ]
 
+# The leading lookbehind keeps digits glued to identifiers out of the claim value:
+# "f1 0.84" must parse 0.84 (not the 1 in f1), "top-5 accuracy 0.91" -> 0.91 (not -5),
+# "recall@10 = 0.84" -> 0.84, "p95 latency 120ms" -> 120, "chi2 = 5.99" -> 5.99.
 _CLAIM_NUM = re.compile(
-    r"([-+]?)\s*\$?\s*((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:[eE][-+]?\d+)?|\.\d+(?:[eE][-+]?\d+)?)\s*(%|[kKmMbB](?![a-zA-Z]))?")
+    r"([-+]?)\s*\$?\s*(?<![\w@^.])(?<![\w@^.][-+])"
+    r"((?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?(?:[eE][-+]?\d+)?|\.\d+(?:[eE][-+]?\d+)?)"
+    r"\s*(%|[kKmMbB](?![a-zA-Z]))?")
 
 
 def parse_claim(text):
@@ -322,6 +395,31 @@ def _sample_numeric(path, col_idx, limit=500):
     return vals
 
 
+# string-keyed tags (grouping/ID columns): the independent sanity check is non-null density,
+# not numeric plausibility
+STRING_KEY_TAGS = {"query", "problem", "group", "outcome", "left_key", "joined_key"}
+
+
+def _sample_strings(path, col_idx, limit=500):
+    vals = []
+    with open(path, newline="") as fh:
+        rd = csv.reader(fh)
+        next(rd, None)
+        for i, row in enumerate(rd):
+            if i >= limit:
+                break
+            if col_idx < len(row):
+                vals.append(row[col_idx])
+    return vals
+
+
+def _grade_string_key(raws):
+    if not raws:
+        return "author-asserted"
+    ok = sum(1 for s in raws if s.strip() and s.strip().lower() not in ("nan", "na", "null", "none"))
+    return "independently-bound" if ok / len(raws) >= 0.95 else "plausibly-bound"
+
+
 def _grade(tag, vals):
     """Independent sanity check of name+value. Any failure caps at plausibly-bound."""
     if not vals:
@@ -344,6 +442,31 @@ def _grade(tag, vals):
         if uniq <= {0.0, 1.0} or len(uniq) <= 20:
             return "independently-bound"
         return "plausibly-bound"
+    if tag == "duration":
+        # durations/latencies: strictly non-negative and finite
+        if rng[0] >= 0.0 and rng[1] < float("inf"):
+            return "independently-bound"
+        return "plausibly-bound"
+    if tag in ("hits", "rank"):
+        # whole counts; ranks additionally start at >= 1
+        if all(v == int(v) for v in vals) and rng[0] >= (1.0 if tag == "rank" else 0.0):
+            return "independently-bound"
+        return "plausibly-bound"
+    if tag in ("correct", "relevance"):
+        uniq = set(round(v, 6) for v in vals)
+        if uniq <= {0.0, 1.0} or (rng[0] >= 0.0 and len(uniq) <= 10 and all(v == int(v) for v in vals)):
+            return "independently-bound"
+        return "plausibly-bound"
+    if tag == "flag":
+        uniq = set(round(v, 6) for v in vals)
+        # binary error/conversion flags, or a sane HTTP-status column
+        if uniq <= {0.0, 1.0} or (rng[0] >= 100 and rng[1] <= 599 and all(v == int(v) for v in vals)):
+            return "independently-bound"
+        return "plausibly-bound"
+    if tag in ("before", "after"):
+        if rng[0] >= 0.0 and rng[1] < float("inf"):
+            return "independently-bound"
+        return "plausibly-bound"
     return "plausibly-bound"
 
 
@@ -363,9 +486,13 @@ def _scan_csvs(target):
             cols = {}
             for idx, h in enumerate(header):
                 tag = _infer_tag(h)
-                vals = _sample_numeric(full, idx) if tag else []
-                cols[h] = {"tag": tag, "grade": _grade(tag, vals) if tag else "author-asserted",
-                           "dtype": "float", "na_policy": "error"}
+                if tag in STRING_KEY_TAGS:
+                    grade = _grade_string_key(_sample_strings(full, idx))
+                elif tag:
+                    grade = _grade(tag, _sample_numeric(full, idx))
+                else:
+                    grade = "author-asserted"
+                cols[h] = {"tag": tag, "grade": grade, "dtype": "float", "na_policy": "error"}
             arts.append({"path": rel, "columns": cols})
     return arts
 
