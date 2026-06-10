@@ -1,52 +1,28 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { motion } from "framer-motion";
-import { hoverLift } from "./motion";
-
 export function Nav({ onRequest }: { onRequest: () => void }) {
-  const [scrolled, setScrolled] = useState(false);
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 12);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-  const links: [string, string][] = [
-    ["The problem", "#problem"],
-    ["How it works", "#how"],
-    ["Verdicts", "#verdicts"],
-    ["Get it", "#get"],
-    ["FAQ", "#faq"],
-  ];
   return (
-    <header className={"nav" + (scrolled ? " nav--scrolled" : "")}>
-      <div className="wrap nav__inner">
-        <a href="#top" className="brand" aria-label="Calma — home">
-          <span className="brand__word">calma</span>
-          <span className="brand__cursor" aria-hidden="true" />
+    <div className="navwrap wrap">
+      <nav className="nav">
+        <a href="#top" className="brand" aria-label="calma — home">
+          calma<span className="dot">.</span>
         </a>
-        <nav className="nav__links">
-          {links.map(([label, href]) => (
-            <a key={href} href={href}>
-              {label}
-            </a>
-          ))}
-        </nav>
+        <ul>
+          <li><a href="#bench">Bench</a></li>
+          <li><a href="#method">Method</a></li>
+          <li><a href="#verdicts">Verdicts</a></li>
+          <li><a href="#evidence">Evidence</a></li>
+          <li><a href="#get">Get it</a></li>
+        </ul>
         <div className="nav__right">
-          <motion.button className="btn btn-ghost nav__cta" onClick={onRequest} {...hoverLift}>
+          <button className="explore" onClick={onRequest}>
             Request verification
-          </motion.button>
-          <motion.a
-            className="btn btn-primary nav__cta"
-            href="https://github.com/rikhinkavuru/calma"
-            target="_blank"
-            rel="noreferrer"
-            {...hoverLift}
-          >
-            Get the skill
-          </motion.a>
+            <span className="nub" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+            </span>
+          </button>
         </div>
-      </div>
-    </header>
+      </nav>
+    </div>
   );
 }
