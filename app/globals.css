@@ -168,37 +168,57 @@ img, svg, canvas { display: block; max-width: 100%; }
 
 /* ============================================================ demo */
 .demo {
+  position: relative;
   display: grid; grid-template-columns: 1fr 300px;
-  gap: 56px; align-items: start;
+  gap: 64px; align-items: start;
 }
-.dsteps { display: flex; flex-direction: column; gap: 14px; padding-top: 46px; }
+.demo__net { position: absolute; inset: 0; pointer-events: none; overflow: visible; z-index: 1; }
+/* connector: drawn from the junction when its step lands */
+.net__line { stroke: var(--cream-35); fill: none; stroke-width: 1; stroke-dasharray: 1 1; stroke-dashoffset: 1; }
+.net__line.is-on { stroke-dashoffset: 0; transition: stroke-dashoffset 0.6s var(--ease); }
+/* the endless light: a short bright segment travelling along an outline */
+.net__light {
+  fill: none; stroke-width: 1.3; opacity: 0;
+  stroke-dasharray: var(--seg, 0.1) calc(1 - var(--seg, 0.1));
+  stroke-dashoffset: 0; stroke-linecap: round;
+}
+.demo--live .net__light {
+  opacity: 0.6; transition: opacity 1.2s ease;
+  animation: netflow var(--dur, 4s) linear infinite;
+  animation-delay: var(--del, 0s);
+}
+@keyframes netflow { to { stroke-dashoffset: -1; } }
+
+.dsteps { display: flex; flex-direction: column; gap: 16px; padding-top: 42px; }
 .dstep {
-  position: relative; border: 1px solid var(--hairline); background: rgba(17, 15, 11, 0.82);
+  border: 1px solid var(--hairline); background: rgba(17, 15, 11, 0.82);
   padding: 14px 16px;
   opacity: 0; transform: translateX(14px);
 }
 .dstep.in {
   opacity: 1; transform: none;
-  transition: opacity 0.7s var(--ease) 0.35s, transform 0.7s var(--ease) 0.35s;
+  transition: opacity 0.7s var(--ease) 0.3s, transform 0.7s var(--ease) 0.3s;
 }
-/* the flowchart connector — a hairline that draws from the terminal to the box */
-.dstep::before {
-  content: ""; position: absolute; left: -56px; top: 24px; width: 50px; height: 1px;
-  background: var(--cream-35); transform: scaleX(0); transform-origin: left;
-}
-.dstep::after {
-  content: ""; position: absolute; left: -9px; top: 22px; width: 5px; height: 5px;
-  border-radius: 50%; background: var(--amber); opacity: 0; transform: scale(0.4);
-}
-.dstep.in::before { transform: scaleX(1); transition: transform 0.45s var(--ease); }
-.dstep.in::after { opacity: 1; transform: none; transition: opacity 0.3s ease 0.4s, transform 0.3s var(--ease) 0.4s; }
 .dstep__k {
   display: block; font-family: var(--mono); font-size: 10px; letter-spacing: 0.26em;
-  text-transform: uppercase; color: var(--amber); margin-bottom: 7px;
+  text-transform: uppercase; margin-bottom: 7px;
 }
 .dstep p { font-size: 13.5px; line-height: 1.6; color: var(--cream-55); }
-.dstep--verdict { background: rgba(232, 154, 93, 0.07); border-color: rgba(232, 154, 93, 0.35); }
+
+/* per-step hue — shared faintly by the terminal line, the box outline + fill */
+.dstep--rerun { border-color: rgba(127, 184, 158, 0.28); background: rgba(127, 184, 158, 0.045); }
+.dstep--rerun .dstep__k { color: #7fb89e; }
+.dstep--recompute { border-color: rgba(217, 179, 128, 0.28); background: rgba(217, 179, 128, 0.045); }
+.dstep--recompute .dstep__k { color: #d9b380; }
+.dstep--compare { border-color: rgba(122, 156, 189, 0.3); background: rgba(122, 156, 189, 0.05); }
+.dstep--compare .dstep__k { color: #7a9cbd; }
+.dstep--verdict { border-color: rgba(232, 154, 93, 0.35); background: rgba(232, 154, 93, 0.06); }
+.dstep--verdict .dstep__k { color: var(--amber); }
 .dstep--verdict p { color: var(--cream-70); }
+
+.term__body .t-rerun { color: rgba(155, 196, 175, 0.75); }
+.term__body .t-recompute { color: rgba(222, 192, 150, 0.75); }
+.term__body .t-compare { color: rgba(150, 178, 205, 0.78); }
 
 /* ============================================================ terminal */
 .term {
@@ -372,10 +392,10 @@ img, svg, canvas { display: block; max-width: 100%; }
 /* ============================================================ responsive */
 @media (max-width: 980px) {
   .catch, .about { grid-template-columns: 1fr; }
-  .demo { grid-template-columns: 1fr; gap: 14px; }
+  .demo { grid-template-columns: 1fr; gap: 16px; }
+  .demo__net { display: none; }
   .dsteps { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding-top: 0; }
   .dstep { transform: translateY(12px); }
-  .dstep::before, .dstep::after { content: none; }
   .steps { grid-template-columns: 1fr; }
   .step { border-right: 0; border-bottom: 1px solid var(--hairline); }
   .step:last-child { border-bottom: 0; }
