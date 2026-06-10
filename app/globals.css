@@ -302,25 +302,15 @@ img, svg, canvas { display: block; max-width: 100%; }
 .feat h3 { font-size: clamp(19px, 1.8vw, 22px); font-weight: 500; }
 .feat p { font-size: 15.5px; line-height: 1.65; color: var(--cream-55); }
 
-/* 3-up variant: 6 consolidated cards in two rows */
+/* 3-up variant: 9 cards in a 3x3 grid */
 .features--3 { grid-template-columns: repeat(3, 1fr); }
 .features--3 .feat { padding: clamp(20px, 2.6vw, 32px); }
 .features--3 .feat h3 { font-size: clamp(17px, 1.5vw, 19px); }
 .features--3 .feat p { font-size: 14.5px; }
 .features--3 .feat:nth-child(2n) { border-right: 1px solid var(--hairline); }
 .features--3 .feat:nth-child(3n) { border-right: 0; }
-.features--3 .feat:nth-child(n + 3) { border-bottom: 1px solid var(--hairline); }
-.features--3 .feat:nth-child(n + 4) { border-bottom: 0; }
-
-.alsobox {
-  margin-top: clamp(20px, 2.6vw, 28px);
-  border: 1px solid var(--hairline); background: rgba(17, 15, 11, 0.45);
-  padding: clamp(16px, 2vw, 22px) clamp(20px, 2.6vw, 32px);
-  display: flex; align-items: baseline; gap: clamp(18px, 2.4vw, 34px); flex-wrap: wrap;
-}
-.alsobox__k { font-family: var(--mono); font-size: 10px; letter-spacing: 0.26em; text-transform: uppercase; color: var(--cream-35); white-space: nowrap; }
-.alsobox__items { font-family: var(--mono); font-size: 12px; line-height: 2; color: var(--cream-55); flex: 1; min-width: 260px; }
-.alsobox__items i { font-style: normal; color: var(--cream-35); padding-inline: 2px; }
+.features--3 .feat:nth-child(n) { border-bottom: 1px solid var(--hairline); }
+.features--3 .feat:nth-child(n + 7) { border-bottom: 0; }
 
 /* ---------------- benefits ---------------- */
 .benefits { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(24px, 3.5vw, 44px); }
@@ -497,8 +487,8 @@ img, svg, canvas { display: block; max-width: 100%; }
   .features--3 { grid-template-columns: 1fr 1fr; }
   .features--3 .feat:nth-child(3n) { border-right: 1px solid var(--hairline); }
   .features--3 .feat:nth-child(2n) { border-right: 0; }
-  .features--3 .feat:nth-child(n + 4) { border-bottom: 1px solid var(--hairline); }
-  .features--3 .feat:nth-child(n + 5) { border-bottom: 0; }
+  .features--3 .feat:nth-child(n) { border-bottom: 1px solid var(--hairline); }
+  .features--3 .feat:last-child { border-bottom: 0; }
 }
 @media (max-width: 640px) {
   .features { grid-template-columns: 1fr !important; }
