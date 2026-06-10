@@ -38,8 +38,8 @@ const FEATS: [string, string][] = [
     "Calma scans the output files, infers which column is the metric, and grades each binding by an independent sanity check. Only an independently-verified binding can ever refute. Pin everything with one small verify.yaml.",
   ],
   [
-    "Forensic replay & attestation",
-    "Every run leaves a content-addressed manifest (in-toto/SLSA, CycloneDX ML-BOM) and one command that re-runs the whole check. The proof is built for the counterparty, not the author.",
+    "Signed, forensic attestation",
+    "Every run leaves a signed bundle (Ed25519 over a DSSE/in-toto statement) the other side checks offline — one command verifies the signature, re-derives every verdict, and can replay the whole run. Built for the counterparty, not the author.",
   ],
   [
     "Built for agent loops & CI",

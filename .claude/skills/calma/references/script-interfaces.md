@@ -40,3 +40,22 @@ invokes scripts via Bash and READS the JSON; it never computes a statistic or a 
 
 ## `attest.py --run <dir> --out manifest.json`  (M1.3)
 - Content-addressed SBOM manifest (SHA-256 over sorted `relpath:sha256`, own hash excluded).
+
+## `attest` bundle library (signing lives here; CLI is `calma attest ...`)
+- `keygen(kdir=None, force=False)` -> Ed25519 keypair at `$CALMA_KEY_DIR` or `~/.calma/keys/`
+  (`ed25519.key` hex seed, 0600; `ed25519.pub` hex). keyid = sha256(raw 32-byte pubkey).
+- `sign_run(run_dir, key_path=None, out=None)` -> `attestation.bundle.json`: a DSSE envelope
+  (payloadType `application/vnd.in-toto+json`, PAE-signed) over an in-toto Statement v1 whose
+  predicate embeds the FULL `ledger.json` + `manifest.json`; subject digest = sha256 of the
+  canonical (sorted-keys, compact) ledger JSON. Deterministic: same key + same run -> same bytes.
+  `calma verify` auto-signs every run once a key exists. Sigstore later = countersignature
+  appended to `envelope.signatures`; the signed payload bytes never change.
+- `verify_bundle(bundle, pinned_pub_hex=None)` -> `(ok, checks)`. Fully offline. Checks, in order:
+  schema, payload type, base64/JSON decode, signature (against the pinned key if given, else the
+  embedded key), statement shape, subject digest == canonical embedded ledger, manifest root-hash
+  cross-check, **ledger re-derivation via `ledger.validate_obj`** (every verdict label must
+  re-derive byte-for-byte - this is what kills a forged-label bundle re-signed under a new key),
+  and statement-verdict == ledger repo_verdict. ok means authentic + internally consistent;
+  a REFUTED bundle verifies (the verdict is the payload, not the pass condition).
+- `ed25519.py`: pure-stdlib RFC 8032 (sign/verify/secret_to_public), strict s < L verify,
+  validated against the RFC section 7.1 vectors in `tests/test_attest.py`.

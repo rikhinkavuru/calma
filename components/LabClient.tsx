@@ -39,7 +39,7 @@ const STEPS: [string, string, string][] = [
   [
     "03",
     "Report",
-    "Per claim: confirmed, refuted, or can't-confirm — with the recomputed number, the gap, what was and wasn't verified, and a replay command plus content-addressed manifest so your side can re-run the entire check.",
+    "Per claim: confirmed, refuted, or can't-confirm — with the recomputed number, the gap, what was and wasn't verified, and a signed attestation bundle your side checks offline: verify the signature, re-derive every verdict, replay the entire run.",
   ],
   [
     "04",
