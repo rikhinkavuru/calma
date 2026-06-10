@@ -1,34 +1,47 @@
 "use client";
 
-import { Reveal, SectionHead } from "./chrome";
+import { Eyebrow, Reveal } from "./chrome";
 
-const VERDICTS = [
-  ["is-ink", "=", "Confirmed", "It re-runs, and the rebuilt number matches the claim."],
-  ["is-flare", "≠", "Refuted", "The recomputed number contradicts the claim — replay attached."],
-  ["is-bone", "?", "Can't confirm", "Not verifiable yet. The report names the exact fix."],
-  ["", "≈", "With caveats", "Holds, but narrower than claimed — the caveat is printed."],
+const CARDS = [
+  ["card--pass", "=", "Confirmed", "EXIT 0", "It re-runs, and the rebuilt number matches the claim within a calibrated tolerance."],
+  ["card--fail", "≠", "Refuted", "EXIT 1", "The recomputed number contradicts the claim — with a one-command replay attached."],
+  ["card--warn", "?", "Can't confirm", "FIX NAMED", "Not verifiable yet. The report names the exact change that makes it verifiable."],
+  ["card--cav", "≈", "With caveats", "SCOPED", "Holds, but narrower than claimed — and the caveat is printed on the verdict."],
 ] as const;
 
 export function Verdicts() {
   return (
-    <section className="section section--tint" id="verdicts">
+    <section className="sec" id="verdicts">
       <div className="wrap">
-        <SectionHead
-          idx="04"
-          title="Four possible answers"
-          sub="Fixed vocabulary, biased toward a caveat over a false alarm. It never cries wolf."
-        />
-        <div className="verdicts">
-          {VERDICTS.map(([chip, glyph, name, p], i) => (
-            <Reveal key={name} delay={i * 110} dir={i < 2 ? "left" : "right"}>
-              <div className="verdict">
-                <div className={"verdict__chip " + chip} aria-hidden="true">
-                  {glyph}
+        <div className="sec__head">
+          <Reveal>
+            <Eyebrow>the vocabulary</Eyebrow>
+          </Reveal>
+          <Reveal delay={100}>
+            <h2>
+              Four answers. <span className="serif-acc">Never a shrug.</span>
+            </h2>
+          </Reveal>
+          <Reveal delay={180}>
+            <p className="lead">
+              Fixed vocabulary, machine-consumable, biased toward a caveat over a false alarm. Agents
+              read the JSON verdict and branch.
+            </p>
+          </Reveal>
+        </div>
+        <div className="cards">
+          {CARDS.map(([cls, glyph, name, tag, p], i) => (
+            <Reveal key={name} delay={i * 110} dir={i % 2 ? "pop" : "up"}>
+              <div className={"card " + cls}>
+                <div className="card__thumb">
+                  <span className="card__tag mono">{tag}</span>
+                  <span className="glyph serif-acc">{glyph}</span>
                 </div>
-                <div className="verdict__meta">
+                <div className="card__body">
                   <b>{name}</b>
                   <p>{p}</p>
                 </div>
+                <div className="card__foot">how it decides &gt;&gt;&gt;</div>
               </div>
             </Reveal>
           ))}
