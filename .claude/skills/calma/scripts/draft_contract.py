@@ -18,7 +18,9 @@ import sys
 
 # name-regex -> semantic tag (first match wins)
 TAG_PATTERNS = [
+    (r"benchmark|bench_ret|market_ret|spy_ret", "benchmark"),
     (r"(strat|portfolio|daily).*(ret|return)|^ret(urn)?s?$|pnl", "return"),
+    (r"log_?prob|loglik", "value"),
     (r"price|close|open|high|low|adj", "price"),
     (r"prob(?!lem)|p_hat|phat|score|logit", "score"),
     (r"y_?pred|prediction|pred(icted)?|yhat", "prediction"),
@@ -85,7 +87,8 @@ CLAIM_METRIC_HINTS = [
     ("pass@1", "pass_at_k"), ("pass@5", "pass_at_k"), ("pass@10", "pass_at_k"),
     ("pass@100", "pass_at_k"), ("pass@k", "pass_at_k"),
     ("top-1", "top_k_accuracy"), ("top-3", "top_k_accuracy"), ("top-5", "top_k_accuracy"),
-    ("top-10", "top_k_accuracy"), ("top-k", "top_k_accuracy"), ("hit rate", "top_k_accuracy"),
+    ("top-10", "top_k_accuracy"), ("top-k", "top_k_accuracy"),
+    ("cache hit", "cache_hit_rate"), ("hit rate", "top_k_accuracy"),
     ("log loss", "log_loss"), ("logloss", "log_loss"), ("cross entropy", "log_loss"),
     ("mcc", "mcc"), ("matthews", "mcc"),
     ("calibration error", "ece"), ("ece", "ece"),
@@ -93,6 +96,7 @@ CLAIM_METRIC_HINTS = [
     ("p-value", "p_value"), ("p value", "p_value"), ("pvalue", "p_value"),
     ("significant", "p_value"), ("significance", "p_value"), ("t-test", "p_value"),
     ("confidence interval", "confidence_interval"), ("margin of error", "confidence_interval"),
+    ("ci", "confidence_interval"),
     ("effect size", "effect_size"), ("cohen's d", "effect_size"), ("cohens d", "effect_size"),
     ("hedges", "effect_size"),
     ("chi-square", "chi_square"), ("chi-squared", "chi_square"), ("chi2", "chi_square"),
@@ -100,13 +104,15 @@ CLAIM_METRIC_HINTS = [
     ("correlation", "correlation"), ("pearson", "correlation"), ("spearman", "correlation"),
     ("uplift", "lift"), ("lift", "lift"),
     ("speedup", "speedup_ratio"), ("speed-up", "speedup_ratio"), ("faster", "speedup_ratio"),
-    ("p99.9", "percentile"), ("p90", "percentile"), ("p75", "percentile"),
+    ("p99.9", "percentile"), ("p75", "percentile"),
+    ("p90", "latency_p90"),
     ("p50", "latency_p50"), ("p95", "latency_p95"), ("p99", "latency_p99"),
     ("latency", "latency_p50"),
     ("throughput", "throughput"), ("rps", "throughput"), ("qps", "throughput"),
     ("ops/sec", "throughput"), ("ops/s", "throughput"),
     ("peak memory", "peak_memory"), ("memory", "peak_memory"),
     ("coverage", "test_coverage"),
+    ("median absolute error", "medae"), ("medae", "medae"),
     ("percentile", "percentile"), ("median", "column_median"),
     ("distinct", "distinct_count"), ("unique", "distinct_count"),
     ("duplicates", "duplicate_count"), ("duplicate", "duplicate_count"),
@@ -115,6 +121,48 @@ CLAIM_METRIC_HINTS = [
     ("share", "ratio_share"),
     ("merged", "join_row_loss"), ("merge", "join_row_loss"), ("join", "join_row_loss"),
     ("joined", "join_row_loss"),
+    ("sortino", "sortino"), ("calmar", "calmar"), ("volatility", "volatility"),
+    ("cvar", "cvar"), ("expected shortfall", "cvar"), ("var", "value_at_risk"),
+    ("value at risk", "value_at_risk"),
+    ("win rate", "win_rate"), ("profit factor", "profit_factor"), ("omega", "omega_ratio"),
+    ("downside deviation", "downside_deviation"),
+    ("information ratio", "information_ratio"), ("tracking error", "tracking_error"),
+    ("beta", "beta"), ("alpha", "alpha"),
+    ("balanced accuracy", "balanced_accuracy"), ("kappa", "cohen_kappa"),
+    ("specificity", "specificity"), ("jaccard", "jaccard"), ("iou", "jaccard"),
+    ("weighted f1", "weighted_f1"), ("weighted-f1", "weighted_f1"),
+    ("f2", "fbeta"), ("f0.5", "fbeta"), ("f-beta", "fbeta"), ("fbeta", "fbeta"),
+    ("ks statistic", "ks_statistic"), ("ks test", "ks_test"), ("kolmogorov", "ks_test"),
+    ("gini coefficient", "gini_coefficient"), ("gini", "gini_norm"),
+    ("rmsle", "msle"), ("msle", "msle"),
+    ("max error", "max_error"), ("explained variance", "explained_variance"),
+    ("wape", "wape"), ("forecast bias", "forecast_bias"),
+    ("adjusted r2", "adjusted_r2"), ("adj r2", "adjusted_r2"), ("adjusted r^2", "adjusted_r2"),
+    ("nrmse", "nrmse"), ("durbin", "durbin_watson"),
+    ("minimum", "column_min"), ("maximum", "column_max"),
+    ("standard deviation", "column_std"), ("std dev", "column_std"), ("stdev", "column_std"),
+    ("iqr", "iqr"), ("interquartile", "iqr"),
+    ("outliers", "outlier_count"), ("outlier", "outlier_count"),
+    ("most common", "mode_share"), ("mode share", "mode_share"),
+    ("hhi", "hhi"), ("herfindahl", "hhi"), ("concentration", "hhi"),
+    ("entropy", "entropy"),
+    ("apdex", "apdex"), ("uptime", "uptime_pct"), ("availability", "uptime_pct"),
+    ("mann-whitney", "mann_whitney"), ("mann whitney", "mann_whitney"), ("u test", "mann_whitney"),
+    ("anova", "anova"), ("f-test", "anova"),
+    ("two-proportion", "proportion_z"), ("proportion test", "proportion_z"),
+    ("fisher", "fisher_exact"),
+    ("odds ratio", "odds_ratio"), ("relative risk", "relative_risk"), ("risk ratio", "relative_risk"),
+    ("cramer", "cramers_v"), ("cramérs v", "cramers_v"),
+    ("skewness", "skewness"), ("skew", "skewness"),
+    ("kurtosis", "kurtosis"), ("jarque", "jarque_bera"),
+    ("autocorrelation", "autocorrelation"), ("acf", "autocorrelation"),
+    ("mean average precision", "map_at_k"), ("map@5", "map_at_k"), ("map@10", "map_at_k"),
+    ("map@20", "map_at_k"), ("map@100", "map_at_k"),
+    ("precision@5", "precision_at_k"), ("precision@10", "precision_at_k"),
+    ("precision@20", "precision_at_k"), ("precision@100", "precision_at_k"),
+    ("perplexity", "perplexity"), ("ppl", "perplexity"),
+    ("word error rate", "wer"), ("wer", "wer"),
+    ("character error rate", "wer"), ("cer", "wer"),
     ("cagr", "cagr"), ("npv", "npv"), ("irr", "irr"),
     ("churn", "churn_rate"), ("retention", "churn_rate"),
     ("margin", "margin_pct"),
@@ -168,12 +216,46 @@ def infer_convention(text, metric_id):
     if text is None or metric_id is None:
         return None
     s = str(text).lower()
-    if metric_id in ("pass_at_k", "recall_at_k", "ndcg_at_k", "mrr", "top_k_accuracy"):
-        m = re.search(r"(?:pass|recall|ndcg|mrr|hit|top)\s*[@\- ]\s*k?=?(\d+)", s)
+    if metric_id in ("pass_at_k", "recall_at_k", "ndcg_at_k", "mrr", "top_k_accuracy",
+                     "map_at_k", "precision_at_k"):
+        m = re.search(r"(?:pass|recall|ndcg|mrr|hit|top|map|precision)\s*[@\- ]\s*k?=?(\d+)", s)
         if m:
             k = "k=%s" % m.group(1)
             return k + ",exp" if (metric_id == "ndcg_at_k" and "exp" in s) else k
         return None
+    if metric_id in ("sharpe", "sortino", "volatility", "downside_deviation", "calmar",
+                     "alpha", "information_ratio", "tracking_error"):
+        if "monthly" in s:
+            return "periods=12"
+        if "weekly" in s:
+            return "periods=52"
+        if "daily" in s:
+            return "periods=252"
+        return None
+    if metric_id in ("value_at_risk", "cvar"):
+        m = re.search(r"(9[0579](?:\.\d+)?)\s*%?\s*(?:var|cvar|level)", s) \
+            or re.search(r"(?:var|cvar)\s*\(?(9[0579](?:\.\d+)?)", s)
+        return "p%s" % m.group(1) if m else None
+    if metric_id == "fbeta":
+        m = re.search(r"\bf(\d+(?:\.\d+)?)\b", s)
+        if m and m.group(1) != "1":
+            return "beta=%s" % m.group(1)
+        return None
+    if metric_id == "msle":
+        return "rmsle" if "rmsle" in s else None
+    if metric_id == "entropy":
+        return "nats" if "nats" in s or "nat " in s else None
+    if metric_id == "autocorrelation":
+        m = re.search(r"lag[\s\-]?(\d+)", s)
+        return "lag=%s" % m.group(1) if m else None
+    if metric_id == "wer":
+        return "cer" if ("cer" in s or "character" in s) else None
+    if metric_id == "apdex":
+        m = re.search(r"t\s*=\s*(\d+(?:\.\d+)?)", s)
+        return "t=%s" % m.group(1) if m else None
+    if metric_id == "adjusted_r2":
+        m = re.search(r"(\d+)\s*(?:predictors|features|regressors)", s)
+        return "p=%s" % m.group(1) if m else None
     if metric_id == "cagr":
         if "month" in s:
             return "periods=12"
@@ -240,9 +322,17 @@ def parse_claim(text):
         if re.search(r"(?<![a-z0-9])%s(?![a-z0-9])" % re.escape(word.lower()), low):
             hint = mid
             break
-    m = _CLAIM_NUM.search(s)
-    if not m:
+    matches = [mm for mm in _CLAIM_NUM.finditer(s)
+               # ordinals ("95th percentile", "3rd quartile") are positions, never claim values
+               if not re.match(r"(?:st|nd|rd|th)\b", s[mm.end(2):mm.end(2) + 2], re.IGNORECASE)]
+    if not matches:
         return None, hint
+    m = matches[0]
+    # level-prefixed claims ("95% VaR 2.14%", "99% CI 0.4"): the leading confidence level is a
+    # parameter, not the claim value - take the number AFTER it when one exists
+    if hint in ("value_at_risk", "cvar", "confidence_interval") and len(matches) > 1:
+        if float(m.group(2).replace(",", "")) in (90.0, 95.0, 97.5, 99.0):
+            m = matches[1]
     raw = m.group(2).replace(",", "")
     val = float(raw)
     if m.group(1) == "-":

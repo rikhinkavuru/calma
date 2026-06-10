@@ -94,17 +94,17 @@ export function Features() {
         <Reveal delay={300}>
           <div className="rband">
             <div className="rband__n">
-              <span className="rband__num">59</span>
+              <span className="rband__num">118</span>
               <span className="rband__sub">SOTA recipes</span>
             </div>
             <p className="rband__copy">
-              A recipe is how Calma rebuilds one kind of number — a Sharpe ratio, a p95 latency, a
-              pass@1, a p-value — from the raw output files. <b>Every one is validated against the
+              A recipe is how Calma rebuilds one kind of number — a Sortino ratio, a p95 latency, a
+              pass@1, a Fisher exact p, a WER — from the raw output files. <b>Every one is validated against the
               published reference implementation</b> (scikit-learn, SciPy, NumPy) before it ships,
               and runs deterministically: same inputs, same number, to the bit.
             </p>
             <a className="pbtn pbtn--amber" href="/recipes">
-              Browse all 59
+              Browse all 118
             </a>
           </div>
         </Reveal>

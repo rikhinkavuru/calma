@@ -194,3 +194,34 @@ What made this possible without breaking the determinism rule:
   and fraudulent ones can reach REFUTED.
 - Catalog: references/recipes.md. Pack 5/6 references: numpy-financial (npv/irr), sklearn
   (MAPE, pinball), Hyndman & Koehler (MASE). 756 checks across 13 suites, all green.
+
+## Recipe expansion to 118 (2026-06-10, second wave)
+
+Packs 7-11 double the library (59 -> 118) without touching the determinism rules:
+- **Pack 7, quant risk & relative performance (13):** volatility, downside_deviation, sortino,
+  calmar, value_at_risk, cvar, win_rate, profit_factor, omega_ratio, beta, alpha,
+  information_ratio, tracking_error. Conventions documented (target-0 full-sample Sortino,
+  loss-positive VaR/CVaR, rf=0 simple alpha); periods parsed from "monthly/weekly/daily" claims.
+- **Pack 8, classification & regression depth II (17):** balanced_accuracy, cohen_kappa,
+  specificity, fbeta (beta from "F2"/"F0.5"), jaccard, weighted_f1, ks_statistic, gini_norm,
+  msle/rmsle, medae, max_error, explained_variance, wape, forecast_bias, adjusted_r2
+  (predictor count required), nrmse, durbin_watson.
+- **Pack 9, analytics & engineering II (13):** column_min/max/std, iqr, outlier_count (Tukey),
+  mode_share, gini_coefficient, hhi, entropy (bits/nats), latency_p90, apdex (t required),
+  uptime_pct, cache_hit_rate.
+- **Pack 10, statistical tests II (12):** mann_whitney (tie+continuity-corrected asymptotic),
+  ks_test (classical Kolmogorov asymptotic, documented), anova (F via the deterministic
+  incomplete beta), proportion_z, fisher_exact (exact two-sided via integer combinatorics,
+  scipy semantics incl. its relative-tolerance gate), odds_ratio (sample/Haldane),
+  relative_risk, cramers_v, skewness, kurtosis, jarque_bera, autocorrelation.
+- **Pack 11, retrieval/LLM II (4):** precision_at_k, map_at_k (min(R,k) denominator,
+  documented), perplexity (from raw per-token logprobs), wer/cer (exact Levenshtein DP).
+
+Reference corpus grew to 385 vectors; new references: statsmodels (durbin_watson,
+proportions_ztest, acf), jiwer (WER/CER), scipy.stats (mannwhitneyu, f_oneway, fisher_exact,
+skew/kurtosis/jarque_bera, iqr, entropy, ks_2samp, kstwobign), sklearn (balanced_accuracy,
+kappa, fbeta, jaccard, weighted F1, MSLE, medae, max_error, explained_variance). ~50 new
+claim hints with collision-ordering tests ("balanced accuracy" before "accuracy", "cache hit"
+before "hit rate", "median absolute error" before "median"...); new `benchmark` column tag;
+convention inference for VaR levels, F-beta, lags, Apdex T, predictor counts, and
+monthly/weekly/daily annualization.
