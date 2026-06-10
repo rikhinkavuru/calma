@@ -1,18 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { MotionConfig } from "framer-motion";
-import { Announce } from "./Announce";
+import { Atmos } from "./Atmos";
 import { Nav } from "./Nav";
 import { Hero } from "./Hero";
-import { Marquee } from "./Marquee";
-import { Problem } from "./Problem";
-import { HowItWorks } from "./HowItWorks";
-import { Verdicts } from "./Verdicts";
-import { Independence } from "./Independence";
-import { Layers } from "./Layers";
+import { Method } from "./Method";
+import { Palette } from "./Palette";
+import { Evidence } from "./Evidence";
+import { Get } from "./Get";
 import { Faq } from "./Faq";
-import { Closing } from "./Closing";
+import { Footer } from "./Footer";
 import { RequestDialog } from "./RequestDialog";
 
 export default function App() {
@@ -20,21 +17,19 @@ export default function App() {
   const openDlg = () => setDlg(true);
 
   return (
-    <MotionConfig reducedMotion="user">
-      <Announce />
+    <>
+      <Atmos />
       <Nav onRequest={openDlg} />
       <main>
-        <Hero onRequest={openDlg} />
-        <Marquee />
-        <Problem />
-        <HowItWorks />
-        <Verdicts />
-        <Independence />
-        <Layers onRequest={openDlg} />
+        <Hero />
+        <Method />
+        <Palette />
+        <Evidence />
+        <Get onRequest={openDlg} />
         <Faq />
-        <Closing onRequest={openDlg} />
       </main>
+      <Footer />
       <RequestDialog open={dlg} onClose={() => setDlg(false)} />
-    </MotionConfig>
+    </>
   );
 }

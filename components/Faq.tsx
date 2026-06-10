@@ -1,82 +1,77 @@
 "use client";
 
-import { Section } from "./primitives";
-import { Reveal } from "./Reveal";
-
 const ITEMS: [string, React.ReactNode][] = [
   [
-    "Can't I just ask my agent to verify it — or to re-run the code itself?",
+    "Why not just ask the agent to check its own work?",
     <>
-      Asked to &quot;double-check,&quot; a model usually re-reads its reasoning and says it looks
-      right. Even when an agent does re-run the code, it still <em>judges the match itself</em>,
-      nothing stops it from fixing the comparison instead of the code, and there&apos;s no audit
-      trail. Calma closes all three: a calibrated tolerance diff in deterministic scripts, a ledger
-      that re-derives every label byte-for-byte, and a content-addressed manifest per run. On
-      REPRO-Bench, agents judging reproducibility score ~21% — judgment fails where re-execution
-      works.
+      Asked to &quot;double-check,&quot; a model re-reads its reasoning and agrees with itself. Even
+      when it re-runs the code, it still judges the match — and nothing stops it from fixing the
+      comparison instead of the code. Calma&apos;s diff happens under a calibrated tolerance in
+      deterministic scripts, and the ledger re-derives every label byte-for-byte. On REPRO-Bench,
+      agents judging reproducibility score ~21%. The producer is never the verifier.
     </>,
   ],
   [
-    "What do people use for this problem today?",
+    "What do people use for this today?",
     <>
-      Mostly nothing — they trust the printed number. The adjacent tools solve different problems:
-      eval platforms (LangSmith, Braintrust) score with LLM judges for the builder; data validators
-      (Great Expectations) check schemas; CI tests check code paths the author thought to test. In
-      quant, independent validation exists as bespoke human consulting. None re-execute the work and
-      recompute the claimed number from raw outputs.
+      Mostly nothing — the printed number is trusted. Eval platforms score with model judges for
+      the builder; data validators check schemas; CI tests check what the author thought to test.
+      In quant, independent validation is bespoke human consulting. None re-execute the work and
+      recompute the claimed number.
     </>,
   ],
   [
     "Does my code or data leave my machine?",
     <>
-      No. Everything runs locally; nothing is uploaded. On macOS the run is inside a verified
-      network-off sandbox proven by a self-test; on hosts without one, the verdict says so
-      explicitly (<code>host-not-isolated</code>) instead of pretending.
+      No. Everything runs locally. On macOS the run is inside a verified network-off sandbox proven
+      by a self-test; elsewhere the verdict says <code>host-not-isolated</code> instead of
+      pretending.
     </>,
   ],
   [
-    "What if there's no specific number to check?",
+    "What if there's no number to check?",
     <>
-      It still verifies that the result reproduces — including <code>--check-determinism</code>,
-      which re-executes twice and refuses to confirm anything whose outputs differ across identical
-      runs (FLAKY).
+      It still verifies the result reproduces — including <code>--check-determinism</code>, which
+      re-executes twice and refuses to confirm anything whose outputs differ across identical runs.
     </>,
   ],
   [
-    "Won't this stop mattering as models get better?",
+    "Won't better models make this unnecessary?",
     <>
-      The opposite. Better models → more delegation → more money moving on AI-produced numbers →
-      more demand for a referee the producer doesn&apos;t own. And the failures Calma catches —
-      overfitting, leakage, cherry-picking — are incentive problems, not capability problems: a
-      stronger optimizer produces <em>more</em> convincing overfits. Humans are very capable; we
-      still audit them.
+      Better models mean more delegation, more money moving on AI-produced numbers, and more need
+      for a referee the producer doesn&apos;t own. The failures Calma catches — overfitting, leakage,
+      cherry-picking — are incentive problems, not capability problems. A stronger optimizer makes
+      more convincing overfits. Humans are very capable; we still audit them.
     </>,
   ],
   [
-    "Is it only for trading and quant?",
+    "Is it only for trading?",
     <>
-      No. The engine is domain-agnostic — 15 recipes across ML (accuracy, AUC, F1, RMSE, R²),
-      analytics (sums, means, row counts), and trading (Sharpe, return, drawdown) — and it runs
-      Python, R, Julia, C++, and Rust as a black box. Quant is where independent verification is
-      already bought, so it&apos;s where the paid lab starts.
+      No. Fifteen recipes across ML, analytics, and trading; Python, R, Julia, C++, and Rust run as
+      a black box. Quant is where independent verification is already bought, so the paid lab
+      starts there.
     </>,
   ],
 ];
 
 export function Faq() {
   return (
-    <Section id="faq" num="06" label="questions" bg="tint" watermark="06 / FAQ"
-      title={<>Asked immediately, <span className="dim">answered honestly.</span></>}>
+    <section className="section wrap" id="faq">
+      <div className="sec-head">
+        <div>
+          <span className="eyebrow">Questions</span>
+          <h2 className="sec-title">Asked. Answered.</h2>
+        </div>
+        <div className="index" aria-hidden="true"><span className="lead">0</span>05</div>
+      </div>
       <div className="faq">
-        {ITEMS.map(([q, a], i) => (
-          <Reveal as="div" key={i} delay={i * 0.04}>
-            <details className="faq__item">
-              <summary>{q}</summary>
-              <div className="faq__a">{a}</div>
-            </details>
-          </Reveal>
+        {ITEMS.map(([q, a]) => (
+          <details key={q as string}>
+            <summary>{q}</summary>
+            <div className="a">{a}</div>
+          </details>
         ))}
       </div>
-    </Section>
+    </section>
   );
 }

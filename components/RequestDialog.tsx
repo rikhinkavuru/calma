@@ -1,7 +1,14 @@
 "use client";
 
 import { Fragment, useEffect, useId, useRef, useState } from "react";
-import { Arrow } from "./primitives";
+
+function Arrow() {
+  return (
+    <span className="arrow" aria-hidden="true">
+      →
+    </span>
+  );
+}
 
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),textarea,select,[tabindex]:not([tabindex="-1"])';
 
