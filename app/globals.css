@@ -170,26 +170,42 @@ img, svg, canvas { display: block; max-width: 100%; }
 .demo {
   position: relative;
   display: grid; grid-template-columns: 1fr 300px;
-  gap: 64px; align-items: start;
+  gap: 64px; align-items: center;
 }
 .demo__net { position: absolute; inset: 0; pointer-events: none; overflow: visible; z-index: 1; }
 /* connector: drawn from the junction when its step lands */
 .net__line { stroke: var(--cream-35); fill: none; stroke-width: 1; stroke-dasharray: 1 1; stroke-dashoffset: 1; }
 .net__line.is-on { stroke-dashoffset: 0; transition: stroke-dashoffset 0.6s var(--ease); }
-/* the endless light: a short bright segment travelling along an outline */
-.net__light {
-  fill: none; stroke-width: 1.3; opacity: 0;
-  stroke-dasharray: var(--seg, 0.1) calc(1 - var(--seg, 0.1));
-  stroke-dashoffset: 0; stroke-linecap: round;
-}
-.demo--live .net__light {
-  opacity: 0.6; transition: opacity 1.2s ease;
-  animation: netflow var(--dur, 4s) linear infinite;
-  animation-delay: var(--del, 0s);
-}
-@keyframes netflow { to { stroke-dashoffset: -1; } }
 
-.dsteps { display: flex; flex-direction: column; gap: 16px; padding-top: 42px; }
+/* ONE light on one 9s cycle:
+   0–40%   a lap of the terminal outline (starts and ends at the junction)
+   40–52%  out along the four connectors (geometrically off-path outside this window)
+   52–92%  a lap of each box outline (starts and ends where the connector arrives)  */
+.net__light { fill: none; stroke-width: 1.3; stroke-linecap: round; opacity: 0; }
+.net__light--term { stroke-dasharray: 0.045 0.955; stroke-dashoffset: 0; }
+.net__light--conn { stroke-dasharray: 0.3 0.7; stroke-dashoffset: 0.3; }
+.net__light--box { stroke-dasharray: 0.12 0.88; stroke-dashoffset: 0; }
+.demo--live .net__light--term { animation: lap-term 9s linear infinite; }
+.demo--live .net__light--conn { opacity: 0.7; animation: lap-conn 9s linear infinite; }
+.demo--live .net__light--box { animation: lap-box 9s linear infinite; }
+@keyframes lap-term {
+  0% { stroke-dashoffset: 0; opacity: 0.7; }
+  39.9% { stroke-dashoffset: -1; opacity: 0.7; }
+  40% { stroke-dashoffset: -1; opacity: 0; }
+  100% { stroke-dashoffset: -1; opacity: 0; }
+}
+@keyframes lap-conn {
+  0%, 40% { stroke-dashoffset: 0.3; }
+  52%, 100% { stroke-dashoffset: -1; }
+}
+@keyframes lap-box {
+  0%, 52% { stroke-dashoffset: 0; opacity: 0; }
+  52.5% { opacity: 0.7; }
+  91.5% { opacity: 0.7; }
+  92%, 100% { stroke-dashoffset: -1; opacity: 0; }
+}
+
+.dsteps { display: flex; flex-direction: column; gap: 16px; }
 .dstep {
   border: 1px solid var(--hairline); background: rgba(17, 15, 11, 0.82);
   padding: 14px 16px;
@@ -205,14 +221,16 @@ img, svg, canvas { display: block; max-width: 100%; }
 }
 .dstep p { font-size: 13.5px; line-height: 1.6; color: var(--cream-55); }
 
-/* per-step hue — shared faintly by the terminal line, the box outline + fill */
-.dstep--rerun { border-color: rgba(127, 184, 158, 0.28); background: rgba(127, 184, 158, 0.045); }
+/* per-step hue — shared faintly by the terminal line, the box outline + fill.
+   Backgrounds are layered over a near-opaque base so connector tails never
+   show through the box. */
+.dstep--rerun { border-color: rgba(127, 184, 158, 0.28); background: linear-gradient(rgba(127, 184, 158, 0.05), rgba(127, 184, 158, 0.05)), rgba(17, 15, 11, 0.94); }
 .dstep--rerun .dstep__k { color: #7fb89e; }
-.dstep--recompute { border-color: rgba(217, 179, 128, 0.28); background: rgba(217, 179, 128, 0.045); }
+.dstep--recompute { border-color: rgba(217, 179, 128, 0.28); background: linear-gradient(rgba(217, 179, 128, 0.05), rgba(217, 179, 128, 0.05)), rgba(17, 15, 11, 0.94); }
 .dstep--recompute .dstep__k { color: #d9b380; }
-.dstep--compare { border-color: rgba(122, 156, 189, 0.3); background: rgba(122, 156, 189, 0.05); }
+.dstep--compare { border-color: rgba(122, 156, 189, 0.3); background: linear-gradient(rgba(122, 156, 189, 0.055), rgba(122, 156, 189, 0.055)), rgba(17, 15, 11, 0.94); }
 .dstep--compare .dstep__k { color: #7a9cbd; }
-.dstep--verdict { border-color: rgba(232, 154, 93, 0.35); background: rgba(232, 154, 93, 0.06); }
+.dstep--verdict { border-color: rgba(232, 154, 93, 0.35); background: linear-gradient(rgba(232, 154, 93, 0.065), rgba(232, 154, 93, 0.065)), rgba(17, 15, 11, 0.94); }
 .dstep--verdict .dstep__k { color: var(--amber); }
 .dstep--verdict p { color: var(--cream-70); }
 
@@ -411,4 +429,5 @@ img, svg, canvas { display: block; max-width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) {
   * { animation: none !important; transition: none !important; }
+  .net__light { display: none; }
 }

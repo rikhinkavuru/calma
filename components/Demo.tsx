@@ -50,8 +50,14 @@ const STEPS: { key: string; hue: string; kicker: string; body: ReactNode }[] = [
 
 type Geom = { w: number; h: number; term: string; conns: string[]; boxes: string[] };
 
-const rectPath = (x: number, y: number, w: number, h: number) =>
-  `M ${x} ${y} H ${x + w} V ${y + h} H ${x} Z`;
+/* terminal outline, starting AT the junction (right edge, mid-height) so the
+   light's lap begins and ends where the connectors leave */
+const termPath = (x: number, y: number, w: number, h: number) =>
+  `M ${x + w} ${y + h / 2} V ${y} H ${x} V ${y + h} H ${x + w} Z`;
+
+/* box outline, starting at its left-center — where the connector arrives */
+const boxPath = (x: number, y: number, w: number, h: number) =>
+  `M ${x} ${y + h / 2} V ${y} H ${x + w} V ${y + h} H ${x} Z`;
 
 export function Demo() {
   const [ref, seen] = useInView<HTMLDivElement>(0.35);
@@ -81,16 +87,16 @@ export function Demo() {
     boxRefs.current.forEach((b) => {
       if (!b) return;
       const br = b.getBoundingClientRect();
-      const bx = br.left - cr.left;
+      const bx = br.left - cr.left - 1.5; /* stop just short of the box border */
       const by = br.top - cr.top + br.height / 2;
       const mx = jx + (bx - jx) * 0.5;
       conns.push(`M ${jx} ${jy} C ${mx} ${jy}, ${mx} ${by}, ${bx} ${by}`);
-      boxes.push(rectPath(bx, br.top - cr.top, br.width, br.height));
+      boxes.push(boxPath(br.left - cr.left, br.top - cr.top, br.width, br.height));
     });
     setGeom({
       w: cr.width,
       h: cr.height,
-      term: rectPath(tr.left - cr.left, tr.top - cr.top, tr.width, tr.height),
+      term: termPath(tr.left - cr.left, tr.top - cr.top, tr.width, tr.height),
       conns,
       boxes,
     });
@@ -182,13 +188,14 @@ export function Demo() {
           height={geom.h}
           aria-hidden="true"
         >
-          {/* light circulating the terminal outline */}
+          {/* ONE light, one journey: a lap of the terminal outline, out through
+              the junction, splitting along the four curves, a lap around each
+              box — then again, forever. The phases share one 9s cycle. */}
           <path
-            className="net__light"
+            className="net__light net__light--term"
             d={geom.term}
             pathLength={1}
-            stroke="rgba(233, 221, 196, 0.8)"
-            style={{ ["--seg" as string]: 0.04, ["--dur" as string]: "7s" }}
+            stroke="rgba(233, 221, 196, 0.85)"
           />
           {STEPS.map((s, i) => (
             <g key={s.key}>
@@ -198,21 +205,17 @@ export function Demo() {
                 d={geom.conns[i]}
                 pathLength={1}
               />
-              {/* light flowing along the connector */}
               <path
-                className="net__light"
+                className="net__light net__light--conn"
                 d={geom.conns[i]}
                 pathLength={1}
                 stroke={s.hue}
-                style={{ ["--seg" as string]: 0.16, ["--dur" as string]: "3.4s", ["--del" as string]: `${i * 0.85}s` }}
               />
-              {/* light circulating the box outline */}
               <path
-                className="net__light"
+                className="net__light net__light--box"
                 d={geom.boxes[i]}
                 pathLength={1}
                 stroke={s.hue}
-                style={{ ["--seg" as string]: 0.1, ["--dur" as string]: "4.6s", ["--del" as string]: `${0.6 + i * 0.85}s` }}
               />
             </g>
           ))}
