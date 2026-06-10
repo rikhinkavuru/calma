@@ -11,30 +11,29 @@ export function Closing({ onRequest }: { onRequest: () => void }) {
       <div className="wrap">
         <Reveal className="closing__inner">
           <div className="closing__lead mono">
-            <span className="closing__dot" /> before capital is committed
+            <span className="closing__dot" /> before the number ships
           </div>
           <h2 className="closing__title">
-            Know your research is real
-            <span className="closing__title-dim"> before you put money on it.</span>
+            Trust is earned
+            <span className="closing__title-dim"> by re-execution.</span>
           </h2>
           <p className="closing__sub">
-            The open-source skill verifies any agent&apos;s results today, free. The Calma CLI — deflated
-            Sharpe, leakage re-runs, signed attestations — works with systematic funds and allocators as
-            an independent verification layer.
+            Install the skill and your agents check their own homework against ground truth.
+            Engage the lab and your counterparties get a verdict the producer can&apos;t touch.
           </p>
           <div className="closing__actions">
-            <motion.button className="btn btn-primary" onClick={onRequest} {...hoverLift}>
-              Request CLI access <Arrow />
-            </motion.button>
             <motion.a
-              className="btn btn-ghost"
+              className="btn btn-primary btn-lg"
               href="https://github.com/rikhinkavuru/calma"
               target="_blank"
               rel="noreferrer"
               {...hoverLift}
             >
-              Get the free skill
+              Get the free skill <Arrow />
             </motion.a>
+            <motion.button className="btn btn-ghost btn-lg" onClick={onRequest} {...hoverLift}>
+              Request verification
+            </motion.button>
           </div>
         </Reveal>
       </div>
@@ -42,32 +41,47 @@ export function Closing({ onRequest }: { onRequest: () => void }) {
       <footer className="footer">
         <div className="wrap footer__inner">
           <div className="footer__brand">
-            <span className="brand__mark" aria-hidden="true" />
-            <span className="brand__word">calma</span>
+            <span className="brand__word mono">calma</span>
+            <span className="brand__cursor" aria-hidden="true" />
           </div>
           <div className="footer__cols">
             <div className="footer__col">
               <div className="footer__h mono">Product</div>
-              <a href="#how">The four checks</a>
-              <a href="#roadmap">Roadmap</a>
+              <a href="#how">How it works</a>
+              <a href="#verdicts">Verdicts</a>
+              <a href="#get">Get the skill</a>
+            </div>
+            <div className="footer__col">
+              <div className="footer__h mono">Open source</div>
+              <a href="https://github.com/rikhinkavuru/calma" target="_blank" rel="noreferrer">
+                GitHub
+              </a>
+              <a
+                href="https://github.com/rikhinkavuru/calma/blob/main/README.md"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Docs
+              </a>
+              <a
+                href="https://github.com/rikhinkavuru/calma/blob/main/LICENSE"
+                target="_blank"
+                rel="noreferrer"
+              >
+                MIT license
+              </a>
+            </div>
+            <div className="footer__col">
+              <div className="footer__h mono">The lab</div>
+              <a href="#access">Request verification</a>
               <a href="#independence">Why independent</a>
-            </div>
-            <div className="footer__col">
-              <div className="footer__h mono">Company</div>
-              <a href="#access">Request access</a>
-              <a href="#top">Security</a>
-              <a href="#top">Contact</a>
-            </div>
-            <div className="footer__col">
-              <div className="footer__h mono">Legal</div>
-              <a href="#top">Terms</a>
-              <a href="#top">Privacy</a>
+              <a href="#faq">FAQ</a>
             </div>
           </div>
         </div>
         <div className="wrap footer__base mono">
-          <span>© 2026 Calma Research, Inc.</span>
-          <span className="footer__motto">the system that generates a strategy can't be trusted to verify it.</span>
+          <span>© 2026 Calma</span>
+          <span className="footer__motto">the system that produced a result can&apos;t be trusted to verify it.</span>
         </div>
       </footer>
     </section>

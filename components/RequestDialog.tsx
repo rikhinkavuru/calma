@@ -73,13 +73,14 @@ export function RequestDialog({ open, onClose }: { open: boolean; onClose: () =>
         {!sent ? (
           <Fragment>
             <div className="dlg__eyebrow mono">
-              <span className="closing__dot" /> request access
+              <span className="closing__dot" /> request verification
             </div>
             <h3 className="dlg__title" id={titleId}>
-              Talk to us about verifying your research.
+              Talk to us about an independent verification.
             </h3>
             <p className="dlg__sub">
-              We onboard a small number of systematic teams at a time. Tell us a little and we'll reach out — no self-serve, no sales sequence.
+              For managers raising capital and allocators doing diligence. We run a small number of
+              engagements at a time — tell us a little and a real person will reach out.
             </p>
             <form
               className="dlg__form"
@@ -97,11 +98,11 @@ export function RequestDialog({ open, onClose }: { open: boolean; onClose: () =>
                 <input className="fld__i mono" type="text" required placeholder="Systematic equity, $— AUM" />
               </label>
               <label className="fld">
-                <span className="fld__l mono">what do you trade?</span>
-                <input className="fld__i mono" type="text" placeholder="e.g. mid-freq equity stat-arb" />
+                <span className="fld__l mono">what should we verify?</span>
+                <input className="fld__i mono" type="text" placeholder="e.g. a backtest ahead of a raise" />
               </label>
               <button className="btn btn-primary dlg__submit" type="submit">
-                Request access <Arrow />
+                Request verification <Arrow />
               </button>
             </form>
           </Fragment>

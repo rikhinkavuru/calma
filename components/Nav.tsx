@@ -14,17 +14,16 @@ export function Nav({ onRequest }: { onRequest: () => void }) {
   const links: [string, string][] = [
     ["The problem", "#problem"],
     ["How it works", "#how"],
-    ["Roadmap", "#roadmap"],
-    ["Independence", "#independence"],
+    ["Verdicts", "#verdicts"],
+    ["Get it", "#get"],
+    ["FAQ", "#faq"],
   ];
   return (
     <header className={"nav" + (scrolled ? " nav--scrolled" : "")}>
       <div className="wrap nav__inner">
         <a href="#top" className="brand" aria-label="Calma — home">
-          <span className="brand__mark" aria-hidden="true" />
-          <span className="brand__word">
-            calma<sub className="brand__beta mono">beta</sub>
-          </span>
+          <span className="brand__word">calma</span>
+          <span className="brand__cursor" aria-hidden="true" />
         </a>
         <nav className="nav__links">
           {links.map(([label, href]) => (
@@ -34,8 +33,11 @@ export function Nav({ onRequest }: { onRequest: () => void }) {
           ))}
         </nav>
         <div className="nav__right">
+          <motion.button className="btn btn-ghost nav__cta" onClick={onRequest} {...hoverLift}>
+            Request verification
+          </motion.button>
           <motion.a
-            className="btn btn-ghost nav__cta"
+            className="btn btn-primary nav__cta"
             href="https://github.com/rikhinkavuru/calma"
             target="_blank"
             rel="noreferrer"
@@ -43,9 +45,6 @@ export function Nav({ onRequest }: { onRequest: () => void }) {
           >
             Get the skill
           </motion.a>
-          <motion.button className="btn btn-primary nav__cta" onClick={onRequest} {...hoverLift}>
-            Request CLI access
-          </motion.button>
         </div>
       </div>
     </header>
