@@ -1,6 +1,6 @@
 "use client";
 
-import { Reveal } from "./chrome";
+import { Cross, Reveal } from "./chrome";
 
 export function About() {
   return (
@@ -8,53 +8,33 @@ export function About() {
       <div className="wrap">
         <div className="sec__head">
           <Reveal>
-            <span className="kicker">About — the lab</span>
+            <span className="kicker">About</span>
           </Reveal>
         </div>
         <div className="about">
           <Reveal delay={100}>
             <div>
-              <div className="cascade">
-                <span>One principle:</span>
-                <span>the producer</span>
-                <span>is never</span>
-                <span>the verifier.</span>
-              </div>
-              <p className="col" style={{ marginTop: 32 }}>
-                Calma is an independent verification lab. Finance settled this long ago — funds have
-                administrators, companies have auditors. <b>Work done by AI gets Calma.</b> The
-                engine is open source so anyone can check the checker; the lab signs its name to
-                reports.
+              <h2 className="h2">Whoever did the work never gets to grade it.</h2>
+              <p className="lead">
+                That&apos;s the whole idea. Funds have administrators. Companies have auditors.{" "}
+                <b>Work done by AI gets Calma.</b> The engine is open source so anyone can check
+                the checker — and the lab signs its name to every report.
               </p>
             </div>
           </Reveal>
           <Reveal delay={220}>
-            <div className="about__facts">
-              <div className="fig">
-                <span className="k">Founded</span>
-                <span className="v">2026</span>
-              </div>
-              <div className="fig">
-                <span className="k">Principle</span>
-                <span className="v">Producer ≠ verifier</span>
-              </div>
-              <div className="fig">
-                <span className="k">Engine</span>
-                <span className="v">Open source · MIT</span>
-              </div>
-              <div className="fig">
-                <span className="k">Dependencies</span>
-                <span className="v">Zero</span>
-              </div>
-              <div className="fig">
-                <span className="k">Verdicts</span>
-                <span className="v">Computed by code</span>
-              </div>
-              <div className="fig">
-                <span className="k">Built</span>
-                <span className="v">In the open</span>
-              </div>
-            </div>
+            <figure className="photo">
+              <Cross className="tl" />
+              <Cross className="br" />
+              <img
+                src="/img/lab.webp"
+                alt="A desk lamp examining a stack of printed pages in a dark room"
+                width={1200}
+                height={896}
+                loading="lazy"
+              />
+              <figcaption className="photo__cap">The lab — every claim under the lamp</figcaption>
+            </figure>
           </Reveal>
         </div>
       </div>

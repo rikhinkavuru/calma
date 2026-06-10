@@ -59,31 +59,8 @@ export function Atmo() {
   );
 }
 
-export function Dots({ style }: { style?: CSSProperties }) {
-  return <span className="dots" style={style} aria-hidden="true" />;
-}
-
 export function Cross({ style, className = "" }: { style?: CSSProperties; className?: string }) {
   return <span className={"cross " + className} style={style} aria-hidden="true" />;
-}
-
-/* thin line-icon glyphs for the specimen boxes */
-export function Glyph({ kind }: { kind: "rerun" | "recompute" | "diff" | "decide" }) {
-  if (kind === "rerun")
-    return (
-      <svg viewBox="0 0 16 16"><path d="M13 8a5 5 0 1 1-1.5-3.5M13 1.5V5h-3.5" /></svg>
-    );
-  if (kind === "recompute")
-    return (
-      <svg viewBox="0 0 16 16"><path d="M2 2h12M2 2l6 6-6 6M2 14h12" /></svg>
-    );
-  if (kind === "diff")
-    return (
-      <svg viewBox="0 0 16 16"><path d="M3 6h10M3 10h10M12 2 4 14" /></svg>
-    );
-  return (
-    <svg viewBox="0 0 16 16"><path d="M1.5 1.5h13v13h-13zM4.5 8l2.5 2.5L11.5 5" /></svg>
-  );
 }
 
 export function Nav({ onRequest }: { onRequest: () => void }) {
@@ -101,8 +78,9 @@ export function Nav({ onRequest }: { onRequest: () => void }) {
         </a>
         <nav className="nav__links">
           <a href="#problem">The problem</a>
-          <a href="#overview">Overview</a>
+          <a href="#overview">How it works</a>
           <a href="#features">Features</a>
+          <a href="#benefits">Who it&apos;s for</a>
           <a href="#about">About</a>
           <button className="nav__cta" onClick={onRequest}>
             Request verification
