@@ -283,12 +283,44 @@ img, svg, canvas { display: block; max-width: 100%; }
 .step p { font-size: 15.5px; line-height: 1.65; color: var(--cream-55); }
 
 /* ---------------- features ---------------- */
+.marquee { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--hairline); margin-bottom: clamp(20px, 2.6vw, 28px); }
+.mq {
+  padding: clamp(28px, 3.8vw, 48px);
+  border-right: 1px solid var(--hairline);
+  display: flex; flex-direction: column; gap: 14px;
+  background: linear-gradient(rgba(232, 154, 93, 0.035), rgba(232, 154, 93, 0.035)), rgba(17, 15, 11, 0.6);
+}
+.mq:last-child { border-right: 0; }
+.mq__k { font-family: var(--mono); font-size: 10px; letter-spacing: 0.3em; text-transform: uppercase; color: var(--amber); }
+.mq h3 { font-size: clamp(21px, 2.2vw, 27px); font-weight: 500; line-height: 1.25; max-width: 17em; }
+.mq p { font-size: 15.5px; line-height: 1.68; color: var(--cream-55); }
+
 .features { display: grid; grid-template-columns: repeat(2, 1fr); border: 1px solid var(--hairline); }
 .feat { padding: clamp(24px, 3.2vw, 40px); border-right: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); display: flex; flex-direction: column; gap: 12px; }
 .feat:nth-child(2n) { border-right: 0; }
 .feat:nth-child(n + 3) { border-bottom: 0; }
 .feat h3 { font-size: clamp(19px, 1.8vw, 22px); font-weight: 500; }
 .feat p { font-size: 15.5px; line-height: 1.65; color: var(--cream-55); }
+
+/* 3-up variant: 6 consolidated cards in two rows */
+.features--3 { grid-template-columns: repeat(3, 1fr); }
+.features--3 .feat { padding: clamp(20px, 2.6vw, 32px); }
+.features--3 .feat h3 { font-size: clamp(17px, 1.5vw, 19px); }
+.features--3 .feat p { font-size: 14.5px; }
+.features--3 .feat:nth-child(2n) { border-right: 1px solid var(--hairline); }
+.features--3 .feat:nth-child(3n) { border-right: 0; }
+.features--3 .feat:nth-child(n + 3) { border-bottom: 1px solid var(--hairline); }
+.features--3 .feat:nth-child(n + 4) { border-bottom: 0; }
+
+.alsobox {
+  margin-top: clamp(20px, 2.6vw, 28px);
+  border: 1px solid var(--hairline); background: rgba(17, 15, 11, 0.45);
+  padding: clamp(16px, 2vw, 22px) clamp(20px, 2.6vw, 32px);
+  display: flex; align-items: baseline; gap: clamp(18px, 2.4vw, 34px); flex-wrap: wrap;
+}
+.alsobox__k { font-family: var(--mono); font-size: 10px; letter-spacing: 0.26em; text-transform: uppercase; color: var(--cream-35); white-space: nowrap; }
+.alsobox__items { font-family: var(--mono); font-size: 12px; line-height: 2; color: var(--cream-55); flex: 1; min-width: 260px; }
+.alsobox__items i { font-style: normal; color: var(--cream-35); padding-inline: 2px; }
 
 /* ---------------- benefits ---------------- */
 .benefits { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(24px, 3.5vw, 44px); }
@@ -458,8 +490,18 @@ img, svg, canvas { display: block; max-width: 100%; }
   .benefits { grid-template-columns: 1fr; }
   .nav__links a { display: none; }
 }
+@media (max-width: 980px) {
+  .marquee { grid-template-columns: 1fr; }
+  .mq { border-right: 0; border-bottom: 1px solid var(--hairline); }
+  .mq:last-child { border-bottom: 0; }
+  .features--3 { grid-template-columns: 1fr 1fr; }
+  .features--3 .feat:nth-child(3n) { border-right: 1px solid var(--hairline); }
+  .features--3 .feat:nth-child(2n) { border-right: 0; }
+  .features--3 .feat:nth-child(n + 4) { border-bottom: 1px solid var(--hairline); }
+  .features--3 .feat:nth-child(n + 5) { border-bottom: 0; }
+}
 @media (max-width: 640px) {
-  .features { grid-template-columns: 1fr; }
+  .features { grid-template-columns: 1fr !important; }
   .dsteps { grid-template-columns: 1fr; }
   .feat { border-right: 0 !important; border-bottom: 1px solid var(--hairline) !important; }
   .feat:last-child { border-bottom: 0 !important; }
