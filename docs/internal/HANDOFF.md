@@ -28,17 +28,34 @@ Onboarding for a fresh Claude Code session. Read this, then `.claude/skills/calm
 - **Every recipe is validated against its published reference implementation** (scikit-learn,
   SciPy, NumPy, numpy-financial, statsmodels, jiwer, HumanEval estimator, SQuAD normalizer, Guo
   ECE) via **385 byte-reproducible reference vectors** in `assets/reference_vectors.json`.
-- **Test suite: 14 suites, ~1010 checks, pure stdlib** — `python3 .claude/skills/calma/scripts/tests/run_all.py`.
+- **Test suite: 16 suites, ~1117 checks, pure stdlib** — `python3 .claude/skills/calma/scripts/tests/run_all.py`.
   The big one is `test_recipes_sota.py` (reference vectors + conventions + degenerate paths +
-  e2e + claim-parser regressions + registry↔site sync).
-- **Attestation chain (SHIPPED)**: pure-stdlib Ed25519 (`ed25519.py`, RFC 8032 vectors) signs every
-  run into a DSSE/in-toto bundle once `calma attest keygen` has run; `calma attest verify <bundle>
-  [--key pub] [--replay]` is the offline counterparty check (signature + byte-for-byte verdict
-  re-derivation — a forged-label bundle re-signed under a new key dies at ledger-rederive).
-  Bundle format is Sigstore-countersignature-ready (append to envelope.signatures). calma 0.4.0.
+  e2e + claim-parser regressions + registry↔site sync); new: `test_registry.py` (chain tamper
+  matrix), `test_compiler.py` (DSL + gate + frozen-asset tamper + compiled-recipe e2e).
+- **Attestation chain (SHIPPED to the full 3-layer spec, calma 0.5.0)**: DSSE/in-toto bundle,
+  predicate `calma.dev/verdict/v1` (SLSA-VSA-shaped: verifier+version, policy = contract +
+  calibration hashes, verdict, claims). The same Ed25519 key signs twice: raw DSSE (Sigstore-
+  countersignable) + OpenSSH SSHSIG (`sshsig.py`, namespace calma-attest@v1) with sidecars, so a
+  counterparty verifies with stock `ssh-keygen -Y verify`, zero installs (interop tested both
+  directions). Layer 1: `calma attest timestamp` = RFC 3161 token (`rfc3161.py`, freetsa default,
+  offline verification, openssl chain-check when present). Layer 2 (lab): `calma attest sigstore`
+  via optional sigstore-python -> Rekor. `calma attest verify` = both signatures + subject digests
+  + byte-for-byte verdict re-derivation + claims-binding + timestamp checks, fully offline.
+- **Catch history (SHIPPED)**: `calma publish <run_dir>` appends a REDACTED entry (whitelist
+  enforced at append + audit; never code/data) derived from a VERIFIED bundle into `registry/`
+  (hash chain, every entry + HEAD SSHSIG-signed); `calma publish --open <id>` logs engagements at
+  signing (missing outcome = visible); `calma registry verify` audits offline. Site: `/registry`.
+- **Recipe compiler (SHIPPED)**: `dsl.py` (typed JSON expression DSL over numeric.py kernels, no
+  loops — total by construction, depth/size budgets) + `compiler.py admit` (deterministic CEGIS
+  gate: differential vs named oracle in the reference venv, metamorphic suite, degeneracy,
+  bit-stability; failures = structured counterexamples). Frozen into `assets/compiled_recipes.json`
+  (content hash re-validated at load — fails closed), maturity `compiled-validated`. Two real
+  recipes admitted: `sem`, `coefficient_of_variation` → registry is 120. Draft schema:
+  `references/recipe-draft.schema.json`.
 - **Site** (Next.js, static): landing (hero → problem → how-it-works → features w/ marquee +
-  9-card grid + 118-recipe band → benefits → about → FAQ → outro), `/recipes` (all 118, grouped,
-  per-recipe claim/how/reference/conventions), `/lab` (the capital-allocation surface per
+  9-card grid + 120-recipe band → benefits → about → FAQ → outro), `/recipes` (all 120, grouped,
+  per-recipe claim/how/reference/conventions, incl. the compiled family), `/registry` (the catch
+  history, rendered from `registry/` at build), `/lab` (the capital-allocation surface per
   FINAL.md option 1: thesis, who engages, 4-step engagement ending in the registry, adversarial
   terms, positioning one-liners). Design: warm-black + cream + amber, film grain + warm paper
   texture overlay (`.paper`, mounted in layout), glow ONLY in hero + outro sunrise, hover
@@ -52,8 +69,11 @@ Onboarding for a fresh Claude Code session. Read this, then `.claude/skills/calm
   no numpy, no platform libm; it has its own log/exp/lgamma/incomplete-beta/gamma/erfc kernels).
 - No REFUTED on ambiguous bindings / failed re-runs / flaky outputs / unconfirmed claim targets
   → degrade to INCONCLUSIVE with a `fix:` line. Bias caveat over false alarm, always.
-- New recipes ship ONLY with reference-vector validation. Honesty in copy: signing is now real and
-  may be claimed; still don't claim Sigstore/transparency-log, insurers, accreditation, or a named
+- New recipes ship ONLY with reference-vector validation (reviewed recipes) or compiler-gate
+  admission (compiled recipes). Honesty in copy: signing, SSHSIG/ssh-keygen verification,
+  RFC 3161 timestamps, and the hash-chained registry are real and may be claimed. Sigstore is
+  "ready / lab-tier optional" — do NOT claim verdicts are IN Rekor until a real engagement has
+  actually run `calma attest sigstore`. Still never claim insurers, accreditation, or a named
   methodologist — none exist yet.
 
 ## How to work on it
@@ -83,16 +103,29 @@ python3 .claude/skills/calma/scripts/calma.py verify <dir> "<claim>" --json   # 
 
 ## Next work (agreed with the founder, in order)
 
-1. ~~**Attestation chain**~~ — SHIPPED 2026-06-10 (see Current state above + BUILD-NOTES tail).
-   Site copy upgraded to "signed". Remaining future step: the Sigstore countersignature itself.
-2. **Catch history** — opt-in `calma publish`: a redacted (claim/verdict/gap only), attested,
-   static registry entry; in-repo `registry/` rendered by the site; git history = tamper
-   evidence. This is also the engagement-registry machinery for /lab.
-3. **Recipe compiler** — model DRAFTS a recipe offline as a constrained composition of existing
-   deterministic kernels; admission gate = auto-generated reference vectors + property tests; only
-   then frozen, content-hashed, registered. Execution stays deterministic — generation is the only
-   ML. v1 scope: kernel compositions only. ("Compiled, validated, frozen — never improvised at
-   verify time.")
+1. ~~**Attestation chain**~~ — SHIPPED 2026-06-10, completed to the full 3-layer spec same day
+   (VSA predicate + SSHSIG + RFC 3161 + Sigstore wrapper; see Current state + BUILD-NOTES tail).
+2. ~~**Catch history**~~ — SHIPPED 2026-06-10 (`calma publish` / `registry verify`, `registry/`
+   + `/registry` page). The committed registry is EMPTY until the founder publishes the genesis
+   entry with the lab key (see founder actions below).
+3. ~~**Recipe compiler**~~ — SHIPPED 2026-06-10 (dsl.py + compiler.py CEGIS gate; sem +
+   coefficient_of_variation admitted; 120 recipes).
+
+**Founder actions pending (one-time, need the personal lab key / identity):**
+- `calma attest keygen` (or `--import ~/.ssh/id_ed25519`) on the lab machine, then publish the
+  lab public key (site/README) so counterparties can pin it.
+- Genesis registry entry: verify something real, `calma attest sign` + `calma attest timestamp`,
+  then `calma publish <run_dir> --registry registry/` and commit WITH A SIGNED COMMIT
+  (`git config commit.gpgsign true` + `gpg.format ssh`).
+- Re-admit the two compiled recipes WITH the lab key present so the compiled_recipes.json
+  entries carry the lab SSHSIG (currently unsigned — admission ran on a key-less machine):
+  `python3 scripts/compiler.py admit calibration/drafts/sem.json` (and cv).
+- Lab tier when needed: `pip install sigstore` and `calma attest sigstore <bundle>` on a real
+  engagement — the OIDC flow is interactive, so it could not be exercised in-session.
+
+**Next build candidates (in rough order):** Linux isolation tier (top roadmap item per README
+limitations), registry v2 (tlog-tiles Merkle tree + C2SP checkpoints + public witness cosigs —
+additive, entries already hash-addressed), more compiled-recipe drafts through the gate.
 
 ## Gotchas
 

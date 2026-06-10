@@ -1,7 +1,9 @@
 """Attestation chain: pure-stdlib Ed25519 against the RFC 8032 section 7.1 vectors, the DSSE
-pre-auth encoding, and the signed bundle end-to-end - including the adversarial cases: tampered
-payload, swapped verdict re-signed under the attacker's OWN key (the ledger re-derivation must
-catch the forged label), pinned-key mismatch, and malleated signatures. Pure stdlib.
+pre-auth encoding, SSHSIG (interop with the system ssh-keygen, both directions), the VSA-shaped
+predicate, RFC 3161 timestamps (against a locally-built openssl TSA - no network), and the signed
+bundle end-to-end - including the adversarial cases: tampered payload, swapped verdict re-signed
+under the attacker's OWN key (the ledger re-derivation must catch the forged label), pinned-key
+mismatch, SSHSIG namespace confusion, lifted timestamp tokens, and malleated signatures.
 Run: python3 test_attest.py
 """
 import base64
@@ -10,6 +12,7 @@ import hashlib
 import json
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 
@@ -20,8 +23,12 @@ import attest as A  # noqa: E402
 import calma as C  # noqa: E402
 import ed25519 as E  # noqa: E402
 import recompute as RC  # noqa: E402
+import rfc3161 as T  # noqa: E402
+import sshsig as S  # noqa: E402
 
 BTC = os.path.realpath(os.path.join(SCR, "..", "assets", "btc"))
+SSH_KEYGEN = shutil.which("ssh-keygen")
+OPENSSL = shutil.which("openssl")
 _n = _fail = 0
 
 
@@ -31,6 +38,25 @@ def truth(cond, label):
     if not cond:
         _fail += 1
         print("  FAIL [%s]" % label)
+
+
+def full_resign(t, p_obj, seed):
+    """Re-sign a (possibly tampered) statement completely - DSSE + SSHSIG + embedded keys -
+    exactly what a capable attacker with their own key would do."""
+    payload = A._canonical(p_obj)
+    pub = E.secret_to_public(seed)
+    principal = "calma-" + A._keyid(pub)[:16]
+    t["envelope"]["payload"] = base64.b64encode(payload).decode()
+    t["envelope"]["signatures"] = [{
+        "keyid": A._keyid(pub),
+        "sig": base64.b64encode(E.sign(seed, A._pae(A.PAYLOAD_TYPE, payload))).decode()}]
+    t["ssh"] = {"namespace": S.NAMESPACE, "principal": principal,
+                "public_key": S.pub_line(pub, principal),
+                "allowed_signers": S.allowed_signers_line(pub, principal),
+                "signature": S.sign(seed, payload)}
+    t["verification"] = {"public_keys": [{"keyid": A._keyid(pub), "scheme": "ed25519",
+                                          "public_key_hex": pub.hex()}]}
+    return t
 
 
 # --- Ed25519: RFC 8032 section 7.1 test vectors (secret -> public, sign, verify) ---
@@ -100,9 +126,64 @@ ok, checks = A.verify_bundle(bundle)
 truth(ok, "auto-signed bundle verifies offline: %s" % [c for c in checks if not c[1]])
 truth(res["repo_verdict"] == "REFUTED", "fixture run is REFUTED (the bundle still verifies)")
 
-# explicit sign matches the auto-signed bundle byte-for-byte (deterministic signing)
-b2, _ = A.sign_run(res["run_dir"], out=os.path.join(tmp_keys, "again.json"))
-truth(A._canonical(b2) == A._canonical(bundle), "signing is deterministic: same run, same bundle")
+# explicit sign matches the auto-signed bundle byte-for-byte (deterministic signing given the
+# same timeVerified - EdDSA has no nonce; wall-clock time is the only varying input)
+auto_tv = json.loads(base64.b64decode(bundle["envelope"]["payload"]))["predicate"]["timeVerified"]
+b2, _ = A.sign_run(res["run_dir"], out=os.path.join(tmp_keys, "again.json"), time_verified=auto_tv)
+truth(A._canonical(b2) == A._canonical(bundle), "signing is deterministic: same run+time, same bundle")
+
+# --- the VSA shape: verifier/policy/claims are present and bound ---
+stmt = json.loads(base64.b64decode(bundle["envelope"]["payload"]))
+pred = stmt["predicate"]
+truth(stmt["predicateType"] == "https://calma.dev/verdict/v1", "predicateType is calma.dev/verdict/v1")
+truth(pred["verifier"]["engine"] == "calma" and pred["verifier"]["version"] == C.__version__,
+      "VSA verifier carries the engine + version")
+truth(isinstance(pred["timeVerified"], str) and pred["timeVerified"].endswith("Z"),
+      "VSA timeVerified is ISO 8601 UTC")
+truth(pred["policy"]["contract_sha256"] is not None, "VSA policy pins the contract hash")
+truth(pred["policy"]["reference_vectors_sha256"] is not None, "VSA policy pins the calibration corpus")
+truth(pred["claims"] and pred["claims"][0]["verdict"] == "REFUTED"
+      and pred["claims"][0]["claimed"] is not None,
+      "VSA claims summary carries claimed vs recomputed + verdict")
+truth(len(stmt["subject"]) >= 2 and stmt["subject"][1]["name"].endswith("/manifest"),
+      "manifest root hash is a first-class subject")
+
+# --- SSHSIG: in-bundle + sidecars + system ssh-keygen interop ---
+truth(bundle.get("ssh", {}).get("namespace") == "calma-attest@v1",
+      "bundle carries an SSHSIG in the calma-attest@v1 namespace")
+payload_bytes = base64.b64decode(bundle["envelope"]["payload"])
+okS, detS = S.verify(bundle["ssh"]["signature"], payload_bytes)
+truth(okS, "in-bundle SSHSIG verifies pure-stdlib: %s" % detS)
+okS2, _ = S.verify(bundle["ssh"]["signature"], payload_bytes + b"x")
+truth(not okS2, "SSHSIG rejects an altered payload")
+okS3, detS3 = S.verify(bundle["ssh"]["signature"], payload_bytes, namespace="file")
+truth(not okS3 and "namespace" in detS3, "SSHSIG namespace confusion is rejected (anti cross-protocol)")
+for name in (A.PAYLOAD_SIDECAR, A.SSHSIG_SIDECAR, A.SIGNERS_SIDECAR):
+    truth(os.path.exists(os.path.join(res["run_dir"], name)), "sidecar %s is written" % name)
+if SSH_KEYGEN:
+    r = subprocess.run([SSH_KEYGEN, "-Y", "verify",
+                        "-f", os.path.join(res["run_dir"], A.SIGNERS_SIDECAR),
+                        "-I", bundle["ssh"]["principal"], "-n", S.NAMESPACE,
+                        "-s", os.path.join(res["run_dir"], A.SSHSIG_SIDECAR)],
+                       input=open(os.path.join(res["run_dir"], A.PAYLOAD_SIDECAR), "rb").read(),
+                       capture_output=True)
+    truth(r.returncode == 0, "stock ssh-keygen -Y verify accepts the sidecars: %s"
+          % r.stderr.decode().strip()[:120])
+    # reverse interop: a signature made BY ssh-keygen verifies in our parser
+    sshd = tempfile.mkdtemp()
+    subprocess.run([SSH_KEYGEN, "-t", "ed25519", "-N", "", "-q",
+                    "-f", os.path.join(sshd, "k")], check=True)
+    msgp = os.path.join(sshd, "m")
+    open(msgp, "wb").write(b"reverse interop")
+    subprocess.run([SSH_KEYGEN, "-Y", "sign", "-f", os.path.join(sshd, "k"),
+                    "-n", S.NAMESPACE, msgp], check=True, capture_output=True)
+    okR, detR = S.verify(open(msgp + ".sig").read(), b"reverse interop")
+    truth(okR, "a signature made by ssh-keygen verifies pure-stdlib: %s" % detR)
+    # OpenSSH private key import round-trips
+    seed_os = S.load_openssh_private_key(open(os.path.join(sshd, "k")).read())
+    truth(E.secret_to_public(seed_os) == S.parse_pub_line(open(os.path.join(sshd, "k.pub")).read()),
+          "OpenSSH ed25519 private key import derives the matching public key")
+    shutil.rmtree(sshd, ignore_errors=True)
 
 # pinning: the right key passes, a different key fails
 ok_pin, _ = A.verify_bundle(bundle, pinned_pub_hex=info["public_key"])
@@ -138,27 +219,48 @@ truth(any(n == "signature" and o for n, o, _ in checks2),
 truth(not ok2 and any(n == "ledger-rederive" and not o for n, o, _ in checks2),
       "re-signed forged bundle: verdict labels fail byte-for-byte re-derivation")
 
-# (3) statement verdict diverges from the (untouched) embedded ledger -> verdict-binding fails
+# (3) statement verdict diverges from the (untouched) embedded ledger -> verdict-binding fails.
+# The attacker fully re-signs (DSSE + SSHSIG) under their own key, so every signature check
+# passes - the cross-binding checks are what must catch it.
 led_real = payload["predicate"]["ledger"]
 t3 = A.make_bundle(led_real, payload["predicate"]["manifest"], attacker_seed)
 p3 = json.loads(base64.b64decode(t3["envelope"]["payload"]))
 p3["predicate"]["verdict"] = "CONFIRMED"
-p3["subject"][0]["digest"]["sha256"] = hashlib.sha256(A._canonical(led_real)).hexdigest()
-sig3 = E.sign(attacker_seed, A._pae(A.PAYLOAD_TYPE, A._canonical(p3)))
-t3["envelope"]["payload"] = base64.b64encode(A._canonical(p3)).decode()
-t3["envelope"]["signatures"][0]["sig"] = base64.b64encode(sig3).decode()
+p3["predicate"]["claims"] = A.claims_summary(led_real)
+full_resign(t3, p3, attacker_seed)
 ok3, checks3 = A.verify_bundle(t3)
 truth(not ok3 and any(n == "verdict-binding" and not o for n, o, _ in checks3),
       "statement verdict != embedded ledger verdict fails verdict-binding")
 
+# (3b) forged claims SUMMARY over an untouched ledger -> claims-binding fails
+t3b = A.make_bundle(led_real, payload["predicate"]["manifest"], attacker_seed)
+p3b = json.loads(base64.b64decode(t3b["envelope"]["payload"]))
+p3b["predicate"]["claims"] = [dict(c, verdict="CONFIRMED") for c in p3b["predicate"]["claims"]]
+full_resign(t3b, p3b, attacker_seed)
+ok3b, checks3b = A.verify_bundle(t3b)
+truth(not ok3b and any(n == "claims-binding" and not o for n, o, _ in checks3b),
+      "forged predicate claims summary fails claims-binding")
+
+# (3c) SSHSIG stripped from a @2 bundle -> fails (no silent downgrade)
+t3c = copy.deepcopy(bundle)
+del t3c["ssh"]
+ok3c, checks3c = A.verify_bundle(t3c)
+truth(not ok3c and any(n == "ssh-signature" and not o for n, o, _ in checks3c),
+      "stripping the SSHSIG from a @2 bundle fails (no downgrade)")
+
+# (3d) mix-and-match: DSSE signed by the real key, SSHSIG swapped for the attacker's -> fails
+t3d = copy.deepcopy(bundle)
+t3d["ssh"]["signature"] = S.sign(attacker_seed, base64.b64decode(bundle["envelope"]["payload"]))
+ok3d, checks3d = A.verify_bundle(t3d)
+truth(not ok3d and any(n == "ssh-signature" and not o for n, o, _ in checks3d),
+      "SSHSIG from a different key than the DSSE signer fails (no mix-and-match)")
+
 # (4) tampered subject digest -> fails before the ledger is even trusted
+seed_real = bytes.fromhex(open(info["key_path"]).read().strip())
 t4 = copy.deepcopy(bundle)
 p4 = copy.deepcopy(payload)
 p4["subject"][0]["digest"]["sha256"] = "0" * 64
-sig4 = E.sign(bytes.fromhex(open(info["key_path"]).read().strip()),
-              A._pae(A.PAYLOAD_TYPE, A._canonical(p4)))
-t4["envelope"]["payload"] = base64.b64encode(A._canonical(p4)).decode()
-t4["envelope"]["signatures"][0]["sig"] = base64.b64encode(sig4).decode()
+full_resign(t4, p4, seed_real)
 ok4, checks4 = A.verify_bundle(t4)
 truth(not ok4 and any(n == "subject-digest" and not o for n, o, _ in checks4),
       "tampered subject digest fails even under a valid signature")
@@ -214,6 +316,69 @@ try:
 except ValueError:
     truth(True, "sign_run without a ledger raises")
 truth(A.load_signing_key("/nonexistent/key") is None, "load_signing_key absent -> None")
+
+# --- RFC 3161 (Layer 1) against a locally-built openssl TSA - zero network ---
+if OPENSSL:
+    tsd = tempfile.mkdtemp()
+
+    def _ossl(*args, **kw):
+        return subprocess.run([OPENSSL] + list(args), capture_output=True, text=True,
+                              cwd=tsd, **kw)
+
+    open(os.path.join(tsd, "ext.cnf"), "w").write(
+        "[tsa_ext]\nextendedKeyUsage=critical,timeStamping\n")
+    open(os.path.join(tsd, "tsa.cnf"), "w").write(
+        "[ tsa ]\ndefault_tsa = tsa_config1\n[ tsa_config1 ]\nserial = ./serial\n"
+        "default_policy = 1.2.3.4\ndigests = sha256\naccuracy = secs:1\nordering = no\n"
+        "tsa_name = no\ness_cert_id_chain = no\nsigner_digest = sha256\n")
+    open(os.path.join(tsd, "serial"), "w").write("01\n")
+    _ossl("req", "-x509", "-newkey", "rsa:2048", "-keyout", "cakey.pem", "-out", "cacert.pem",
+          "-nodes", "-days", "3", "-subj", "/CN=Calma Test CA")
+    _ossl("req", "-newkey", "rsa:2048", "-keyout", "tsakey.pem", "-out", "tsa.csr",
+          "-nodes", "-subj", "/CN=Calma Test TSA")
+    _ossl("x509", "-req", "-in", "tsa.csr", "-CA", "cacert.pem", "-CAkey", "cakey.pem",
+          "-CAcreateserial", "-out", "tsacert.pem", "-days", "2",
+          "-extfile", "ext.cnf", "-extensions", "tsa_ext")
+    tsig = base64.b64decode(bundle["envelope"]["signatures"][0]["sig"])
+    open(os.path.join(tsd, "req.tsq"), "wb").write(T.request_der(tsig, nonce=7))
+    rts = _ossl("ts", "-reply", "-queryfile", "req.tsq", "-signer", "tsacert.pem",
+                "-inkey", "tsakey.pem", "-out", "resp.tsr", "-config", "tsa.cnf")
+    truth(rts.returncode == 0, "local openssl TSA issues a token: %s" % rts.stderr.strip()[:120])
+    token = open(os.path.join(tsd, "resp.tsr"), "rb").read()
+    tinfo = T.parse_tstinfo(token)
+    truth(tinfo["imprint_sha256_hex"] == hashlib.sha256(tsig).hexdigest(),
+          "TSTInfo messageImprint is sha256 of the DSSE signature")
+    tb = copy.deepcopy(bundle)
+    tb["timestamps"] = [{"format": "rfc3161", "tsa_url": "local-test",
+                         "gen_time": tinfo["gen_time"], "serial": str(tinfo["serial"]),
+                         "token_b64": base64.b64encode(token).decode(),
+                         "tsa_ca_pem": open(os.path.join(tsd, "cacert.pem")).read(),
+                         "covers": "envelope.signatures[0].sig"}]
+    okT, checksT = A.verify_bundle(tb)
+    ts_check = [c for c in checksT if c[0] == "timestamp"]
+    truth(okT and ts_check and ts_check[0][1] and "chain verified" in ts_check[0][2],
+          "timestamped bundle verifies with full chain verification: %s"
+          % (ts_check[0][2] if ts_check else "no timestamp check ran"))
+    # lifted token: the same token on a DIFFERENT bundle (other signature bytes) must fail
+    tb2 = copy.deepcopy(t2)  # the attacker's forged-label bundle from case (2)
+    tb2["timestamps"] = copy.deepcopy(tb["timestamps"])
+    okT2, checksT2 = A.verify_bundle(tb2)
+    truth(any(n == "timestamp" and not o and "imprint" in d for n, o, d in checksT2),
+          "a timestamp token lifted from another bundle fails the imprint binding")
+    # degraded tier: no CA cert embedded -> verifies structurally and SAYS so
+    tb3 = copy.deepcopy(tb)
+    tb3["timestamps"][0]["tsa_ca_pem"] = None
+    okT3, checksT3 = A.verify_bundle(tb3)
+    ts3 = [c for c in checksT3 if c[0] == "timestamp"][0]
+    truth(okT3 and "structural only" in ts3[2],
+          "timestamp without a CA cert verifies structurally and reports the degraded tier")
+    # garbage token fails cleanly
+    tb4 = copy.deepcopy(tb)
+    tb4["timestamps"][0]["token_b64"] = base64.b64encode(b"garbage").decode()
+    okT4, checksT4 = A.verify_bundle(tb4)
+    truth(not okT4 and any(n == "timestamp" and not o for n, o, _ in checksT4),
+          "a malformed timestamp token fails cleanly")
+    shutil.rmtree(tsd, ignore_errors=True)
 
 del os.environ["CALMA_KEY_DIR"]
 shutil.rmtree(tmp_keys, ignore_errors=True)

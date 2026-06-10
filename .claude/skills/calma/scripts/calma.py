@@ -28,7 +28,7 @@ import report as REP
 import run_hermetic as H
 import verdict as V
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 QUANT_METRICS = {"total_return", "sharpe", "max_drawdown"}
 
@@ -539,15 +539,44 @@ def main():
     atsub = at.add_subparsers(dest="attest_cmd", required=True)
     kg = atsub.add_parser("keygen", help="generate a local Ed25519 signing key (~/.calma/keys)")
     kg.add_argument("--force", action="store_true", help="overwrite an existing key")
+    kg.add_argument("--import", dest="import_key", metavar="SSH_KEY",
+                    help="adopt an existing UNENCRYPTED OpenSSH ed25519 key (e.g. ~/.ssh/id_ed25519)")
     sg = atsub.add_parser("sign", help="sign a run dir's ledger+manifest into attestation.bundle.json")
     sg.add_argument("run_dir", help="the .calma/<run-id> dir from a previous verify")
     sg.add_argument("--key", help="signing key file (default: ~/.calma/keys/ed25519.key)")
     sg.add_argument("--out", help="bundle output path (default: <run_dir>/attestation.bundle.json)")
+    sg.add_argument("--timestamp", action="store_true",
+                    help="also countersign with an RFC 3161 trusted timestamp (needs network once)")
+    sg.add_argument("--tsa", default=None, help="timestamp authority URL (default: freetsa.org)")
+    ts = atsub.add_parser("timestamp", help="add an RFC 3161 trusted timestamp to an existing bundle")
+    ts.add_argument("bundle", help="path to attestation.bundle.json")
+    ts.add_argument("--tsa", default=None, help="timestamp authority URL (default: freetsa.org)")
+    sx = atsub.add_parser("sigstore", help="lab tier: Sigstore keyless countersign (needs sigstore-python)")
+    sx.add_argument("bundle", help="path to attestation.bundle.json")
+    sx.add_argument("--out", help="output path (default: <bundle dir>/attestation.sigstore.json)")
     av = atsub.add_parser("verify", help="verify a bundle offline: signature + verdict re-derivation")
     av.add_argument("bundle", help="path to attestation.bundle.json")
     av.add_argument("--key", help="pin the signer: hex public key, or a path to the .pub file")
     av.add_argument("--replay", action="store_true",
                     help="also re-execute the run next to the bundle and check the verdict reproduces")
+    pb = sub.add_parser("publish", help="append a REDACTED entry (claim/verdict/gap only - never "
+                                        "code or data) to the public catch-history registry")
+    pb.add_argument("run_dir", nargs="?", default=None,
+                    help="the .calma/<run-id> dir of an attested run (omit with --open)")
+    pb.add_argument("--registry", default=None,
+                    help="registry directory (default: $CALMA_REGISTRY_DIR, then ./registry)")
+    pb.add_argument("--engagement", default=None, help="link the outcome to an engagement id")
+    pb.add_argument("--open", dest="open_id", metavar="ENGAGEMENT_ID", default=None,
+                    help="publish an engagement-opened entry at contract signing "
+                         "(a missing outcome is then visible - the clinical-trial property)")
+    pb.add_argument("--note", default=None, help="one redacted line of context")
+    pb.add_argument("--key", help="signing key file (default: ~/.calma/keys/ed25519.key)")
+    rg = sub.add_parser("registry", help="audit the catch-history registry chain offline")
+    rgsub = rg.add_subparsers(dest="registry_cmd", required=True)
+    rgv = rgsub.add_parser("verify", help="re-hash every entry, walk the chain, check every signature")
+    rgv.add_argument("dir", nargs="?", default=None,
+                     help="registry directory (default: $CALMA_REGISTRY_DIR, then ./registry)")
+    rgv.add_argument("--key", help="pin the signer: hex public key, or a path to the .pub file")
     a = ap.parse_args()
     try:
         if a.cmd == "verify":
@@ -580,13 +609,44 @@ def main():
             return 0
         if a.cmd == "attest":
             if a.attest_cmd == "keygen":
-                info = attest.keygen(force=a.force)
-                print("key written: %s (0600)\npublic key:  %s\nkeyid:       %s"
-                      % (info["key_path"], info["public_key"], info["keyid"]))
+                info = attest.keygen(force=a.force, import_key=a.import_key)
+                print("key written: %s (0600)%s\npublic key:  %s\nssh form:    %s\nkeyid:       %s"
+                      % (info["key_path"],
+                         (" - imported from %s" % a.import_key) if a.import_key else "",
+                         info["public_key"], info["ssh_public_key"], info["keyid"]))
                 return 0
             if a.attest_cmd == "sign":
-                bundle, out = attest.sign_run(os.path.realpath(a.run_dir), key_path=a.key, out=a.out)
+                run_dir = os.path.realpath(a.run_dir)
+                bundle, out = attest.sign_run(run_dir, key_path=a.key, out=a.out)
+                if a.timestamp:
+                    import rfc3161
+                    entry = rfc3161.timestamp_bundle(bundle, a.tsa or rfc3161.DEFAULT_TSA)
+                    json.dump(bundle, open(out, "w"), indent=2)
+                    print("timestamped: %s (RFC 3161, %s)" % (entry["gen_time"], entry["tsa_url"]))
                 print("signed: %s\nkeyid:  %s" % (out, bundle["envelope"]["signatures"][0]["keyid"]))
+                print("counterparty check with stock OpenSSH (no installs):\n"
+                      "  cd %s && ssh-keygen -Y verify -f %s -I %s -n %s -s %s < %s"
+                      % (os.path.dirname(out) or ".", attest.SIGNERS_SIDECAR,
+                         bundle["ssh"]["principal"], bundle["ssh"]["namespace"],
+                         attest.SSHSIG_SIDECAR, attest.PAYLOAD_SIDECAR))
+                return 0
+            if a.attest_cmd == "timestamp":
+                import rfc3161
+                bundle = json.load(open(a.bundle))
+                entry = rfc3161.timestamp_bundle(bundle, a.tsa or rfc3161.DEFAULT_TSA)
+                json.dump(bundle, open(a.bundle, "w"), indent=2)
+                print("timestamped: %s\n  TSA:    %s\n  serial: %s\nthe token verifies offline; "
+                      "network was needed only for this step"
+                      % (entry["gen_time"], entry["tsa_url"], entry["serial"]))
+                return 0
+            if a.attest_cmd == "sigstore":
+                import sigstore_l2
+                bundle = json.load(open(a.bundle))
+                out = a.out or os.path.join(os.path.dirname(os.path.realpath(a.bundle)),
+                                            "attestation.sigstore.json")
+                info = sigstore_l2.sigstore_sign(bundle, out)
+                print("sigstore bundle: %s\n  identity: %s\n  rekor log index: %s"
+                      % (info["out"], info.get("identity"), info.get("log_index")))
                 return 0
             if a.attest_cmd == "verify":
                 try:
@@ -604,6 +664,58 @@ def main():
                     print("\n" + text)
                     ok = ok and rok
                 return 0 if ok else 1
+        if a.cmd == "publish":
+            import registry as REG
+            reg_dir = a.registry or os.environ.get("CALMA_REGISTRY_DIR") or "registry"
+            if not a.open_id and not os.path.isdir(reg_dir):
+                print("error: no registry directory at %r - pass --registry or set "
+                      "CALMA_REGISTRY_DIR (the public repo's registry/)" % reg_dir, file=sys.stderr)
+                return 2
+            seed = attest.load_signing_key(a.key)
+            if seed is None:
+                print("error: no signing key - run `calma attest keygen` first (publish entries "
+                      "are signed with the same key as attestations)", file=sys.stderr)
+                return 2
+            if a.open_id:
+                entry = REG.opened_entry(a.open_id, note=a.note)
+            else:
+                if not a.run_dir:
+                    print("error: pass a run dir (or --open <engagement-id>)", file=sys.stderr)
+                    return 2
+                bpath = os.path.join(os.path.realpath(a.run_dir), attest.BUNDLE_NAME)
+                if not os.path.exists(bpath):
+                    print("error: no %s under %s - publish requires attest; run "
+                          "`calma attest sign %s` first" % (attest.BUNDLE_NAME, a.run_dir, a.run_dir),
+                          file=sys.stderr)
+                    return 2
+                bundle = json.load(open(bpath))
+                bok, bchecks = attest.verify_bundle(bundle)
+                if not bok:
+                    print("error: the attestation bundle does not verify - refusing to publish:\n%s"
+                          % attest.render_verify(bundle, bok, bchecks), file=sys.stderr)
+                    return 1
+                entry = REG.derive_entry(bundle, engagement=a.engagement, note=a.note)
+            fname, wrapper = REG.append_entry(reg_dir, entry, seed)
+            e = wrapper["entry"]
+            print("published: %s/entries/%s" % (reg_dir, fname))
+            print("  kind     %s" % e["kind"])
+            if e.get("claim"):
+                print("  claim    %s" % e["claim"])
+            if e.get("recomputed") is not None:
+                print("  recomputed %s" % e["recomputed"])
+            print("  verdict  %s\n  id       %s" % (e.get("verdict"), wrapper["id"]))
+            print("the entry is redacted (no code, no data), chained to the previous entry, and "
+                  "signed; commit it with a signed commit to complete the public record")
+            return 0
+        if a.cmd == "registry" and a.registry_cmd == "verify":
+            import registry as REG
+            reg_dir = a.dir or os.environ.get("CALMA_REGISTRY_DIR") or "registry"
+            pinned = None
+            if a.key:
+                pinned = open(a.key).read().strip() if os.path.exists(a.key) else a.key.strip()
+            ok, checks, summary = REG.verify_chain(reg_dir, pinned_pub_hex=pinned)
+            print(REG.render_verify(ok, checks, summary))
+            return 0 if ok else 1
     except ValueError as e:
         print("error: %s" % e, file=sys.stderr)
         return 2

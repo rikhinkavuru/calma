@@ -574,6 +574,36 @@ img, svg, canvas { display: block; max-width: 100%; }
 }
 .rpage__foot { padding-top: 10px; }
 
+/* ---- the registry (catch history) ---- */
+.reg { border: 1px solid var(--hairline); }
+.reg__row {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 18px 20px; border-bottom: 1px solid var(--hairline);
+}
+.reg__row:last-child { border-bottom: 0; }
+.reg__line1 { display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap; }
+.reg__seq { font-size: 11px; color: var(--cream-35); letter-spacing: 0.08em; }
+.reg__date { font-size: 11px; color: var(--cream-55); }
+.reg__kind {
+  font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
+  color: var(--cream-35);
+}
+.reg__eng { font-size: 11px; color: var(--teal); }
+.reg__verdict {
+  margin-left: auto; font-family: var(--mono); font-size: 11px;
+  letter-spacing: 0.18em; text-transform: uppercase; color: var(--cream-55);
+}
+.reg__verdict--refuted { color: var(--amber); font-weight: 700; }
+.reg__verdict--confirmed { color: var(--teal); }
+.reg__verdict--pending { color: var(--cream-35); }
+.reg__claim { font-size: 14.5px; line-height: 1.6; color: var(--cream-70); }
+.reg__gap { font-size: 12.5px; color: var(--amber); }
+.reg__hash { font-size: 10.5px; color: var(--cream-35); letter-spacing: 0.04em; }
+.reg__empty {
+  border: 1px solid var(--hairline); padding: 26px 24px;
+  font-size: 15px; line-height: 1.65; color: var(--cream-55); max-width: 62ch;
+}
+
 @media (max-width: 980px) {
   .rband { grid-template-columns: 1fr; gap: 18px; }
   .rlist { grid-template-columns: 1fr 1fr; }

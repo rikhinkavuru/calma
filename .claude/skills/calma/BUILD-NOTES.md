@@ -260,3 +260,75 @@ Signing is no longer roadmap. Next-work item 1 from the handoff shipped:
   ("signed attestation bundle ... checks offline"), README under-the-hood step 6 + commands,
   SKILL.md step 5 + commands, script-interfaces.md bundle section. calma 0.3.0 -> 0.4.0 (the
   version is part of the cache fingerprint, so old cache entries invalidate - intended).
+
+## Attestation chain completed to spec + catch history + recipe compiler (2026-06-10, calma 0.5.0)
+
+The remaining two roadmap items shipped, and the attestation chain was brought to the full
+in-toto/Sigstore-stack design (three layers, each optional on top of the last):
+
+**Attestation upgrades (Layer 0-2):**
+- **VSA-shaped predicate** - predicateType is now `https://calma.dev/verdict/v1`, modeled on the
+  SLSA Verification Summary Attestation: `verifier` {id, engine, version}, `timeVerified`,
+  `policy` {contract hash + calibration.json + reference_vectors.json hashes}, `verdict`, a
+  `claims` summary - plus the full embedded ledger+manifest that give re-derivation teeth.
+  verify_bundle gains `claims-binding` (summary must equal derived-from-ledger; no split possible)
+  and still accepts @1 bundles/legacy predicates.
+- **SSHSIG (sshsig.py, pure stdlib)** - every bundle is signed TWICE with the same Ed25519 key:
+  raw DSSE (Sigstore-countersignable) and an OpenSSH SSHSIG (PROTOCOL.sshsig, namespace
+  `calma-attest@v1`). Sidecar files mean a counterparty verifies with stock
+  `ssh-keygen -Y verify` and ZERO installs - the crypto library is the OS. Interop tested both
+  directions against the system ssh-keygen. Mix-and-match (DSSE key != SSH key) and
+  ssh-block-stripping both fail closed. `keygen --import ~/.ssh/id_ed25519` adopts an existing
+  unencrypted OpenSSH identity (openssh-key-v1 parsed pure-stdlib).
+- **RFC 3161 trusted timestamps (rfc3161.py, Layer 1)** - `calma attest timestamp <bundle>`
+  builds the DER TimeStampReq pure-stdlib, POSTs to freetsa.org (the ONLY networked step),
+  embeds the token + TSA CA cert; verification is offline forever: TSTInfo parsed pure-stdlib
+  (imprint must be sha256 of THIS bundle's DSSE signature - a lifted token dies), full chain
+  via `openssl ts -verify` when openssl exists, honestly "structural only" when not. Tested
+  against a locally-built openssl TSA (no network in tests) + live freetsa interop verified.
+- **Sigstore Layer 2 (sigstore_l2.py, lab tier)** - `calma attest sigstore <bundle>` keyless-
+  countersigns the SAME payload bytes via sigstore-python (OIDC -> Fulcio -> Rekor) into a
+  standard Sigstore bundle. Optional dependency; missing install = exact instructions.
+
+**Catch history (registry.py) - next-work item 2, SHIPPED:**
+- `calma publish <run_dir>` -> a REDACTED entry (claim/metric/claimed-vs-recomputed/verdict/
+  content hashes; never code or data - ALLOWED_FIELDS whitelist enforced at append AND audit)
+  derived from a VERIFIED attestation bundle (publish requires attest). Hash chain (entry embeds
+  prev sha256, id = sha256(canonical)), every entry SSHSIG-signed, HEAD.json signed too so tail
+  truncation breaks the audit. `calma publish --open <id>` logs engagements at contract signing
+  (the clinical-trial property: a missing outcome is structurally visible).
+  `calma registry verify` audits everything offline. Tamper matrix tested: edit, edit+rehash,
+  drop-middle, truncate-tail, reorder, foreign-key-rebuild (pinned), redaction leaks.
+- `registry/` lives at the repo root (README + entries), rendered statically at `/registry`
+  (new page, site design language, graceful empty state, open engagements surfaced). Lab page
+  links it; Features card copy upgraded to "signed + trusted-timestamped + OpenSSH-verifiable".
+
+**Recipe compiler (dsl.py + compiler.py) - next-work item 3, SHIPPED:**
+- **DSL**: JSON expression trees over whitelisted numeric.py kernels (col/lit/call/op/zip/len),
+  typed bottom-up, no loops/recursion -> total by construction, MAX_DEPTH 16 / MAX_NODES 256
+  (DoS-safe). Interpreter degrades to NaN, never raises on numeric content; programs are
+  content-hashed (sha256 of canonical JSON).
+- **Admission gate (CEGIS)**: structural -> differential vs the NAMED oracle in the reference
+  venv over LCG datasets (rel tol 1e-9) -> metamorphic relations (permutation/scale/shift/
+  duplicate/bounds) -> degeneracy (empty/single/constant/NaN: degrade, never raise, never inf)
+  -> bit-stability double-run. Failures print structured counterexamples - the drafting model's
+  repair feedback. The gate proved itself live: the first cv draft declared duplicate-invariance,
+  which is FALSE under ddof=1, and the gate returned exact counterexamples; draft repaired,
+  re-admitted. Oracle modules allowlisted (numpy/scipy/sklearn/statsmodels/math/statistics);
+  `subprocess.*` etc. rejected structurally.
+- **Frozen + registered**: assets/compiled_recipes.json holds program + sha256 + pinned vectors
+  + admission metadata; recipes.py loads at import RE-VALIDATING the hash (tampered assets are
+  skipped with a warning - fails closed); set_maturity "compiled-validated"; claim hints insert
+  BEFORE the generic hint tail ("standard error of the mean" can never bind column_mean).
+  Draft contract: model-side schema at references/recipe-draft.schema.json.
+- **Two real recipes admitted through the real gate**: `sem` (scipy.stats.sem) and
+  `coefficient_of_variation` (scipy.stats.variation) - registry is now 120. Verified end-to-end
+  through the CLI: a true SEM claim CONFIRMS via the compiled recipe, an inflated one cannot.
+- Verify-time never consults a model. Compiled, validated, frozen - never improvised.
+
+**Suite: 16 suites, ~1117 checks, all green** (new: test_registry.py 24, test_compiler.py 45,
+test_attest.py 43->69). Site builds static incl. /registry. Dogfooded the whole chain through
+the real CLI: keygen -> verify (compiled recipe, CONFIRMED) -> attest verify (11 checks OK) ->
+stock ssh-keygen verify -> freetsa timestamp -> offline chain-verified re-verify -> publish
+(opened engagement + outcome + a REFUTED catch) -> registry verify -> replay reproduces.
+calma 0.4.0 -> 0.5.0.

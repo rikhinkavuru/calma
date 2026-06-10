@@ -1,4 +1,4 @@
-# Recipe catalog (118 recipes, all SOTA-validated)
+# Recipe catalog (120 recipes, all SOTA-validated)
 
 Every recipe recomputes its number ONLY from raw machine-readable artifacts via the
 reference-deterministic kernels in `numeric.py` (fsum / pairwise product / sqrt, plus the
@@ -181,3 +181,20 @@ Retrieval layout: one row per (query *(string)*, rank, relevance); rank 1 = best
 - pass_at_k is exact rational arithmetic (math.comb); mcc and chi-square tables use exact
   integer sums before the final float ops.
 - All recipes propagate NaN to a degenerate INCONCLUSIVE - never a silent number.
+
+## Compiled recipes (pack C: the recipe compiler)
+
+Compiled recipes are drafted offline as DSL compositions of the kernels above
+(`references/recipe-draft.schema.json`) and admitted by the deterministic gate in
+`scripts/compiler.py`: differential testing against the named reference implementation in the
+reference venv, the declared metamorphic relations, degeneracy checks, and a bit-stability
+double-run. Each ships frozen under a content hash in `assets/compiled_recipes.json` with
+`set_maturity: compiled-validated` and its differential vectors pinned (they re-validate
+pure-stdlib in `tests/test_compiler.py`).
+
+- **sem** - standard error of the mean: `fstd(value, ddof=1) / sqrt(n)`. Reference:
+  `scipy.stats.sem(ddof=1)`. Binding: one numeric `value` column. Metamorphics: permutation-
+  invariant, scales linearly, shift-invariant, >= 0.
+- **coefficient_of_variation** - relative dispersion: `fstd(value, ddof=1) / fmean(value)`.
+  Reference: `scipy.stats.variation(ddof=1)`. Binding: one numeric `value` column. Metamorphics:
+  permutation-invariant, SCALE-invariant, >= 0 on positive data.

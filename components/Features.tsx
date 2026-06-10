@@ -39,7 +39,7 @@ const FEATS: [string, string][] = [
   ],
   [
     "Signed, forensic attestation",
-    "Every run leaves a signed bundle (Ed25519 over a DSSE/in-toto statement) the other side checks offline — one command verifies the signature, re-derives every verdict, and can replay the whole run. Built for the counterparty, not the author.",
+    "Every run leaves a signed bundle — a DSSE/in-toto verdict statement signed twice with the same key: once for the Sigstore stack, once as an OpenSSH signature your counterparty checks with stock ssh-keygen and zero installs. An optional RFC 3161 trusted timestamp makes the date provable. One command verifies offline, re-derives every verdict, and can replay the whole run.",
   ],
   [
     "Built for agent loops & CI",
@@ -94,17 +94,19 @@ export function Features() {
         <Reveal delay={300}>
           <div className="rband">
             <div className="rband__n">
-              <span className="rband__num">118</span>
+              <span className="rband__num">120</span>
               <span className="rband__sub">SOTA recipes</span>
             </div>
             <p className="rband__copy">
               A recipe is how Calma rebuilds one kind of number — a Sortino ratio, a p95 latency, a
               pass@1, a Fisher exact p, a WER — from the raw output files. <b>Every one is validated against the
               published reference implementation</b> (scikit-learn, SciPy, NumPy) before it ships,
-              and runs deterministically: same inputs, same number, to the bit.
+              and runs deterministically: same inputs, same number, to the bit. New recipes are
+              compiled, not improvised: drafted offline, admitted by a deterministic gate, frozen
+              under a content hash.
             </p>
             <a className="pbtn pbtn--amber" href="/recipes">
-              Browse all 118
+              Browse all 120
             </a>
           </div>
         </Reveal>

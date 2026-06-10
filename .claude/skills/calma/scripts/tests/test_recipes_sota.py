@@ -219,7 +219,23 @@ EXPECTED = {
     # pack 11 - retrieval / LLM evals II
     "precision_at_k", "map_at_k", "perplexity", "wer",
 }
-truth(set(R.ids()) == EXPECTED, "registry holds exactly the 118 recipes (got %d)" % len(R.ids()))
+_reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
+_compiled = set(R.ids()) - _reviewed
+truth(_reviewed == EXPECTED, "registry holds exactly the 118 reviewed recipes (got %d)" % len(_reviewed))
+# compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
+import dsl as _dsl  # noqa: E402
+import json as _json  # noqa: E402
+_compiled_path = os.path.join(HERE, "..", "..", "assets", "compiled_recipes.json")
+_book = {r["metric_id"]: r for r in (_json.load(open(_compiled_path))["recipes"]
+                                     if os.path.exists(_compiled_path) else [])}
+truth(_compiled == set(_book), "every compiled registration comes from compiled_recipes.json")
+for mid in sorted(_compiled):
+    fn = R.get(mid)
+    truth(fn.manifest.get("set_maturity") == "compiled-validated",
+          "compiled recipe %s carries the compiled-validated maturity" % mid)
+    truth(_dsl.program_hash(_book[mid]["program"]) == _book[mid]["program_sha256"]
+          and not _dsl.validate(_book[mid]["program"]),
+          "compiled recipe %s: frozen program re-hashes and re-validates" % mid)
 for mid in R.ids():
     fn = R.get(mid)
     truth(isinstance(fn.manifest.get("family"), str) and fn.manifest.get("required_tags") is not None,

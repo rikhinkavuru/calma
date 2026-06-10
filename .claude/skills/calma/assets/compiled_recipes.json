@@ -1,0 +1,252 @@
+{
+  "schema": "calma/compiled-recipes@1",
+  "recipes": [
+    {
+      "schema": "calma/compiled-recipe@1",
+      "metric_id": "coefficient_of_variation",
+      "family": "stats",
+      "description": "Coefficient of variation: sample std (ddof=1) over the mean. Relative dispersion; scale-invariant.",
+      "required_tags": [
+        "value"
+      ],
+      "string_tags": [],
+      "program": {
+        "schema": "calma/recipe-dsl@1",
+        "inputs": {
+          "value": "list"
+        },
+        "expr": {
+          "op": "/",
+          "args": [
+            {
+              "call": "fstd",
+              "args": [
+                {
+                  "col": "value"
+                }
+              ],
+              "scalars": {
+                "ddof": 1
+              }
+            },
+            {
+              "call": "fmean",
+              "args": [
+                {
+                  "col": "value"
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "program_sha256": "1b49e8dbe583fd34252d6723bb2d78ac955c2b770afa69b00bfc1642c717df9d",
+      "generators": {
+        "value": {
+          "kind": "positive",
+          "scale": 100.0
+        }
+      },
+      "oracle": {
+        "call": "scipy.stats.variation",
+        "args": [
+          "value"
+        ],
+        "kwargs": {
+          "ddof": 1
+        }
+      },
+      "metamorphic": [
+        {
+          "relation": "permutation",
+          "expect": "equal"
+        },
+        {
+          "relation": "scale",
+          "factor": 7.0,
+          "expect": "equal"
+        },
+        {
+          "relation": "bounds",
+          "min": 0
+        }
+      ],
+      "edge_cases": {
+        "empty": "nan",
+        "single": "nan",
+        "constant": 0,
+        "nan": "nan"
+      },
+      "vectors": [
+        {
+          "seed": 1000027,
+          "n": 3,
+          "value_repr": "0.6455119595110516",
+          "oracle_repr": "0.6455119595110516"
+        },
+        {
+          "seed": 2000030,
+          "n": 7,
+          "value_repr": "0.5698710557268398",
+          "oracle_repr": "0.5698710557268399"
+        },
+        {
+          "seed": 3000033,
+          "n": 31,
+          "value_repr": "0.5526521252759312",
+          "oracle_repr": "0.5526521252759314"
+        },
+        {
+          "seed": 4000036,
+          "n": 128,
+          "value_repr": "0.607608165130527",
+          "oracle_repr": "0.607608165130527"
+        },
+        {
+          "seed": 5000039,
+          "n": 256,
+          "value_repr": "0.5713727116648529",
+          "oracle_repr": "0.5713727116648529"
+        }
+      ],
+      "claim_hints": [
+        "coefficient of variation",
+        "relative std"
+      ],
+      "set_maturity": "compiled-validated",
+      "admitted": {
+        "date": "2026-06-10",
+        "differential_vectors": 5,
+        "skip_differential": false
+      }
+    },
+    {
+      "schema": "calma/compiled-recipe@1",
+      "metric_id": "sem",
+      "family": "stats",
+      "description": "Standard error of the mean: sample std (ddof=1) over sqrt(n). The +/- the mean is reported with.",
+      "required_tags": [
+        "value"
+      ],
+      "string_tags": [],
+      "program": {
+        "schema": "calma/recipe-dsl@1",
+        "inputs": {
+          "value": "list"
+        },
+        "expr": {
+          "op": "/",
+          "args": [
+            {
+              "call": "fstd",
+              "args": [
+                {
+                  "col": "value"
+                }
+              ],
+              "scalars": {
+                "ddof": 1
+              }
+            },
+            {
+              "op": "sqrt",
+              "args": [
+                {
+                  "len": {
+                    "col": "value"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "program_sha256": "2ab95f48a7ddbd0c91096de7f088b01ee94f7051688b9f224d167e0acdc80e57",
+      "generators": {
+        "value": {
+          "kind": "uniform",
+          "lo": -5.0,
+          "hi": 10.0
+        }
+      },
+      "oracle": {
+        "call": "scipy.stats.sem",
+        "args": [
+          "value"
+        ],
+        "kwargs": {
+          "ddof": 1
+        }
+      },
+      "metamorphic": [
+        {
+          "relation": "permutation",
+          "expect": "equal"
+        },
+        {
+          "relation": "scale",
+          "factor": 3.0,
+          "expect": "linear"
+        },
+        {
+          "relation": "shift",
+          "delta": 5.0,
+          "expect": "equal"
+        },
+        {
+          "relation": "bounds",
+          "min": 0
+        }
+      ],
+      "edge_cases": {
+        "empty": "nan",
+        "single": "nan",
+        "constant": 0,
+        "nan": "nan"
+      },
+      "vectors": [
+        {
+          "seed": 1000006,
+          "n": 3,
+          "value_repr": "2.216290262307053",
+          "oracle_repr": "2.216290262307053"
+        },
+        {
+          "seed": 2000009,
+          "n": 7,
+          "value_repr": "1.9833818031986186",
+          "oracle_repr": "1.9833818031986186"
+        },
+        {
+          "seed": 3000012,
+          "n": 31,
+          "value_repr": "0.7803306005264186",
+          "oracle_repr": "0.7803306005264186"
+        },
+        {
+          "seed": 4000015,
+          "n": 128,
+          "value_repr": "0.3926657041301575",
+          "oracle_repr": "0.3926657041301575"
+        },
+        {
+          "seed": 5000018,
+          "n": 256,
+          "value_repr": "0.2601308805303176",
+          "oracle_repr": "0.2601308805303176"
+        }
+      ],
+      "claim_hints": [
+        "standard error of the mean",
+        "standard error",
+        "sem"
+      ],
+      "set_maturity": "compiled-validated",
+      "admitted": {
+        "date": "2026-06-10",
+        "differential_vectors": 5,
+        "skip_differential": false
+      }
+    }
+  ]
+}

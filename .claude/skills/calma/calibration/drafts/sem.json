@@ -1,0 +1,27 @@
+{
+  "schema": "calma/recipe-draft@1",
+  "metric_id": "sem",
+  "family": "stats",
+  "description": "Standard error of the mean: sample std (ddof=1) over sqrt(n). The +/- the mean is reported with.",
+  "program": {
+    "schema": "calma/recipe-dsl@1",
+    "inputs": {"value": "list"},
+    "expr": {
+      "op": "/",
+      "args": [
+        {"call": "fstd", "args": [{"col": "value"}], "scalars": {"ddof": 1}},
+        {"op": "sqrt", "args": [{"len": {"col": "value"}}]}
+      ]
+    }
+  },
+  "generators": {"value": {"kind": "uniform", "lo": -5.0, "hi": 10.0}},
+  "oracle": {"call": "scipy.stats.sem", "args": ["value"], "kwargs": {"ddof": 1}},
+  "metamorphic": [
+    {"relation": "permutation", "expect": "equal"},
+    {"relation": "scale", "factor": 3.0, "expect": "linear"},
+    {"relation": "shift", "delta": 5.0, "expect": "equal"},
+    {"relation": "bounds", "min": 0}
+  ],
+  "edge_cases": {"empty": "nan", "single": "nan", "constant": 0, "nan": "nan"},
+  "claim_hints": ["standard error of the mean", "standard error", "sem"]
+}
