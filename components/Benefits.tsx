@@ -68,13 +68,13 @@ export function Benefits({ onRequest }: { onRequest: () => void }) {
               <span className="who">Investors &amp; funds</span>
               <h3>Proof before the money moves</h3>
               <p>
-                Before you act on a number, the lab independently re-runs the research and signs a
-                report your counterparty can re-check.
+                Before you act on a number, the lab independently re-executes the research and
+                reports — with a reproduction your own side can run.
               </p>
               <div className="cta">
-                <button className="pbtn pbtn--amber" onClick={onRequest}>
-                  Request verification
-                </button>
+                <a className="pbtn pbtn--amber" href="/lab">
+                  How the lab works
+                </a>
               </div>
               <span className="fine">Engagements are limited — a person replies</span>
             </div>
