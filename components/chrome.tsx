@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
-export function useInView<T extends Element = HTMLDivElement>(threshold = 0.2) {
+export function useInView<T extends Element = HTMLDivElement>(threshold = 0.18) {
   const ref = useRef<T | null>(null);
   const [seen, setSeen] = useState(false);
   useEffect(() => {
@@ -15,7 +15,7 @@ export function useInView<T extends Element = HTMLDivElement>(threshold = 0.2) {
           io.disconnect();
         }
       },
-      { threshold, rootMargin: "0px 0px -6% 0px" }
+      { threshold, rootMargin: "0px 0px -5% 0px" }
     );
     io.observe(el);
     return () => io.disconnect();
@@ -25,23 +25,20 @@ export function useInView<T extends Element = HTMLDivElement>(threshold = 0.2) {
 
 export function Reveal({
   children,
-  dir = "up",
   delay = 0,
   className = "",
   style,
 }: {
   children: ReactNode;
-  dir?: "up" | "left" | "right" | "pop";
   delay?: number;
   className?: string;
   style?: CSSProperties;
 }) {
   const [ref, seen] = useInView<HTMLDivElement>(0.15);
-  const dirClass = dir === "up" ? "" : dir === "left" ? " rv--l" : dir === "right" ? " rv--r" : " rv--pop";
   return (
     <div
       ref={ref}
-      className={"rv" + dirClass + (seen ? " in" : "") + (className ? " " + className : "")}
+      className={"rv" + (seen ? " in" : "") + (className ? " " + className : "")}
       style={{ ...style, ["--d" as string]: `${delay}ms` }}
     >
       {children}
@@ -49,73 +46,68 @@ export function Reveal({
   );
 }
 
-export function Nav({ onRequest }: { onRequest: () => void }) {
+/* the vast planet atmosphere — composed of blurred bands hugging one limb */
+export function Atmo() {
   return (
-    <header className="nav">
+    <div className="atmo" aria-hidden="true">
+      <i className="glow-blue" />
+      <i className="glow-teal" />
+      <i className="glow-amber" />
+      <i className="limb" />
+      <i className="sun" />
+    </div>
+  );
+}
+
+export function Dots({ style }: { style?: CSSProperties }) {
+  return <span className="dots" style={style} aria-hidden="true" />;
+}
+
+export function Cross({ style, className = "" }: { style?: CSSProperties; className?: string }) {
+  return <span className={"cross " + className} style={style} aria-hidden="true" />;
+}
+
+/* thin line-icon glyphs for the specimen boxes */
+export function Glyph({ kind }: { kind: "rerun" | "recompute" | "diff" | "decide" }) {
+  if (kind === "rerun")
+    return (
+      <svg viewBox="0 0 16 16"><path d="M13 8a5 5 0 1 1-1.5-3.5M13 1.5V5h-3.5" /></svg>
+    );
+  if (kind === "recompute")
+    return (
+      <svg viewBox="0 0 16 16"><path d="M2 2h12M2 2l6 6-6 6M2 14h12" /></svg>
+    );
+  if (kind === "diff")
+    return (
+      <svg viewBox="0 0 16 16"><path d="M3 6h10M3 10h10M12 2 4 14" /></svg>
+    );
+  return (
+    <svg viewBox="0 0 16 16"><path d="M1.5 1.5h13v13h-13zM4.5 8l2.5 2.5L11.5 5" /></svg>
+  );
+}
+
+export function Nav({ onRequest }: { onRequest: () => void }) {
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 24);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+  return (
+    <header className={"nav" + (scrolled ? " nav--bg" : "")}>
       <div className="wrap">
         <a className="nav__brand" href="#top">
-          Calma
+          CALMA
         </a>
         <nav className="nav__links">
           <a href="#catch">The catch</a>
-          <a href="#how">How it works</a>
-          <a href="#get">Get Calma</a>
-          <button className="btn btn--blue btn--sm" onClick={onRequest}>
+          <a href="#method">Method</a>
+          <a href="#get">Get it</a>
+          <button className="nav__cta" onClick={onRequest}>
             Request verification
           </button>
         </nav>
       </div>
     </header>
-  );
-}
-
-export function Footer({ onRequest }: { onRequest: () => void }) {
-  return (
-    <footer className="footer">
-      <div className="wrap">
-        <div className="footer__word">
-          Proof, <span className="serif">before</span> the money moves.
-        </div>
-        <div className="footer__cta">
-          <a
-            className="btn btn--blue"
-            href="https://github.com/rikhinkavuru/calma"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Get the free skill →
-          </a>
-          <button className="btn btn--ghostwhite" onClick={onRequest}>
-            Request verification
-          </button>
-        </div>
-        <div className="footer__grid">
-          <span className="footer__brand">Calma</span>
-          <div className="footer__links">
-            <a href="https://github.com/rikhinkavuru/calma" target="_blank" rel="noreferrer">
-              GitHub
-            </a>
-            <a
-              href="https://github.com/rikhinkavuru/calma/blob/main/README.md"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Docs
-            </a>
-            <a
-              href="https://github.com/rikhinkavuru/calma/blob/main/LICENSE"
-              target="_blank"
-              rel="noreferrer"
-            >
-              MIT License
-            </a>
-          </div>
-        </div>
-        <div className="footer__base">
-          <span>© 2026 Calma</span>
-          <span>The producer is never the verifier.</span>
-        </div>
-      </div>
-    </footer>
   );
 }
