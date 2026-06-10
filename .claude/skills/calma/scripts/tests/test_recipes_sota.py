@@ -414,5 +414,15 @@ with tempfile.TemporaryDirectory() as td2:
     rec_dirty = RC.recompute_contract(dp, td2)
     truth(rec_dirty["metrics"][0]["degenerate"], "non-numeric cell -> degenerate, not a traceback")
 
+# ---------------- part H: the site's recipe catalog stays in sync with the registry ----------------
+
+_site_data = os.path.join(HERE, "..", "..", "..", "..", "..", "app", "recipes", "data.ts")
+if os.path.exists(_site_data):
+    import re as _re
+    _ids = set(_re.findall(r'id:\s*"([a-z0-9_]+)"', open(_site_data).read()))
+    truth(_ids == set(R.ids()),
+          "app/recipes/data.ts mirrors the registry (site-only: %s; registry-only: %s)"
+          % (sorted(_ids - set(R.ids())), sorted(set(R.ids()) - _ids)))
+
 print("recipes-sota: %d checks, %d failures" % (_n, _fail))
 sys.exit(1 if _fail else 0)
