@@ -3,14 +3,11 @@
 import { useState } from "react";
 import { Nav, Footer } from "./chrome";
 import { Hero } from "./Hero";
-import { Giant } from "./Giant";
-import { Money } from "./Money";
-import { ClaimSection } from "./ClaimSection";
-import { Banner } from "./Banner";
+import { Catch } from "./Catch";
+import { Deep } from "./Deep";
+import { How } from "./How";
 import { Verdicts } from "./Verdicts";
-import { Method } from "./Method";
-import { Access } from "./Access";
-import { CircleCta } from "./CircleCta";
+import { Get } from "./Get";
 import { Faq } from "./Faq";
 import { RequestDialog } from "./RequestDialog";
 
@@ -20,21 +17,17 @@ export default function App() {
 
   return (
     <>
-      <div className="stars" aria-hidden="true"></div>
       <Nav onRequest={openDlg} />
       <main>
         <Hero onRequest={openDlg} />
-        <Giant />
-        <Money />
-        <ClaimSection />
-        <Banner />
+        <Catch />
+        <Deep />
+        <How />
         <Verdicts />
-        <Method />
-        <Access onRequest={openDlg} />
-        <CircleCta onRequest={openDlg} />
+        <Get onRequest={openDlg} />
         <Faq />
       </main>
-      <Footer />
+      <Footer onRequest={openDlg} />
       <RequestDialog open={dlg} onClose={() => setDlg(false)} />
     </>
   );
