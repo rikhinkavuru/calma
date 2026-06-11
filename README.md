@@ -17,28 +17,42 @@ opinion.
 <!-- DEMO: replace this with the recorded GIF/video, e.g. ![Calma demo](docs/demo.gif) -->
 *(Demo recording coming soon.)*
 
-This is real output — a backtest that claimed +14,698% on BTC, re-executed on the held-out data:
+Try it on a real inflated backtest that ships with this repo — one command, no setup, no network:
 
 ```
-$ calma verify ./btc-backtest "+14,698% backtest"
+$ calma demo
+
+re-verifying a real overfit backtest (it claimed +14,698% on BTC)...
 
 REFUTED  (confidence 98/100)  -  the result does not hold
   - also: strategy underperforms the trivial baseline (edge -0.7422 <= 0)
   claimed +14,698%  ->  recomputed -32.4%
-  reproduce: calma replay ./btc-backtest/.calma/run
+  reproduce: calma replay <demo-copy>/.calma/run
+
+that was a real inflated backtest. now try your own:  calma verify <folder> "<claim>"
 ```
 
-You get one of four answers:
+This is real output: the fixture lives at `.claude/skills/calma/assets/btc`, and `calma demo` copies
+it to a temp dir, re-executes it on the held-out data, and recomputes the number
+(equivalently: `calma verify .claude/skills/calma/assets/btc "+14,698% backtest"`).
+
+You get one of these answers:
 
 - **CONFIRMED** — it re-runs and the number checks out.
 - **CONFIRMED-WITH-CAVEATS** — it holds, but narrower than claimed (and the caveat is named).
 - **REFUTED** — the recomputed number contradicts the claim, with a reproduction you can run yourself.
+- **MIXED** — more than one claim was checked; at least one is REFUTED while the others hold.
 - **CAN'T-CONFIRM** — it can't be fully checked yet, plus a `fix:` line with the exact change to make it
   checkable (e.g. "set a fixed seed", "write predictions to a CSV"). Calma never cries wolf.
 
 ## Install
 
-The skill is one self-contained folder with **no dependencies** (pure Python standard library).
+The skill is one self-contained folder with **no dependencies** (pure Python standard library,
+Python 3.9 or newer).
+
+Platforms: **macOS is first-class** (verified Seatbelt sandbox, proven by a built-in self-test);
+**Linux** runs with reduced isolation and says so in the ledger (`host-not-isolated` — the stamp
+never lies); **Windows is unsupported**.
 
 As a Claude Code plugin:
 
@@ -60,7 +74,9 @@ That's the whole setup. The plugin installs two things:
 
 The guardrail is built to be invisible until the moment it isn't: precision-tuned detection (it
 would rather miss than misfire), cache-first re-checks (~80ms when nothing changed), a hard time
-budget, and fail-open everywhere — an error in the hook can never break your session. Opt out any
+budget, and fail-open everywhere — an error in the hook can never break your session. Cost: the
+first catch costs up to 30s; repeats are cache-instant. It only auto-executes where a verified
+sandbox tier is live (otherwise it skips and says so in the breadcrumb log). Opt out any
 time: `CALMA_HOOK=0`, `touch .calma/hook-off`, or `.calma/config.json → {"hook": {"enabled": false}}`.
 Every decision it makes is logged to `.calma/auto_history.jsonl` (see `calma stats`).
 
@@ -72,19 +88,26 @@ git clone https://github.com/rikhinkavuru/calma
 cp -r calma/.claude/skills/calma  your-project/.claude/skills/
 ```
 
-Or use it as a plain CLI:
+Or use it as a plain CLI (from the cloned repo root, matching the comment in `bin/calma`):
 
 ```bash
-ln -s "$(pwd)/calma/bin/calma" /usr/local/bin/calma
-calma verify <folder> "<claim>"
+cd calma   # the repo you just cloned
+ln -s "$(pwd)/bin/calma" /usr/local/bin/calma
+calma demo
 ```
 
 ## Commands
 
 ```bash
-calma verify <folder> "<claim>"     # check a result   (exit 0 = clean, 1 = not clean, 2 = bad input)
+calma demo                          # zero-setup: catch a bundled real inflated backtest (offline, seconds)
+calma verify <folder> "<claim>"     # check a result (exit codes below)
+calma verify <folder>               # no claim: checks the result reproduces (CONFIRMED scope=reproduction)
+calma recipes                       # the 120 built-in metrics, grouped by family
 calma verify <folder> "<claim>" --json               # machine-readable verdict (for agents/CI)
 calma verify <folder> "<claim>" --check-determinism  # run twice; flaky outputs can't confirm anything
+calma verify <folder> "<claim>" --timeout 300        # raise the re-execution budget (default 120s)
+calma verify <folder> "<claim>" --trust third-party  # counterparty code: refuse unless a verified
+                                    # container/VM tier is live (never run someone else's code unsafely)
 calma teardown <folder> "<claim>" [--svg card.svg]   # shareable "claimed X -> really Y" card (+ SVG image)
 calma replay <run_dir>              # re-run a saved verification; exit 0 iff the verdict reproduces
 calma stats <folder>                # verification history: counts, recent catches, hook activity
@@ -99,16 +122,42 @@ calma registry verify [dir]         # audit the registry chain offline: hashes, 
 python3 .claude/skills/calma/scripts/run_hermetic.py doctor   # prove the sandbox works on your machine
 ```
 
+Exit codes (`calma verify`):
+
+| code | meaning |
+|------|---------|
+| 0 | clean — CONFIRMED / CONFIRMED-WITH-CAVEATS |
+| 1 | not clean — REFUTED / MIXED / CAN'T-CONFIRM (under the default `--fail-on not-clean`) |
+| 2 | bad input — missing target, malformed contract, unknown `--metric` |
+| 3 | refused — execution declined (e.g. `--trust third-party` without a verified container/VM tier) |
+| 4 | killed — the re-execution exceeded the `--timeout` budget |
+
+In CI, the GitHub Action wraps the same verify:
+
+```yaml
+- uses: rikhinkavuru/calma/.github/actions/calma@main
+  with:
+    target: ./results
+    claim: "accuracy 0.87"
+    fail_on: refuted
+```
+
 Claims are natural language: `"accuracy 0.87"`, `"+14,698% backtest"`, `"$4.2M revenue"`,
 `"processed 10,000 rows"` — the number and the metric are parsed from the words (`--metric` pins it
-explicitly). With no claim at all, Calma still checks that the result reproduces.
+explicitly). With no claim at all, Calma still checks that the result reproduces — a clean re-run whose
+number recomputes from the raw outputs reports `CONFIRMED (scope=reproduction)` and exits 0.
 
 Verification is **incremental**: results are cached by the content hash of the code, data, contract, and
 claim, so re-verifying something unchanged returns the prior verdict instantly (`--force` re-executes).
 That makes it cheap enough for an agent to call in its loop after every result.
 
-Drop a `verify.yaml` next to a result (JSON or simple YAML) to pin the contract. In CI, use the GitHub
-Action (`.github/actions/calma`) — `fail_on: refuted` fails the build only when a claim actually breaks.
+Drop a `verify.yaml` next to a result (JSON or simple YAML) to pin the contract. The contract pins **how**
+to verify (entrypoint, which column is the metric, conventions) — the claim under test is always **yours**:
+if your claim states a different value for the pinned metric, Calma checks *your* value; if it names a
+metric the contract doesn't pin, you get CAN'T-CONFIRM with a fix line (never a verdict about a claim you
+didn't make); if your text has no checkable number, the committed claim is verified and the output says so.
+In CI, use the GitHub Action (`.github/actions/calma`) — `fail_on: refuted` fails the build only when a
+claim actually breaks.
 
 ## What it can check
 
@@ -145,7 +194,8 @@ Rust** — Calma treats your program as a black box and does the recompute itsel
 5. **Verdict** from a single deterministic function — re-checked byte-for-byte so it can't be fudged.
 6. **Attest** with a content-addressed manifest (in-toto/SLSA statement + CycloneDX ML-BOM) — and, after a
    one-time `calma attest keygen`, every verify is signed into a portable DSSE bundle whose predicate is a
-   VSA-style verdict statement (`calma.dev/verdict/v1`: verifier + version, the contract and calibration
+   VSA-style verdict statement (`github.com/rikhinkavuru/calma/verdict/v1` — bundles signed under the
+   legacy `calma.dev/verdict/v1` URI remain valid: verifier + version, the contract and calibration
    hashes as policy, the verdict, the claims). The same Ed25519 key signs twice: a raw DSSE signature (the
    envelope Sigstore countersigns) and an OpenSSH SSHSIG — so a counterparty can check the signature with
    stock `ssh-keygen -Y verify` and **zero installs** (sidecar files land next to the bundle).

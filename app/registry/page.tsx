@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import fs from "node:fs";
 import path from "node:path";
+import { SubNav } from "../../components/chrome";
+import { GITHUB_URL } from "../../components/contact";
 
 export const metadata: Metadata = {
-  title: "The registry — Calma catch history",
+  title: "The registry — catch history",
   description:
     "An append-only, hash-chained, signed public log of verification outcomes — including " +
     "engagements that were withdrawn or refuted. Clinical-trial style: a missing outcome is " +
@@ -54,6 +56,25 @@ function loadRegistry(): { entries: Wrapper[]; headId: string | null } {
   return { entries, headId };
 }
 
+/* Render raw registry floats for humans: 4 significant figures, and for
+   ratio-style return metrics a percent reading alongside. */
+function fmtNum(v: number | undefined): string {
+  if (v === undefined || !Number.isFinite(v)) return String(v);
+  const abs = Math.abs(v);
+  if (abs !== 0 && (abs >= 1e6 || abs < 1e-4)) return v.toExponential(3);
+  return String(Number(v.toPrecision(4)));
+}
+
+const PERCENT_METRICS = /(_return|^return|cagr|drawdown|growth)/;
+
+function fmtMetricValue(metric: string | undefined, v: number | undefined): string {
+  const base = fmtNum(v);
+  if (v === undefined || !Number.isFinite(v) || !metric || !PERCENT_METRICS.test(metric)) return base;
+  const pct = v * 100;
+  const sign = pct > 0 ? "+" : "";
+  return `${base} (${sign}${pct.toLocaleString("en-US", { maximumFractionDigits: 1 })}%)`;
+}
+
 function verdictClass(v: string): string {
   if (v === "REFUTED" || v === "MIXED") return "reg__verdict reg__verdict--refuted";
   if (v === "CONFIRMED" || v === "CONFIRMED-WITH-CAVEATS")
@@ -85,27 +106,22 @@ export default function RegistryPage() {
   return (
     <>
       <div className="grain" aria-hidden="true"></div>
-      <header className="nav nav--bg">
-        <div className="wrap">
-          <a className="nav__brand" href="/">
-            CALMA
-          </a>
-          <nav className="nav__links">
-            <a href="/lab">The lab</a>
-            <a href="/recipes">Recipes</a>
-            <a className="nav__cta" href="/" style={{ display: "inline-block" }}>
-              ← Back to Calma
-            </a>
-          </nav>
-        </div>
-      </header>
+      <SubNav
+        links={[
+          { href: "/", label: "Home" },
+          { href: "/lab", label: "The lab" },
+          { href: "/recipes", label: "Recipes" },
+        ]}
+        ctaHref="/lab"
+        ctaLabel="Request verification"
+      />
 
       <main className="rpage">
         <section className="sec rpage__head">
           <div className="wrap">
             <div className="sec__head">
               <span className="kicker">The registry — catch history</span>
-              <h2 className="h2">Every engagement, on the record. Including the misses.</h2>
+              <h1 className="h2">Every engagement, on the record. Including the misses.</h1>
               <p className="lead">
                 An append-only, hash-chained log of verification outcomes, clinical-trial style:
                 an engagement is logged when it <b>opens</b>, so a missing outcome is itself
@@ -116,6 +132,18 @@ export default function RegistryPage() {
               </p>
               <p className="rpage__legend micro mono">
                 audit: python3 scripts/calma.py registry verify registry/
+              </p>
+              <p className="rpage__verify">
+                Don&apos;t take this page&apos;s word for it:{" "}
+                <a href={`${GITHUB_URL}/tree/main/registry`} target="_blank" rel="noreferrer">
+                  the raw entries
+                </a>
+                ,{" "}
+                <a href={`${GITHUB_URL}/blob/main/registry/README.md`} target="_blank" rel="noreferrer">
+                  the lab&apos;s public key
+                </a>
+                , and the audit command above let anyone re-verify the whole chain offline — or any
+                single entry with stock <span className="mono">ssh-keygen</span>.
               </p>
             </div>
           </div>
@@ -134,6 +162,15 @@ export default function RegistryPage() {
               <p className="rfam__blurb">
                 Open engagements awaiting an outcome:{" "}
                 <span className="mono">{stillOpen.join(", ")}</span>
+              </p>
+            )}
+
+            {entries.length > 0 && opened.size === 0 && (
+              <p className="rfam__blurb">
+                No client engagements have been logged yet — the chain below opens with the
+                lab&apos;s own demonstration catch. From the first engagement on, every outcome —
+                confirmed, refuted, withdrawn — appends here permanently. A registry that only
+                showed wins would be worthless; this one can&apos;t.
               </p>
             )}
 
@@ -161,6 +198,9 @@ export default function RegistryPage() {
                         {w.entry.engagement && (
                           <span className="reg__eng mono">{w.entry.engagement}</span>
                         )}
+                        {w.entry.seq === 1 && (
+                          <span className="reg__badge mono">self-test · demonstration</span>
+                        )}
                         <span className={verdictClass(w.entry.verdict)}>{w.entry.verdict}</span>
                       </div>
                       {(w.entry.claim || w.entry.note) && (
@@ -168,8 +208,8 @@ export default function RegistryPage() {
                       )}
                       {w.entry.recomputed !== undefined && (
                         <p className="reg__gap mono">
-                          claimed {String(w.entry.claimed)} → recomputed{" "}
-                          {String(w.entry.recomputed)}
+                          claimed {fmtMetricValue(w.entry.metric, w.entry.claimed)} → recomputed{" "}
+                          {fmtMetricValue(w.entry.metric, w.entry.recomputed)}
                         </p>
                       )}
                       <p className="reg__hash mono">
@@ -187,9 +227,13 @@ export default function RegistryPage() {
           <div className="wrap">
             <p className="micro">
               Entry format: in-toto/DSSE attestation bundle → redacted whitelist → hash chain →
-              SSHSIG. Sigstore-countersigned verdicts are additionally witnessed by the public
-              Rekor transparency log. v2 adds a Merkle tree per the C2SP tlog-tiles spec —
-              additive, the entries are already hash-addressed.
+              SSHSIG. Verdicts can additionally be Sigstore-countersigned and witnessed by the
+              public Rekor transparency log, offered per engagement. v2 adds a Merkle tree per
+              the C2SP tlog-tiles spec — additive, the entries are already hash-addressed.
+            </p>
+            <p className="rpage__verify">
+              Questions about an entry, or a number you need verified?{" "}
+              <a href="/lab">How the lab works</a>
             </p>
           </div>
         </section>

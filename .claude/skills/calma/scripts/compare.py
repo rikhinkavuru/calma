@@ -89,6 +89,9 @@ def compare(recompute, contract, isolation_tier="tier0", container_present=None,
         container_present = isolation_tier in ("vm", "container", "tier0", "seatbelt-verified")
     by_id = {m["metric_id"]: m for m in recompute["metrics"]}
     base_by_id = {b["metric_id"]: b for b in recompute.get("baselines", [])}
+    # true no-claim mode: NO metric in the whole contract carries a claimed value. A single
+    # numberless metric next to claimed ones stays INCONCLUSIVE (nothing was claimed for it).
+    any_claimed = any(m.get("claimed_value") is not None for m in contract.get("metrics", []))
     metrics_out = []
     for m in contract.get("metrics", []):
         mid = m["metric_id"]
@@ -106,7 +109,8 @@ def compare(recompute, contract, isolation_tier="tier0", container_present=None,
             accepted = set((fn.manifest.get("accepted_conventions") if fn else []) or [])
             if str(conv) in accepted:
                 ratio = max(abs(recomputed / claimed), abs(claimed / recomputed)) if claimed and recomputed else 1e9
-                conv_capped = ratio <= CONV_RATIO
+                # a legitimate convention (periodicity, k, units) rescales - it never flips sign
+                conv_capped = ratio <= CONV_RATIO and _sign(recomputed) == _sign(claimed)
         gap = None
         if claimed is not None and isinstance(recomputed, float) and recomputed == recomputed:
             gap = abs(recomputed - claimed)
@@ -129,6 +133,11 @@ def compare(recompute, contract, isolation_tier="tier0", container_present=None,
             "convention_capped": conv_capped,
             "fraud_multiple_met": bool(gap is not None and gap > FRAUD_M * eff),
             "outputs_unstable": bool(outputs_unstable),
+            # no-claim mode: nothing to diff, but the metric DID recompute from raw outputs after a
+            # clean re-execution -> verdict() reports reproduction instead of demanding a claim
+            "no_claim_reproduced": bool(not any_claimed and claimed is None
+                                        and isinstance(recomputed, float)
+                                        and recomputed == recomputed and not rec.get("degenerate")),
         }
         label, reason = V.verdict_with_reason(vinputs)
         metrics_out.append({

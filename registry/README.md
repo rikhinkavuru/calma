@@ -14,18 +14,31 @@ data never enter the registry — the field whitelist is enforced at append *and
 Every entry is derived from a **verified attestation bundle** (`calma publish` refuses
 anything else), embeds the SHA-256 of the previous entry (a hash chain), and is SSHSIG-signed
 with the lab key. `HEAD.json` is signed too, so silently dropping the newest entries breaks
-the audit. Each Sigstore-countersigned verdict additionally lands in the public Rekor
-transparency log, which independently witnesses this registry's contents.
+the audit. Verdicts can additionally be Sigstore-countersigned, landing in the public Rekor
+transparency log as an independent witness — offered per engagement.
 
 ## Audit it yourself
+
+From a checkout of this repo:
 
 ```bash
 python3 .claude/skills/calma/scripts/calma.py registry verify registry/ [--key <lab pubkey>]
 ```
 
-re-hashes every entry, walks the chain, and checks every signature — fully offline. Or check
-any single entry with stock OpenSSH: the signature, public key, and allowed-signers line are
-embedded in the entry file itself.
+re-hashes every entry, walks the chain, and checks every signature — fully offline.
+
+Or check any single entry with **stock OpenSSH and nothing else** — the signature, public
+key, and allowed-signers line are embedded in the entry file. The signed payload is the
+canonical JSON of the `entry` object (sorted keys, no whitespace):
+
+```bash
+python3 -c "import json,sys; d=json.load(open(sys.argv[1])); \
+open('payload.bin','wb').write(json.dumps(d['entry'],sort_keys=True,separators=(',',':')).encode()); \
+open('sig','w').write(d['ssh']['signature']); open('signers','w').write(d['ssh']['allowed_signers'])" \
+  registry/entries/00001-dc236f5759bb.json
+ssh-keygen -Y verify -f signers -I calma-ebf722e19cf7016d -n calma-attest@v1 -s sig < payload.bin
+# → Good "calma-attest@v1" signature for calma-ebf722e19cf7016d with ED25519 key ...
+```
 
 ## Layout
 

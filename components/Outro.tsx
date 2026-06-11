@@ -1,6 +1,7 @@
 "use client";
 
 import { Reveal } from "./chrome";
+import { CONTACT_EMAIL, FOUNDER, GITHUB_URL } from "./contact";
 
 export function Outro() {
   return (
@@ -30,15 +31,21 @@ export function Outro() {
         </Reveal>
         <Reveal delay={300}>
           <p className="outro__cta">
-            Read more at{" "}
-            <a href="https://github.com/rikhinkavuru/calma" target="_blank" rel="noreferrer">
+            Talk to a person: <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
+            {" · "}read the code at{" "}
+            <a href={GITHUB_URL} target="_blank" rel="noreferrer">
               github.com/rikhinkavuru/calma
             </a>
           </p>
         </Reveal>
         <div className="barcode" aria-hidden="true" />
         <div className="outro__base">
-          <span>© 2026 Calma</span>
+          <span>© 2026 Calma · run by {FOUNDER}</span>
+          <nav className="outro__nav">
+            <a href="/lab">The lab</a>
+            <a href="/registry">Registry</a>
+            <a href="/recipes">Recipes</a>
+          </nav>
           <span>The producer is never the verifier</span>
         </div>
       </div>

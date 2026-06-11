@@ -40,7 +40,9 @@ DRAFT_SCHEMA = "calma/recipe-draft@1"
 COMPILED_SCHEMA = "calma/compiled-recipe@1"
 ASSETS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets")
 COMPILED_PATH = os.path.join(ASSETS, "compiled_recipes.json")
-DEFAULT_VENV = "/tmp/calma-ref-venv/bin/python"
+# reference venv resolution: $CALMA_REF_VENV first (a private, non-world-writable path on
+# shared machines), then the historical /tmp default (calibration docs unchanged)
+DEFAULT_VENV = os.environ.get("CALMA_REF_VENV") or "/tmp/calma-ref-venv/bin/python"
 SIZES = (3, 7, 31, 128, 256)
 REL_TOL = 1e-9
 ALLOWED_ORACLE_MODULES = ("numpy", "scipy", "sklearn", "statsmodels", "math", "statistics")
@@ -374,6 +376,12 @@ def admit(draft, venv_python=None, compiled_path=COMPILED_PATH, skip_differentia
         if not os.path.exists(venv):
             return False, {"counterexamples": [{"stage": "differential",
                                                 "error": "reference venv missing at %s" % venv}]}
+        # the oracle executes from this path: a world-writable /tmp venv is swappable by any
+        # local user on a multi-user system - warn (stderr) and point at $CALMA_REF_VENV
+        if not os.environ.get("CALMA_REF_VENV") and venv == "/tmp/calma-ref-venv/bin/python":
+            print("warning: reference venv lives under world-writable /tmp - on a multi-user "
+                  "machine another user could replace it; set $CALMA_REF_VENV to a private "
+                  "path (e.g. ~/.calma/ref-venv/bin/python)", file=sys.stderr)
         f, vectors = stage_differential(draft, venv)
         failures += f
     failures += stage_metamorphic(draft)

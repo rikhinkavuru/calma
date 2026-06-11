@@ -385,6 +385,16 @@ def parse_claim(text):
 
 # ---------- contract loading (tolerant: JSON first, then a small YAML subset) ----------
 
+# a minimal, copy-pasteable verify.yaml - shown verbatim in malformed-contract errors
+CONTRACT_EXAMPLE = """\
+run: {entrypoint: main.py, network: off}
+artifacts:
+  - path: out.csv
+    columns:
+      value: {tag: value}
+metrics: []
+"""
+
 def _strip_comment(line):
     out, in_s, in_d = [], False, False
     for ch in line:
@@ -556,9 +566,11 @@ def load_contract(path):
         except ValueError as e:
             raise ValueError(
                 "%s could not be parsed: %s. The contract accepts JSON or simple YAML "
-                "(nested 'key: value' maps and '- ' lists)." % (path, e))
+                "(nested 'key: value' maps and '- ' lists). A minimal verify.yaml:\n%s"
+                % (path, e, CONTRACT_EXAMPLE))
     if not isinstance(obj, dict):
-        raise ValueError("%s parsed to %s, expected a mapping" % (path, type(obj).__name__))
+        raise ValueError("%s parsed to %s, expected a mapping. A minimal verify.yaml:\n%s"
+                         % (path, type(obj).__name__, CONTRACT_EXAMPLE))
     return obj
 
 

@@ -162,14 +162,47 @@ out, rc, dt = run_hook(btc, tp_none)
 truth(rc == 0 and out == "", "silent: no claim in message")
 truth(dt < 2.0, "silent: no-claim path is imperceptible (%.2fs)" % dt)
 
-# claim in an unverifiable directory -> silent + skip breadcrumb
+# claim in an unverifiable directory -> silent, and NO .calma dir is littered there
+# (a mere metric mention in an unrelated repo must never create calma state)
 empty = os.path.join(tmp_root, "empty")
 os.makedirs(empty)
 tp_claim = write_transcript(tdir, "Final accuracy is 0.91 on the test set.")
 out, rc, _ = run_hook(empty, tp_claim)
 truth(rc == 0 and out == "", "silent: unverifiable target")
-truth(any(e["event"] == "skip" and e.get("reason") == "no-verifiable-target"
-          for e in history(empty)), "silent: skip breadcrumbed")
+truth(not os.path.exists(os.path.join(empty, ".calma")),
+      "no-litter: unverifiable target gets NO .calma dir (no breadcrumbs before the gate)")
+
+# isolation gate: a verifiable target whose cached doctor says "no verified sandbox" is
+# skipped with a breadcrumb (the hook never auto-executes code without a verified tier)
+gated = os.path.join(tmp_root, "gated")
+shutil.copytree(BTC_SRC, gated, ignore=shutil.ignore_patterns(".calma"))
+os.makedirs(os.path.join(gated, ".calma"))
+with open(os.path.join(gated, ".calma", HK.STATE_NAME), "w") as f:
+    json.dump({"sandbox_tier": {"tier": "host-not-isolated", "ts": time.time()}}, f)
+tp_gate = write_transcript(tdir, "Done! The backtest returned +14,698% on the held-out period.")
+out, rc, _ = run_hook(gated, tp_gate)
+truth(rc == 0 and out == "", "isolation gate: no verified sandbox -> silent")
+truth(any(e["event"] == "skip" and e.get("reason") == "no-verified-sandbox"
+          for e in history(gated)), "isolation gate: skip breadcrumbed as no-verified-sandbox")
+# config force_unverified overrides the gate (operator explicitly trusts this host)
+with open(os.path.join(gated, ".calma", "config.json"), "w") as f:
+    json.dump({"hook": {"force_unverified": True}}, f)
+out, rc, _ = run_hook(gated, tp_gate)
+forced = {}
+try:
+    forced = json.loads(out)
+except ValueError:
+    pass
+truth(forced.get("decision") == "block",
+      "isolation gate: force_unverified override verifies (and catches) anyway")
+os.remove(os.path.join(gated, ".calma", "config.json"))
+# a stale (past-TTL) cached tier is re-probed: on this host the real doctor result governs
+with open(os.path.join(gated, ".calma", HK.STATE_NAME), "w") as f:
+    json.dump({"sandbox_tier": {"tier": "host-not-isolated",
+                                "ts": time.time() - HK.SANDBOX_TTL_S - 10}}, f)
+st = HK._load_state(gated)
+tier, changed = HK._sandbox_tier(gated, st)
+truth(changed and tier and tier != "", "isolation gate: stale TTL re-probes the real tier")
 
 # CONFIRMED -> silent (honest claim equal to the true recomputed value)
 honest = os.path.join(tmp_root, "honest")

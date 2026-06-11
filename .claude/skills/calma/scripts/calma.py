@@ -28,9 +28,11 @@ import report as REP
 import run_hermetic as H
 import verdict as V
 
-__version__ = "0.6.0"
+__version__ = "0.6.1"
 
 QUANT_METRICS = {"total_return", "sharpe", "max_drawdown"}
+DEFAULT_TIMEOUT_S = 120
+VERIFIED_TIERS = ("seatbelt-verified", "tier0", "container", "vm")
 
 
 def _trace_enabled():
@@ -49,6 +51,87 @@ def _trace(step, msg):
         print("  \x1b[2m%-9s\x1b[0m %s" % (step, msg), file=sys.stderr, flush=True)
     else:
         print("  %-9s %s" % (step, msg), file=sys.stderr, flush=True)
+
+
+def _invocation():
+    """How THIS process was invoked, for echo-able hints: `calma` when launched via the wrapper,
+    `python3 <path>/calma.py` when the script was run directly. Reproduce/next-step hints printed
+    with this prefix are copy-pasteable in the caller's own style."""
+    a0 = sys.argv[0] if sys.argv else ""
+    if os.path.basename(a0) == "calma.py":
+        return "python3 %s" % a0
+    return "calma"
+
+
+def _reconcile_claim(contract, claim, metric):
+    """P0 gate: a committed verify.yaml pins HOW to verify (entrypoint, bindings, conventions) -
+    it must never silently substitute WHAT is being claimed. The claim under test is the USER's.
+
+      (a) the user's claim names the same metric and the same value (numeric comparison within the
+          claim's own reported precision, never string equality) -> proceed, no warning.
+      (b) the user names a metric (claim text or --metric) the contract does not pin -> BLOCK:
+          CAN'T-CONFIRM with a fix line. Never a verdict about a metric the user didn't claim.
+      (c) same metric, different value -> verify the USER's value. Design choice (anti-gaming
+          intact): the contract pins bindings/conventions, not the claim value; claim_confirmed
+          still requires the metric to be NAMED (claim text or --metric), so an unnamed value
+          override can never manufacture a REFUTED. Other pinned claims are demoted to
+          reproduction-only so no verdict is ever shown about a claim the user didn't make.
+      (d) the user's text contains no checkable number -> verify the committed claim, but SAY SO.
+
+    Returns (note, block_finding); block_finding is non-None only for (b). May mutate `contract`
+    in-memory for (c) - the committed file is never rewritten."""
+    mets = contract.get("metrics") or []
+    if (claim is None and metric is None) or not mets:
+        return None, None
+    cv, hint = DC.parse_claim(claim)
+    user_metric = metric or hint
+    head = next((m for m in mets if m.get("headline")), mets[0])
+    pinned_ids = [m.get("metric_id") for m in mets if m.get("metric_id")]
+    if user_metric and user_metric not in pinned_ids:
+        named_via = ("--metric %s conflicts with verify.yaml (it pins %r)"
+                     % (metric, head.get("metric_id"))) if metric \
+            else ("your claim is about %r but verify.yaml pins %r"
+                  % (user_metric, head.get("metric_id")))
+        return None, {
+            "id": "f-claim-contract", "claim_id": "c1", "dimension": "contract-grounding",
+            "severity": "major", "status": "open", "confidence": "deterministic",
+            "fixable_by": "author",
+            "locator": "%s - refusing to verify a claim you didn't make" % named_via,
+            "unblock": "add a %s metric to verify.yaml, or move/remove verify.yaml to auto-detect"
+                       % user_metric,
+            "reverify": {"kind": "static-reread", "source": "contract",
+                         "expected": "the claim's metric is pinned in verify.yaml"},
+        }
+    if cv is None:
+        if claim is None:
+            return None, None  # bare --metric that matches the contract: nothing to reconcile
+        return ("your text contains no checkable claim; verifying the committed claim: %s %s"
+                % (head.get("metric_id"),
+                   REP.fmt_value(head.get("claimed_value"), head.get("metric_id")))), None
+    target_m = next((m for m in mets if m.get("metric_id") == user_metric), head) \
+        if user_metric else head
+    committed_v = target_m.get("claimed_value")
+    prec = DC.claim_precision(claim)
+    tol = prec if prec is not None else (1e-9 + 1e-9 * abs(cv))
+    if committed_v is not None and abs(cv - committed_v) <= tol:
+        return None, None  # (a): numerically the same claim at the claim's own precision
+    # (c): the user's value replaces the committed one for THIS run (file untouched)
+    target_m["claimed_value"] = cv
+    target_m["claimed_precision"] = prec
+    target_m["headline"] = True
+    target_m["claim_confirmed"] = user_metric is not None
+    if isinstance(claim, str):
+        target_m["convention"] = DC.infer_convention(claim, target_m.get("metric_id")) \
+            or target_m.get("convention")
+    for m in mets:  # never show a verdict about a committed claim the user didn't make
+        if m is not target_m and m.get("claimed_value") is not None:
+            m["claimed_value"] = None
+            m["claimed_precision"] = None
+            m["headline"] = False
+    return ("checking YOUR claim (%s %s) - verify.yaml pins the bindings, but its committed "
+            "claim value (%s) is not what is being verified"
+            % (target_m.get("metric_id"), "%g" % cv,
+               "%g" % committed_v if isinstance(committed_v, (int, float)) else committed_v)), None
 
 
 def _not_verified(metric_ids):
@@ -99,7 +182,7 @@ def _assemble_ledger(contract, diff, run_res):
             claim["driving_dimension"] = "metric-mismatch"
             claim["reproduction_or_reverify"] = {
                 "kind": "requires-reexecution",
-                "command": "calma replay %s" % run_res.get("run_dir", "./.calma/run"),
+                "command": "%s replay %s" % (_invocation(), run_res.get("run_dir", "./.calma/run")),
                 "manifest_ref": run_res.get("manifest_ref", "sha256:unavailable"),
                 "expected": "recomputed differs from claimed beyond the calibrated budget",
             }
@@ -212,9 +295,29 @@ def _input_fingerprint(target, contract):
     return h.hexdigest()
 
 
+def _ledger_sha256(led_path):
+    """sha256 of the ledger file's exact bytes, or None when unreadable. The cache key for
+    'is the run dir still holding the ledger this cache entry was derived from'."""
+    h = hashlib.sha256()
+    try:
+        with open(led_path, "rb") as fh:
+            for chunk in iter(lambda: fh.read(65536), b""):
+                h.update(chunk)
+    except OSError:
+        return None
+    return h.hexdigest()
+
+
 def _cached_result(target, fingerprint):
     """Return the prior result for this fingerprint, or None. Only definite verdicts are served from
-    cache (an INCONCLUSIVE may have been environmental - it always re-runs)."""
+    cache (an INCONCLUSIVE may have been environmental - it always re-runs).
+
+    Run dirs are shared across claims (run_id defaults to "run"), so a later verification of a
+    DIFFERENT claim overwrites the ledger this entry pointed at. The entry therefore pins the
+    exact ledger bytes (ledger_sha256) it was stored against: any mismatch - or a cached verdict
+    that disagrees with the ledger on disk - rejects the hit and falls through to a fresh run.
+    Without this, verify A (REFUTED) / verify B (CONFIRMED) / re-verify A would serve B's
+    CONFIRMED ledger for claim A."""
     cache_path = os.path.join(target, ".calma", "cache.json")
     try:
         cache = json.load(open(cache_path))
@@ -225,10 +328,14 @@ def _cached_result(target, fingerprint):
         return None
     run_dir = os.path.join(target, ".calma", ent.get("run_id", ""))
     led_path = os.path.join(run_dir, "ledger.json")
+    if not ent.get("ledger_sha256") or _ledger_sha256(led_path) != ent["ledger_sha256"]:
+        return None  # the run dir has been overwritten by another claim (or entry is pre-0.6.1)
     try:
         led = json.load(open(led_path))
     except (OSError, ValueError):
         return None
+    if led.get("repo_verdict") != ent.get("repo_verdict"):
+        return None  # cached verdict and stored ledger disagree - never serve it
     code, summary = LED.validate_obj(led)
     if led.get("repo_verdict") not in ("CONFIRMED", "CONFIRMED-WITH-CAVEATS", "REFUTED", "MIXED"):
         return None
@@ -242,13 +349,21 @@ def _cached_result(target, fingerprint):
 def _store_cache(target, fingerprint, run_id, repo_verdict):
     if repo_verdict not in ("CONFIRMED", "CONFIRMED-WITH-CAVEATS", "REFUTED", "MIXED"):
         return
+    led_sha = _ledger_sha256(os.path.join(target, ".calma", run_id, "ledger.json"))
+    if led_sha is None:
+        return  # no ledger on disk -> nothing a future hit could be checked against
     cache_path = os.path.join(target, ".calma", "cache.json")
     try:
         cache = json.load(open(cache_path))
     except (OSError, ValueError):
         cache = {}
-    cache[fingerprint] = {"run_id": run_id, "repo_verdict": repo_verdict}
-    json.dump(cache, open(cache_path, "w"), indent=2)
+    cache[fingerprint] = {"run_id": run_id, "repo_verdict": repo_verdict,
+                          "ledger_sha256": led_sha}
+    # atomic: a crash mid-write must never leave a truncated cache.json behind
+    tmp = cache_path + ".tmp"
+    with open(tmp, "w") as fh:
+        json.dump(cache, fh, indent=2)
+    os.replace(tmp, cache_path)
 
 
 def _artifact_hashes(target, contract):
@@ -272,8 +387,49 @@ def _artifact_hashes(target, contract):
     return out
 
 
-def verify(target, claim=None, metric=None, run_id="run", force=False, check_determinism=False):
+def _redact_home(text):
+    """$HOME never enters ledgers, findings, or bundles via captured output tails."""
+    if not text:
+        return text
+    home = os.path.expanduser("~")
+    for h in sorted({home, os.path.realpath(home)}, key=len, reverse=True):
+        if h and h != "/":
+            text = text.replace(h, "~")
+    return text
+
+
+def _first_run_notice(target, tier):
+    """ONE line, ONCE per target dir (marker in .calma/), stderr only: what calma is about to do
+    to this machine and the escape hatch for counterparty code. Never repeated, never nagging."""
+    marker = os.path.join(target, ".calma", "trust_notice")
+    if os.path.exists(marker):
+        return
+    try:
+        os.makedirs(os.path.dirname(marker), exist_ok=True)
+        with open(marker, "w") as fh:
+            fh.write("shown\n")
+    except OSError:
+        return
+    print("calma re-executes this project's code in a sandbox (tier: %s) - "
+          "pass --trust third-party for counterparty code" % tier, file=sys.stderr)
+
+
+def _resolve_timeout(cli_timeout, contract):
+    """The re-execution wall-clock budget: --timeout wins, then run.timeout in verify.yaml,
+    then the 120s default. Clamped to [1, 86400]."""
+    t = cli_timeout if cli_timeout is not None else (contract.get("run") or {}).get("timeout")
+    try:
+        t = int(t) if t is not None else DEFAULT_TIMEOUT_S
+    except (TypeError, ValueError):
+        t = DEFAULT_TIMEOUT_S
+    return max(1, min(t, 86400))
+
+
+def verify(target, claim=None, metric=None, run_id="run", force=False, check_determinism=False,
+           trust="own-code", timeout=None):
     target = os.path.realpath(target)
+    if trust not in ("own-code", "third-party"):
+        raise ValueError("--trust must be own-code or third-party (got %r)" % trust)
     if metric and RCP.get(metric) is None:
         import difflib
         close = difflib.get_close_matches(metric, RCP.ids(), n=3, cutoff=0.4)
@@ -294,25 +450,29 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
     os.makedirs(run_dir, exist_ok=True)
 
     committed = os.path.join(target, "verify.yaml")
+    claim_note = block_finding = None
     if os.path.exists(committed):
         contract_path = committed
         contract = DC.load_contract(contract_path)
         errs = DC.validate_contract(contract)
         if errs:
-            raise ValueError("verify.yaml is invalid: " + "; ".join(errs))
-        # an explicitly passed claim that differs from the committed one must never be silently ignored
-        if claim is not None:
-            cv, _hint = DC.parse_claim(claim)
-            committed_vals = [m.get("claimed_value") for m in contract.get("metrics", [])]
-            if cv is not None and committed_vals and all(
-                    v is None or abs(v - cv) > 1e-12 for v in committed_vals):
-                print("note: using the committed verify.yaml (claimed %s); your claim %r differs - "
-                      "edit verify.yaml to change the claim under test" % (committed_vals[0], claim),
-                      file=sys.stderr)
+            raise ValueError("verify.yaml is invalid: %s\na minimal valid verify.yaml:\n%s"
+                             % ("; ".join(errs), DC.CONTRACT_EXAMPLE))
+        # the claim under test is the USER's: reconcile it against the committed contract instead
+        # of silently substituting the contract's claim (see _reconcile_claim). The note lands
+        # at the top of the rendered report (and in --json as "note").
+        claim_note, block_finding = _reconcile_claim(contract, claim, metric)
     else:
         contract = DC.draft(target, claim=claim, metric=metric)
         contract_path = os.path.join(run_dir, "verify.yaml")
         json.dump(contract, open(contract_path, "w"), indent=2)
+
+    # --trust third-party overrides the contract's trust posture AT RUNTIME (in memory only -
+    # committed and drafted contracts keep their own-code default): run_hermetic then refuses
+    # to execute unless a verified container/VM tier is live.
+    if trust == "third-party":
+        contract.setdefault("env", {})["trust"] = "untrusted-third-party"
+    eff_timeout = _resolve_timeout(timeout, contract)
 
     m0 = (contract.get("metrics") or [{}])[0]
     if m0.get("metric_id"):
@@ -327,15 +487,25 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
     # the cache: same contract + same entrypoint bytes + same artifact bytes => same verdict.
     # Inline/agent-loop use re-verifies only what changed; --force always re-executes, and a
     # determinism check is new evidence, so it never reads the cache (it still stores).
-    if not force and not check_determinism:
+    if block_finding is None and not force and not check_determinism:
         hit = _cached_result(target, _input_fingerprint(target, contract))
         if hit:
             _trace("cache", "code+data+claim unchanged -> prior verdict (--force re-executes)")
+            if claim_note:
+                hit["claim_note"] = claim_note
+                hit["report"] = "note: %s\n\n%s" % (claim_note, hit["report"])
             return hit
 
     diff = None
+    refused = killed = False
     entry = contract.get("run", {}).get("entrypoint")
-    if entry == "MANUAL":
+    if block_finding is not None:
+        # P0 gate: the user's claim names a metric the committed contract does not pin. Never
+        # substitute the contract's claim - degrade to INCONCLUSIVE with the exact unblock.
+        run_res = {"exit_code": 0, "isolation_tier": "n/a", "killed": False, "run_dir": run_dir}
+        led = _inconclusive_ledger(run_res, finding=block_finding,
+                                   target_name=os.path.basename(target))
+    elif entry == "MANUAL":
         run_res = {"exit_code": 3, "isolation_tier": "n/a", "killed": False, "run_dir": run_dir}
         led = _inconclusive_ledger(run_res, finding={
             "id": "f-entrypoint", "claim_id": "c1", "dimension": "contract-grounding",
@@ -351,15 +521,30 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
         _trace("re-run", "executing %s in the sandbox (network off)..."
                % contract.get("run", {}).get("entrypoint"))
         _t0 = _time.time()
-        run_res = H.run(contract_path, base=target)
+        run_res = H.run(contract_path, base=target, timeout=eff_timeout,
+                        trust_override=("untrusted-third-party" if trust == "third-party"
+                                        else None))
         run_res["run_dir"] = run_dir
+        for _tail in ("stdout_tail", "stderr_tail"):
+            if run_res.get(_tail):
+                run_res[_tail] = _redact_home(run_res[_tail])
         _trace("re-run", "exit %s in %.1fs | isolation %s | determinism %s"
                % (run_res.get("exit_code"), _time.time() - _t0,
                   run_res.get("isolation_tier"), run_res.get("determinism_mode")))
+        _first_run_notice(target, run_res.get("isolation_tier"))
         if run_res.get("exit_code") in (3, 4):
             # refused (no isolation for untrusted) or killed -> INCONCLUSIVE, never a verdict
-            if run_res.get("exit_code") == 4:
-                unblock = "the run timed out - raise the timeout or make the entrypoint faster"
+            refused = run_res.get("exit_code") == 3
+            killed = run_res.get("exit_code") == 4
+            if killed:
+                unblock = ("the run timed out after %ds - raise it with --timeout SECONDS "
+                           "(or run.timeout in verify.yaml), or make the entrypoint faster"
+                           % eff_timeout)
+            elif trust == "third-party":
+                unblock = ("this code is marked --trust third-party and the achieved isolation "
+                           "tier (%s) is not a verified container/VM - refusing to execute it; "
+                           "verify on a host with one, or pass --trust own-code if you wrote "
+                           "this code" % run_res.get("isolation_tier"))
             else:
                 unblock = run_res.get("reason", "isolation was refused") + \
                     " - run on a host with a verified sandbox, or mark trust: own-code if this is your code"
@@ -387,7 +572,7 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
             outputs_unstable = False
             if check_determinism and run_res.get("exit_code") == 0:
                 h1 = _artifact_hashes(target, contract)
-                run2 = H.run(contract_path, base=target)
+                run2 = H.run(contract_path, base=target, timeout=eff_timeout)
                 if run2.get("exit_code") == 0:
                     h2 = _artifact_hashes(target, contract)
                     unstable_paths = sorted(p for p in set(h1) | set(h2) if h1.get(p) != h2.get(p))
@@ -431,16 +616,36 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
                               else "OUTSIDE the calibrated budget"))
             led = _assemble_ledger(contract, diff, run_res)
             if not diff["metrics"]:
-                led["findings"].append({
-                    "id": "f-no-metric", "claim_id": None, "dimension": "contract-grounding",
-                    "severity": "major", "status": "open", "confidence": "deterministic",
-                    "fixable_by": "author",
-                    "locator": "no machine-readable output with a recognizable metric column was found",
-                    "unblock": "write the result to a CSV the recompute can read "
-                               "(e.g. predictions.csv with y_true,y_pred / returns.csv with strat_return)",
-                    "reverify": {"kind": "artifact-recheck", "source": "artifacts",
-                                 "expected": "a bindable metric column exists"},
-                })
+                # P1-5: a committed contract that pins NO artifacts next to recomputable outputs is
+                # the cause - name verify.yaml in the fix instead of asking for files that exist
+                candidates = []
+                if contract_path == committed and not contract.get("artifacts"):
+                    candidates = [a["path"] for a in DC._scan_csvs(target)
+                                  if any(s["tag"] for s in a["columns"].values())]
+                if candidates:
+                    led["findings"].append({
+                        "id": "f-no-metric", "claim_id": None, "dimension": "contract-grounding",
+                        "severity": "major", "status": "open", "confidence": "deterministic",
+                        "fixable_by": "author",
+                        "locator": "verify.yaml pins no artifacts, but recomputable outputs exist (%s)"
+                                   % ", ".join(candidates[:3]),
+                        "unblock": "your verify.yaml lists no artifacts - add %s (with its columns) "
+                                   "to verify.yaml, or delete verify.yaml to auto-detect"
+                                   % candidates[0],
+                        "reverify": {"kind": "static-reread", "source": "contract",
+                                     "expected": "verify.yaml pins at least one artifact"},
+                    })
+                else:
+                    led["findings"].append({
+                        "id": "f-no-metric", "claim_id": None, "dimension": "contract-grounding",
+                        "severity": "major", "status": "open", "confidence": "deterministic",
+                        "fixable_by": "author",
+                        "locator": "no machine-readable output with a recognizable metric column was found",
+                        "unblock": "write the result to a CSV the recompute can read "
+                                   "(e.g. predictions.csv with y_true,y_pred / returns.csv with strat_return)",
+                        "reverify": {"kind": "artifact-recheck", "source": "artifacts",
+                                     "expected": "a bindable metric column exists"},
+                    })
 
     led.setdefault("target", os.path.basename(target))
     _man = run_res.get("_manifest")
@@ -463,6 +668,8 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
     _trace("verdict", "%s - every label re-derived byte-for-byte from its stored inputs"
            % led.get("repo_verdict"))
     rendered = REP.render(led, diff)
+    if claim_note:
+        rendered = "note: %s\n\n%s" % (claim_note, rendered)
     open(os.path.join(run_dir, "report.txt"), "w").write(rendered)
     card = REP.teardown_card(led)
     if card:
@@ -484,7 +691,7 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
         pass
     return {"gate_exit": code, "gate": summary, "repo_verdict": led["repo_verdict"],
             "report": rendered, "teardown": card, "run_dir": run_dir, "ledger": led,
-            "cached": False}
+            "cached": False, "claim_note": claim_note, "refused": refused, "killed": killed}
 
 
 def replay(run_dir):
@@ -534,16 +741,21 @@ def stats(target):
                 rows.append(json.loads(line))
             except ValueError:
                 pass
+    # teardown's internal re-verify is bookkeeping, not a new verification - count it separately
+    verifs = [r for r in rows if r.get("run_id") != "teardown"]
+    teardowns = len(rows) - len(verifs)
     counts = {}
-    for r in rows:
+    for r in verifs:
         v = r.get("verdict", "?")
         counts[v] = counts.get(v, 0) + 1
     lines = ["CALMA STATS  -  %s" % os.path.basename(target),
-             "  verifications: %d" % len(rows)]
+             "  verifications: %d" % len(verifs)]
+    if teardowns:
+        lines.append("  teardown re-checks: %d (not counted as verifications)" % teardowns)
     for v in ("CONFIRMED", "CONFIRMED-WITH-CAVEATS", "REFUTED", "MIXED", "INCONCLUSIVE"):
         if counts.get(v):
             lines.append("  %-24s %d" % (v, counts[v]))
-    catches = [r for r in rows if r.get("verdict") in ("REFUTED", "MIXED")]
+    catches = [r for r in verifs if r.get("verdict") in ("REFUTED", "MIXED")]
     for c in catches[-3:]:
         lines.append("  catch: claimed %s -> recomputed %s (%s)"
                      % (REP.fmt_value(c.get("claimed"), c.get("metric")),
@@ -570,7 +782,8 @@ def stats(target):
                             ", ".join("%s %d" % (k, v)
                                       for k, v in sorted(auto["events"].items())),
                             len(auto["claims"])))
-    return {"total": len(rows), "counts": counts, "auto": auto}, "\n".join(lines)
+    return {"total": len(verifs), "teardowns": teardowns, "counts": counts,
+            "auto": auto}, "\n".join(lines)
 
 
 def _json_result(res):
@@ -588,6 +801,7 @@ def _json_result(res):
         "recomputed": c0.get("recomputed_value"),
         "reason": c0.get("reason"),
         "fix": REP.fix_line(led) if res["repo_verdict"] != "CONFIRMED" else None,
+        "note": res.get("claim_note"),
         "isolation_tier": led.get("scope", {}).get("isolation_tier"),
         "determinism_mode": led.get("scope", {}).get("determinism_mode"),
         "run_dir": res["run_dir"],
@@ -595,6 +809,11 @@ def _json_result(res):
 
 
 def main():
+    if sys.version_info < (3, 9):
+        print("error: calma requires Python 3.9 or newer (this is Python %d.%d) - "
+              "run it with a newer python3" % (sys.version_info[0], sys.version_info[1]),
+              file=sys.stderr)
+        return 2
     ap = argparse.ArgumentParser(
         prog="calma",
         description="Verify a computational result by re-executing it and recomputing the headline "
@@ -605,10 +824,20 @@ def main():
     v.add_argument("claim_text", nargs="?", default=None,
                    help="the claim to check, e.g. \"accuracy 0.87\" or \"+14,698%%\" (optional)")
     v.add_argument("--claim", help="same as the positional claim")
-    v.add_argument("--metric", help="force a metric id (see recipes: %s)" % ", ".join(RCP.ids()))
-    v.add_argument("--run-id", default="run")
+    v.add_argument("--metric",
+                   help="force a metric id, e.g. sharpe or accuracy (run `calma recipes` "
+                        "for the full list of %d)" % len(RCP.ids()))
+    v.add_argument("--run-id", default="run",
+                   help="name of the run directory under <target>/.calma/ (default: run)")
     v.add_argument("--fail-on", choices=["not-clean", "refuted"], default="not-clean",
                    help="process exit policy: not-clean (default; INCONCLUSIVE also fails) or refuted")
+    v.add_argument("--trust", choices=["own-code", "third-party"], default="own-code",
+                   help="trust posture for the code being re-executed: own-code (default) runs "
+                        "under the verified sandbox; third-party REFUSES to execute (exit 3) "
+                        "unless a verified container/VM tier is live")
+    v.add_argument("--timeout", type=int, default=None, metavar="SECONDS",
+                   help="re-execution wall-clock budget (default 120, or run.timeout in "
+                        "verify.yaml); on overrun the run is killed (exit 4)")
     v.add_argument("--force", action="store_true",
                    help="re-execute even if code, data, and claim are unchanged since the last verification")
     v.add_argument("--check-determinism", action="store_true",
@@ -616,17 +845,28 @@ def main():
     v.add_argument("--json", action="store_true", dest="as_json",
                    help="print a machine-readable verdict object instead of the report")
     t = sub.add_parser("teardown", help="print a shareable card when a claim breaks")
-    t.add_argument("target")
-    t.add_argument("claim_text", nargs="?", default=None)
-    t.add_argument("--claim")
-    t.add_argument("--metric")
-    t.add_argument("--force", action="store_true")
+    t.add_argument("target", help="folder containing the code and its outputs")
+    t.add_argument("claim_text", nargs="?", default=None,
+                   help="the claim to check, e.g. \"accuracy 0.87\" (optional)")
+    t.add_argument("--claim", help="same as the positional claim")
+    t.add_argument("--metric",
+                   help="force a metric id (run `calma recipes` for the full list)")
+    t.add_argument("--force", action="store_true",
+                   help="re-execute even if code, data, and claim are unchanged")
     t.add_argument("--svg", help="also write the share card as a dark SVG image to this path")
     r = sub.add_parser("replay", help="re-run a saved verification and check it reproduces")
     r.add_argument("run_dir", help="the .calma/<run-id> dir printed on the original verdict")
     s = sub.add_parser("stats", help="summarize this target's verification history")
-    s.add_argument("target")
-    s.add_argument("--json", action="store_true", dest="as_json")
+    s.add_argument("target", help="folder whose .calma verification history to summarize")
+    s.add_argument("--json", action="store_true", dest="as_json",
+                   help="print the summary as machine-readable JSON")
+    dm = sub.add_parser("demo", help="watch calma catch a real inflated backtest "
+                                     "(bundled fixture; offline, a few seconds)")
+    dm.add_argument("--keep", action="store_true",
+                    help="keep the temp copy of the fixture (prints its path)")
+    rc = sub.add_parser("recipes", help="list every built-in metric recipe, grouped by family")
+    rc.add_argument("--json", action="store_true", dest="as_json",
+                    help="print {family: [metric ids]} as JSON")
     at = sub.add_parser("attest", help="sign a run into a portable bundle, or verify one offline")
     atsub = at.add_subparsers(dest="attest_cmd", required=True)
     kg = atsub.add_parser("keygen", help="generate a local Ed25519 signing key (~/.calma/keys)")
@@ -679,19 +919,82 @@ def main():
     rgv.add_argument("dir", nargs="?", default=None,
                      help="registry directory (default: $CALMA_REGISTRY_DIR, then ./registry)")
     rgv.add_argument("--key", help="pin the signer: hex public key, or a path to the .pub file")
+    # bare `calma` (or `calma help`) is a person looking for the door, not an error
+    if len(sys.argv) <= 1 or sys.argv[1] == "help":
+        ap.print_help()
+        print("\nstart here:\n"
+              "  calma demo                         watch a real inflated backtest get caught "
+              "(offline, a few seconds)\n"
+              "  calma verify <folder> \"<claim>\"    check your own result, "
+              "e.g. calma verify ./out \"accuracy 0.87\"\n"
+              "  calma recipes                      the %d metrics it can recompute" % len(RCP.ids()))
+        return 0
     a = ap.parse_args()
     try:
         if a.cmd == "verify":
             res = verify(a.target, a.claim_text or a.claim, a.metric, a.run_id,
-                         force=a.force, check_determinism=a.check_determinism)
+                         force=a.force, check_determinism=a.check_determinism,
+                         trust=a.trust, timeout=a.timeout)
+            if a.fail_on == "refuted":
+                exit_code = 1 if res["repo_verdict"] in ("REFUTED", "MIXED") else 0
+            else:
+                exit_code = res["gate_exit"]
+            # refusal/kill outcomes get their own exit codes (documented in the README table):
+            # 3 = execution refused (trust posture), 4 = killed (timeout) - regardless of policy
+            if res.get("refused"):
+                exit_code = 3
+            elif res.get("killed"):
+                exit_code = 4
             if a.as_json:
                 print(json.dumps(_json_result(res), indent=2))
             else:
                 print(res["report"])
-                print("\n[gate exit %d - %s]" % (res["gate_exit"], res["repo_verdict"]))
-            if a.fail_on == "refuted":
-                return 1 if res["repo_verdict"] in ("REFUTED", "MIXED") else 0
-            return res["gate_exit"]
+                # human vocabulary on the exit line: INCONCLUSIVE displays as CAN'T-CONFIRM.
+                # A CONFIRMED verdict can still exit 1 under the default --fail-on not-clean
+                # (caveat findings) - say so, or the line reads as a contradiction.
+                label = REP.display(res["repo_verdict"])
+                if exit_code != 0 and label.startswith("CONFIRMED") and res.get("gate_exit") != 0:
+                    label += ", with caveat findings"
+                print("\n[exit %d (%s)%s]"
+                      % (exit_code, label,
+                         "" if exit_code == 0 else " - see --fail-on for the exit policy"))
+            return exit_code
+        if a.cmd == "demo":
+            # zero-to-verdict: a real overfit BTC backtest ships with the skill. Copy it to a temp
+            # dir (without its .calma state), re-execute, recompute, and show the verdict card.
+            # Offline by construction (the fixture vendors its data snapshot).
+            import shutil
+            import tempfile
+            src = os.path.realpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                                "..", "assets", "btc"))
+            if not os.path.isdir(src):
+                print("error: bundled fixture missing at %s" % src, file=sys.stderr)
+                return 2
+            dst = os.path.join(tempfile.mkdtemp(prefix="calma-demo-"), "btc-backtest")
+            shutil.copytree(src, dst, ignore=shutil.ignore_patterns(".calma"))
+            print("re-verifying a real overfit backtest (it claimed +14,698% on BTC)...\n")
+            res = verify(dst)
+            print(res["report"])
+            if a.keep:
+                print("\n[fixture copy kept at %s]" % dst)
+            print("\nthat was a real inflated backtest. now try your own:  "
+                  "%s verify <folder> \"<claim>\"" % _invocation())
+            return 0 if res["repo_verdict"] == "REFUTED" else 1
+        if a.cmd == "recipes":
+            fams = {}
+            for mid in RCP.ids():
+                fams.setdefault(RCP.get(mid).manifest.get("family") or "other", []).append(mid)
+            if a.as_json:
+                print(json.dumps(fams, indent=2, sort_keys=True))
+                return 0
+            import textwrap
+            print("CALMA RECIPES - %d metrics. Pin one with: "
+                  "calma verify <folder> \"<claim>\" --metric <id>" % len(RCP.ids()))
+            for fam in sorted(fams):
+                print("\n  %s (%d)" % (fam, len(fams[fam])))
+                for ln in textwrap.wrap(", ".join(fams[fam]), width=88):
+                    print("    " + ln)
+            return 0
         if a.cmd == "teardown":
             res = verify(a.target, a.claim_text or a.claim, a.metric, "teardown", force=a.force)
             print(res.get("teardown") or "(no teardown: result was not REFUTED)")
@@ -766,6 +1069,9 @@ def main():
                     rok, text = replay(os.path.dirname(os.path.realpath(a.bundle)))
                     print("\n" + text)
                     ok = ok and rok
+                if not ok:
+                    print("\nnext: ask the producer to re-run `calma seal <run_dir>` "
+                          "and resend the bundle (a stale or tampered bundle never verifies)")
                 return 0 if ok else 1
         if a.cmd == "seal":
             run_dir = os.path.realpath(a.run_dir)
@@ -787,8 +1093,10 @@ def main():
                     attest.write_ssh_sidecars(bundle, run_dir)  # refresh instructions w/ timestamp
                     print("timestamp   %s (%s) - verifies offline forever"
                           % (entry["gen_time"], entry["tsa_url"]))
-                except OSError as e:
-                    print("timestamp   SKIPPED - no network or TSA unreachable (%s); "
+                except (OSError, ValueError) as e:
+                    # ValueError = a malformed/ungrantable RFC 3161 response; never a traceback
+                    # mid-seal - the bundle stays valid, only the timestamp layer is deferred
+                    print("timestamp   SKIPPED - TSA unreachable or returned a bad response (%s); "
                           "run `calma attest timestamp %s` later" % (e, bpath))
             ok, checks = attest.verify_bundle(bundle)
             print("self-check  %s (%d checks)" % ("VERIFIED" if ok else "FAILED",
@@ -843,6 +1151,9 @@ def main():
                           % attest.render_verify(bundle, bok, bchecks), file=sys.stderr)
                     return 1
                 entry = REG.derive_entry(bundle, engagement=a.engagement, note=a.note)
+                if entry.get("verdict") not in ("REFUTED", "MIXED"):
+                    print("note: this entry records a %s outcome, not a catch - the registry "
+                          "documents both" % entry.get("verdict"))
             fname, wrapper = REG.append_entry(reg_dir, entry, seed)
             e = wrapper["entry"]
             print("published: %s/entries/%s" % (reg_dir, fname))

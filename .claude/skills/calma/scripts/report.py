@@ -16,6 +16,12 @@ _TOPLINE = {
     "MIXED": ("MIXED", "some claims hold, at least one is broken"),
 }
 
+
+def display(repo_verdict):
+    """The user-facing name of a verdict enum value (INCONCLUSIVE displays as CAN'T-CONFIRM).
+    The internal enum and every --json value stay unchanged; this is for human surfaces only."""
+    return _TOPLINE.get(repo_verdict, (str(repo_verdict), ""))[0]
+
 # metrics whose natural display is a percentage of the raw ratio: signed (direction matters)
 # vs unsigned (rates/fractions)
 PERCENT_METRICS = {"total_return", "max_drawdown", "growth_rate", "cagr", "irr", "lift"}
@@ -31,7 +37,7 @@ _FIXES = [
     ("not statistically distinguishable", "the gap is within the claim's own noise - a finer-grained claim or more data is needed"),
     ("no recomputed numeric", "write the result's raw numbers to a machine-readable file (e.g. predictions.csv with y_true,y_pred)"),
     ("untrusted code", "third-party code needs a verified container/VM tier - or set trust: own-code if you wrote it"),
-    ("killed or isolation was refused", "the run was killed or refused - raise the timeout, or check `run_hermetic.py doctor`"),
+    ("killed or isolation was refused", "the run was killed or refused - raise the budget with --timeout SECONDS, or check `run_hermetic.py doctor`"),
     ("degenerate recompute", "the recompute hit NaN/Inf - check for missing values in the output file"),
     ("outputs differ across identical re-runs", "set a fixed seed (and write outputs deterministically), then re-run"),
     ("plausibly-bound", "confirm which column is the metric: pass --metric, or pin the binding in verify.yaml"),
@@ -87,9 +93,19 @@ def render(led, diff=None):
     rv = led.get("repo_verdict", V.INCONCLUSIVE)
     word, gloss = _TOPLINE.get(rv, _TOPLINE[V.INCONCLUSIVE])
     c0 = led["claims"][0] if led.get("claims") else {}
+    # no-claim mode: a clean verdict with no claimed number is a REPRODUCTION check, and the
+    # render says so instead of pretending a claim was diffed
+    scope_repro = (rv in (V.CONFIRMED, V.CAVEATS) and c0
+                   and c0.get("claimed_value") is None and c0.get("recomputed_value") is not None)
+    if scope_repro:
+        word += " (scope=reproduction)"
+        gloss = "no claim was given - the result re-runs and the number recomputes"
     conf = c0.get("headline_confidence") or 0.0
     head = "%s  (confidence %d/100)" % (word, int(round(conf * 100))) if conf > 0 else word
     lines = ["%s  -  %s" % (head, gloss)]
+    if scope_repro:
+        lines.append("  recomputed %s = %s  (state a claim to check a number against it)"
+                     % (c0.get("metric"), fmt_value(c0.get("recomputed_value"), c0.get("metric"))))
     # line 2: the single most-limiting thing. On a REFUTED the numeric-collapse line below already
     # carries the metric-mismatch, so prefer a DIFFERENT blocker (e.g. baseline) over repeating it.
     limiter = None

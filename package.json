@@ -1,6 +1,8 @@
 {
-  "name": "calma",
-  "version": "0.1.0",
+  "name": "calma-site",
+  "version": "0.6.1",
+  "description": "The Calma website only — the verification skill/CLI lives in .claude/skills/calma (see the repo README)",
+  "repository": "github:rikhinkavuru/calma",
   "private": true,
   "scripts": {
     "dev": "next dev",

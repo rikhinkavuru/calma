@@ -63,15 +63,30 @@ export function Cross({ style, className = "" }: { style?: CSSProperties; classN
   return <span className={"cross " + className} style={style} aria-hidden="true" />;
 }
 
+function Burger({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  return (
+    <button
+      className="nav__burger"
+      aria-label={open ? "Close menu" : "Open menu"}
+      aria-expanded={open}
+      onClick={onToggle}
+    >
+      <span aria-hidden="true">{open ? "✕" : "☰"}</span>
+    </button>
+  );
+}
+
 export function Nav({ onRequest }: { onRequest: () => void }) {
   const [scrolled, setScrolled] = useState(false);
+  const [menu, setMenu] = useState(false);
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+  const close = () => setMenu(false);
   return (
-    <header className={"nav" + (scrolled ? " nav--bg" : "")}>
+    <header className={"nav" + (scrolled || menu ? " nav--bg" : "")}>
       <div className="wrap">
         <a className="nav__brand" href="#top">
           CALMA
@@ -87,7 +102,81 @@ export function Nav({ onRequest }: { onRequest: () => void }) {
             Request verification
           </button>
         </nav>
+        <Burger open={menu} onToggle={() => setMenu((m) => !m)} />
       </div>
+      {menu && (
+        <nav className="nav__menu">
+          <a href="#problem" onClick={close}>The problem</a>
+          <a href="#overview" onClick={close}>How it works</a>
+          <a href="#features" onClick={close}>Features</a>
+          <a href="/recipes" onClick={close}>Recipes</a>
+          <a href="/registry" onClick={close}>Registry</a>
+          <a href="/lab" onClick={close}>The lab</a>
+          <button
+            className="nav__cta"
+            onClick={() => {
+              close();
+              onRequest();
+            }}
+          >
+            Request verification
+          </button>
+        </nav>
+      )}
+    </header>
+  );
+}
+
+/* Shared sub-page header: same chrome, takes plain links (server-page safe)
+   plus either an onCta callback (client pages) or a ctaHref. */
+export function SubNav({
+  links,
+  onCta,
+  ctaHref,
+  ctaLabel = "Request verification",
+}: {
+  links: { href: string; label: string }[];
+  onCta?: () => void;
+  ctaHref?: string;
+  ctaLabel?: string;
+}) {
+  const [menu, setMenu] = useState(false);
+  const close = () => setMenu(false);
+  const cta = onCta ? (
+    <button className="nav__cta" onClick={() => { close(); onCta(); }}>
+      {ctaLabel}
+    </button>
+  ) : ctaHref ? (
+    <a className="nav__cta" href={ctaHref} style={{ display: "inline-block" }} onClick={close}>
+      {ctaLabel}
+    </a>
+  ) : null;
+  return (
+    <header className="nav nav--bg">
+      <div className="wrap">
+        <a className="nav__brand" href="/">
+          CALMA
+        </a>
+        <nav className="nav__links">
+          {links.map((l) => (
+            <a key={l.href} href={l.href}>
+              {l.label}
+            </a>
+          ))}
+          {cta}
+        </nav>
+        <Burger open={menu} onToggle={() => setMenu((m) => !m)} />
+      </div>
+      {menu && (
+        <nav className="nav__menu">
+          {links.map((l) => (
+            <a key={l.href} href={l.href} onClick={close}>
+              {l.label}
+            </a>
+          ))}
+          {cta}
+        </nav>
+      )}
     </header>
   );
 }

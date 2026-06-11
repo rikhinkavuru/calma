@@ -17,7 +17,7 @@ Onboarding for a fresh Claude Code session. Read this, then `.claude/skills/calm
 
 ## Current state (all pushed to origin/main)
 
-- **118 SOTA recipes** across 11 packs: trading, classification (incl. macro/micro/weighted F1,
+- **120 SOTA recipes** (118 reviewed + 2 compiled) across 11 packs: trading, classification (incl. macro/micro/weighted F1,
   PR-AUC, log-loss, MCC, ECE, κ, KS, Gini), regression + forecasting (incl. MSLE, WAPE, adjusted
   R², Durbin-Watson), analytics (incl. group-bys, distinct/null/dupes, HHI, Gini coefficient,
   entropy, outliers), engineering (latency p50–p99, Apdex, uptime, coverage, error rates),
@@ -73,6 +73,17 @@ Onboarding for a fresh Claude Code session. Read this, then `.claude/skills/calm
   texture overlay (`.paper`, mounted in layout), glow ONLY in hero + outro sunrise, hover
   language = corner-square + tint on grid cells, lift + flat offset shadow on benefit cards.
 
+- **Production-readiness pass (2026-06-11 evening, calma 0.6.1)**: four-surface audit → fixes.
+  Site: request form actually delivers (FormSubmit + honest fallback + visible email — founder
+  must click the one-time FormSubmit activation email), founder/contact everywhere, mobile nav,
+  Rekor copy honest, SEO pack (icon/OG/sitemap/robots/next-font), registry page verifiable +
+  human numbers. CLI: user's claim is never substituted by the committed contract (conflicts →
+  CAN'T-CONFIRM + fix), `calma demo`/`recipes`, CAN'T-CONFIRM vocabulary everywhere. Engine:
+  verdict cache validated against its ledger (A/B/A collision fixed), sandbox denies writes to
+  .calma + env whitelist, `--trust third-party` refusal gate, `--timeout`, hook checks sandbox
+  tier. Attestation URIs migrated to github.com/rikhinkavuru/calma/* (legacy calma.dev bundles
+  stay valid). SECURITY.md + CHANGELOG.md added. Suite: 18 suites green (~1,540 checks).
+
 ## Key invariants (machine-enforced — do not violate)
 
 - No statistic or verdict label is ever computed by a model. `verdict()` in `verdict.py` is the
@@ -124,13 +135,11 @@ python3 .claude/skills/calma/scripts/calma.py verify <dir> "<claim>" --json   # 
    coefficient_of_variation admitted; 120 recipes).
 
 **Founder setup DONE 2026-06-10 evening** (commit 7c53f12): lab key created via
-`calma attest keygen --import ~/.ssh/id_ed25519` (keyid ebf722e19cf7016d…, pubkey published in
-registry/README.md), git commit signing configured (SSH format, allowed_signers set), genesis
-registry entry published (the BTC fixture REFUTED, RFC 3161 timestamped, entry
-00001-dc236f5759bb), both compiled recipes re-admitted signed ([True, True]). The lab key IS
-the founder's GitHub SSH key (one identity, accepted trade-off; the seed was exposed in a
-Claude session transcript — founder accepted the risk; if rotation is ever wanted, do it
-BEFORE the first real engagement is signed, while the chain is short).
+`calma attest keygen` (keyid ebf722e19cf7016d…, pubkey published in registry/README.md), git
+commit signing configured (SSH format, allowed_signers set), genesis registry entry published
+(the BTC fixture REFUTED, RFC 3161 timestamped, entry 00001-dc236f5759bb), both compiled
+recipes re-admitted signed ([True, True]). If key rotation is ever wanted, do it BEFORE the
+first real engagement is signed, while the chain is short.
 
 **Still pending:**
 - GitHub "Verified" badge: upload ~/.ssh/id_ed25519.pub in GitHub Settings → SSH and GPG keys
@@ -142,13 +151,11 @@ BEFORE the first real engagement is signed, while the chain is short).
 limitations), registry v2 (tlog-tiles Merkle tree + C2SP checkpoints + public witness cosigs —
 additive, entries already hash-addressed), more compiled-recipe drafts through the gate.
 
-**Fundraising assets (2026-06-10 late):** demo project at `~/calma-demo/btc-momentum/` (REAL
-10y BTC-USD data from Yahoo; walk-forward momentum that prints the TRAIN-best +19,971% while
-the held-out artifact recomputes to +168% — tested REFUTED→fix→CONFIRMED end-to-end; pristine
-buggy state for filming). Script/production guide: `~/calma-strategy/DEMO-VIDEO.md`; discovery
--call kit: `~/calma-strategy/DISCOVERY-CALLS.md`; Z Fellows / f.inc / SBIR application drafts:
-`~/calma-strategy/APPLICATIONS.md`. Served-fraction experiment RAN: 6/9 (66.7%) across 5
-languages (`assets/served_fraction.json`; target was 70–80% — state it honestly).
+**Demo & strategy assets:** the worked demo project lives at `~/calma-demo/btc-momentum/`
+(real 10y BTC-USD data; a genuine walk-forward bug, verified REFUTED→fix→CONFIRMED
+end-to-end). All strategy, outreach, and application material lives in `~/calma-strategy/`
+— NOT in this repo. Served-fraction experiment RAN: 6/9 (66.7%) across 5 languages
+(`assets/served_fraction.json`; target was 70–80% — state it honestly).
 **Known issues:** site is live at calma1.vercel.app (auto-deploys from GitHub; /registry
 renders the genesis entry) but `calma.dev` — used in predicate URIs and across docs — is
 OWNED BY SOMEONE ELSE; buy a domain we control and migrate the predicate type (schema bump)
