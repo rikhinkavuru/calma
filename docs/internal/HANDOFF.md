@@ -1,4 +1,4 @@
-# Calma — session handoff (2026-06-10)
+# Calma — session handoff (2026-06-11)
 
 Onboarding for a fresh Claude Code session. Read this, then `.claude/skills/calma/SKILL.md`
 (what the skill is) and `.claude/skills/calma/BUILD-NOTES.md` (build log, newest entries last).
@@ -28,10 +28,11 @@ Onboarding for a fresh Claude Code session. Read this, then `.claude/skills/calm
 - **Every recipe is validated against its published reference implementation** (scikit-learn,
   SciPy, NumPy, numpy-financial, statsmodels, jiwer, HumanEval estimator, SQuAD normalizer, Guo
   ECE) via **385 byte-reproducible reference vectors** in `assets/reference_vectors.json`.
-- **Test suite: 16 suites, ~1117 checks, pure stdlib** — `python3 .claude/skills/calma/scripts/tests/run_all.py`.
+- **Test suite: 18 suites, ~1488 checks, pure stdlib** — `python3 .claude/skills/calma/scripts/tests/run_all.py`.
   The big one is `test_recipes_sota.py` (reference vectors + conventions + degenerate paths +
-  e2e + claim-parser regressions + registry↔site sync); new: `test_registry.py` (chain tamper
-  matrix), `test_compiler.py` (DSL + gate + frozen-asset tamper + compiled-recipe e2e).
+  e2e + claim-parser regressions + registry↔site sync); also `test_registry.py` (chain tamper
+  matrix), `test_compiler.py` (DSL + gate + frozen-asset tamper + compiled-recipe e2e),
+  `test_sniff.py` + `test_hook.py` (the zero-touch guardrail, incl. the adversarial regressions).
 - **Attestation chain (SHIPPED to the full 3-layer spec, calma 0.5.0)**: DSSE/in-toto bundle,
   predicate `calma.dev/verdict/v1` (SLSA-VSA-shaped: verifier+version, policy = contract +
   calibration hashes, verdict, claims). The same Ed25519 key signs twice: raw DSSE (Sigstore-
@@ -45,6 +46,17 @@ Onboarding for a fresh Claude Code session. Read this, then `.claude/skills/calm
   enforced at append + audit; never code/data) derived from a VERIFIED bundle into `registry/`
   (hash chain, every entry + HEAD SSHSIG-signed); `calma publish --open <id>` logs engagements at
   signing (missing outcome = visible); `calma registry verify` audits offline. Site: `/registry`.
+- **Zero-touch guardrail (SHIPPED 2026-06-11, calma 0.6.0)**: plugin-registered Stop hook
+  (`hooks/hooks.json` → `scripts/hook_stop.py`) + precision-first claim sniffer
+  (`scripts/sniff_claims.py`). When an agent's final message states a checkable numeric claim in
+  a verifiable project, the claim is auto-verified before the turn ends; the stop is blocked ONLY
+  on definitive REFUTED/MIXED (verdict + reporting contract injected), silent otherwise.
+  Fail-open everywhere, never-nag cache, no-shell subprocess, kill switches (CALMA_HOOK=0 /
+  .calma/hook-off / config). Breadcrumbs to `.calma/auto_history.jsonl`, surfaced by
+  `calma stats`. Survived a 270-case multi-agent adversarial round: 12 confirmed false fires,
+  all fixed (config-assignment guard, finance-subject gate on the `returned` alias, counted
+  units, per-term context-deny lists, log-loss-never-percent) and pinned as regressions;
+  0 code-attack findings. The contract: a missed claim is free, a false fire is a release blocker.
 - **Recipe compiler (SHIPPED)**: `dsl.py` (typed JSON expression DSL over numeric.py kernels, no
   loops — total by construction, depth/size budgets) + `compiler.py admit` (deterministic CEGIS
   gate: differential vs named oracle in the reference venv, metamorphic suite, degeneracy,

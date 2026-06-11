@@ -28,7 +28,7 @@ import report as REP
 import run_hermetic as H
 import verdict as V
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 
 QUANT_METRICS = {"total_return", "sharpe", "max_drawdown"}
 
@@ -548,7 +548,29 @@ def stats(target):
         lines.append("  catch: claimed %s -> recomputed %s (%s)"
                      % (REP.fmt_value(c.get("claimed"), c.get("metric")),
                         REP.fmt_value(c.get("recomputed"), c.get("metric")), c.get("metric")))
-    return {"total": len(rows), "counts": counts}, "\n".join(lines)
+    # the zero-touch hook's breadcrumb trail (auto-verifications it fired or skipped)
+    auto = {"total": 0, "events": {}, "claims": []}
+    apath = os.path.join(target, ".calma", "auto_history.jsonl")
+    if os.path.exists(apath):
+        for line in open(apath):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                r = json.loads(line)
+            except ValueError:
+                continue
+            auto["total"] += 1
+            auto["events"][r.get("event", "?")] = auto["events"].get(r.get("event", "?"), 0) + 1
+            if r.get("claim") and r["claim"] not in auto["claims"]:
+                auto["claims"].append(r["claim"])
+        if auto["total"]:
+            lines.append("  zero-touch hook: %d events (%s); %d distinct claims seen"
+                         % (auto["total"],
+                            ", ".join("%s %d" % (k, v)
+                                      for k, v in sorted(auto["events"].items())),
+                            len(auto["claims"])))
+    return {"total": len(rows), "counts": counts, "auto": auto}, "\n".join(lines)
 
 
 def _json_result(res):
