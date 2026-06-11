@@ -40,3 +40,12 @@ registry/
 v2 (additive, when volume warrants): a Merkle tree over the same hash-addressed entries per
 the C2SP tlog-tiles spec, served as static files, with checkpoints cosigned by the public
 witness network.
+
+## Lab key
+
+Entries in this registry are signed with the Calma lab key. Pin it:
+
+- hex (for `calma attest verify --key`):
+  `f7ba66bff50e2348d95edab4280410a8dd34ef050fab67dba7a1b7c3335ca872`
+- SSH form (for an allowed_signers file):
+  `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPe6Zr/1DiNI2V7atCgEEKjdNO8FD6tn26eht8MzXKhy calma-ebf722e19cf7016d`
