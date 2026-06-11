@@ -33,6 +33,24 @@ __version__ = "0.5.0"
 QUANT_METRICS = {"total_return", "sharpe", "max_drawdown"}
 
 
+def _trace_enabled():
+    """Pipeline narration on stderr: on for interactive terminals, off for pipes/CI/--json
+    consumers (stdout is never touched). CALMA_TRACE=1/0 overrides."""
+    v = os.environ.get("CALMA_TRACE")
+    if v is not None:
+        return v not in ("0", "", "off")
+    return sys.stderr.isatty()
+
+
+def _trace(step, msg):
+    if not _trace_enabled():
+        return
+    if sys.stderr.isatty():
+        print("  \x1b[2m%-9s\x1b[0m %s" % (step, msg), file=sys.stderr, flush=True)
+    else:
+        print("  %-9s %s" % (step, msg), file=sys.stderr, flush=True)
+
+
 def _not_verified(metric_ids):
     """Honest 'what we did NOT check' list, phrased for the family actually verified."""
     if any(m in QUANT_METRICS for m in metric_ids):
@@ -284,12 +302,23 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
         contract_path = os.path.join(run_dir, "verify.yaml")
         json.dump(contract, open(contract_path, "w"), indent=2)
 
+    m0 = (contract.get("metrics") or [{}])[0]
+    if m0.get("metric_id"):
+        _trace("contract", "%s: claim binds %s -> recipe %s (%s)"
+               % ("verify.yaml (committed)" if contract_path == committed else "drafted",
+                  "%s::%s" % (m0.get("artifact"), ", ".join(map(str, (m0.get("binding") or {}).values()))),
+                  m0["metric_id"], m0.get("binding_status", "ungraded")))
+    else:
+        _trace("contract", "drafted: entrypoint %s (no metric bound yet - outputs may only exist post-run)"
+               % contract.get("run", {}).get("entrypoint"))
+
     # the cache: same contract + same entrypoint bytes + same artifact bytes => same verdict.
     # Inline/agent-loop use re-verifies only what changed; --force always re-executes, and a
     # determinism check is new evidence, so it never reads the cache (it still stores).
     if not force and not check_determinism:
         hit = _cached_result(target, _input_fingerprint(target, contract))
         if hit:
+            _trace("cache", "code+data+claim unchanged -> prior verdict (--force re-executes)")
             return hit
 
     diff = None
@@ -306,8 +335,15 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
         }, target_name=os.path.basename(target))
         run_res["run_dir"] = run_dir
     else:
+        import time as _time
+        _trace("re-run", "executing %s in the sandbox (network off)..."
+               % contract.get("run", {}).get("entrypoint"))
+        _t0 = _time.time()
         run_res = H.run(contract_path, base=target)
         run_res["run_dir"] = run_dir
+        _trace("re-run", "exit %s in %.1fs | isolation %s | determinism %s"
+               % (run_res.get("exit_code"), _time.time() - _t0,
+                  run_res.get("isolation_tier"), run_res.get("determinism_mode")))
         if run_res.get("exit_code") in (3, 4):
             # refused (no isolation for untrusted) or killed -> INCONCLUSIVE, never a verdict
             if run_res.get("exit_code") == 4:
@@ -352,10 +388,20 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
                 }
             rec = RC.recompute_contract(contract_path, base=target)
             json.dump(rec, open(os.path.join(run_dir, "recompute.json"), "w"), indent=2)
+            for _rm in rec.get("metrics", []):
+                if not _rm.get("degenerate"):
+                    _trace("recompute", "%s rebuilt from raw %s: %s (deterministic kernels, "
+                           "%dx identical)"
+                           % (_rm.get("metric_id"), _rm.get("artifact", "outputs"),
+                              REP.fmt_value(_rm.get("value"), _rm.get("metric_id")),
+                              _rm.get("k", 1)))
             man = attest.manifest_for(os.path.join(target, "runs")) if os.path.isdir(os.path.join(target, "runs")) else {}
             json.dump(man, open(os.path.join(run_dir, "manifest.json"), "w"), indent=2)
             run_res["manifest_ref"] = "sha256:" + man.get("manifest_sha256", "none")
             run_res["_manifest"] = man
+            if man.get("files"):
+                _trace("manifest", "%d raw artifacts content-hashed (root %s...)"
+                       % (len(man["files"]), man.get("manifest_sha256", "")[:12]))
             diff = CMP.compare(rec, contract, isolation_tier=run_res.get("isolation_tier", "none"),
                                determinism_mode=run_res.get("determinism_mode", "uncontrolled"),
                                untrusted=(contract.get("env", {}).get("trust") == "untrusted-third-party"),
@@ -363,6 +409,14 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
                                exit_codes=[run_res.get("exit_code", 0)],
                                outputs_unstable=outputs_unstable)
             json.dump(diff, open(os.path.join(run_dir, "diff.json"), "w"), indent=2)
+            for _dm in diff.get("metrics", []):
+                if _dm.get("claimed") is not None:
+                    _trace("compare", "claimed %s vs recomputed %s -> %s"
+                           % (REP.fmt_value(_dm.get("claimed"), _dm.get("metric_id")),
+                              REP.fmt_value(_dm.get("recomputed"), _dm.get("metric_id")),
+                              "within the calibrated budget" if _dm.get("verdict") in
+                              ("CONFIRMED", "CONFIRMED-WITH-CAVEATS")
+                              else "OUTSIDE the calibrated budget"))
             led = _assemble_ledger(contract, diff, run_res)
             if not diff["metrics"]:
                 led["findings"].append({
@@ -388,10 +442,14 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
     # for the verdict itself, so a signing failure must not fail the verification
     if attest.load_signing_key() is not None:
         try:
-            attest.sign_run(run_dir)
+            bundle, _out = attest.sign_run(run_dir)
+            _trace("attest", "verdict signed: DSSE + SSHSIG, keyid %s..."
+                   % bundle["envelope"]["signatures"][0]["keyid"][:16])
         except (OSError, ValueError):
             pass
     code, summary = LED.validate_obj(led)
+    _trace("verdict", "%s - every label re-derived byte-for-byte from its stored inputs"
+           % led.get("repo_verdict"))
     rendered = REP.render(led, diff)
     open(os.path.join(run_dir, "report.txt"), "w").write(rendered)
     card = REP.teardown_card(led)
