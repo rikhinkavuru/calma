@@ -19,7 +19,8 @@ export default function RecipesPage() {
           </a>
           <nav className="nav__links">
             <a href="/#overview">How it works</a>
-            <a href="/#features">Features</a>
+            <a href="/registry">Registry</a>
+            <a href="/lab">The lab</a>
             <a className="nav__cta" href="/" style={{ display: "inline-block" }}>
               ← Back to Calma
             </a>

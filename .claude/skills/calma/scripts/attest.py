@@ -302,20 +302,65 @@ def make_bundle(led, manifest, seed, time_verified=None, contract_sha256=None):
 
 
 def write_ssh_sidecars(bundle, run_dir):
-    """The three files a counterparty needs to verify with ONLY stock OpenSSH (>= 8.0):
-        ssh-keygen -Y verify -f attestation.allowed_signers -I <principal> \\
-            -n calma-attest@v1 -s attestation.sig.sshsig < attestation.payload.json"""
+    """The three files a counterparty needs to verify with ONLY stock OpenSSH (>= 8.0),
+    plus VERIFY-THIS.txt - the human instructions, with every value filled in, so nobody
+    ever has to construct the command by hand."""
     ssh = bundle.get("ssh") or {}
     payload = base64.b64decode(bundle["envelope"]["payload"])
     paths = {
         PAYLOAD_SIDECAR: payload,
         SSHSIG_SIDECAR: ssh.get("signature", "").encode(),
         SIGNERS_SIDECAR: (ssh.get("allowed_signers", "") + "\n").encode(),
+        "VERIFY-THIS.txt": verify_instructions(bundle).encode(),
     }
     for name, data in paths.items():
         with open(os.path.join(run_dir, name), "wb") as fh:
             fh.write(data)
     return sorted(paths)
+
+
+def verify_instructions(bundle):
+    """Counterparty instructions for THIS bundle, every value filled in."""
+    ssh = bundle.get("ssh") or {}
+    keyid = ((bundle.get("envelope") or {}).get("signatures") or [{}])[0].get("keyid", "")
+    ts = bundle.get("timestamps") or []
+    lines = [
+        "HOW TO VERIFY THIS ATTESTATION (offline; pick either path)",
+        "=" * 60,
+        "",
+        "This folder contains a signed verdict from calma - a verification",
+        "by re-execution: the code was re-run in a sandbox and the claimed",
+        "number was recomputed from the raw output files.",
+        "",
+        "PATH A - full check (needs the free calma CLI, no dependencies):",
+        "",
+        "    calma attest verify attestation.bundle.json [--replay]",
+        "",
+        "  Checks both signatures, every content hash, and re-derives the",
+        "  verdict byte-for-byte from its stored inputs. --replay also",
+        "  re-executes the run. Get calma: github.com/rikhinkavuru/calma",
+        "",
+        "PATH B - signature check with ZERO installs (stock OpenSSH >= 8.0,",
+        "already on every Mac/Linux machine). From this folder:",
+        "",
+        "    ssh-keygen -Y verify -f attestation.allowed_signers \\",
+        "      -I %s -n %s \\" % (ssh.get("principal", "<principal>"),
+                                  ssh.get("namespace", sshsig.NAMESPACE)),
+        "      -s attestation.sig.sshsig < attestation.payload.json",
+        "",
+        "  Prints 'Good \"%s\" signature ...' if the verdict bytes" % sshsig.NAMESPACE,
+        "  are authentic and unaltered.",
+        "",
+        "TRUST NOTE: the key in attestation.allowed_signers ships WITH this",
+        "bundle, so Path B alone proves integrity, not identity. Pin the",
+        "signer by obtaining their public key from a channel you trust and",
+        "comparing (keyid %s...)." % keyid[:16],
+    ]
+    if ts:
+        lines += ["",
+                  "TIMESTAMP: an RFC 3161 token from %s proves this verdict" % ts[0].get("tsa_url"),
+                  "existed by %s. calma attest verify checks it offline." % ts[0].get("gen_time")]
+    return "\n".join(lines) + "\n"
 
 
 def sign_run(run_dir, key_path=None, out=None, time_verified=None):
