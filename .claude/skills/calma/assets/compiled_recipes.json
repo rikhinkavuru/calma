@@ -118,6 +118,10 @@
         "date": "2026-06-10",
         "differential_vectors": 5,
         "skip_differential": false
+      },
+      "ssh": {
+        "namespace": "calma-attest@v1",
+        "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg97pmv/UOI0jZXtq0KAQQqN007w\nUPq2fbp6G3wzNcqHIAAAAPY2FsbWEtYXR0ZXN0QHYxAAAAAAAAAAZzaGE1MTIAAABTAAAA\nC3NzaC1lZDI1NTE5AAAAQM/GhGdZLT+liGY18TL2fFldKBaL55O6CBntTp0gWq/mBmccbd\nrE3SuofqzIaUfjuAjS6I3/LDJBeWJebOluuAI=\n-----END SSH SIGNATURE-----\n"
       }
     },
     {
@@ -246,6 +250,10 @@
         "date": "2026-06-10",
         "differential_vectors": 5,
         "skip_differential": false
+      },
+      "ssh": {
+        "namespace": "calma-attest@v1",
+        "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg97pmv/UOI0jZXtq0KAQQqN007w\nUPq2fbp6G3wzNcqHIAAAAPY2FsbWEtYXR0ZXN0QHYxAAAAAAAAAAZzaGE1MTIAAABTAAAA\nC3NzaC1lZDI1NTE5AAAAQHXToqql3Fs401fT+rwRxfeKN2HIq0N42hbuGwyzhXV6aLCd+J\ngojE27kW2spGvQ3F7ZA3veMFt7Vd04Yb5r7Ac=\n-----END SSH SIGNATURE-----\n"
       }
     }
   ]

@@ -1,0 +1,12 @@
+{
+  "schema": "calma/registry-head@1",
+  "seq": 1,
+  "id": "dc236f5759bb4acd1b72e3d35086bab1a9122b8bf266d12e71da21d7dd153a19",
+  "count": 1,
+  "ssh": {
+    "namespace": "calma-attest@v1",
+    "principal": "calma-ebf722e19cf7016d",
+    "public_key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPe6Zr/1DiNI2V7atCgEEKjdNO8FD6tn26eht8MzXKhy calma-ebf722e19cf7016d",
+    "signature": "-----BEGIN SSH SIGNATURE-----\nU1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAg97pmv/UOI0jZXtq0KAQQqN007w\nUPq2fbp6G3wzNcqHIAAAAPY2FsbWEtYXR0ZXN0QHYxAAAAAAAAAAZzaGE1MTIAAABTAAAA\nC3NzaC1lZDI1NTE5AAAAQNK4ARItrGlLwOLi1xkUmdLaVDxWzpnf3N6yoGFvO07rsZ2m2B\nkGsblUNpQL/s9cWrxdqm7EgwPhLW3WrVXxDQ4=\n-----END SSH SIGNATURE-----\n"
+  }
+}
