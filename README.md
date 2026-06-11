@@ -47,6 +47,23 @@ As a Claude Code plugin:
 /plugin install calma@calma
 ```
 
+That's the whole setup. The plugin installs two things:
+
+1. **The skill** — your agent runs `calma verify` on results it produces (and you can ask for it
+   any time: "verify this").
+2. **The zero-touch guardrail** — a Stop hook that watches the agent's final message for checkable
+   numeric claims ("accuracy is 0.91", "the backtest returned +340%"). When it finds one in a
+   verifiable project, it re-executes the work and recomputes the number *before the agent finishes
+   its turn*. If the number doesn't hold, the agent is stopped and handed the verdict — a wrong
+   number can't be reported to you as fact. If everything checks out (or nothing is checkable),
+   you never hear from it.
+
+The guardrail is built to be invisible until the moment it isn't: precision-tuned detection (it
+would rather miss than misfire), cache-first re-checks (~80ms when nothing changed), a hard time
+budget, and fail-open everywhere — an error in the hook can never break your session. Opt out any
+time: `CALMA_HOOK=0`, `touch .calma/hook-off`, or `.calma/config.json → {"hook": {"enabled": false}}`.
+Every decision it makes is logged to `.calma/auto_history.jsonl` (see `calma stats`).
+
 Or copy the folder into any project (works with every agent that reads SKILL.md — Claude Code, Codex,
 Cursor, ...):
 
@@ -70,7 +87,9 @@ calma verify <folder> "<claim>" --json               # machine-readable verdict 
 calma verify <folder> "<claim>" --check-determinism  # run twice; flaky outputs can't confirm anything
 calma teardown <folder> "<claim>" [--svg card.svg]   # shareable "claimed X -> really Y" card (+ SVG image)
 calma replay <run_dir>              # re-run a saved verification; exit 0 iff the verdict reproduces
-calma stats <folder>                # verification history: counts and recent catches
+calma stats <folder>                # verification history: counts, recent catches, hook activity
+calma seal <run_dir> [--publish registry/]   # one command: sign + RFC 3161 timestamp + counterparty
+                                    # instructions (VERIFY-THIS.txt), optionally publish
 calma attest keygen [--import ~/.ssh/id_ed25519]  # one-time signing key; after this, every verify is signed
 calma attest verify <bundle> [--key pub.hex] [--replay]   # check a signed bundle, fully offline
 calma attest timestamp <bundle>     # RFC 3161 trusted timestamp - makes "verified before <date>" provable
@@ -217,9 +236,11 @@ python3 .claude/skills/calma/scripts/tests/run_all.py     # full test suite (pur
 ```
 .claude/skills/calma/    the skill — SKILL.md, scripts/, assets/, calibration/
 .claude-plugin/          plugin + marketplace manifests (/plugin install calma@calma)
+hooks/hooks.json         the zero-touch guardrail (Stop hook) registration
 bin/calma                CLI launcher
 scripts/teardowns/       the worked backtest example
-app/  components/        a small project website (optional; not needed to use the skill)
+registry/                the public, hash-chained catch-history registry
+app/  components/        the project website (optional; not needed to use the skill)
 docs/                    design specs and notes
 ```
 

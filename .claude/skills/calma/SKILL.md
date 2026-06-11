@@ -75,6 +75,25 @@ After running `calma verify`, report in THIS order - the user should never need 
 Agents: prefer `--json` - it returns `{verdict, clean, confidence, claimed, recomputed, reason, fix,
 cached, run_dir}` so you branch on the verdict without parsing prose.
 
+## The zero-touch guardrail (installed automatically with the plugin)
+
+The plugin registers a **Stop hook** (`scripts/hook_stop.py`): when an agent's final message
+contains a checkable numeric claim (precision-tuned detector, `scripts/sniff_claims.py`) in a
+verifiable project, the claim is auto-verified before the turn ends. On a definitive
+REFUTED/MIXED the stop is **blocked** and the verdict is injected back; on everything else the
+hook is completely silent. Fail-open by construction: any error, timeout, or ambiguity means
+silence, never a broken session.
+
+**Agents: if your stop is blocked with a calma verdict, that is the hook.** Do not argue with
+it or restate the refuted number - follow the reporting contract above (diagnose the cause in
+the producing code, state the honest recomputed number, offer the seal). The same break never
+blocks twice while code+data are unchanged; fixing the code re-verifies fresh.
+
+Controls: env `CALMA_HOOK=0` (kill switch) · `touch .calma/hook-off` (per-project or `~/.calma`)
+· `.calma/config.json` `{"hook": {"enabled": false, "timeout_s": 30, "max_claims": 1}}`.
+Every hook decision (fired, skipped, error) is breadcrumbed to `.calma/auto_history.jsonl`
+and summarized by `calma stats` - the seed of a future claims-as-code manifest.
+
 Claims are natural language: the number is parsed (signs, %, $, commas, k/M/B) and the metric is
 inferred from the words ("accuracy", "AUC", "return", "rows", ...). Pass `--metric` to pin it. A bare
 number with an ambiguous auto-picked metric can never produce a REFUTED - it degrades to CAN'T-CONFIRM

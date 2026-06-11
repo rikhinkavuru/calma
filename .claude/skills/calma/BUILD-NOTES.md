@@ -332,3 +332,65 @@ the real CLI: keygen -> verify (compiled recipe, CONFIRMED) -> attest verify (11
 stock ssh-keygen verify -> freetsa timestamp -> offline chain-verified re-verify -> publish
 (opened engagement + outcome + a REFUTED catch) -> registry verify -> replay reproduces.
 calma 0.4.0 -> 0.5.0.
+
+## 2026-06-11 - the zero-touch guardrail (calma 0.6.0)
+
+**Stop hook (hook_stop.py + sniff_claims.py + hooks/hooks.json) - SHIPPED:**
+- **Claim sniffer**: precision-first detector over the agent's final message. Curated STRONG
+  vocabulary (subset of CLAIM_METRIC_HINTS - generic words like total/mean/rows are deliberately
+  absent), CONDITIONAL terms gated by strengtheners (coverage needs %, latency needs ms, faster
+  needs x, correlation needs |v|<=1), @k families, latency percentiles, and exactly one analytics
+  template ("processed N rows"). Claim syntax enforced (connector-word gap only), non-claims
+  rejected structurally (versions, dates, years, line/port/exit refs, counted units, negation,
+  questions, hypotheticals/targets, baselines, code fences/inline code/quotes/URLs/paths),
+  values gated by per-family plausibility ([0,1]-bounded metrics; bare 1<v<=100 is
+  percent-ambiguous -> silence). Emitted claims round-trip through parse_claim to the same
+  value (test-enforced) and metric ids map into the engine's own hint table (closure
+  test-enforced). The contract: a missed claim costs nothing; a false fire is a release blocker.
+- **Stop hook**: fail-open everywhere (any error/timeout/malformed input -> exit 0 silent),
+  stop_hook_active short-circuit (one verification round per stop, never loops), never-nag
+  (informed-state + cache: the same break never blocks twice while code+data unchanged),
+  preflight (verify.yaml or .calma/cache.json or entrypoint+CSV; .calma alone is NOT evidence -
+  the hook's own breadcrumbs create it), no-shell subprocess (argv only - transcript text can
+  never inject), process-group kill on timeout budget (default 30s, config-clamped 5..300),
+  blocks ONLY on REFUTED/MIXED with the SKILL.md reporting contract injected; CONFIRMED /
+  CAN'T-CONFIRM / unbindable / error are silent breadcrumbs in .calma/auto_history.jsonl
+  (surfaced by calma stats; the seed of claims-as-code). Kill switches: CALMA_HOOK=0,
+  .calma/hook-off (project or ~), config {"hook":{"enabled":false}}.
+- **Suite: test_sniff.py (283 checks: fire corpus, silent-trap corpus, round-trip, vocabulary
+  closure) + test_hook.py (39 checks: BTC catch end-to-end through a real subprocess, never-nag,
+  all kill switches, fail-open paths incl. hung-entrypoint kill, transcript tail-read, sidechain
+  filtering, preflight). 18 suites, ~1467 checks, all green.**
+- Adversarially stress-tested by a multi-agent attack round (6 corpus lenses x ~30 realistic
+  messages each + 3 code-attack reviewers + independent re-verification of every finding);
+  confirmed findings fixed and regression-tested below.
+
+**Stress-test results (270 cases tested, 83 reported, 12 confirmed false fires, 0 code-attack
+findings survived verification).** Every confirmed bug was a precision failure on realistic
+engineering chatter - exactly the contract's release-blocker class. Root causes and fixes:
+- **Config-assignment shape** ("I set the toxiproxy latency to 500ms", "set the section margin
+  to 4%"): a knob being turned is not a result being measured. New guard: assignment
+  verb+determiner before the term ("set the", "capped the", "configured a"; the determiner
+  distinguishes assignment from the noun in "test set") AND a bare "to" in the term->number gap
+  -> reject. "Latency dropped to 80ms" (no assignment verb) still fires - pinned in the suite.
+- **Fabricated values** ("injected latency to 250ms"): injected/simulated/artificial/induced
+  immediately before the term -> reject.
+- **The `returned` alias was too loose** ("the disk usage probe returned 92%"): probes, checks,
+  and functions all "return" percentages. Verb aliases now additionally require a finance-shaped
+  subject in the sentence (strategy/portfolio/backtest/fund/trade/...); "the strategy returned
+  23%" still fires.
+- **Missing counted units**: results/matches/events/duplicates/errors/warnings and money units
+  (cents/dollars/usd/...) added to _UNIT_AFTER. Kills "Perplexity gave 5 results" (the search
+  product), "R2 at 0.4 cents per GB" (the object store), "tracking error was 3 duplicate events"
+  (an analytics bug).
+- **Domain collisions** -> per-term _CONTEXT_DENY lists: "precision" in rounding/tolerance/
+  float-comparison sentences (0.01-precision money rounding lives exactly inside the pct_or_01
+  window - the strengthener selects FOR the collision); "churn" in diff/rename/PR/review
+  chatter; "exact match" next to byte/file/artifact/checksum/sbom vocabulary; "margin" in
+  CSS/layout/viewport sentences.
+- **Log loss is never a percentage**: "0.4% log loss" is SRE chatter about lost log lines, not
+  cross-entropy -> % suffix on log_loss rejects unconditionally; "log loss is 0.41" unaffected.
+- All 12 attack texts pinned verbatim as silent-trap regressions + 3 boundary fire cases pinned
+  so the new guards can't silently overreach. **test_sniff.py 283 -> 304 checks; 18 suites,
+  ~1488 checks, all green.** Engine __version__ 0.5.0 -> 0.6.0 (matches the plugin manifests;
+  the version is part of the cache fingerprint, so stale cache entries invalidate - intended).
