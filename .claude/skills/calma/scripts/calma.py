@@ -629,6 +629,16 @@ def main():
     av.add_argument("--key", help="pin the signer: hex public key, or a path to the .pub file")
     av.add_argument("--replay", action="store_true",
                     help="also re-execute the run next to the bundle and check the verdict reproduces")
+    sl = sub.add_parser("seal", help="one command for the whole proof chain: sign + RFC 3161 "
+                                     "timestamp + counterparty instructions (+ optional publish)")
+    sl.add_argument("run_dir", help="the .calma/<run-id> dir from a previous verify")
+    sl.add_argument("--no-timestamp", action="store_true",
+                    help="skip the trusted timestamp (the one step that needs network)")
+    sl.add_argument("--publish", metavar="REGISTRY_DIR", default=None,
+                    help="also append a redacted entry to this catch-history registry")
+    sl.add_argument("--note", default=None, help="one redacted line of context for the registry entry")
+    sl.add_argument("--engagement", default=None, help="link the registry entry to an engagement id")
+    sl.add_argument("--key", help="signing key file (default: ~/.calma/keys/ed25519.key)")
     pb = sub.add_parser("publish", help="append a REDACTED entry (claim/verdict/gap only - never "
                                         "code or data) to the public catch-history registry")
     pb.add_argument("run_dir", nargs="?", default=None,
@@ -705,6 +715,7 @@ def main():
                 bundle = json.load(open(a.bundle))
                 entry = rfc3161.timestamp_bundle(bundle, a.tsa or rfc3161.DEFAULT_TSA)
                 json.dump(bundle, open(a.bundle, "w"), indent=2)
+                attest.write_ssh_sidecars(bundle, os.path.dirname(os.path.realpath(a.bundle)))
                 print("timestamped: %s\n  TSA:    %s\n  serial: %s\nthe token verifies offline; "
                       "network was needed only for this step"
                       % (entry["gen_time"], entry["tsa_url"], entry["serial"]))
@@ -734,6 +745,49 @@ def main():
                     print("\n" + text)
                     ok = ok and rok
                 return 0 if ok else 1
+        if a.cmd == "seal":
+            run_dir = os.path.realpath(a.run_dir)
+            bpath = os.path.join(run_dir, attest.BUNDLE_NAME)
+            if attest.load_signing_key(a.key) is None:
+                print("error: no signing key - run `calma attest keygen` first (one time)",
+                      file=sys.stderr)
+                return 2
+            bundle, _ = attest.sign_run(run_dir, key_path=a.key)  # idempotent: re-signs fresh
+            keyid = bundle["envelope"]["signatures"][0]["keyid"]
+            print("signed      DSSE + SSHSIG (keyid %s...)" % keyid[:16])
+            if a.no_timestamp:
+                print("timestamp   skipped (--no-timestamp)")
+            else:
+                import rfc3161
+                try:
+                    entry = rfc3161.timestamp_bundle(bundle, rfc3161.DEFAULT_TSA)
+                    json.dump(bundle, open(bpath, "w"), indent=2)
+                    attest.write_ssh_sidecars(bundle, run_dir)  # refresh instructions w/ timestamp
+                    print("timestamp   %s (%s) - verifies offline forever"
+                          % (entry["gen_time"], entry["tsa_url"]))
+                except OSError as e:
+                    print("timestamp   SKIPPED - no network or TSA unreachable (%s); "
+                          "run `calma attest timestamp %s` later" % (e, bpath))
+            ok, checks = attest.verify_bundle(bundle)
+            print("self-check  %s (%d checks)" % ("VERIFIED" if ok else "FAILED",
+                                                  len(checks)))
+            if not ok:
+                print(attest.render_verify(bundle, ok, checks), file=sys.stderr)
+                return 1
+            if a.publish:
+                import registry as REG
+                os.makedirs(a.publish, exist_ok=True)
+                seed = attest.load_signing_key(a.key)
+                entry = REG.derive_entry(bundle, engagement=a.engagement, note=a.note)
+                fname, wrapper = REG.append_entry(a.publish, entry, seed)
+                print("published   %s/entries/%s (%s)"
+                      % (a.publish, fname, wrapper["entry"].get("verdict")))
+                print("            to make it PUBLIC: commit registry/ with a signed commit "
+                      "and push - the site rebuilds itself")
+            print("sealed      %s" % run_dir)
+            print("            share this folder; VERIFY-THIS.txt inside has the exact "
+                  "commands a counterparty runs (incl. zero-install OpenSSH)")
+            return 0
         if a.cmd == "publish":
             import registry as REG
             reg_dir = a.registry or os.environ.get("CALMA_REGISTRY_DIR") or "registry"

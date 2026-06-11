@@ -45,6 +45,8 @@ calma verify <target> "<claim>" --check-determinism   # re-execute twice; FLAKY 
 calma teardown <target> "<claim>" [--svg card.svg]    # shareable "claimed X -> really Y" card on a break
 calma replay <run_dir>              # re-run a saved verification; exit 0 iff the verdict reproduces
 calma stats <target>                # verification history: counts + recent catches
+calma seal <run_dir> [--publish REGISTRY_DIR --note "..."]   # ONE command: sign + RFC 3161 timestamp
+                                    # + VERIFY-THIS.txt counterparty instructions (+ optional publish)
 calma attest keygen [--import ~/.ssh/id_ed25519]   # one-time key; after this every verify auto-signs
 calma attest verify <bundle> [--key pub] [--replay]   # counterparty: check a bundle offline
 calma attest timestamp <bundle>     # RFC 3161 trusted timestamp (the one networked step; verifies offline)
@@ -53,6 +55,22 @@ calma publish <run_dir> [--registry DIR] [--engagement ID]   # REDACTED entry ->
 calma publish --open <engagement-id>                         # log an engagement at contract signing
 calma registry verify [dir]         # audit the registry chain offline (hashes + links + signatures)
 ```
+
+## How to report a verdict (agents: follow this format)
+
+After running `calma verify`, report in THIS order - the user should never need another command:
+
+1. **The verdict line**: verdict + claimed vs recomputed (from the `--json` output).
+2. **On REFUTED: diagnose the cause.** Read the producing code and name the exact line/choice
+   that made the claimed number wrong (e.g. "line 71 prints the in-sample grid-search winner,
+   not the held-out result"). Calma proves the gap; you explain it.
+3. **The honest number**, stated plainly ("the real held-out return is +168%").
+4. **The proof object**: run `calma seal <run_dir>` (signs + timestamps + writes
+   VERIFY-THIS.txt). Tell the user: "the signed, timestamped verdict is in <run_dir> -
+   VERIFY-THIS.txt inside has the exact commands a counterparty runs, including a
+   zero-install OpenSSH check." NEVER make the user type signature commands by hand.
+5. If the user wants it on the public record: `calma seal <run_dir> --publish <registry_dir>`,
+   then a signed git commit + push makes the site's /registry page update itself.
 
 Agents: prefer `--json` - it returns `{verdict, clean, confidence, claimed, recomputed, reason, fix,
 cached, run_dir}` so you branch on the verdict without parsing prose.

@@ -317,6 +317,32 @@ except ValueError:
     truth(True, "sign_run without a ledger raises")
 truth(A.load_signing_key("/nonexistent/key") is None, "load_signing_key absent -> None")
 
+# --- calma seal: the one-command proof chain (no network: --no-timestamp) ---
+CALMA_CLI = os.path.join(SCR, "calma.py")
+seal_reg = tempfile.mkdtemp()
+r = subprocess.run([sys.executable, CALMA_CLI, "seal", res["run_dir"], "--no-timestamp",
+                    "--publish", seal_reg, "--note", "seal regression"],
+                   capture_output=True, text=True, env=dict(os.environ))
+truth(r.returncode == 0 and "signed" in r.stdout and "self-check  VERIFIED" in r.stdout
+      and "published" in r.stdout and "sealed" in r.stdout,
+      "calma seal signs + self-checks + publishes in one command: %s" % r.stdout[:120])
+vt = os.path.join(res["run_dir"], "VERIFY-THIS.txt")
+truth(os.path.exists(vt), "seal writes VERIFY-THIS.txt")
+vt_text = open(vt).read()
+truth("ssh-keygen -Y verify" in vt_text and "calma attest verify" in vt_text
+      and bundle["ssh"]["principal"] in vt_text,
+      "VERIFY-THIS.txt carries both verification paths with the real principal filled in")
+if SSH_KEYGEN:
+    # the instructions must be literally runnable: execute the Path B command they describe
+    r2 = subprocess.run([SSH_KEYGEN, "-Y", "verify",
+                         "-f", os.path.join(res["run_dir"], A.SIGNERS_SIDECAR),
+                         "-I", bundle["ssh"]["principal"], "-n", S.NAMESPACE,
+                         "-s", os.path.join(res["run_dir"], A.SSHSIG_SIDECAR)],
+                        input=open(os.path.join(res["run_dir"], A.PAYLOAD_SIDECAR), "rb").read(),
+                        capture_output=True)
+    truth(r2.returncode == 0, "the VERIFY-THIS.txt instructions actually verify")
+shutil.rmtree(seal_reg, ignore_errors=True)
+
 # --- RFC 3161 (Layer 1) against a locally-built openssl TSA - zero network ---
 if OPENSSL:
     tsd = tempfile.mkdtemp()
