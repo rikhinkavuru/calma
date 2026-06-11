@@ -232,6 +232,18 @@ truth(REP.fmt_value(-0.3243140055429462, "total_return") == "-32.4%", "negative 
 truth(REP.fmt_value(0.87, "accuracy") == "0.87", "accuracy stays a plain number")
 truth(REP.fmt_value(4200000.0, "column_sum") == "4,200,000", "sums get thousands separators")
 
+# --- an invalid --metric must be a helpful error, never a traceback (caught live 2026-06-10:
+# an agent passed the TAG "return" and got "min() iterable argument is empty") ---
+try:
+    C.verify(tempfile.mkdtemp(), "x 0.5", metric="return")
+    truth(False, "invalid --metric raises ValueError")
+except ValueError as e:
+    msg = str(e)
+    truth("binding tag" in msg and "total_return" in msg,
+          "invalid --metric names the tag confusion and suggests real recipes: %s" % msg[:80])
+except Exception as e:  # noqa: BLE001
+    truth(False, "invalid --metric must not raise %s" % type(e).__name__)
+
 shutil.rmtree(tmp, ignore_errors=True)
 print("dx-fixes: %d checks, %d failures" % (_n, _fail))
 sys.exit(1 if _fail else 0)

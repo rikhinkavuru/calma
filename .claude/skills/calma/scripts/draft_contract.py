@@ -781,7 +781,11 @@ def _pick_metric(arts, forced=None):
         binding[t] = col
         grades.append(grade)
     order = ["author-asserted", "plausibly-bound", "independently-bound"]
-    worst = min(grades, key=order.index)
+    worst = min(grades, key=order.index) if grades else "author-asserted"
+    if art is None:  # zero-tag recipe (e.g. row_count): bind to the first scanned artifact
+        if not arts:
+            return None
+        art = arts[0]["path"]
     return mid, art, binding, worst
 
 
