@@ -61,5 +61,26 @@ c3 = DC.draft(d, claim=1.0, metric="total_return")
 truth(c3["metrics"] and c3["metrics"][0]["binding_status"] == "plausibly-bound",
       "implausible 'returns' values -> plausibly-bound, not independently-bound")
 
+
+# --- benchmark-claim disambiguation (false-REFUTED guard, 2026-06-10) ---
+# a claim ABOUT buy-and-hold must bind the benchmark column, never the strategy column
+import tempfile as _tf
+_d = _tf.mkdtemp()
+os.makedirs(os.path.join(_d, "runs", "oos"))
+with open(os.path.join(_d, "runs", "oos", "returns.csv"), "w") as _fh:
+    _fh.write("date,strat_return,buyhold_return\n")
+    for _i in range(60):
+        _fh.write("2026-01-%02d,%.4f,%.4f\n" % (_i % 28 + 1, 0.001 * ((_i % 7) - 3), 0.002 * ((_i % 5) - 2)))
+with open(os.path.join(_d, "noop.py"), "w") as _fh:
+    _fh.write("pass\n")
+truth(DC._infer_tag("buyhold_return") == "benchmark", "buyhold_return tags as benchmark")
+truth(DC._infer_tag("buy_and_hold") == "benchmark", "buy_and_hold tags as benchmark")
+_c1 = DC.draft(_d, claim="buy and hold returned +10%")
+truth(_c1["metrics"] and _c1["metrics"][0]["binding"]["return"] == "buyhold_return",
+      "a buy-and-hold claim binds the benchmark column (got %r)"
+      % (_c1["metrics"][0]["binding"] if _c1["metrics"] else None))
+_c2 = DC.draft(_d, claim="the backtest returned +20%")
+truth(_c2["metrics"] and _c2["metrics"][0]["binding"]["return"] == "strat_return",
+      "a strategy claim still binds the strategy column")
 print("draft_contract: %d checks, %d failures" % (_n, _fail))
 sys.exit(1 if _fail else 0)
