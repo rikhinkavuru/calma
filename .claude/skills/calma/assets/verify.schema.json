@@ -11,14 +11,18 @@
       "properties": {
         "entrypoint": {"type": "string"},
         "network": {"enum": ["off", "proxy", "on"], "default": "off"},
-        "cwd": {"type": "string"}
+        "cwd": {"type": "string"},
+        "timeout": {"type": "integer", "minimum": 1, "default": 120,
+                    "description": "re-execution wall-clock budget in seconds (CLI --timeout overrides)"}
       }
     },
     "env": {
       "type": "object",
       "properties": {
         "ecosystem": {"type": "string"},
-        "trust": {"enum": ["own-code", "untrusted-third-party"], "default": "own-code"}
+        "trust": {"enum": ["own-code", "untrusted-third-party"], "default": "own-code"},
+        "passthrough": {"type": "array", "items": {"type": "string"},
+                        "description": "env var NAMES forwarded into the sandbox beyond the default whitelist (PATH/HOME/LANG/LC_*/TMPDIR/PYTHON*)"}
       }
     },
     "artifacts": {

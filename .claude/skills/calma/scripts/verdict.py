@@ -53,6 +53,8 @@ DEFAULTS = {
     "fraud_multiple_met": False,  # gap exceeds the band by the calibrated fraud-multiple M (decoupled path)
     "convention_capped": False,  # gap explainable by a declared legitimate convention -> cap at CAVEAT
     "outputs_unstable": False,  # two identical re-executions produced different artifacts (FLAKY)
+    "no_claim_reproduced": False,  # no claimed number was given, but the run re-executed cleanly and
+                                   # the metric recomputed from raw outputs (scope=reproduction)
 }
 
 
@@ -144,6 +146,15 @@ def _decide(vi):
 
     gap, budg = vi["gap"], vi["effective_budget"]
     if gap is None or budg is None:
+        # No-claim mode ("calma verify <dir>"): there is no number to diff, but the run re-executed
+        # cleanly (G1/G1b/G1c passed) and the metric recomputed from raw outputs. That is exactly the
+        # README promise - report reproduction honestly instead of demanding a claim.
+        if vi["no_claim_reproduced"]:
+            reasons = _caveat_reasons(vi)
+            if reasons:
+                return CAVEATS, "reproduces (no claim was given to check): " + "; ".join(reasons)
+            return CONFIRMED, ("no claim was given - the result re-executes and the number "
+                               "recomputes from the raw outputs (scope=reproduction)")
         return INCONCLUSIVE, "no recomputed numeric to compare against the claim"
 
     gap = abs(gap)

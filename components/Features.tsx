@@ -35,15 +35,15 @@ const FEATS: [string, string][] = [
   ],
   [
     "Auto-drafted, graded contracts",
-    "Calma scans the output files, infers which column is the metric, and grades each binding by an independent sanity check. Only an independently-verified binding can ever refute. Pin everything with one small verify.yaml.",
+    "Calma scans the output files, works out which column holds the metric, and double-checks that guess independently before it's allowed to matter. Only an independently-verified reading can ever refute. Pin everything with one small config file when you want it explicit.",
   ],
   [
     "Signed, forensic attestation",
-    "Every run leaves a signed bundle — a DSSE/in-toto verdict statement signed twice with the same key: once for the Sigstore stack, once as an OpenSSH signature your counterparty checks with stock ssh-keygen and zero installs. An optional RFC 3161 trusted timestamp makes the date provable. One command verifies offline, re-derives every verdict, and can replay the whole run.",
+    "Every run leaves a signed report your counterparty can check with tools already on their machine — stock OpenSSH, zero installs, fully offline. An optional trusted timestamp makes the date provable in years, not promises. One command re-derives every verdict and can replay the whole run. (For the engineers: DSSE/in-toto, Sigstore-compatible, RFC 3161.)",
   ],
   [
     "Built for agent loops & CI",
-    "Verifications are cached by the content hash of code, data, and claim — unchanged work answers instantly. Agents branch on --json verdicts mid-task; the GitHub Action gates CI only when a claim actually breaks.",
+    "Verifications are cached by the content hash of code, data, and claim — unchanged work answers instantly. Agents branch on machine-readable verdicts mid-task; the GitHub Action gates CI only when a claim actually breaks.",
   ],
   [
     "Any language, black box",
@@ -95,12 +95,13 @@ export function Features() {
           <div className="rband">
             <div className="rband__n">
               <span className="rband__num">120</span>
-              <span className="rband__sub">SOTA recipes</span>
+              <span className="rband__sub">validated recipes</span>
             </div>
             <p className="rband__copy">
               A recipe is how Calma rebuilds one kind of number — a Sortino ratio, a p95 latency, a
-              pass@1, a Fisher exact p, a WER — from the raw output files. <b>Every one is validated against the
-              published reference implementation</b> (scikit-learn, SciPy, NumPy) before it ships,
+              pass@1, a Fisher exact p, a WER — from the raw output files. <b>Every one is validated
+              against the published reference implementation</b> (scikit-learn, SciPy, NumPy,
+              numpy-financial, statsmodels) across 385 pinned reference vectors before it ships,
               and runs deterministically: same inputs, same number, to the bit. New recipes are
               compiled, not improvised: drafted offline, admitted by a deterministic gate, frozen
               under a content hash.

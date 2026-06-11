@@ -5,7 +5,9 @@ verdict be independently re-checked.
 
 Bundle (three layers, each optional on top of the last - the in-toto/Sigstore stack):
   Layer 0 - a DSSE envelope (the exact envelope Sigstore countersigns) over an in-toto
-    Statement v1 whose predicate is calma.dev/verdict/v1, modeled on the SLSA Verification
+    Statement v1 whose predicate is github.com/rikhinkavuru/calma/verdict/v1 (GitHub-rooted -
+    a URI we control forever; the legacy calma.dev URIs are still ACCEPTED on verification,
+    so v1 bundles signed under the old predicate remain valid), modeled on the SLSA Verification
     Summary Attestation (verifier id+version, policy = contract hash + calibration hashes,
     verdict, claims, scope) and embedding the FULL ledger + manifest. Signed twice with the
     same local Ed25519 key (ed25519.py, pure stdlib): a raw DSSE signature AND an OpenSSH
@@ -84,9 +86,9 @@ def intoto_statement(manifest, subject_name, verdict, scope=None):
     return {
         "_type": "https://in-toto.io/Statement/v1",
         "subject": [{"name": subject_name, "digest": {"sha256": manifest.get("manifest_sha256", "")}}],
-        "predicateType": "https://calma.dev/attestation/verification/v1",
+        "predicateType": STATEMENT_PREDICATE_TYPE,
         "predicate": {
-            "builder": {"id": "https://calma.dev/skill"},
+            "builder": {"id": VERIFIER_ID},
             "verdict": verdict,
             "isolation_tier": scope.get("isolation_tier"),
             "determinism_mode": scope.get("determinism_mode"),
@@ -124,8 +126,19 @@ BUNDLE_SCHEMA = "calma/attestation-bundle@2"
 BUNDLE_SCHEMAS_ACCEPTED = {"calma/attestation-bundle@1", BUNDLE_SCHEMA}
 PAYLOAD_TYPE = "application/vnd.in-toto+json"
 STATEMENT_TYPE = "https://in-toto.io/Statement/v1"
-PREDICATE_TYPE = "https://calma.dev/verdict/v1"  # modeled on the SLSA VSA
-PREDICATE_TYPES_ACCEPTED = {PREDICATE_TYPE, "https://calma.dev/attestation/verification/v1"}
+# GitHub-rooted ids (we own this namespace permanently; calma.dev belongs to a stranger).
+URI_ROOT = "https://github.com/rikhinkavuru/calma"
+PREDICATE_TYPE = URI_ROOT + "/verdict/v1"  # modeled on the SLSA VSA
+VERIFIER_ID = URI_ROOT + "/skill"
+STATEMENT_PREDICATE_TYPE = URI_ROOT + "/attestation/verification/v1"
+# legacy calma.dev URIs: existing bundles (incl. the genesis registry entry) were signed under
+# them and MUST keep verifying - accepted forever, never emitted again
+LEGACY_PREDICATE_TYPE = "https://calma.dev/verdict/v1"
+PREDICATE_TYPES_ACCEPTED = {PREDICATE_TYPE, LEGACY_PREDICATE_TYPE,
+                            STATEMENT_PREDICATE_TYPE,
+                            "https://calma.dev/attestation/verification/v1"}
+# predicate shapes that carry the VSA claims summary (binding-checked on verify)
+PREDICATE_TYPES_VSA = {PREDICATE_TYPE, LEGACY_PREDICATE_TYPE}
 BUNDLE_NAME = "attestation.bundle.json"
 PAYLOAD_SIDECAR = "attestation.payload.json"
 SSHSIG_SIDECAR = "attestation.sig.sshsig"
@@ -242,7 +255,7 @@ def _policy(manifest, contract_sha256=None):
 
 
 def bundle_statement(led, manifest, time_verified=None, contract_sha256=None):
-    """in-toto Statement v1, predicate calma.dev/verdict/v1 modeled on the SLSA Verification
+    """in-toto Statement v1, predicate github.com/rikhinkavuru/calma/verdict/v1 modeled on the SLSA Verification
     Summary Attestation: a verifier (calma + version) evaluated subjects against a policy
     (contract + calibration hashes) and reached a verdict. The predicate also embeds the full
     ledger + manifest, so the counterparty can re-derive every verdict label offline."""
@@ -256,7 +269,7 @@ def bundle_statement(led, manifest, time_verified=None, contract_sha256=None):
         "subject": subjects,
         "predicateType": PREDICATE_TYPE,
         "predicate": {
-            "verifier": {"id": "https://calma.dev/skill", "engine": "calma",
+            "verifier": {"id": VERIFIER_ID, "engine": "calma",
                          "version": engine_version()},
             "timeVerified": time_verified,
             "policy": _policy(manifest, contract_sha256),
@@ -498,8 +511,9 @@ def verify_bundle(bundle, pinned_pub_hex=None):
         "statement verdict %r != ledger repo_verdict %r"
         % (pred.get("verdict"), led.get("repo_verdict")))
     # the VSA claim summary must be exactly what the ledger derives (no split between the
-    # human-auditable predicate.claims and the machine-validated ledger)
-    if statement.get("predicateType") == PREDICATE_TYPE:
+    # human-auditable predicate.claims and the machine-validated ledger). Applies to both the
+    # GitHub-rooted predicate and the legacy calma.dev one (same VSA shape).
+    if statement.get("predicateType") in PREDICATE_TYPES_VSA:
         chk("claims-binding", pred.get("claims") == claims_summary(led),
             "predicate claims summary != derived from the embedded ledger")
 

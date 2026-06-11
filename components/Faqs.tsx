@@ -21,9 +21,9 @@ const ITEMS: [string, React.ReactNode][] = [
   [
     "What do I get back?",
     <>
-      One of four answers: confirmed, refuted, can&apos;t confirm, or confirmed with caveats —
-      plus the reason, the fix when something&apos;s missing, and{" "}
-      <b>a one-command replay anyone can run.</b>
+      One of four answers: confirmed, refuted, can&apos;t confirm, or confirmed with caveats
+      (checking several claims at once can come back mixed) — plus the reason, the fix when
+      something&apos;s missing, and <b>a one-command replay anyone can run.</b>
     </>,
   ],
   [

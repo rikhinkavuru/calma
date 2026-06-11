@@ -8,6 +8,9 @@ self-test leaks, the tier is `host-not-isolated` (a CAVEAT, never a silent host-
 third-party code requires a container/VM tier (daemon) and is refused (exit 3) when none is live.
 
 The entrypoint runs in its own process group; on timeout the whole group is killed (exit 4 -> INCONCLUSIVE).
+Two more closed surfaces: <base>/.calma is write-DENIED inside the sandbox (code under test can never
+plant calma's own verdict state), and the child environment is a WHITELIST (PATH/HOME/LANG/LC_*/TMPDIR/
+PYTHON* + contract env.passthrough names) - parent secrets never reach the code under test.
 
 Library: doctor() -> dict ; run(contract, base) -> dict.
 CLI: run_hermetic.py doctor | run --contract verify.yaml [--base DIR] [--out run.json]
@@ -44,8 +47,12 @@ def _profile(base):
     """allow-default for the system paths the interpreter needs, then DENY the things we verify and
     claim: network egress, and reads of ALL user homes (/Users) + known system-secret dirs. The base is
     re-allowed for read (it lives under /Users). Writes are confined to the run area + temp. last-match-
-    wins, so order matters. NOTE (stamped honestly): Seatbelt shares the host kernel and is NOT
-    escape-isolated - untrusted third-party code requires a container/VM tier (refused otherwise)."""
+    wins, so order matters: the FINAL deny on <base>/.calma overrides the base-wide write allow - code
+    under test must never be able to plant verdict state (cache.json, ledgers, hook state) in calma's
+    own bookkeeping dir. The verifier itself only writes .calma from the PARENT process after the
+    sandboxed child exits, so it loses nothing. NOTE (stamped honestly): Seatbelt shares the host
+    kernel and is NOT escape-isolated - untrusted third-party code requires a container/VM tier
+    (refused otherwise)."""
     home = os.path.realpath(os.path.expanduser("~"))
     base = os.path.realpath(base)
     return '''(version 1)
@@ -63,7 +70,10 @@ def _profile(base):
 (allow file-read* (subpath "%s"))
 (deny file-write* (subpath "/Users"))
 (allow file-write* (subpath "%s") (subpath "/tmp") (subpath "/private/tmp") (subpath "/private/var/folders") (literal "/dev/null") (literal "/dev/tty"))
-''' % (home, home, home, home, home, home, base, base)
+;; AFTER the allow (Seatbelt is last-match-wins): the code under test can never write calma's
+;; own verdict state - no planted cache.json, no forged ledgers, no hook-state tampering.
+(deny file-write* (subpath "%s/.calma"))
+''' % (home, home, home, home, home, home, base, base, base)
 
 
 def _run_sandboxed(profile_text, argv, cwd, timeout=120, env=None):
@@ -222,11 +232,31 @@ def _lang_dispatch(entry_path, base):
     return interp, compile_cmd, run_argv, lang
 
 
-def run(contract_path, base=None, timeout=120):
+def _child_env(contract=None):
+    """The environment WHITELIST for the code under test: only PATH/HOME/LANG/LC_*/TMPDIR/PYTHON*
+    survive, plus any names the contract explicitly declares under env.passthrough. The parent's
+    secrets (API keys, tokens, cloud credentials) never reach the sandboxed child - the env is a
+    second exfiltration surface next to the filesystem, and it is closed by default."""
+    declared = set()
+    if isinstance(contract, dict):
+        pt = (contract.get("env") or {}).get("passthrough") or []
+        if isinstance(pt, list):
+            declared = {str(x) for x in pt}
+    env = {}
+    for k, v in os.environ.items():
+        if k in ("PATH", "HOME", "LANG", "TMPDIR") or k.startswith("LC_") \
+                or k.startswith("PYTHON") or k in declared:
+            env[k] = v
+    return env
+
+
+def run(contract_path, base=None, timeout=120, trust_override=None):
     import draft_contract as _DC
     contract = _DC.load_contract(contract_path)
     base = os.path.realpath(base or os.path.dirname(os.path.abspath(contract_path)))
-    trust = contract.get("env", {}).get("trust", "own-code")
+    # trust_override: the CLI's runtime posture (`calma verify --trust third-party`) - it
+    # tightens the loaded contract's posture without ever rewriting the contract file
+    trust = trust_override or contract.get("env", {}).get("trust", "own-code")
     entry = contract["run"]["entrypoint"]
     entry_path, _ok = _within(base, entry)
     if not _ok:
@@ -254,8 +284,7 @@ def run(contract_path, base=None, timeout=120):
         det_mode, det_note = "uncontrolled", "%s: bit-determinism not statically provable (non-Python)" % lang
     out_dir = os.path.join(base, "runs")
     prof = _profile(base)
-    _proxy = {"http_proxy", "https_proxy", "ftp_proxy", "all_proxy", "no_proxy"}
-    env = {k: v for k, v in os.environ.items() if k.lower() not in _proxy}
+    env = _child_env(contract)
     # determinism hardening for the re-execution: pinned hash seed (stable set/dict iteration order),
     # no bytecode writes into the target, pinned locale. Free reproducibility, no behavior loss.
     env.update({"PYTHONHASHSEED": "0", "PYTHONDONTWRITEBYTECODE": "1",

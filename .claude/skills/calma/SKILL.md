@@ -39,9 +39,15 @@ verification is cached by the content hash of code+data+contract+claim, so re-ch
 returns the prior verdict in milliseconds (`--force` re-executes).
 
 ```
+calma demo                          # zero-setup demo: catches a bundled real inflated backtest (offline)
 calma verify <target> "<claim>"     # e.g. calma verify . "accuracy 0.87"  /  "+14,698% backtest"
+calma verify <target>               # no claim: checks the result reproduces (CONFIRMED scope=reproduction)
 calma verify <target> "<claim>" --json                # machine-readable verdict (agents: use this)
 calma verify <target> "<claim>" --check-determinism   # re-execute twice; FLAKY outputs -> INCONCLUSIVE
+calma verify <target> "<claim>" --timeout 300         # raise the re-execution budget (default 120s)
+calma verify <target> "<claim>" --trust third-party   # counterparty code: refuse (exit 3) unless a
+                                                      # verified container/VM tier is live
+calma recipes                       # all 120 metric ids, grouped by family (for --metric)
 calma teardown <target> "<claim>" [--svg card.svg]    # shareable "claimed X -> really Y" card on a break
 calma replay <run_dir>              # re-run a saved verification; exit 0 iff the verdict reproduces
 calma stats <target>                # verification history: counts + recent catches
@@ -99,6 +105,12 @@ inferred from the words ("accuracy", "AUC", "return", "rows", ...). Pass `--metr
 number with an ambiguous auto-picked metric can never produce a REFUTED - it degrades to CAN'T-CONFIRM
 with the fix.
 
+A committed `verify.yaml` pins **how** to verify (entrypoint, bindings, conventions) - never WHAT the
+user claimed. If the claim states a different value for the pinned metric, the USER's value is verified
+(announced as a `note:`); a claim about a metric the contract doesn't pin is CAN'T-CONFIRM with a fix
+line, never a verdict about an unclaimed metric; claim text with no checkable number verifies the
+committed claim and says so in the report and `--json` (`note`).
+
 ## Pipeline checklist (one script per step; the model READS outputs, never computes them)
 
 0. **Discover + draft contract** - `scripts/draft_contract.py` -> a `verify.yaml`: entrypoint, typed+graded
@@ -117,7 +129,9 @@ with the fix.
    findings-floor). Exit 0 clean, 1 not-clean, 2 invalid. CI: `--fail-on refuted` fails only on a break.
 5. **Verdict + attestation** - `scripts/attest.py` -> a content-addressed manifest (in-toto/SLSA statement
    + CycloneDX ML-BOM) and, once `calma attest keygen` has run, a SIGNED DSSE bundle on every verify whose
-   predicate is the VSA-style `calma.dev/verdict/v1` (verifier+version, contract+calibration hashes as
+   predicate is the VSA-style `github.com/rikhinkavuru/calma/verdict/v1` (GitHub-rooted; v1 bundles
+   signed under the legacy `calma.dev/verdict/v1` URI remain valid and are accepted on verification)
+   (verifier+version, contract+calibration hashes as
    policy, verdict, claims). The same Ed25519 key signs twice: raw DSSE (Sigstore-countersignable) and an
    OpenSSH SSHSIG (namespace `calma-attest@v1`) with sidecar files, so the counterparty can verify with
    stock `ssh-keygen -Y verify` and zero installs - or run `calma attest verify <bundle>` for the full

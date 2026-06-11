@@ -244,6 +244,262 @@ except ValueError as e:
 except Exception as e:  # noqa: BLE001
     truth(False, "invalid --metric must not raise %s" % type(e).__name__)
 
+# =====================================================================================
+# audit-round-5 fixes (P0-1 claim substitution, demo, no-claim mode, vocabulary, recipes)
+# =====================================================================================
+
+# --- P0-1: a committed verify.yaml pins bindings, NEVER the user's claim ---
+cc = os.path.join(tmp, "committed")
+os.makedirs(cc)
+with open(os.path.join(cc, "main.py"), "w") as fh:
+    fh.write("import csv\n"
+             "w = csv.writer(open('returns.csv', 'w', newline=''))\n"
+             "w.writerow(['strat_return'])\n"
+             "[w.writerow([0.01]) for _ in range(100)]\n")  # true total_return = 1.01^100-1 ~ 1.7048
+with open(os.path.join(cc, "verify.yaml"), "w") as fh:
+    json.dump({"run": {"entrypoint": "main.py", "network": "off"},
+               "env": {"ecosystem": "python-stdlib", "trust": "own-code"},
+               "artifacts": [{"path": "returns.csv",
+                              "columns": {"strat_return": {"tag": "return", "na_policy": "error"}}}],
+               "metrics": [{"metric_id": "total_return", "artifact": "returns.csv",
+                            "binding": {"return": "strat_return"}, "claimed_value": 9.99,
+                            "headline": True, "binding_status": "independently-bound",
+                            "claim_confirmed": True}],
+               "baselines": []}, fh)
+# (b) claim about a metric the contract does NOT pin -> CAN'T-CONFIRM + fix, never a verdict
+res = C.verify(cc, claim="Sharpe is 2.1")
+truth(res["repo_verdict"] == V.INCONCLUSIVE,
+      "P0-1b: mismatched-metric claim never substituted (got %s)" % res["repo_verdict"])
+truth("sharpe" in res["report"] and "verify.yaml" in res["report"] and "fix:" in res["report"],
+      "P0-1b: fix line names the metric conflict and verify.yaml")
+# (b) --metric conflicting with the contract is the same gate
+res = C.verify(cc, metric="sharpe")
+truth(res["repo_verdict"] == V.INCONCLUSIVE and "--metric sharpe" in res["report"],
+      "P0-1b: conflicting --metric blocks with the conflict named (got %s)" % res["repo_verdict"])
+# (a) same metric, same value at the claim's own precision -> proceeds, no note
+res = C.verify(cc, claim="+999% return", force=True)
+truth(res["repo_verdict"] == "REFUTED", "P0-1a: matching claim verifies normally (got %s)" % res["repo_verdict"])
+truth(res.get("claim_note") is None, "P0-1a: no false 'your claim differs' warning")
+# (c) same metric, DIFFERENT value -> the USER's value is what gets verified
+res = C.verify(cc, claim="+170.5% return", force=True)
+truth(res["repo_verdict"] in (V.CONFIRMED, V.CAVEATS),
+      "P0-1c: true user claim CONFIRMS against an inflated committed value (got %s)" % res["repo_verdict"])
+truth(res.get("claim_note") and "YOUR claim" in res["claim_note"],
+      "P0-1c: override is announced in a note")
+res = C.verify(cc, claim="+50% return", force=True)
+truth(res["repo_verdict"] == "REFUTED"
+      and abs(res["ledger"]["claims"][0]["claimed_value"] - 0.5) < 1e-9,
+      "P0-1c: wrong user claim REFUTES against the USER's value, not the contract's (got %s)"
+      % res["repo_verdict"])
+# (d) unparseable claim text -> the committed claim is verified, and the output says so
+res = C.verify(cc, claim="this strategy is awesome", force=True)
+truth(res["repo_verdict"] == "REFUTED", "P0-1d: committed claim verified (got %s)" % res["repo_verdict"])
+truth(res.get("claim_note") and "no checkable claim" in res["claim_note"]
+      and res["report"].startswith("note:"),
+      "P0-1d: report says the committed claim was substituted")
+truth(C._json_result(res).get("note"), "P0-1d: --json carries the note")
+
+# --- P1-6: numeric (not string) claim comparison at the claim's own precision ---
+btc_contract = DC.load_contract(os.path.join(SCR, "..", "assets", "btc", "verify.yaml"))
+note, blk = C._reconcile_claim(btc_contract, "+14,698% backtest return", None)
+truth(note is None and blk is None,
+      "P1-6: '+14,698%%' == 146.977 within the claim's own precision - no warning")
+
+# --- P1-4: no-claim mode reports reproduction honestly and exits clean ---
+res = C.verify(stable)  # main.py deterministically rewrites out.csv; no claim given
+truth(res["repo_verdict"] in (V.CONFIRMED, V.CAVEATS),
+      "P1-4: no-claim + reproducing outputs is clean (got %s)" % res["repo_verdict"])
+truth(res["gate_exit"] == 0, "P1-4: no-claim reproduction gates exit 0")
+truth("scope=reproduction" in res["report"], "P1-4: report names the reproduction scope")
+
+# --- P1-5: committed contract with artifacts: [] names verify.yaml as the cause ---
+ea = os.path.join(tmp, "emptyart")
+os.makedirs(ea)
+shutil.copy(os.path.join(stable, "main.py"), os.path.join(ea, "main.py"))
+with open(os.path.join(ea, "verify.yaml"), "w") as fh:
+    json.dump({"run": {"entrypoint": "main.py", "network": "off"},
+               "artifacts": [], "metrics": []}, fh)
+res = C.verify(ea)
+truth(res["repo_verdict"] == V.INCONCLUSIVE, "P1-5: empty-artifacts contract -> CAN'T-CONFIRM")
+truth("lists no artifacts" in res["report"] and "out.csv" in res["report"],
+      "P1-5: fix line names verify.yaml and the recomputable output")
+# malformed contract error carries a copy-pasteable minimal example
+bad = os.path.join(tmp, "badcontract.yaml")
+open(bad, "w").write("this is not\n  a contract {{{\n")
+try:
+    DC.load_contract(bad)
+    truth(False, "P1-5: malformed contract raises")
+except ValueError as e:
+    truth("entrypoint" in str(e) and "artifacts" in str(e),
+          "P1-5: malformed-contract error includes a minimal example snippet")
+
+# --- P1-1 / P1-3 / P0-2 / P2: CLI surfaces (subprocess) ---
+import subprocess
+CAL = os.path.join(SCR, "calma.py")
+r = subprocess.run([sys.executable, CAL], capture_output=True, text=True)
+truth(r.returncode == 0 and "start here" in r.stdout and "usage" in r.stdout,
+      "P1-1: bare calma prints full help + start-here hint, exit 0")
+r = subprocess.run([sys.executable, CAL, "help"], capture_output=True, text=True)
+truth(r.returncode == 0 and "start here" in r.stdout, "P1-1: `calma help` aliases --help")
+r = subprocess.run([sys.executable, CAL, "verify", solo], capture_output=True, text=True)
+truth("(CAN'T-CONFIRM)" in r.stdout and "gate exit" not in r.stdout,
+      "P1-3: exit line is human vocabulary, not gate jargon")
+r = subprocess.run([sys.executable, CAL, "recipes"], capture_output=True, text=True)
+truth(r.returncode == 0 and "quant" in r.stdout and "total_return" in r.stdout
+      and "classification" in r.stdout,
+      "P2: calma recipes lists metric ids grouped by family")
+r = subprocess.run([sys.executable, CAL, "verify", "--help"], capture_output=True, text=True)
+truth("recipes`" in r.stdout.replace("\n", " ") and "column_median" not in r.stdout,
+      "P2: --metric help references `calma recipes` instead of dumping 120 ids")
+r = subprocess.run([sys.executable, CAL, "demo"], capture_output=True, text=True)
+truth(r.returncode == 0 and "REFUTED" in r.stdout and "now try your own" in r.stdout,
+      "P0-2: calma demo runs offline and prints the verdict card + closer")
+
+# --- P2: reproduce hint echoes the invocation style actually used ---
+_old0 = sys.argv[0]
+sys.argv[0] = "/somewhere/calma.py"
+truth(C._invocation() == "python3 /somewhere/calma.py", "P2: direct-script invocation echoed")
+sys.argv[0] = "/usr/local/bin/calma"
+truth(C._invocation() == "calma", "P2: wrapper invocation echoed as calma")
+sys.argv[0] = _old0
+
+# --- P2: teardown's internal re-verify is counted separately in stats ---
+C.verify(ml, claim="accuracy 0.99", run_id="teardown", force=True)
+data, rendered = C.stats(ml)
+truth(data.get("teardowns", 0) >= 1, "P2: teardown re-checks counted separately")
+truth("not counted as verifications" in rendered, "P2: stats render labels teardown re-checks")
+
+# =====================================================================================
+# audit-round-6 hardening (P0 cache collision, trust posture, timeout, redaction, exits)
+# =====================================================================================
+
+# --- P0 CACHE COLLISION: the exact A/B/A scenario. Claim A (REFUTED) and claim B
+# (CONFIRMED) share the run dir (run_id "run"); re-verifying A must NEVER serve B's
+# CONFIRMED ledger from the cache. ---
+aba = os.path.join(tmp, "aba")
+os.makedirs(aba)
+with open(os.path.join(aba, "main.py"), "w") as fh:
+    fh.write("import csv\n"
+             "w = csv.writer(open('predictions.csv', 'w', newline=''))\n"
+             "w.writerow(['y_true', 'y_pred'])\n"
+             "for i in range(1000):\n"
+             "    t = i % 2\n"
+             "    w.writerow([t, t if i % 100 < 87 else 1 - t])\n")  # true accuracy 0.87
+res_a1 = C.verify(aba, claim="accuracy 0.99")           # claim A: a lie
+truth(res_a1["repo_verdict"] == "REFUTED" and res_a1["cached"] is False,
+      "ABA: claim A REFUTES fresh (got %s)" % res_a1["repo_verdict"])
+res_b = C.verify(aba, claim="accuracy 0.87")            # claim B: the truth, same run dir
+truth(res_b["repo_verdict"] in (V.CONFIRMED, V.CAVEATS) and res_b["cached"] is False,
+      "ABA: claim B CONFIRMS and overwrites the shared run dir (got %s)" % res_b["repo_verdict"])
+res_a2 = C.verify(aba, claim="accuracy 0.99")           # re-verify claim A
+truth(res_a2["repo_verdict"] == "REFUTED",
+      "ABA: re-verified claim A is REFUTED, never B's cached CONFIRMED (got %s)"
+      % res_a2["repo_verdict"])
+truth(res_a2["cached"] is False,
+      "ABA: the stale cache entry (ledger overwritten by B) was rejected, not served")
+res_a3 = C.verify(aba, claim="accuracy 0.99")           # immediately again: now a VALID hit
+truth(res_a3["cached"] is True and res_a3["repo_verdict"] == "REFUTED",
+      "ABA: an untouched ledger still serves from cache (the cache itself works)")
+# the stored entry pins the ledger bytes + verdict
+cache = json.load(open(os.path.join(aba, ".calma", "cache.json")))
+ent = next(iter(cache.values()))
+truth("ledger_sha256" in ent and ent.get("repo_verdict"),
+      "ABA: cache entries pin ledger_sha256 + repo_verdict")
+# a tampered cached verdict (disagreeing with the ledger on disk) is never served
+fp = next(k for k, v in cache.items() if v["repo_verdict"] == "REFUTED")
+cache[fp]["repo_verdict"] = "CONFIRMED"
+json.dump(cache, open(os.path.join(aba, ".calma", "cache.json"), "w"))
+truth(C._cached_result(aba, fp) is None,
+      "ABA: a cached verdict that disagrees with the ledger on disk is rejected")
+
+# --- P1-2 trust posture: --trust third-party refuses without a container/VM tier ---
+tp = os.path.join(tmp, "trustp")
+os.makedirs(tp)
+shutil.copy(os.path.join(stable, "main.py"), os.path.join(tp, "main.py"))
+res_t = C.verify(tp, claim="sum 45", trust="third-party")
+truth(res_t["repo_verdict"] == V.INCONCLUSIVE and res_t.get("refused") is True,
+      "trust: third-party without container/VM is refused (got %s)" % res_t["repo_verdict"])
+truth("third-party" in res_t["report"] and "fix:" in res_t["report"],
+      "trust: refusal report names the posture and carries a fix line")
+truth(not os.path.exists(os.path.join(tp, "out.csv")),
+      "trust: refused means NOT EXECUTED (no outputs were produced)")
+try:
+    C.verify(tp, trust="bogus")
+    truth(False, "trust: invalid value raises ValueError")
+except ValueError:
+    truth(True, "trust: invalid value raises ValueError")
+# drafted contracts keep trust: own-code on disk even under a third-party run
+drafted = json.load(open(os.path.join(res_t["run_dir"], "verify.yaml")))
+truth(drafted.get("env", {}).get("trust") == "own-code",
+      "trust: the drafted contract on disk keeps trust: own-code (runtime-only override)")
+r = subprocess.run([sys.executable, CAL, "verify", tp, "sum 45", "--trust", "third-party"],
+                   capture_output=True, text=True)
+truth(r.returncode == 3, "trust: CLI exit 3 (refused), got %d" % r.returncode)
+
+# --- P1-4 timeout: --timeout is honored, fix line names the flag, CLI exit 4 ---
+slowp = os.path.join(tmp, "slowp")
+os.makedirs(slowp)
+with open(os.path.join(slowp, "main.py"), "w") as fh:
+    fh.write("import time\ntime.sleep(60)\n")
+with open(os.path.join(slowp, "data.csv"), "w") as fh:
+    fh.write("value\n1.0\n2.0\n")
+res_k = C.verify(slowp, claim="sum 3", metric="column_sum", timeout=1)
+truth(res_k["repo_verdict"] == V.INCONCLUSIVE and res_k.get("killed") is True,
+      "timeout: overrun is killed -> INCONCLUSIVE (got %s)" % res_k["repo_verdict"])
+truth("--timeout" in res_k["report"] and "run.timeout" in res_k["report"],
+      "timeout: the fix line names --timeout and run.timeout")
+r = subprocess.run([sys.executable, CAL, "verify", slowp, "sum 3", "--metric", "column_sum",
+                    "--timeout", "1", "--force"], capture_output=True, text=True)
+truth(r.returncode == 4, "timeout: CLI exit 4 (killed), got %d" % r.returncode)
+# run.timeout in a committed verify.yaml is honored without the flag
+with open(os.path.join(slowp, "verify.yaml"), "w") as fh:
+    json.dump({"run": {"entrypoint": "main.py", "network": "off", "timeout": 1},
+               "artifacts": [{"path": "data.csv",
+                              "columns": {"value": {"tag": "value", "na_policy": "error"}}}],
+               "metrics": [{"metric_id": "column_sum", "artifact": "data.csv",
+                            "binding": {"value": "value"}, "claimed_value": 3.0,
+                            "headline": True, "binding_status": "independently-bound",
+                            "claim_confirmed": True}]}, fh)
+import time as _t
+_t0 = _t.time()
+res_ct = C.verify(slowp, claim="sum 3", force=True)
+truth(res_ct.get("killed") is True and (_t.time() - _t0) < 30,
+      "timeout: run.timeout in verify.yaml is honored (killed in %.1fs)" % (_t.time() - _t0))
+truth(C._resolve_timeout(None, {}) == 120, "timeout: default is 120s")
+truth(C._resolve_timeout(7, {"run": {"timeout": 99}}) == 7, "timeout: CLI flag wins")
+truth(C._resolve_timeout(None, {"run": {"timeout": "nope"}}) == 120,
+      "timeout: garbage run.timeout degrades to the default")
+
+# --- P1-2 first-run notice: once per target, stderr, never again ---
+fr = os.path.join(tmp, "firstrun")
+os.makedirs(fr)
+shutil.copy(os.path.join(stable, "main.py"), os.path.join(fr, "main.py"))
+r1 = subprocess.run([sys.executable, CAL, "verify", fr, "sum 45"],
+                    capture_output=True, text=True)
+truth("--trust third-party for counterparty code" in r1.stderr,
+      "notice: first verify prints the one-line trust notice on stderr")
+truth(r1.stderr.count("calma re-executes") == 1, "notice: exactly ONE line")
+r2 = subprocess.run([sys.executable, CAL, "verify", fr, "sum 45", "--force"],
+                    capture_output=True, text=True)
+truth("calma re-executes" not in r2.stderr, "notice: never shown twice (cached marker)")
+
+# --- P2 stderr redaction: $HOME never enters ledgers via captured output tails ---
+rd = os.path.join(tmp, "redact")
+os.makedirs(rd)
+with open(os.path.join(rd, "main.py"), "w") as fh:
+    fh.write("import os, sys\n"
+             "print(os.path.expanduser('~') + '/very-private', file=sys.stderr)\n"
+             "sys.exit(1)\n")
+with open(os.path.join(rd, "data.csv"), "w") as fh:
+    fh.write("value\n1.0\n")
+res_r = C.verify(rd, claim="sum 1", metric="column_sum")
+home = os.path.expanduser("~")
+led_text = json.dumps(res_r["ledger"])
+truth(home not in led_text and "~/very-private" in led_text,
+      "redaction: $HOME is replaced with ~ before stderr reaches the ledger")
+truth(C._redact_home(None) is None and C._redact_home("") == "",
+      "redaction: degenerate inputs pass through")
+
 shutil.rmtree(tmp, ignore_errors=True)
 print("dx-fixes: %d checks, %d failures" % (_n, _fail))
 sys.exit(1 if _fail else 0)

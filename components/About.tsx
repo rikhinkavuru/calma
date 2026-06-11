@@ -1,6 +1,7 @@
 "use client";
 
 import { Cross, Reveal } from "./chrome";
+import { CONTACT_EMAIL, FOUNDER, GITHUB_URL } from "./contact";
 
 export function About() {
   return (
@@ -19,6 +20,14 @@ export function About() {
                 That&apos;s the whole idea. Funds have administrators. Companies have auditors.{" "}
                 <b>Work done by AI gets Calma.</b> The engine is open source so anyone can check
                 the checker — and the lab signs its name to every report.
+              </p>
+              <p className="about__founder">
+                Calma is built and run by {FOUNDER}. Every line of the verification engine is
+                public at{" "}
+                <a href={GITHUB_URL} target="_blank" rel="noreferrer">
+                  github.com/rikhinkavuru/calma
+                </a>
+                , and a person answers <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>.
               </p>
             </div>
           </Reveal>

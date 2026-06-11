@@ -34,7 +34,7 @@ const STEPS: { key: string; kicker: string; body: ReactNode }[] = [
   {
     key: "compare",
     kicker: "Compare",
-    body: <>0.87 vs 0.84 is outside the calibrated tolerance — a real break, not hardware noise. Calma never cries wolf.</>,
+    body: <>0.87 vs 0.84 is outside the calibrated tolerance — a real break, not hardware noise or rounding. When it can&apos;t be sure, it says so instead of guessing.</>,
   },
   {
     key: "verdict",

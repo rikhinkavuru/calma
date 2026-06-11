@@ -135,7 +135,31 @@ truth(A._canonical(b2) == A._canonical(bundle), "signing is deterministic: same 
 # --- the VSA shape: verifier/policy/claims are present and bound ---
 stmt = json.loads(base64.b64decode(bundle["envelope"]["payload"]))
 pred = stmt["predicate"]
-truth(stmt["predicateType"] == "https://calma.dev/verdict/v1", "predicateType is calma.dev/verdict/v1")
+truth(stmt["predicateType"] == "https://github.com/rikhinkavuru/calma/verdict/v1",
+      "predicateType is the GitHub-rooted verdict/v1 URI")
+truth(pred["verifier"]["id"] == "https://github.com/rikhinkavuru/calma/skill",
+      "verifier id is GitHub-rooted")
+truth("https://calma.dev/verdict/v1" in A.PREDICATE_TYPES_ACCEPTED
+      and "https://calma.dev/attestation/verification/v1" in A.PREDICATE_TYPES_ACCEPTED,
+      "legacy calma.dev predicate URIs stay accepted (old bundles must keep verifying)")
+# a REAL pre-migration bundle (signed under the legacy calma.dev URI) must still verify.
+# Mint one here rather than trusting an on-disk fixture: the test_registry fixture is
+# untracked local state that other suites regenerate under the NEW URI, which made this
+# check order-dependent across full-suite runs.
+_orig_pred = A.PREDICATE_TYPE
+try:
+    A.PREDICATE_TYPE = A.LEGACY_PREDICATE_TYPE
+    legacy_bundle, _ = A.sign_run(res["run_dir"], out=os.path.join(tmp_keys, "legacy.json"),
+                                  time_verified=auto_tv)
+finally:
+    A.PREDICATE_TYPE = _orig_pred
+legacy_stmt = json.loads(base64.b64decode(legacy_bundle["envelope"]["payload"]))
+truth(legacy_stmt["predicateType"] == "https://calma.dev/verdict/v1",
+      "minted bundle is genuinely signed under the legacy URI")
+okL, checksL = A.verify_bundle(legacy_bundle)
+truth(okL, "legacy-URI bundle still verifies end-to-end: %s" % [c for c in checksL if not c[1]])
+truth(any(n == "claims-binding" for n, _, _ in checksL),
+      "claims-binding is still enforced on legacy verdict/v1 bundles")
 truth(pred["verifier"]["engine"] == "calma" and pred["verifier"]["version"] == C.__version__,
       "VSA verifier carries the engine + version")
 truth(isinstance(pred["timeVerified"], str) and pred["timeVerified"].endswith("Z"),

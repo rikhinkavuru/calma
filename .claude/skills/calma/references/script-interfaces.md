@@ -29,6 +29,10 @@ invokes scripts via Bash and READS the JSON; it never computes a statistic or a 
 ## `run_hermetic.py --contract verify.yaml --out run.json`  (M1.2)
 - Installs + runs the entrypoint under one verified tier; applies the determinism config; re-emits raw
   artifacts. `--out`: per-phase exit codes, isolation/determinism/hermeticity tiers, SBOM, fingerprint.
+- Inside the sandbox `<base>/.calma` is write-DENIED (code under test can never plant calma's own
+  verdict state), and the child env is a whitelist: PATH/HOME/LANG/LC_*/TMPDIR/PYTHON* plus the names
+  the contract declares under `env.passthrough`. `run(contract, base, timeout=120)` honors the
+  contract's `run.timeout` via the caller (`calma verify --timeout`).
 
 ## `recompute.py --contract verify.yaml --runs <dir> --out recompute.json`  (M1.3)
 - Recomputes each metric from raw outputs via the canonical recipe on the reference-deterministic path
@@ -48,7 +52,9 @@ invokes scripts via Bash and READS the JSON; it never computes a statistic or a 
   UNENCRYPTED OpenSSH ed25519 identity (`~/.ssh/id_ed25519`); `load_signing_key` reads either form.
 - `sign_run(run_dir, key_path=None, out=None, time_verified=None)` -> `attestation.bundle.json`:
   a DSSE envelope (payloadType `application/vnd.in-toto+json`, PAE-signed) over an in-toto
-  Statement v1, predicate `https://calma.dev/verdict/v1` modeled on the SLSA VSA: `verifier`
+  Statement v1, predicate `https://github.com/rikhinkavuru/calma/verdict/v1` (GitHub-rooted - a
+  namespace we control; the legacy `https://calma.dev/verdict/v1` is still ACCEPTED on verify,
+  so v1 bundles signed under the old URI remain valid) modeled on the SLSA VSA: `verifier`
   {id, engine, version}, `timeVerified`, `policy` {contract_sha256, calibration_sha256,
   reference_vectors_sha256}, `verdict`, `claims` summary, plus the FULL `ledger.json` +
   `manifest.json`; subjects = sha256(canonical ledger) + the manifest root. The same key signs

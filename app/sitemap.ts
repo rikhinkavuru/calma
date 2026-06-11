@@ -1,0 +1,17 @@
+import type { MetadataRoute } from "next";
+
+const SITE_URL = "https://calma1.vercel.app";
+
+export default function sitemap(): MetadataRoute.Sitemap {
+  return [
+    { path: "", priority: 1 },
+    { path: "/lab", priority: 0.8 },
+    { path: "/recipes", priority: 0.8 },
+    { path: "/registry", priority: 0.8 },
+  ].map(({ path, priority }) => ({
+    url: `${SITE_URL}${path}`,
+    lastModified: new Date(),
+    changeFrequency: "weekly" as const,
+    priority,
+  }));
+}

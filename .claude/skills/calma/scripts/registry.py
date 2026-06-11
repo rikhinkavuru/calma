@@ -172,16 +172,22 @@ def append_entry(reg_dir, entry, seed):
                 "signature": sshsig.sign(seed, _canonical(entry))},
     }
     fname = "%05d-%s.json" % (entry["seq"], eid[:12])
-    with open(os.path.join(_entries_dir(reg_dir), fname), "w") as fh:
+    # atomic writes (write-temp + os.replace): a crash mid-append must never leave a truncated
+    # entry or a HEAD that doesn't match the chain on disk
+    entry_path = os.path.join(_entries_dir(reg_dir), fname)
+    with open(entry_path + ".tmp", "w") as fh:
         json.dump(wrapper, fh, indent=2)
+    os.replace(entry_path + ".tmp", entry_path)
     # HEAD is itself signed, so silently dropping the newest entries (tail truncation) breaks it
     new_head = {"schema": HEAD_SCHEMA, "seq": entry["seq"], "id": eid, "count": entry["seq"]}
     flat = dict(new_head)
     flat["ssh"] = {"namespace": sshsig.NAMESPACE, "principal": principal,
                    "public_key": sshsig.pub_line(pub, principal),
                    "signature": sshsig.sign(seed, _canonical(new_head))}
-    with open(_head_path(reg_dir), "w") as fh:
+    head_path = _head_path(reg_dir)
+    with open(head_path + ".tmp", "w") as fh:
         json.dump(flat, fh, indent=2)
+    os.replace(head_path + ".tmp", head_path)
     return fname, wrapper
 
 

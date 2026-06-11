@@ -23,8 +23,15 @@ Operating rules (each one is load-bearing - see tests/test_hook.py):
                 $HOME/.calma, or `.calma/config.json` {"hook": {"enabled": false}}.
   STAY CHEAP    preflight (entrypoint + a CSV artifact, or an existing contract/.calma)
                 gates the expensive step; the verify itself is cache-first and runs under
-                a hard wall-clock budget (default 30s, config `timeout_s`), killed by
-                process group on overrun.
+                a hard wall-clock budget (default 30s, config `timeout_s`; the child's
+                --timeout is capped at 30s regardless), killed by process group on overrun.
+  NO LITTER     breadcrumbs (and the .calma dir they live in) are only created AFTER the
+                verifiable-target gate passes - a metric mention in an unrelated repo
+                leaves nothing behind.
+  SANDBOX FIRST auto-execution requires a VERIFIED sandbox tier (run_hermetic doctor,
+                cached in hook state with a TTL). No verified sandbox -> skip with a
+                "no-verified-sandbox" breadcrumb; config {"hook": {"force_unverified":
+                true}} overrides on hosts the operator explicitly trusts.
 
 stdin:  the Stop-hook JSON from Claude Code (session_id, transcript_path, cwd,
         stop_hook_active, ...).
@@ -45,10 +52,14 @@ if _HERE not in sys.path:
 
 MAX_TRANSCRIPT_TAIL = 256 * 1024     # bytes of transcript read (the final turn lives here)
 DEFAULT_TIMEOUT_S = 30
+HOOK_TIMEOUT_CAP_S = 30              # hard cap on the child verify's --timeout (the hook must
+                                     # stay imperceptible regardless of the CLI's 120s default)
 DEFAULT_MAX_CLAIMS = 1               # verifications per stop - keep the hook imperceptible
 STATE_NAME = "hook_state.json"
 HISTORY_NAME = "auto_history.jsonl"
 _CSV_SCAN_CAP = 400                  # dir entries examined during artifact preflight
+SANDBOX_TTL_S = 24 * 3600            # how long a cached doctor (sandbox tier) result is trusted
+VERIFIED_TIERS = ("seatbelt-verified", "tier0", "container", "vm")
 
 
 def _now_iso():
@@ -62,7 +73,8 @@ def _killed_off_by_env():
 
 def _hook_config(cwd):
     """Merged hook config: defaults <- .calma/config.json {"hook": {...}}."""
-    cfg = {"enabled": True, "timeout_s": DEFAULT_TIMEOUT_S, "max_claims": DEFAULT_MAX_CLAIMS}
+    cfg = {"enabled": True, "timeout_s": DEFAULT_TIMEOUT_S, "max_claims": DEFAULT_MAX_CLAIMS,
+           "force_unverified": False}
     try:
         with open(os.path.join(cwd, ".calma", "config.json")) as f:
             user = json.load(f).get("hook", {})
@@ -194,12 +206,31 @@ def _breadcrumb(cwd, event, **fields):
         pass
 
 
+def _sandbox_tier(cwd, state):
+    """The achieved isolation tier for cwd, from a cached doctor result in hook state
+    (TTL'd) or a fresh run_hermetic.doctor probe. Returns (tier, state_changed)."""
+    cached = state.get("sandbox_tier") or {}
+    try:
+        fresh = (time.time() - float(cached.get("ts", 0))) < SANDBOX_TTL_S
+    except (TypeError, ValueError):
+        fresh = False
+    if cached.get("tier") and fresh:
+        return cached["tier"], False
+    import run_hermetic as H
+    tier = H.doctor(cwd).get("tier", "host-not-isolated")
+    state["sandbox_tier"] = {"tier": tier, "ts": time.time()}
+    return tier, True
+
+
 def _run_verify(cwd, cand, timeout_s):
     """`calma verify <cwd> "<claim>" --metric <id> --json --run-id hook` under a process
     group with a hard kill. Returns (result dict | None, elapsed_ms, error string|None).
-    No shell anywhere - transcript text can never inject into the command."""
+    No shell anywhere - transcript text can never inject into the command.
+    The child's own re-execution budget is capped at HOOK_TIMEOUT_CAP_S regardless of the
+    CLI's larger default - a stop hook must never hold a session for minutes."""
     argv = [sys.executable or "python3", os.path.join(_HERE, "calma.py"), "verify", cwd,
-            cand["claim"], "--metric", cand["metric"], "--json", "--run-id", "hook"]
+            cand["claim"], "--metric", cand["metric"], "--json", "--run-id", "hook",
+            "--timeout", str(min(int(timeout_s), HOOK_TIMEOUT_CAP_S))]
     t0 = time.time()
     try:
         p = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
@@ -292,11 +323,24 @@ def main():
     claims = SN.sniff(text)
     if not claims:
         return 0
+    # the verifiable-target gate comes FIRST and is breadcrumb-free: a mere metric mention in
+    # an unrelated repo must never create a .calma dir there (breadcrumbs only after this gate)
     if not _verifiable_target(cwd):
-        _breadcrumb(cwd, "skip", reason="no-verifiable-target",
-                    claim=claims[0]["claim"], metric=claims[0]["metric"])
         return 0
     state = _load_state(cwd)
+    # isolation gate: never auto-execute a project's code without a verified sandbox tier.
+    # The doctor result is cached in hook state with a TTL; config {"hook":
+    # {"force_unverified": true}} overrides for hosts the operator explicitly trusts.
+    try:
+        tier, changed = _sandbox_tier(cwd, state)
+    except Exception:
+        tier, changed = "host-not-isolated", False
+    if changed:
+        _save_state(cwd, state)
+    if tier not in VERIFIED_TIERS and not cfg.get("force_unverified"):
+        _breadcrumb(cwd, "skip", reason="no-verified-sandbox", tier=tier,
+                    claim=claims[0]["claim"], metric=claims[0]["metric"])
+        return 0
     informed = state.get("informed", {})
     try:
         timeout_s = max(5, min(int(cfg.get("timeout_s", DEFAULT_TIMEOUT_S)), 300))

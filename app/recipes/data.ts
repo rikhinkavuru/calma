@@ -1,5 +1,5 @@
 /* The recipe catalog, mirrored from the skill registry
-   (.claude/skills/calma/scripts/recipes.py — 59 recipes, every one validated against the
+   (.claude/skills/calma/scripts/recipes.py — 120 recipes, every one validated against the
    published reference implementation; see references/recipes.md). A test in the skill suite
    asserts this file's ids stay in sync with the registry. */
 

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Reveal } from "./chrome";
+import { Reveal, SubNav } from "./chrome";
+import { CONTACT_EMAIL } from "./contact";
 import { RequestDialog } from "./RequestDialog";
 
 /* The lab surface: forensic verification for the capital side. The OSS skill is the
@@ -39,7 +40,7 @@ const STEPS: [string, string, string][] = [
   [
     "03",
     "Report",
-    "Per claim: confirmed, refuted, or can't-confirm — with the recomputed number, the gap, what was and wasn't verified, and a signed, trusted-timestamped attestation bundle your side checks offline: verify the signature with stock OpenSSH, re-derive every verdict, replay the entire run.",
+    "Per claim: confirmed, refuted, confirmed-with-caveats, or can't-confirm — with the recomputed number, the gap, what was and wasn't verified, and a signed, trusted-timestamped attestation bundle your side checks offline: verify the signature with stock OpenSSH, re-derive every verdict, replay the entire run.",
   ],
   [
     "04",
@@ -65,12 +66,16 @@ const TERMS: [string, string][] = [
     "Every report states its limits",
     "Reproducible is not the same as right. Each report stamps exactly what was verified, what wasn't, and at what isolation and determinism tier — no verdict ever overreaches its evidence.",
   ],
+  [
+    "Your code and data stay yours",
+    "Engagements run under NDA in an isolated environment scoped in the engagement letter. What enters the public registry is redacted by construction — claim, metric, claimed vs recomputed, verdict, and content hashes. Never code, never data, never positions.",
+  ],
 ];
 
 const VS: [string, string][] = [
   [
     "vs. asking your own agent",
-    "The auditor can't be the auditee. Models assessing reproducibility score ~21% (REPRO-Bench); Calma re-executes and decides with code.",
+    "The auditor can't be the auditee. The best agents score ~21% at assessing reproducibility on REPRO-Bench (arxiv.org/abs/2507.18901); Calma re-executes and decides with code.",
   ],
   [
     "vs. eval & observability tools",
@@ -87,22 +92,15 @@ export default function LabClient() {
   return (
     <>
       <div className="grain" aria-hidden="true"></div>
-      <header className="nav nav--bg">
-        <div className="wrap">
-          <a className="nav__brand" href="/">
-            CALMA
-          </a>
-          <nav className="nav__links">
-            <a href="/#overview">How it works</a>
-            <a href="/recipes">Recipes</a>
-            <a href="/registry">Registry</a>
-            <a href="/">The free skill</a>
-            <button className="nav__cta" onClick={() => setDlg(true)}>
-              Request verification
-            </button>
-          </nav>
-        </div>
-      </header>
+      <SubNav
+        links={[
+          { href: "/#overview", label: "How it works" },
+          { href: "/recipes", label: "Recipes" },
+          { href: "/registry", label: "Registry" },
+          { href: "/", label: "The free skill" },
+        ]}
+        onCta={() => setDlg(true)}
+      />
 
       <main className="rpage">
         <section className="sec rpage__head">
@@ -244,7 +242,10 @@ export default function LabClient() {
                   <button className="pbtn pbtn--amber" onClick={() => setDlg(true)}>
                     Request verification
                   </button>
-                  <span className="fine">Engagements are limited — a person replies</span>
+                  <span className="fine">
+                    Engagements are limited — a person replies. Or email{" "}
+                    <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
+                  </span>
                 </div>
               </div>
             </Reveal>

@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
+import { SubNav } from "../../components/chrome";
 import { FAMILIES, RECIPE_COUNT } from "./data";
 
 export const metadata: Metadata = {
-  title: "The recipe library — Calma",
+  title: "The recipe library",
   description:
     `All ${RECIPE_COUNT} verification recipes: what each one checks, how the number is rebuilt ` +
     "from raw outputs, and the reference implementation it is validated against.",
@@ -12,30 +13,24 @@ export default function RecipesPage() {
   return (
     <>
       <div className="grain" aria-hidden="true"></div>
-      <header className="nav nav--bg">
-        <div className="wrap">
-          <a className="nav__brand" href="/">
-            CALMA
-          </a>
-          <nav className="nav__links">
-            <a href="/#overview">How it works</a>
-            <a href="/registry">Registry</a>
-            <a href="/lab">The lab</a>
-            <a className="nav__cta" href="/" style={{ display: "inline-block" }}>
-              ← Back to Calma
-            </a>
-          </nav>
-        </div>
-      </header>
+      <SubNav
+        links={[
+          { href: "/#overview", label: "How it works" },
+          { href: "/registry", label: "Registry" },
+          { href: "/lab", label: "The lab" },
+        ]}
+        ctaHref="/"
+        ctaLabel="← Back to Calma"
+      />
 
       <main className="rpage">
         <section className="sec rpage__head">
           <div className="wrap">
             <div className="sec__head">
               <span className="kicker">The recipe library</span>
-              <h2 className="h2">
+              <h1 className="h2">
                 {RECIPE_COUNT} ways to rebuild a number. Zero opinions.
-              </h2>
+              </h1>
               <p className="lead">
                 A recipe is the deterministic procedure Calma uses to recompute one kind of claim
                 from raw output files. Every recipe obeys the same four rules: it reads{" "}

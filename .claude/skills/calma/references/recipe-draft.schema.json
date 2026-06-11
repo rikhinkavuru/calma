@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://calma.dev/recipe-draft/v1",
+  "$id": "https://github.com/rikhinkavuru/calma/recipe-draft/v1",
   "title": "calma recipe draft (the model's ONLY artifact - admission is deterministic)",
   "description": "What the drafting model emits, fully offline, under structured outputs. The admission gate (compiler.py) runs differential testing against the named oracle in the reference venv, the declared metamorphic relations, degeneracy/NaN checks, and a bit-stability double-run. Failures come back as counterexamples (CEGIS). The model is never consulted after admission.",
   "type": "object",

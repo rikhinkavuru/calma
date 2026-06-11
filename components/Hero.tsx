@@ -22,18 +22,22 @@ export function Hero({ onRequest }: { onRequest: () => void }) {
 
         <Reveal delay={450}>
           <div className="hero__cta">
+            <button className="pbtn pbtn--amber" onClick={onRequest}>
+              Request verification
+            </button>
             <a
-              className="pbtn pbtn--amber"
+              className="pbtn"
               href="https://github.com/rikhinkavuru/calma"
               target="_blank"
               rel="noreferrer"
             >
               Get the free skill
             </a>
-            <button className="pbtn" onClick={onRequest}>
-              Request verification
-            </button>
           </div>
+          <p className="hero__split">
+            The engine is free and open source — builders and their agents use it today. The lab
+            runs <a href="/lab">signed verification engagements</a> for allocators and funds.
+          </p>
         </Reveal>
 
         <Reveal delay={650}>

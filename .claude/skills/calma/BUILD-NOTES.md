@@ -394,3 +394,134 @@ engineering chatter - exactly the contract's release-blocker class. Root causes 
   so the new guards can't silently overreach. **test_sniff.py 283 -> 304 checks; 18 suites,
   ~1488 checks, all green.** Engine __version__ 0.5.0 -> 0.6.0 (matches the plugin manifests;
   the version is part of the cache fingerprint, so stale cache entries invalidate - intended).
+
+## 2026-06-11 - UX audit round 5: the claim is the user's, never the contract's (calma 0.6.x)
+
+**P0-1 claim substitution (the big one).** A committed `verify.yaml` used to silently verify ITS
+claim regardless of what the user typed (`calma verify ./btc "Sharpe is 2.1"` returned a REFUTED
+about total_return). New `_reconcile_claim()` gate in `calma.py`, applied before cache/run:
+- (a) user claim names the same metric and the same value *numerically, within the claim's own
+  reported precision* (never string equality) -> proceed, no warning. This also kills the false
+  "your claim differs" note for "+14,698% backtest" vs 146.977 (P1-6).
+- (b) user names a metric (claim text or --metric) the contract does not pin -> INCONCLUSIVE
+  (CAN'T-CONFIRM) with `fix: add a <metric> metric to verify.yaml, or move/remove verify.yaml`.
+  Never a verdict about a claim the user didn't make.
+- (c) same metric, different value -> **the USER's value is verified**. Design choice, documented:
+  the contract pins bindings/conventions (the anti-gaming surface), not the claim value;
+  `claim_confirmed` still requires the metric to be NAMED in the claim or --metric, so an unnamed
+  value override can never manufacture a REFUTED. Other pinned claims are demoted to
+  reproduction-only for that run so no verdict is shown about a claim the user didn't make.
+  The committed file is never rewritten; the override is announced as a `note:` in the report
+  and in `--json` ("note").
+- (d) claim text with no checkable number -> the committed claim is verified, prominently noted
+  in human output and `--json`.
+Also: a convention cap can no longer absorb a SIGN FLIP (compare.py: conventions rescale, they
+never flip sign) - found while dogfooding (c), where "+50% return" vs -32.4% had slipped to
+CONFIRMED-WITH-CAVEATS through the conv-cap.
+
+**P0-2 `calma demo`.** Copies the bundled real overfit BTC fixture (assets/btc, minus .calma) to
+a temp dir, runs the full pipeline offline (~0.3s), prints the verdict card + "that was a real
+inflated backtest. now try your own". README quickstart now shows `calma demo` (literally
+runnable) and names the real fixture path.
+
+**P1 fixes.** Bare `calma` / `calma help` print full help + a 3-line start-here hint (exit 0).
+The exit line is human: `[exit 1 (CAN'T-CONFIRM) - see --fail-on for the exit policy]` replaces
+"[gate exit N - INCONCLUSIVE]" (internal enum + --json unchanged; `report.display()` maps).
+No-claim mode (`calma verify <dir>`): a clean re-run whose metric recomputes from raw outputs is
+now CONFIRMED/CAVEATS "(scope=reproduction)" with exit 0 - via a new `no_claim_reproduced`
+verdict_inputs field set ONLY when no metric in the whole contract carries a claim (a numberless
+metric next to claimed ones stays INCONCLUSIVE; verdict() stays the single pure function and
+ledger re-derivation is unchanged). `verify.yaml` with `artifacts: []` next to recomputable
+outputs names verify.yaml as the cause in the fix line; malformed contracts now print a minimal
+copy-pasteable verify.yaml. README symlink install matches bin/calma:3 verbatim and is
+cwd-explicit. MIXED documented in the README verdict list.
+
+**P2s.** `calma recipes` (120 ids grouped by family, --json too); --metric help references it
+instead of dumping 120 ids; argparse help filled for teardown positionals/--run-id/stats --json;
+reproduce hints echo the actual invocation style (`_invocation()`: "python3 .../calma.py replay"
+when run as a script, "calma replay" via the wrapper); teardown's internal re-verify is counted
+separately in `calma stats` ("teardown re-checks: N, not counted"); `calma publish` of a
+non-REFUTED run prints an honest "not a catch" notice; `calma attest verify` failure appends
+"next: ask the producer to re-run `calma seal` and resend the bundle"; stats' hook-activity
+summary verified present in human output.
+
+**Tests.** test_dx.py 62 -> 96 checks: regression coverage for P0-1(a)-(d) (true claim CONFIRMS
+against an inflated committed value; wrong claim REFUTES against the USER's value; mismatched
+metric and --metric conflict block with the fix; unparseable claim notes the substitution in
+report + --json), P1-6 numeric-precision match on the real BTC contract, no-claim reproduction
+(exit 0 + scope=reproduction), empty-artifacts fix line, malformed-contract example snippet,
+bare/help/recipes/demo CLI surfaces, human exit-line vocabulary, _invocation() echo, and stats
+teardown separation. Full suite: 18 suites, 0 failures.
+
+## 2026-06-11 - security/product audit round 6: cache collision, sandbox self-state, trust posture, predicate URIs (0.6.1)
+
+**P0 cache collision (calma.py).** The verify cache mapped fingerprint -> {run_id, repo_verdict},
+but run_id defaults to "run" for every CLI verify, and the run dir is overwritten per verification -
+so verify A (REFUTED), verify B (CONFIRMED, same run dir), re-verify A served B's CONFIRMED ledger
+as A's cached verdict. Fixed: `_store_cache` now pins the exact ledger bytes (`ledger_sha256`) the
+entry was derived from; `_cached_result` rejects the hit (falls through to a fresh run) when the run
+dir's ledger hash no longer matches, AND when the cached repo_verdict disagrees with the ledger on
+disk. cache.json writes are atomic (temp + os.replace). Regression: the exact A/B/A scenario plus
+the tampered-cached-verdict case in test_dx.py.
+
+**P0 predicate URI migration (attest.py).** calma.dev is owned by a stranger - every emitted URI is
+now GitHub-rooted (`https://github.com/rikhinkavuru/calma/verdict/v1`, `.../attestation/verification/v1`,
+`.../skill` for verifier/builder ids; recipe-draft.schema.json `$id` likewise). The legacy calma.dev
+URIs stay in PREDICATE_TYPES_ACCEPTED forever, and claims-binding is enforced on BOTH verdict/v1
+shapes - so v1 bundles signed under the old URI (including the genesis registry entry and the btc
+test bundle) keep verifying. Confirmed: `registry verify registry/` exit 0; `attest verify` passes
+on the pre-migration btc fixture bundle. README/SKILL.md/script-interfaces.md prose updated with the
+old-bundles-remain-valid note.
+
+**P1-1 sandbox self-state write (run_hermetic.py).** The Seatbelt profile allowed
+`(allow file-write* (subpath base))` and `.calma` lives inside base - code under test could plant
+cache.json/ledgers and forge verdict state. A `(deny file-write* (subpath "<base>/.calma"))` now
+comes AFTER the allow (Seatbelt is last-match-wins). Verified the verifier itself never writes
+.calma DURING the sandboxed child run (all .calma writes happen in the parent, after H.run returns).
+Real probe in test_hermetic.py: overwrite cache.json + plant a ledger both DENIED, base stays
+writable, pre-existing cache bytes untouched.
+
+**P1-2 trust posture (calma.py + run_hermetic.py).** `calma verify --trust {own-code,third-party}`
+(default own-code). third-party tightens the posture AT RUNTIME (`trust_override` into H.run - the
+contract file is never rewritten; drafted contracts keep `trust: own-code`): no verified container/VM
+tier -> refuse to execute, INCONCLUSIVE with the posture named in the fix line, CLI exit 3. A
+one-line first-run notice per target dir (marker in .calma/, stderr only, never repeated): "calma
+re-executes this project's code in a sandbox (tier: X) - pass --trust third-party for counterparty
+code".
+
+**P1-3 hook isolation gate (hook_stop.py).** The Stop hook now (a) creates NO .calma dir (no
+breadcrumbs) before the verifiable-target gate passes - a metric mention in an unrelated repo leaves
+nothing behind; (b) requires a VERIFIED sandbox tier before auto-executing: run_hermetic doctor,
+cached in hook state with a 24h TTL; no verified tier -> skip with a "no-verified-sandbox"
+breadcrumb; `{"hook": {"force_unverified": true}}` overrides. (c) The child verify's --timeout is
+capped at 30s regardless of the CLI's 120s default.
+
+**P1-4 timeout.** `calma verify --timeout SECONDS` (default 120; `run.timeout` in verify.yaml
+honored when the flag is absent; clamped to [1, 86400]); plumbed into run_hermetic for both the main
+run and the determinism re-run. The killed fix line names the flag: "raise it with --timeout SECONDS
+(or run.timeout in verify.yaml)". CLI exit 4 on a killed run, exit 3 on a refusal (both in the
+README exit-code table).
+
+**P2s.** Python floor: `sys.version_info >= (3, 9)` checked at the top of main() with a clear error
+(features used floor at 3.8 - math.comb/walrus - but 3.8 is EOL; 3.9 is the supported floor, stated
+in the README install section). Env whitelist into the sandbox: only PATH/HOME/LANG/LC_*/TMPDIR/
+PYTHON* plus contract `env.passthrough` names reach the child - parent secrets are stripped
+(documented in the module docstring + verify.schema.json; probed in test_hermetic.py). Atomic writes
+for registry entries + HEAD.json (registry.py) alongside cache.json. `calma seal` catches ValueError
+from RFC 3161 response parsing (a malformed TSA reply defers the timestamp instead of tracebacking
+mid-seal). stderr/stdout tails are $HOME-redacted (`~`) before they can enter ledgers or bundles.
+README: exit-code table (0-4), 6-line GitHub Action example, platform statement (macOS first-class /
+Linux reduced-and-says-so / Windows unsupported), hook cost line ("first catch costs up to 30s;
+repeats are cache-instant"). compiler.py reference venv: `$CALMA_REF_VENV` first, then the /tmp
+default with a multi-user world-writable warning. Version 0.6.1 across calma.py, plugin.json,
+marketplace.json.
+
+**Tests.** test_dx.py 96 -> 121 checks (A/B/A cache collision + tamper rejection, trust refusal +
+exit 3 + drafted-contract-untouched, timeout flag/contract/default + exit 4 + fix-line naming,
+first-run notice once-only, $HOME redaction); test_hermetic.py 9 -> 16 (the .calma write-deny probe
+under the real sandbox, env whitelist + passthrough); test_hook.py 39 -> 43 (no-litter gate,
+no-verified-sandbox skip + force_unverified override + TTL re-probe); test_attest.py 73 -> 78
+(GitHub-rooted predicate, legacy-URI fixture bundle still verifies with claims-binding enforced).
+Full suite: 18 suites, 0 failures. Dogfood: A/B/A reproduced-then-fixed on a /tmp copy of
+assets/btc; `registry verify registry/` exit 0; `attest verify` on the pre-migration btc bundle
+passes; `calma demo` still catches the inflated backtest.
