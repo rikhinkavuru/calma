@@ -274,6 +274,18 @@ def _artifact_hashes(target, contract):
 
 def verify(target, claim=None, metric=None, run_id="run", force=False, check_determinism=False):
     target = os.path.realpath(target)
+    if metric and RCP.get(metric) is None:
+        import difflib
+        close = difflib.get_close_matches(metric, RCP.ids(), n=3, cutoff=0.4)
+        # common slip: passing a binding TAG ("return", "prediction") instead of a recipe id
+        tag_hits = sorted(m for m in RCP.ids()
+                          if metric in (RCP.get(m).manifest.get("required_tags") or []))[:4]
+        hint = ("did you mean: %s?" % ", ".join(close)) if close else ""
+        if tag_hits:
+            hint = ("%r is a binding tag, not a recipe - recipes that bind it: %s. %s"
+                    % (metric, ", ".join(tag_hits), hint)).strip()
+        raise ValueError("no recipe named %r. %s (full list: calma verify --help)"
+                         % (metric, hint or "see the recipe ids in --help"))
     if not os.path.isdir(target):
         raise ValueError("target directory does not exist: %s" % target)
     if not any(n for n in os.listdir(target) if n not in (".calma", ".DS_Store")):
