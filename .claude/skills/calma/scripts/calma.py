@@ -737,7 +737,9 @@ def main():
         if a.cmd == "publish":
             import registry as REG
             reg_dir = a.registry or os.environ.get("CALMA_REGISTRY_DIR") or "registry"
-            if not a.open_id and not os.path.isdir(reg_dir):
+            if a.registry:
+                os.makedirs(a.registry, exist_ok=True)  # explicit --registry: create it
+            elif not a.open_id and not os.path.isdir(reg_dir):
                 print("error: no registry directory at %r - pass --registry or set "
                       "CALMA_REGISTRY_DIR (the public repo's registry/)" % reg_dir, file=sys.stderr)
                 return 2
