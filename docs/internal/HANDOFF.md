@@ -111,21 +111,37 @@ python3 .claude/skills/calma/scripts/calma.py verify <dir> "<claim>" --json   # 
 3. ~~**Recipe compiler**~~ — SHIPPED 2026-06-10 (dsl.py + compiler.py CEGIS gate; sem +
    coefficient_of_variation admitted; 120 recipes).
 
-**Founder actions pending (one-time, need the personal lab key / identity):**
-- `calma attest keygen` (or `--import ~/.ssh/id_ed25519`) on the lab machine, then publish the
-  lab public key (site/README) so counterparties can pin it.
-- Genesis registry entry: verify something real, `calma attest sign` + `calma attest timestamp`,
-  then `calma publish <run_dir> --registry registry/` and commit WITH A SIGNED COMMIT
-  (`git config commit.gpgsign true` + `gpg.format ssh`).
-- Re-admit the two compiled recipes WITH the lab key present so the compiled_recipes.json
-  entries carry the lab SSHSIG (currently unsigned — admission ran on a key-less machine):
-  `python3 scripts/compiler.py admit calibration/drafts/sem.json` (and cv).
-- Lab tier when needed: `pip install sigstore` and `calma attest sigstore <bundle>` on a real
-  engagement — the OIDC flow is interactive, so it could not be exercised in-session.
+**Founder setup DONE 2026-06-10 evening** (commit 7c53f12): lab key created via
+`calma attest keygen --import ~/.ssh/id_ed25519` (keyid ebf722e19cf7016d…, pubkey published in
+registry/README.md), git commit signing configured (SSH format, allowed_signers set), genesis
+registry entry published (the BTC fixture REFUTED, RFC 3161 timestamped, entry
+00001-dc236f5759bb), both compiled recipes re-admitted signed ([True, True]). The lab key IS
+the founder's GitHub SSH key (one identity, accepted trade-off; the seed was exposed in a
+Claude session transcript — founder accepted the risk; if rotation is ever wanted, do it
+BEFORE the first real engagement is signed, while the chain is short).
+
+**Still pending:**
+- GitHub "Verified" badge: upload ~/.ssh/id_ed25519.pub in GitHub Settings → SSH and GPG keys
+  as a SIGNING key (separate from the auth entry).
+- Lab tier when needed: `pip install sigstore` and `calma attest sigstore <bundle>` on the
+  FIRST REAL ENGAGEMENT only — the OIDC identity in Rekor is permanent and public.
 
 **Next build candidates (in rough order):** Linux isolation tier (top roadmap item per README
 limitations), registry v2 (tlog-tiles Merkle tree + C2SP checkpoints + public witness cosigs —
 additive, entries already hash-addressed), more compiled-recipe drafts through the gate.
+
+**Fundraising assets (2026-06-10 late):** demo project at `~/calma-demo/btc-momentum/` (REAL
+10y BTC-USD data from Yahoo; walk-forward momentum that prints the TRAIN-best +19,971% while
+the held-out artifact recomputes to +168% — tested REFUTED→fix→CONFIRMED end-to-end; pristine
+buggy state for filming). Script/production guide: `~/calma-strategy/DEMO-VIDEO.md`; discovery
+-call kit: `~/calma-strategy/DISCOVERY-CALLS.md`; Z Fellows / f.inc / SBIR application drafts:
+`~/calma-strategy/APPLICATIONS.md`. Served-fraction experiment RAN: 6/9 (66.7%) across 5
+languages (`assets/served_fraction.json`; target was 70–80% — state it honestly).
+**Known issues:** site is live at calma1.vercel.app (auto-deploys from GitHub; /registry
+renders the genesis entry) but `calma.dev` — used in predicate URIs and across docs — is
+OWNED BY SOMEONE ELSE; buy a domain we control and migrate the predicate type (schema bump)
+BEFORE real engagements. README line 17 still has the demo-GIF placeholder (fill from the
+video's 10s cut).
 
 ## Gotchas
 
