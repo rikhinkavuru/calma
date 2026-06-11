@@ -18,7 +18,7 @@ import sys
 
 # name-regex -> semantic tag (first match wins)
 TAG_PATTERNS = [
-    (r"benchmark|bench_ret|market_ret|spy_ret", "benchmark"),
+    (r"benchmark|bench_ret|market_ret|spy_ret|buy_?hold|buy_?and_?hold", "benchmark"),
     (r"(strat|portfolio|daily).*(ret|return)|^ret(urn)?s?$|pnl", "return"),
     (r"log_?prob|loglik", "value"),
     (r"price|close|open|high|low|adj", "price"),
@@ -647,7 +647,7 @@ def _grade(tag, vals):
     n = len(vals)
     mean = sum(vals) / n
     rng = (min(vals), max(vals))
-    if tag == "return":
+    if tag in ("return", "benchmark"):
         # returns: mostly |r|<1, roughly centered
         frac_small = sum(1 for v in vals if abs(v) < 1.0) / n
         if frac_small > 0.95 and abs(mean) < 0.2:
@@ -808,6 +808,19 @@ def draft(target, claim=None, metric=None):
     picked = _pick_metric(arts, metric)
     if picked:
         mid, art, binding, grade = picked
+        # Claim-aware disambiguation: a claim ABOUT the benchmark ("buy and hold returned X",
+        # "the market did X") must bind the benchmark-tagged column, never the strategy column -
+        # otherwise a true benchmark claim false-REFUTES against the strategy's numbers.
+        low = str(claim or "").lower()
+        if "return" in binding and any(k in low for k in (
+                "buy and hold", "buy-and-hold", "buy & hold", "buyhold", "benchmark", "the market")):
+            for a in arts:
+                bench = next((c for c, s in a["columns"].items() if s["tag"] == "benchmark"), None)
+                if bench:
+                    art = a["path"]
+                    binding = dict(binding, **{"return": bench})
+                    grade = a["columns"][bench]["grade"]
+                    break
         # The claim TARGET is confirmed only when the caller stated the number AND the metric is
         # unambiguous (named explicitly / in the claim text) or the binding is independently sane-checked.
         # An auto-picked metric under a bare-number claim stays unconfirmed: REFUTED is then blocked
