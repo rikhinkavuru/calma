@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import fs from "node:fs";
 import path from "node:path";
-import { SubNav } from "../../components/chrome";
+import { Nav } from "../../components/chrome";
 import { GITHUB_URL } from "../../components/contact";
 
 export const metadata: Metadata = {
@@ -106,9 +106,9 @@ export default function RegistryPage() {
   return (
     <>
       <div className="grain" aria-hidden="true"></div>
-      <SubNav requestDialog />
+      <Nav />
 
-      <main className="rpage">
+      <main className="rpage texture">
         <section className="sec rpage__head">
           <div className="wrap">
             <div className="sec__head">

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { SubNav } from "../../components/chrome";
+import { Nav } from "../../components/chrome";
 import { FAMILIES, RECIPE_COUNT } from "./data";
 
 export const metadata: Metadata = {
@@ -13,9 +13,9 @@ export default function RecipesPage() {
   return (
     <>
       <div className="grain" aria-hidden="true"></div>
-      <SubNav requestDialog />
+      <Nav />
 
-      <main className="rpage">
+      <main className="rpage texture">
         <section className="sec rpage__head">
           <div className="wrap">
             <div className="sec__head">

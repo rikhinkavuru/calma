@@ -66,6 +66,17 @@ img, svg, canvas { display: block; max-width: 100%; }
   background-size: 300px 300px, 1000px 1000px;
 }
 
+/* grainy paper texture for the flat brown stretches — scoped, not viewport-wide,
+   so the hero atmosphere and the outro sunrise keep their clean glow. Subtle by
+   design: a fine warm tooth screened on at whisper opacity. */
+.texture { position: relative; }
+.texture::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  mix-blend-mode: screen; opacity: 0.055;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='p'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.93 0 0 0 0 0.78 0 0 0 0 0.55 0 0 0 0.9 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23p)'/%3E%3C/svg%3E");
+  background-size: 260px 260px;
+}
+
 /* ============================================================ atmosphere */
 .atmo { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
 .atmo i { position: absolute; border-radius: 50%; }
@@ -178,9 +189,9 @@ img, svg, canvas { display: block; max-width: 100%; }
 .nav__links a { font-size: 14px; color: var(--cream-70); transition: color 0.2s ease; }
 .nav__links a:hover { color: var(--cream); }
 .nav__cta {
-  font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
   background: transparent; color: var(--cream);
-  border: 1px solid var(--cream-55); padding: 7px 13px;
+  border: 1px solid var(--cream-55); padding: 5px 10px;
   transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
 }
 .nav__cta:hover { border-color: var(--cream); background: var(--cream); color: var(--void); }
@@ -323,6 +334,10 @@ img, svg, canvas { display: block; max-width: 100%; }
   margin: 0 auto; border-radius: 14px; overflow: hidden;
   height: min(68vh, 660px); aspect-ratio: 1.46;
   max-width: min(1100px, 100%);
+  box-shadow:
+    0 40px 90px rgba(0, 0, 0, 0.55),
+    0 14px 34px rgba(0, 0, 0, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.4);
 }
 /* object-fit crops the recording's dead side margins while the element box
    stays equal to the visible frame — so the native controls fit the frame */

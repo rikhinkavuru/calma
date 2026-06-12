@@ -22,12 +22,14 @@ export default function App() {
       <Nav />
       <main>
         <Hero />
-        <Problem />
-        <Overview />
-        <Features />
-        <Benefits onRequest={openDlg} />
-        <About />
-        <Faqs />
+        <div className="texture">
+          <Problem />
+          <Overview />
+          <Features />
+          <Benefits onRequest={openDlg} />
+          <About />
+          <Faqs />
+        </div>
       </main>
       <Outro />
       <RequestDialog open={dlg} onClose={() => setDlg(false)} />
