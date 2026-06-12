@@ -307,7 +307,7 @@ img, svg, canvas { display: block; max-width: 100%; }
 /* ---------------- hero: centered, one-screen layout ---------------- */
 .hero__inner--center {
   display: flex; flex-direction: column; align-items: center; text-align: center;
-  padding-top: clamp(92px, 13vh, 130px); padding-bottom: clamp(36px, 5vh, 60px);
+  padding-top: clamp(80px, 10vh, 104px); padding-bottom: clamp(36px, 5vh, 60px);
 }
 .hero__inner--center .h1 { max-width: 15em; }
 .hero__inner--center .hero__lead { margin-inline: auto; }
@@ -315,12 +315,16 @@ img, svg, canvas { display: block; max-width: 100%; }
 .hero__inner--center .hero__demo { margin-top: clamp(28px, 4.5vh, 44px); width: 100%; }
 
 /* the demo recording: sized so headline + CTAs + video share one Mac viewport */
-.hero__movie { margin: 0 auto; width: fit-content; max-width: 100%; }
+.hero__movie {
+  margin: 0 auto; width: fit-content; max-width: 100%;
+  border-radius: 14px; overflow: hidden;
+}
 .hero__movie video {
   display: block; background: #0a0907;
   width: auto; height: auto;
   max-width: min(1040px, 100%);
-  max-height: 56vh;
+  max-height: 60vh;
+  border-radius: 14px;
 }
 
 /* ============================================================ sections */

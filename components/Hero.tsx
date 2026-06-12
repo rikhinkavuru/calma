@@ -8,7 +8,6 @@ export function Hero({ onRequest }: { onRequest: () => void }) {
       <Atmo />
       <div className="wrap hero__inner hero__inner--center">
         <Reveal>
-          <span className="kicker">Independent verification lab</span>
           <h1 className="h1">AI did the work. Calma checks it.</h1>
         </Reveal>
 
