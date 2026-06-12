@@ -3,43 +3,45 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useInView } from "./chrome";
 
-/* The demo: one verification, typed out like a real terminal session.
-   When the run finishes, four flowchart lines fan out from a single
-   junction on the terminal's edge to boxes that show what happened
-   inside each step. Each step shares a subtle hue between its terminal
-   line and its box. */
+/* The demo: an agent loop, not a command. The agent runs three backtests and
+   reports each number; calma's zero-touch hook re-executes and recomputes every
+   claim before the turn is allowed to end — two inflated numbers are blocked, one
+   holds. Nobody typed a verify command. The four boxes explain the mechanism. */
 
 type Line = { text: string; cls: string; typed?: boolean; pause: number };
 
 const SCRIPT: Line[] = [
-  { text: '$ calma verify . "the model is 87% accurate"', cls: "p", typed: true, pause: 600 },
-  { text: "  re-running the work in a sandbox ......... done", cls: "t-rerun", pause: 900 },
-  { text: "  rebuilding the number from raw outputs ... 0.84", cls: "t-recompute", pause: 900 },
-  { text: "  comparing  reported 0.87  vs  rebuilt 0.84", cls: "t-compare", pause: 1000 },
-  { text: "", cls: "out", pause: 100 },
-  { text: "  VERDICT: REFUTED — the real number is 0.84", cls: "verdict", pause: 400 },
+  { text: "agent   running 3 backtests, reporting each result as it lands", cls: "ag", typed: true, pause: 700 },
+  { text: '  1  momentum      claim:  total return +14,698%', cls: "cl", pause: 520 },
+  { text: "     calma auto-verify ......  REFUTED    rebuilt -32.4%", cls: "refute", pause: 950 },
+  { text: '  2  mean-revert   claim:  Sharpe 2.4', cls: "cl", pause: 520 },
+  { text: "     calma auto-verify ......  REFUTED    rebuilt 0.7", cls: "refute", pause: 950 },
+  { text: '  3  carry         claim:  total return +31%', cls: "cl", pause: 520 },
+  { text: "     calma auto-verify ......  CONFIRMED  rebuilt +31.2%", cls: "confirm", pause: 950 },
+  { text: "", cls: "out", pause: 120 },
+  { text: "  2 of 3 blocked before the turn ended  -  no command typed", cls: "seal", pause: 400 },
 ];
 
 const STEPS: { key: string; kicker: string; body: ReactNode }[] = [
   {
     key: "rerun",
-    kicker: "Re-run",
-    body: <>The sandbox proves itself before it&apos;s trusted — network blocked, secrets unreadable. Then the work runs again from scratch.</>,
+    kicker: "No command",
+    body: <>You never type a verify command. The check fires on its own the moment an agent states a number — every turn, every result, in the loop or in CI.</>,
   },
   {
     key: "recompute",
-    kicker: "Recompute",
-    body: <>The number is rebuilt from the raw output files. The AI&apos;s report is never trusted — or even read.</>,
+    kicker: "Reads the claim",
+    body: <>A precision-first sniffer lifts the metric and value straight out of the agent&apos;s own words. No SDK, no instrumentation, no change to the code under test.</>,
   },
   {
     key: "compare",
-    kicker: "Compare",
-    body: <>0.87 vs 0.84 is outside the calibrated tolerance — a real break, not hardware noise or rounding. When it can&apos;t be sure, it says so instead of guessing.</>,
+    kicker: "Re-runs it",
+    body: <>The work runs again in a sandbox and the number is rebuilt from the raw outputs on deterministic kernels. The agent&apos;s report is never trusted, or even read.</>,
   },
   {
     key: "verdict",
-    kicker: "Verdict",
-    body: <>Decided by a deterministic script, not a model&apos;s opinion. Anyone can replay the whole check with one command.</>,
+    kicker: "Blocks the lie",
+    body: <>Only a definitive refute stops the turn — the wrong number dies in the loop instead of reaching you. Confirmed and can&apos;t-confirm pass silently.</>,
   },
 ];
 
@@ -121,7 +123,7 @@ export function Demo() {
               return next;
             });
           }, at);
-          at += 28;
+          at += 22;
         }
       } else {
         const full = line.text;
@@ -175,10 +177,10 @@ export function Demo() {
         </svg>
       )}
 
-      <div className="term" ref={termRef} aria-label="Demo: calma verifies a claimed number and refutes it">
+      <div className="term" ref={termRef} aria-label="Demo: an agent reports three backtests; calma auto-verifies each one and blocks the two wrong numbers before the turn ends">
         <div className="term__bar">
           <span className="term__dots" aria-hidden="true"><i /><i /><i /></span>
-          <span className="term__title">calma — one check, start to finish</span>
+          <span className="term__title">calma — your agents, checking themselves</span>
           <button className="term__replay" onClick={() => setRun((n) => n + 1)} disabled={!done}>
             replay ↺
           </button>
@@ -192,14 +194,14 @@ export function Demo() {
           ))}
           {done && (
             <div>
-              <span className="p">$ </span>
+              <span className="ag">agent</span>
               <span className="term__caret" />
             </div>
           )}
         </div>
       </div>
 
-      <div className="dsteps" aria-label="What happens inside each step">
+      <div className="dsteps" aria-label="How the zero-touch check works">
         {STEPS.map((s, i) => (
           <div
             key={s.key}

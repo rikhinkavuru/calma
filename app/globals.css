@@ -295,6 +295,12 @@ img, svg, canvas { display: block; max-width: 100%; }
 .term__body .out { color: var(--cream-55); }
 .term__body .ok { color: var(--teal); }
 .term__body .verdict { color: var(--amber); font-weight: 700; }
+/* zero-touch agent loop */
+.term__body .ag { color: var(--cream-55); }
+.term__body .cl { color: var(--cream); }
+.term__body .refute { color: var(--amber); font-weight: 500; }
+.term__body .confirm { color: var(--teal); font-weight: 500; }
+.term__body .seal { color: var(--cream-70); }
 .term__caret { display: inline-block; width: 0.6em; height: 1.1em; background: var(--cream-70); vertical-align: -0.18em; animation: blink 1.1s steps(1) infinite; }
 @keyframes blink { 50% { opacity: 0; } }
 
