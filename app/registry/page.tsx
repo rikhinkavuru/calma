@@ -106,9 +106,6 @@ export default function RegistryPage() {
   return (
     <>
       <div className="grain" aria-hidden="true"></div>
-      <div className="nebula nebula--fixed nebula--registry" aria-hidden="true">
-        <i />
-      </div>
       <SubNav requestDialog />
 
       <main className="rpage">

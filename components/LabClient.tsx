@@ -92,9 +92,6 @@ export default function LabClient() {
   return (
     <>
       <div className="grain" aria-hidden="true"></div>
-      <div className="nebula nebula--fixed nebula--lab" aria-hidden="true">
-        <i />
-      </div>
       <SubNav onCta={() => setDlg(true)} />
 
       <main className="rpage">

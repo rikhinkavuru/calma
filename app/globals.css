@@ -104,50 +104,6 @@ img, svg, canvas { display: block; max-width: 100%; }
   @keyframes breathe { to { transform: translate(1.2vmax, -0.8vmax); opacity: 0.92; } }
 }
 
-/* ============================================================ nebula fields
-   Real nebula photography behind whole pages. The source images are small,
-   so each is upscaled to cover and softened with a blur — which doubles as
-   the readability treatment — then sat under a heavy void scrim so cream
-   type and hairline cards stay legible. The landing page uses the band
-   variant: it lives only between the hero and the outro, fading to void at
-   both ends so the planet atmosphere and the sunrise footer keep the stage. */
-.nebula { pointer-events: none; }
-.nebula i {
-  position: absolute; inset: 0; display: block;
-  background-size: cover; background-position: center;
-}
-.nebula--fixed { position: fixed; inset: 0; z-index: -1; overflow: clip; }
-.nebula--band { position: absolute; inset: 0; overflow: clip; }
-.nebula--band::after {
-  content: ""; position: absolute; inset: 0;
-  background: linear-gradient(to bottom,
-    var(--void) 0, rgba(13, 11, 8, 0) 240px,
-    rgba(13, 11, 8, 0) calc(100% - 280px), var(--void) 100%);
-}
-.nebula-host { position: relative; }
-/* per-page plate + a light scrim — just enough that cream type stays
-   readable; the photograph itself stays clearly visible */
-.nebula--home i {
-  background-image:
-    linear-gradient(rgba(13, 11, 8, 0.55), rgba(13, 11, 8, 0.55)),
-    url("/img/nebula-home.png");
-}
-.nebula--lab i {
-  background-image:
-    linear-gradient(to bottom, rgba(13, 11, 8, 0.66), rgba(13, 11, 8, 0.52) 32%, rgba(13, 11, 8, 0.58)),
-    url("/img/nebula-lab.png");
-}
-.nebula--recipes i {
-  background-image:
-    linear-gradient(to bottom, rgba(13, 11, 8, 0.6), rgba(13, 11, 8, 0.42) 32%, rgba(13, 11, 8, 0.5)),
-    url("/img/nebula-recipes.png");
-}
-.nebula--registry i {
-  background-image:
-    linear-gradient(to bottom, rgba(13, 11, 8, 0.62), rgba(13, 11, 8, 0.48) 32%, rgba(13, 11, 8, 0.55)),
-    url("/img/nebula-registry.png");
-}
-
 /* ============================================================ orbs
    Glow lives ONLY at the edges of the page: the hero's planet atmosphere at the
    top, and the striated sunrise behind the outro. Everything between sits flat
