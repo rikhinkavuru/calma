@@ -299,6 +299,44 @@ with open(os.path.join(webish, "main.py"), "w") as f:
 truth(not HK._verifiable_target(webish),
       "preflight: entrypoint without artifacts never auto-executes")
 
+# ---------------------------------------------------------------------------
+# 8. transcript-flush race: on current Claude Code the transcript file is NOT yet
+#    flushed when the Stop hook runs, so the final message exists only in the
+#    payload's last_assistant_message. The hook must prefer that field — this is
+#    the regression that silently killed every real-session catch (2026-06-12).
+# ---------------------------------------------------------------------------
+btc_race = os.path.join(tmp_root, "btc_race")
+shutil.copytree(BTC_SRC, btc_race, ignore=shutil.ignore_patterns(".calma"))
+stale = os.path.join(tdir, "stale.jsonl")
+with open(stale, "w") as f:  # transcript ends at the USER turn - final reply unflushed
+    f.write(json.dumps({"type": "user", "message": {
+        "role": "user", "content": "run it and report"}}) + "\n")
+race_payload = json.dumps({
+    "session_id": "s-race", "transcript_path": stale, "cwd": btc_race,
+    "hook_event_name": "Stop", "stop_hook_active": False,
+    "last_assistant_message":
+        "The backtest shows a total return of +14,698% on the held-out window."})
+out, rc, _ = run_hook(btc_race, stale, stdin_raw=race_payload)
+blocked = {}
+try:
+    blocked = json.loads(out)
+except ValueError:
+    pass
+truth(rc == 0, "race: exit code is always 0")
+truth(blocked.get("decision") == "block",
+      "race: claim in last_assistant_message blocks despite unflushed transcript")
+truth("REFUTED" in blocked.get("reason", ""), "race: verdict carried in reason")
+
+# and the field must win over a stale transcript that contains an OLD message
+tp_old = write_transcript(tdir, "Working on it - no numbers yet.")
+race2 = json.dumps({
+    "session_id": "s-race2", "transcript_path": tp_old, "cwd": btc_race,
+    "hook_event_name": "Stop", "stop_hook_active": False,
+    "last_assistant_message": "All done, nothing numeric to report."})
+out, rc, _ = run_hook(btc_race, tp_old, stdin_raw=race2)
+truth(rc == 0 and out == "",
+      "race: harness-provided text wins over transcript (no false fire)")
+
 shutil.rmtree(tmp_root, ignore_errors=True)
 print("hook: %d checks, %d failures" % (_n, _fail))
 sys.exit(1 if _fail else 0)

@@ -316,7 +316,13 @@ def main():
     cfg = _hook_config(cwd)
     if not cfg.get("enabled", True):
         return 0
-    text = _final_assistant_text(data.get("transcript_path") or "")
+    # Prefer the harness-provided final message: on current Claude Code the
+    # transcript file is not yet flushed when the Stop hook runs, so parsing
+    # the transcript silently misses the very message that states the claim.
+    text = data.get("last_assistant_message")
+    text = text.strip() if isinstance(text, str) else ""
+    if not text:
+        text = _final_assistant_text(data.get("transcript_path") or "")
     if not text:
         return 0
     import sniff_claims as SN

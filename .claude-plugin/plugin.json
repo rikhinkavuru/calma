@@ -1,7 +1,7 @@
 {
   "name": "calma",
   "description": "Verify a computational result by re-executing it in a sandbox and recomputing the headline number from the raw outputs - the verdict comes from deterministic scripts, not a model's opinion.",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "author": {
     "name": "Rikhin Kavuru",
     "url": "https://github.com/rikhinkavuru"
