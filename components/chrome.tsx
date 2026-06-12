@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { GITHUB_URL } from "./contact";
 import { RequestDialog } from "./RequestDialog";
 
 export function useInView<T extends Element = HTMLDivElement>(threshold = 0.18) {
@@ -77,7 +78,7 @@ function Burger({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   );
 }
 
-export function Nav({ onRequest }: { onRequest: () => void }) {
+export function Nav() {
   const [scrolled, setScrolled] = useState(false);
   const [menu, setMenu] = useState(false);
   useEffect(() => {
@@ -99,9 +100,9 @@ export function Nav({ onRequest }: { onRequest: () => void }) {
           <a href="/recipes">Recipes</a>
           <a href="/registry">Registry</a>
           <a href="/lab">The lab</a>
-          <button className="nav__cta" onClick={onRequest}>
-            Request verification
-          </button>
+          <a className="nav__cta" href={GITHUB_URL} target="_blank" rel="noreferrer">
+            Get the free skill
+          </a>
         </nav>
         <Burger open={menu} onToggle={() => setMenu((m) => !m)} />
       </div>
@@ -113,15 +114,15 @@ export function Nav({ onRequest }: { onRequest: () => void }) {
           <a href="/recipes" onClick={close}>Recipes</a>
           <a href="/registry" onClick={close}>Registry</a>
           <a href="/lab" onClick={close}>The lab</a>
-          <button
+          <a
             className="nav__cta"
-            onClick={() => {
-              close();
-              onRequest();
-            }}
+            href={GITHUB_URL}
+            target="_blank"
+            rel="noreferrer"
+            onClick={close}
           >
-            Request verification
-          </button>
+            Get the free skill
+          </a>
         </nav>
       )}
     </header>

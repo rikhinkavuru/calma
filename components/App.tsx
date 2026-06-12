@@ -19,9 +19,9 @@ export default function App() {
   return (
     <>
       <div className="grain" aria-hidden="true"></div>
-      <Nav onRequest={openDlg} />
+      <Nav />
       <main>
-        <Hero onRequest={openDlg} />
+        <Hero />
         <Problem />
         <Overview />
         <Features />

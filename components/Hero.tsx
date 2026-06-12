@@ -2,7 +2,7 @@
 
 import { Atmo, Reveal } from "./chrome";
 
-export function Hero({ onRequest }: { onRequest: () => void }) {
+export function Hero() {
   return (
     <section className="hero" id="top">
       <Atmo />
@@ -18,23 +18,7 @@ export function Hero({ onRequest }: { onRequest: () => void }) {
           </p>
         </Reveal>
 
-        <Reveal delay={350}>
-          <div className="hero__cta">
-            <button className="pbtn pbtn--amber" onClick={onRequest}>
-              Request verification
-            </button>
-            <a
-              className="pbtn"
-              href="https://github.com/rikhinkavuru/calma"
-              target="_blank"
-              rel="noreferrer"
-            >
-              Get the free skill
-            </a>
-          </div>
-        </Reveal>
-
-        <Reveal delay={500}>
+        <Reveal delay={400}>
           <div className="hero__demo">
             <figure className="hero__movie">
               <video
