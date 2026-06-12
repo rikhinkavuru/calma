@@ -88,11 +88,11 @@ git clone https://github.com/rikhinkavuru/calma
 cp -r calma/.claude/skills/calma  your-project/.claude/skills/
 ```
 
-Or use it as a plain CLI (from the cloned repo root, matching the comment in `bin/calma`):
+Or use it as a plain CLI (pure stdlib — no pip, no deps; just puts `calma` on your PATH):
 
 ```bash
-cd calma   # the repo you just cloned
-ln -s "$(pwd)/bin/calma" /usr/local/bin/calma
+cd calma            # the repo you just cloned
+./install.sh        # or: make install   (symlinks bin/calma; prints a PATH hint if needed)
 calma demo
 ```
 
@@ -102,6 +102,7 @@ calma demo
 calma demo                          # zero-setup: catch a bundled real inflated backtest (offline, seconds)
 calma verify <folder> "<claim>"     # check a result (exit codes below)
 calma verify <folder>               # no claim: checks the result reproduces (CONFIRMED scope=reproduction)
+calma batch <dir>... | --manifest m.tsv   # verify MANY results at once + one summary table (CI/sprint)
 calma recipes                       # the 120 built-in metrics, grouped by family
 calma verify <folder> "<claim>" --json               # machine-readable verdict (for agents/CI)
 calma verify <folder> "<claim>" --check-determinism  # run twice; flaky outputs can't confirm anything

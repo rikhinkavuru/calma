@@ -204,6 +204,25 @@ _jm = {m["metric"]: m["verdict"] for m in C._json_result(res)["metrics"]}
 truth(_jm.get("accuracy") == "CONFIRMED" and _jm.get("recall") == "REFUTED",
       "--json metrics array carries every per-metric verdict")
 
+# --- batch: verify MANY targets via a manifest, summary rows + roll-up (exit 1 if any fails) ---
+bt = os.path.join(tmp, "batch")
+os.makedirs(os.path.join(bt, "p1", "runs"))
+os.makedirs(os.path.join(bt, "p2", "runs"))
+for p in ("p1", "p2"):
+    with open(os.path.join(bt, p, "gen.py"), "w") as fh:
+        fh.write("import os;os.makedirs('runs',exist_ok=True)\n")
+    with open(os.path.join(bt, p, "runs", "preds.csv"), "w") as fh:
+        fh.write("y_true,y_pred\n" + "".join("%d,%d\n" % r for r in rows))  # accuracy 0.85
+man = os.path.join(bt, "m.tsv")
+with open(man, "w") as fh:
+    fh.write("%s\t0.85\taccuracy\n" % os.path.join(bt, "p1"))   # honest
+    fh.write("%s\t0.97\taccuracy\n" % os.path.join(bt, "p2"))   # fabricated
+brows = C.run_batch([], manifest=man, force=True)
+truth(len(brows) == 2, "batch runs every manifest row")
+bv = {r["target"]: r["verdict"] for r in brows}
+truth(bv.get("p1") == "CONFIRMED" and bv.get("p2") == "REFUTED", "batch per-target verdicts correct")
+truth(not all(r["clean"] for r in brows), "batch roll-up fails (exit 1) when any target is not clean")
+
 # --- replay: a REFUTED run replays and reproduces ---
 ml = os.path.join(tmp, "ml")
 os.makedirs(ml)

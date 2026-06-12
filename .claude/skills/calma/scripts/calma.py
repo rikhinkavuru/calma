@@ -50,6 +50,45 @@ def _color_enabled():
     return sys.stdout.isatty() and not os.environ.get("NO_COLOR")
 
 
+class _Spinner:
+    """A single self-updating stderr line ('⠹ label (Ns)') during a long step, so re-execution
+    doesn't look like a frozen terminal. Active only on an interactive stderr (never in pipes/CI/
+    --json, and off when CALMA_TRACE=0); a no-op otherwise. Cleared on exit, leaving no trace."""
+    FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+
+    def __init__(self, label):
+        self.label = label
+        self._on = _trace_enabled() and sys.stderr.isatty()
+        self._stop = None
+        self._thread = None
+
+    def __enter__(self):
+        if not self._on:
+            return self
+        import threading
+        import time as _t
+        self._stop = threading.Event()
+
+        def _spin():
+            i, t0 = 0, _t.time()
+            while not self._stop.wait(0.1):
+                sys.stderr.write("\r\x1b[2m  %s %s (%.0fs)\x1b[0m\x1b[K"
+                                 % (self.FRAMES[i % len(self.FRAMES)], self.label, _t.time() - t0))
+                sys.stderr.flush()
+                i += 1
+        self._thread = threading.Thread(target=_spin, daemon=True)
+        self._thread.start()
+        return self
+
+    def __exit__(self, *exc):
+        if self._on and self._stop:
+            self._stop.set()
+            self._thread.join(timeout=1)
+            sys.stderr.write("\r\x1b[K")   # erase the spinner line; the verdict prints fresh
+            sys.stderr.flush()
+        return False
+
+
 def _trace(step, msg):
     if not _trace_enabled():
         return
@@ -63,6 +102,9 @@ def _invocation():
     """How THIS process was invoked, for echo-able hints: `calma` when launched via the wrapper,
     `python3 <path>/calma.py` when the script was run directly. Reproduce/next-step hints printed
     with this prefix are copy-pasteable in the caller's own style."""
+    invoked = os.environ.get("CALMA_INVOKED_AS")   # set by the bin/calma wrapper -> copy-pasteable
+    if invoked:
+        return invoked
     a0 = sys.argv[0] if sys.argv else ""
     if os.path.basename(a0) == "calma.py":
         return "python3 %s" % a0
@@ -535,9 +577,10 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
         _trace("re-run", "executing %s in the sandbox (network off)..."
                % contract.get("run", {}).get("entrypoint"))
         _t0 = _time.time()
-        run_res = H.run(contract_path, base=target, timeout=eff_timeout,
-                        trust_override=("untrusted-third-party" if trust == "third-party"
-                                        else None))
+        with _Spinner("re-executing %s" % contract.get("run", {}).get("entrypoint")):
+            run_res = H.run(contract_path, base=target, timeout=eff_timeout,
+                            trust_override=("untrusted-third-party" if trust == "third-party"
+                                            else None))
         run_res["run_dir"] = run_dir
         for _tail in ("stdout_tail", "stderr_tail"):
             if run_res.get(_tail):
@@ -837,6 +880,74 @@ def _json_result(res):
     }
 
 
+def _batch_jobs(targets, manifest):
+    """Resolve (path, claim, metric) jobs from dir/glob targets (committed contracts) + a TSV manifest
+    of 'path<TAB>claim<TAB>[metric]' rows."""
+    import glob as _glob
+    jobs = []
+    for t in targets or []:
+        matches = sorted(_glob.glob(t)) or [t]
+        for m in matches:
+            if os.path.isdir(m):
+                jobs.append((m, None, None))
+    if manifest:
+        for line in open(manifest):
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = [p.strip() for p in line.split("\t")]
+            jobs.append((parts[0], parts[1] if len(parts) > 1 and parts[1] else None,
+                         parts[2] if len(parts) > 2 and parts[2] else None))
+    return jobs
+
+
+def run_batch(targets, manifest=None, fail_on="not-clean", timeout=None, force=False):
+    """Verify many targets; return a list of per-target result rows (for the summary + roll-up)."""
+    rows = []
+    for path, claim, met in _batch_jobs(targets, manifest):
+        try:
+            res = verify(path, claim=claim, metric=met, run_id="batch", force=force, timeout=timeout)
+        except Exception as e:
+            rows.append({"target": os.path.basename(os.path.normpath(path)), "verdict": "ERROR",
+                         "metric": None, "claimed": None, "recomputed": None,
+                         "clean": False, "error": str(e)[:140]})
+            continue
+        led = res["ledger"]
+        c0 = (led.get("claims") or [{}])[0]
+        clean = res["gate_exit"] == 0 if fail_on == "not-clean" \
+            else res["repo_verdict"] not in ("REFUTED", "MIXED")
+        rows.append({"target": os.path.basename(os.path.normpath(path)),
+                     "verdict": res["repo_verdict"], "metric": c0.get("metric"),
+                     "claimed": c0.get("claimed_value"), "recomputed": c0.get("recomputed_value"),
+                     "clean": clean, "run_dir": res["run_dir"]})
+    return rows
+
+
+def _render_batch(rows, color=False):
+    """A single scannable summary table for N targets + a roll-up line."""
+    n = len(rows)
+    refuted = sum(1 for r in rows if r["verdict"] in ("REFUTED", "MIXED"))
+    confirmed = sum(1 for r in rows if r["verdict"] in ("CONFIRMED", "CONFIRMED-WITH-CAVEATS"))
+    inconcl = sum(1 for r in rows if r["verdict"] in ("INCONCLUSIVE", "ERROR"))
+    tw = max([len(str(r["target"])) for r in rows] + [6])
+    mw = max([len(str(r["metric"] or "-")) for r in rows] + [6])
+    head = "CALMA BATCH  -  %d targets  -  %d REFUTED, %d confirmed, %d can't-confirm" \
+        % (n, refuted, confirmed, inconcl)
+    out = ["", head, "-" * max(len(head), 60),
+           "  %-*s  %-*s  %12s  %12s  %s" % (tw, "TARGET", mw, "METRIC", "CLAIMED", "RECOMPUTED", "VERDICT")]
+    for r in rows:
+        sym = REP._SYMBOL.get(r["verdict"], "·")
+        if color and r["verdict"] in REP._ANSI:
+            sym = "\x1b[%sm%s\x1b[0m" % (REP._ANSI[r["verdict"]], sym)
+        out.append("  %-*s  %-*s  %12s  %12s  %s %s"
+                   % (tw, r["target"], mw, (r["metric"] or "-"),
+                      REP.fmt_value(r["claimed"], r["metric"]) if r["claimed"] is not None else "-",
+                      REP.fmt_value(r["recomputed"], r["metric"]) if r["recomputed"] is not None else "-",
+                      sym, REP.display(r["verdict"]) if r["verdict"] != "ERROR" else "ERROR"))
+    out.append("-" * max(len(head), 60))
+    return "\n".join(out)
+
+
 def main():
     if sys.version_info < (3, 9):
         print("error: calma requires Python 3.9 or newer (this is Python %d.%d) - "
@@ -873,6 +984,19 @@ def main():
                    help="re-execute TWICE and require identical artifacts (catches FLAKY results)")
     v.add_argument("--json", action="store_true", dest="as_json",
                    help="print a machine-readable verdict object instead of the report")
+    b = sub.add_parser("batch", help="verify MANY targets at once + a summary table (CI/sprint use)")
+    b.add_argument("targets", nargs="*",
+                   help="dirs (each with a committed verify.yaml) or globs, e.g. 'runs/*'")
+    b.add_argument("--manifest", metavar="TSV",
+                   help="a TSV of rows 'path<TAB>claim<TAB>[metric]' (# comments allowed) - for "
+                        "targets without a committed verify.yaml")
+    b.add_argument("--fail-on", choices=["not-clean", "refuted"], default="not-clean",
+                   help="exit policy applied across ALL targets (exit 1 if any fails)")
+    b.add_argument("--timeout", type=int, default=None, metavar="SECONDS",
+                   help="per-target re-execution budget")
+    b.add_argument("--force", action="store_true", help="re-execute every target")
+    b.add_argument("--json", action="store_true", dest="as_json",
+                   help="print a machine-readable array of per-target results")
     t = sub.add_parser("teardown", help="print a shareable card when a claim breaks")
     t.add_argument("target", help="folder containing the code and its outputs")
     t.add_argument("claim_text", nargs="?", default=None,
@@ -996,6 +1120,21 @@ def main():
                     tail = " - see --fail-on for the exit policy"
                 print("\n[exit %d (%s)%s]" % (exit_code, label, tail))
             return exit_code
+        if a.cmd == "batch":
+            if not a.targets and not a.manifest:
+                print("error: batch needs target dirs/globs and/or --manifest TSV", file=sys.stderr)
+                return 2
+            rows = run_batch(a.targets, manifest=a.manifest, fail_on=a.fail_on,
+                             timeout=a.timeout, force=a.force)
+            if not rows:
+                print("error: no targets matched", file=sys.stderr)
+                return 2
+            if a.as_json:
+                print(json.dumps(rows, indent=2, default=str))
+            else:
+                print(_render_batch(rows, color=_color_enabled()))
+            # roll-up: exit 1 if ANY target failed its policy
+            return 0 if all(r["clean"] for r in rows) else 1
         if a.cmd == "demo":
             # zero-to-verdict: a real overfit BTC backtest ships with the skill. Copy it to a temp
             # dir (without its .calma state), re-execute, recompute, and show the verdict card.
