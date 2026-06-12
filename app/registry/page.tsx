@@ -106,15 +106,7 @@ export default function RegistryPage() {
   return (
     <>
       <div className="grain" aria-hidden="true"></div>
-      <SubNav
-        links={[
-          { href: "/", label: "Home" },
-          { href: "/lab", label: "The lab" },
-          { href: "/recipes", label: "Recipes" },
-        ]}
-        ctaHref="/lab"
-        ctaLabel="Request verification"
-      />
+      <SubNav requestDialog />
 
       <main className="rpage">
         <section className="sec rpage__head">

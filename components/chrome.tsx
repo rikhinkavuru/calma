@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { RequestDialog } from "./RequestDialog";
 
 export function useInView<T extends Element = HTMLDivElement>(threshold = 0.18) {
   const ref = useRef<T | null>(null);
@@ -127,29 +128,39 @@ export function Nav({ onRequest }: { onRequest: () => void }) {
   );
 }
 
-/* Shared sub-page header: same chrome, takes plain links (server-page safe)
-   plus either an onCta callback (client pages) or a ctaHref. */
+/* Every page shows the same quick links — a missing nav item on a sub-page reads
+   as a bug. Anchors are absolute so they work from any route. */
+export const NAV_LINKS: { href: string; label: string }[] = [
+  { href: "/#problem", label: "The problem" },
+  { href: "/#overview", label: "How it works" },
+  { href: "/#features", label: "Features" },
+  { href: "/recipes", label: "Recipes" },
+  { href: "/registry", label: "Registry" },
+  { href: "/lab", label: "The lab" },
+];
+
+/* Shared sub-page header: same chrome, takes plain links (server-page safe).
+   CTA: pass onCta (client pages with their own dialog), or set requestDialog
+   to let SubNav own a RequestDialog itself (server pages). */
 export function SubNav({
-  links,
+  links = NAV_LINKS,
   onCta,
-  ctaHref,
+  requestDialog = false,
   ctaLabel = "Request verification",
 }: {
-  links: { href: string; label: string }[];
+  links?: { href: string; label: string }[];
   onCta?: () => void;
-  ctaHref?: string;
+  requestDialog?: boolean;
   ctaLabel?: string;
 }) {
   const [menu, setMenu] = useState(false);
+  const [dlg, setDlg] = useState(false);
   const close = () => setMenu(false);
-  const cta = onCta ? (
-    <button className="nav__cta" onClick={() => { close(); onCta(); }}>
+  const handleCta = onCta ?? (requestDialog ? () => setDlg(true) : undefined);
+  const cta = handleCta ? (
+    <button className="nav__cta" onClick={() => { close(); handleCta(); }}>
       {ctaLabel}
     </button>
-  ) : ctaHref ? (
-    <a className="nav__cta" href={ctaHref} style={{ display: "inline-block" }} onClick={close}>
-      {ctaLabel}
-    </a>
   ) : null;
   return (
     <header className="nav nav--bg">
@@ -177,6 +188,7 @@ export function SubNav({
           {cta}
         </nav>
       )}
+      {requestDialog && <RequestDialog open={dlg} onClose={() => setDlg(false)} />}
     </header>
   );
 }

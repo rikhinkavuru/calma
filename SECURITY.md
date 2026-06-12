@@ -5,7 +5,7 @@ are treated as release blockers.
 
 ## Reporting a vulnerability
 
-Email **rajeshkavuru@gmail.com** with subject `SECURITY: <short title>`. You will get a
+Email **rikhinkavuru@gmail.com** with subject `SECURITY: <short title>`. You will get a
 human reply, normally within 2 business days. Please include a reproduction if you can.
 Coordinated disclosure is respected — tell us your timeline and we will meet it or explain.
 
