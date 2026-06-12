@@ -28,7 +28,7 @@ import report as REP
 import run_hermetic as H
 import verdict as V
 
-__version__ = "0.7.0"
+__version__ = "0.8.0"
 
 QUANT_METRICS = {"total_return", "sharpe", "max_drawdown"}
 DEFAULT_TIMEOUT_S = 120

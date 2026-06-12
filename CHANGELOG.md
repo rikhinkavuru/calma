@@ -2,6 +2,47 @@
 
 All notable changes to the calma skill/CLI. Dates are UTC.
 
+## 0.8.0 — 2026-06-12
+
+### Coverage — value-family metrics can now REFUTE a clear lie
+
+- A pinned/named generic-numeric metric (column_sum, mean, median, percentile, rmse, mae, r2, mape,
+  correlation, npv, irr, cagr, latency_p*, …) now REFUTES a material misreport instead of degrading to
+  INCONCLUSIVE. The fix is gated to stay safe: the binding upgrades to `independently-bound` only when
+  the metric is **forced** (named/`--metric`) AND the column is the **unique** candidate for its tag AND
+  clean-finite. Bare-number + auto-picked metric, or an ambiguous (multi-column) binding, stays
+  conservative → INCONCLUSIVE (the verdict gate is unchanged; the FP-guard's zero-false-refute holds).
+- **Committed multi-metric contracts** no longer swallow a fabricated SECONDARY metric: each committed
+  metric is re-graded from the emitted data + confirmed as a target (never downgrading a declared
+  status), and `claim_confirmed_target` no longer requires `headline` → a broken secondary metric makes
+  the repo **MIXED**. Existing committed fixtures + the served-fraction corpus (9/9) are unchanged.
+
+### Multi-result / batch usage
+
+- `calma batch <dir>… | --manifest <TSV>` verifies many targets in one run and prints ONE summary table
+  (target | metric | claimed | recomputed | verdict) with a roll-up exit (1 if any fails). `--json`
+  emits a per-target array.
+- The report and `--json` now show **every** metric of a multi-metric contract (a per-metric ✓/✗ table;
+  `--json` gains a `metrics: […]` array), not just the first.
+
+### Presentation & packaging
+
+- A live **while-running spinner** (`⠹ re-executing <entrypoint> (Ns)`) on an interactive stderr, so a
+  long re-execution no longer looks frozen (no-op in pipes/CI/`--json`).
+- **On-PATH installer**: `./install.sh` / `make install` symlink `bin/calma` (pure stdlib, no pip); the
+  wrapper sets `CALMA_INVOKED_AS` so echoed hints read `calma replay …` (copy-pasteable).
+
+### Site
+
+- Next 14 → 15, React 18 → 19, framer-motion 12, `@types` bumped, `engines.node >=20` pinned
+  (build verified clean).
+
+### Benchmark
+
+- `benchmark/` "catch a wrong number" (Calma vs LLM-as-judge vs trust-the-number). After the value-family
+  fix: **Calma 100% catch, 0 false-confirms, 0 false-alarms** vs LLM-judge 71% with 7 false-confirms +
+  3 false-alarms, and trust-the-number 0%.
+
 ## 0.7.0 — 2026-06-12
 
 ### Served-fraction corpus 6/9 → 9/9 (served_fraction = 1.0)
