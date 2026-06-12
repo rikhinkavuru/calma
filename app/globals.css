@@ -319,7 +319,7 @@ img, svg, canvas { display: block; max-width: 100%; }
 .hero__inner--center {
   display: flex; flex-direction: column; align-items: center; text-align: center;
   min-height: 100vh; min-height: 100svh;
-  padding-top: clamp(88px, 11vh, 118px); padding-bottom: clamp(20px, 3.5vh, 36px);
+  padding-top: clamp(78px, 9.5vh, 102px); padding-bottom: clamp(14px, 2.5vh, 26px);
 }
 .hero__inner--center .h1 { max-width: 15em; font-size: clamp(32px, 4.2vw, 48px); }
 .hero__inner--center .hero__lead {
@@ -327,14 +327,14 @@ img, svg, canvas { display: block; max-width: 100%; }
   font-size: clamp(15px, 1.3vw, 17px); max-width: 40em;
 }
 .hero__inner--center .hero__fill { width: 100%; }
-.hero__inner--center .hero__demo { margin-top: clamp(20px, 3.5vh, 34px); width: 100%; }
+.hero__inner--center .hero__demo { margin-top: clamp(16px, 2.8vh, 26px); width: 100%; }
 
 /* the recording at its native ratio, sized to consume the viewport height the
    headline stack leaves over (~310px incl. nav padding) — the hero fills the
    screen with no dead band under the video */
 .hero__movie {
   margin: 0 auto; border-radius: 14px; overflow: hidden;
-  height: clamp(320px, calc(100vh - 262px), 860px);
+  height: clamp(320px, calc(100vh - 240px), 880px);
   aspect-ratio: 1296 / 874;
   max-width: min(1200px, 94vw);
   box-shadow:
