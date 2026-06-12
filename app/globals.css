@@ -327,13 +327,13 @@ img, svg, canvas { display: block; max-width: 100%; }
 }
 .hero__inner--center .hero__demo { margin-top: clamp(24px, 4vh, 38px); width: 100%; }
 
-/* the demo recording: sized so headline + CTAs + video share one Mac viewport.
-   The frame is deliberately narrower than the video's 16:9 (aspect-ratio below)
-   so the recording's dead side margins are cropped symmetrically. */
+/* the demo recording: sized so headline + lead + video share one Mac viewport.
+   This recording fills its frame edge to edge, so the box runs at the native
+   16:9 — object-fit only crops if the width cap bites on narrow viewports. */
 .hero__movie {
   margin: 0 auto; border-radius: 14px; overflow: hidden;
-  height: min(68vh, 660px); aspect-ratio: 1.46;
-  max-width: min(1100px, 100%);
+  height: min(62vh, 600px); aspect-ratio: 16 / 9;
+  max-width: min(1100px, 92vw);
   box-shadow:
     0 40px 90px rgba(0, 0, 0, 0.55),
     0 14px 34px rgba(0, 0, 0, 0.45),
