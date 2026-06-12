@@ -124,5 +124,22 @@ truth(det("import csv, json\nprint(1)\n") == "controlled-to-bit", "pure stdlib s
 truth(det("import time\nprint(time.time())\n") == "measured-band", "time import -> not controlled-to-bit (round-3)")
 truth(det("import threading\n") == "measured-band", "threading -> not controlled-to-bit (round-3)")
 
+# 8) unit-range integer-claim precision: "accuracy 1" must NOT get half-ULP 0.5 (that false-confirms
+# a gross overclaim like claim 1 vs true 0.85). It gets a tight one-sig-fig tolerance; counts/multiples
+# >=2 and percent claims are unaffected.
+import draft_contract as DC  # noqa: E402
+import compare as CMP  # noqa: E402
+truth(DC.claim_precision("accuracy 1") == 0.05, "claim '1' (unit-range int) -> tight 0.05, not 0.5")
+truth(DC.claim_precision("0 errors") == 0.05, "claim '0' (unit-range int) -> tight 0.05")
+truth(DC.claim_precision("auc 1") == 0.05, "claim 'auc 1' -> tight 0.05")
+truth(DC.claim_precision("accuracy 0.95") == 0.005, "decimal claim keeps half-ULP of its precision")
+truth(DC.claim_precision("147 rows") == 0.5, "a count >=2 keeps the half-ULP 0.5")
+truth(abs(DC.claim_precision("100%") - 0.005) < 1e-9, "percent claim already tight (0.005)")
+truth(DC.claim_precision("$4.2M") == 50000.0, "scaled claim precision unchanged")
+truth(CMP._infer_precision(1.0) == 0.05 and CMP._infer_precision(0.0) == 0.05,
+      "compare fallback: unit-range integer -> 0.05")
+truth(CMP._infer_precision(2.0) == 0.5 and CMP._infer_precision(147.0) == 0.5,
+      "compare fallback: integer >=2 -> 0.5")
+
 print("audit-fixes: %d checks, %d failures" % (_n, _fail))
 sys.exit(1 if _fail else 0)

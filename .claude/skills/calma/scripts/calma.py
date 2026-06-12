@@ -44,6 +44,12 @@ def _trace_enabled():
     return sys.stderr.isatty()
 
 
+def _color_enabled():
+    """Color/symbols on the verdict only for an interactive stdout, and never when NO_COLOR is set
+    (the de-facto standard) - so pipes/CI/files stay plain."""
+    return sys.stdout.isatty() and not os.environ.get("NO_COLOR")
+
+
 def _trace(step, msg):
     if not _trace_enabled():
         return
@@ -180,9 +186,15 @@ def _assemble_ledger(contract, diff, run_res):
         }
         if label == V.REFUTED:
             claim["driving_dimension"] = "metric-mismatch"
+            _rd = run_res.get("run_dir", "./.calma/run")
+            try:  # show a short cwd-relative run dir (no $HOME leak) when it's under cwd
+                _rel = os.path.relpath(_rd)
+                _rd = _rel if not _rel.startswith("..") else _rd
+            except ValueError:
+                pass
             claim["reproduction_or_reverify"] = {
                 "kind": "requires-reexecution",
-                "command": "%s replay %s" % (_invocation(), run_res.get("run_dir", "./.calma/run")),
+                "command": "%s replay %s" % (_invocation(), _rd),
                 "manifest_ref": run_res.get("manifest_ref", "sha256:unavailable"),
                 "expected": "recomputed differs from claimed beyond the calibrated budget",
             }
@@ -399,19 +411,20 @@ def _redact_home(text):
 
 
 def _first_run_notice(target, tier):
-    """ONE line, ONCE per target dir (marker in .calma/), stderr only: what calma is about to do
-    to this machine and the escape hatch for counterparty code. Never repeated, never nagging."""
+    """The one-time trust footnote (what calma did to this machine + the counterparty escape hatch).
+    Returns the line ONCE per target dir (marker in .calma/), else None. The caller prints it AFTER
+    the verdict so the answer leads and this reads as the footnote it is - never above the result."""
     marker = os.path.join(target, ".calma", "trust_notice")
     if os.path.exists(marker):
-        return
+        return None
     try:
         os.makedirs(os.path.dirname(marker), exist_ok=True)
         with open(marker, "w") as fh:
             fh.write("shown\n")
     except OSError:
-        return
-    print("calma re-executes this project's code in a sandbox (tier: %s) - "
-          "pass --trust third-party for counterparty code" % tier, file=sys.stderr)
+        return None
+    return ("calma re-executed this project's code in a sandbox (tier: %s) - "
+            "pass --trust third-party for counterparty code" % tier)
 
 
 def _resolve_timeout(cli_timeout, contract):
@@ -451,6 +464,7 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
 
     committed = os.path.join(target, "verify.yaml")
     claim_note = block_finding = None
+    first_run_notice = None  # set when the run block executes; safe default for early/other paths
     if os.path.exists(committed):
         contract_path = committed
         contract = DC.load_contract(contract_path)
@@ -531,7 +545,7 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
         _trace("re-run", "exit %s in %.1fs | isolation %s | determinism %s"
                % (run_res.get("exit_code"), _time.time() - _t0,
                   run_res.get("isolation_tier"), run_res.get("determinism_mode")))
-        _first_run_notice(target, run_res.get("isolation_tier"))
+        first_run_notice = _first_run_notice(target, run_res.get("isolation_tier"))
         if run_res.get("exit_code") in (3, 4):
             # refused (no isolation for untrusted) or killed -> INCONCLUSIVE, never a verdict
             refused = run_res.get("exit_code") == 3
@@ -667,9 +681,11 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
     code, summary = LED.validate_obj(led)
     _trace("verdict", "%s - every label re-derived byte-for-byte from its stored inputs"
            % led.get("repo_verdict"))
-    rendered = REP.render(led, diff)
+    rendered = REP.render(led, diff)                                  # plain - for the file + callers
+    display = REP.render(led, diff, color=_color_enabled())           # symbols/color - for the terminal
     if claim_note:
         rendered = "note: %s\n\n%s" % (claim_note, rendered)
+        display = "note: %s\n\n%s" % (claim_note, display)
     open(os.path.join(run_dir, "report.txt"), "w").write(rendered)
     card = REP.teardown_card(led)
     if card:
@@ -690,7 +706,8 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
     except OSError:
         pass
     return {"gate_exit": code, "gate": summary, "repo_verdict": led["repo_verdict"],
-            "report": rendered, "teardown": card, "run_dir": run_dir, "ledger": led,
+            "report": rendered, "display": display, "first_run_notice": first_run_notice,
+            "teardown": card, "run_dir": run_dir, "ledger": led,
             "cached": False, "claim_note": claim_note, "refused": refused, "killed": killed}
 
 
@@ -948,16 +965,24 @@ def main():
             if a.as_json:
                 print(json.dumps(_json_result(res), indent=2))
             else:
-                print(res["report"])
+                print(res.get("display") or res["report"])
+                # the trust footnote prints AFTER the verdict (dimmed on a tty), never above it
+                note = res.get("first_run_notice")
+                if note:
+                    print(("\x1b[2m%s\x1b[0m" if _color_enabled() else "%s") % ("  " + note))
                 # human vocabulary on the exit line: INCONCLUSIVE displays as CAN'T-CONFIRM.
-                # A CONFIRMED verdict can still exit 1 under the default --fail-on not-clean
-                # (caveat findings) - say so, or the line reads as a contradiction.
-                label = REP.display(res["repo_verdict"])
-                if exit_code != 0 and label.startswith("CONFIRMED") and res.get("gate_exit") != 0:
-                    label += ", with caveat findings"
-                print("\n[exit %d (%s)%s]"
-                      % (exit_code, label,
-                         "" if exit_code == 0 else " - see --fail-on for the exit policy"))
+                rv = res["repo_verdict"]
+                label = REP.display(rv)
+                if rv in ("REFUTED", "MIXED"):
+                    # a REFUTED is the catch working, not a misconfiguration - say so on the exit line
+                    tail = " - claim refuted (the catch; --fail-on sets exit behavior)"
+                elif exit_code == 0:
+                    tail = ""
+                else:
+                    if label.startswith("CONFIRMED") and res.get("gate_exit") != 0:
+                        label += ", with caveat findings"
+                    tail = " - see --fail-on for the exit policy"
+                print("\n[exit %d (%s)%s]" % (exit_code, label, tail))
             return exit_code
         if a.cmd == "demo":
             # zero-to-verdict: a real overfit BTC backtest ships with the skill. Copy it to a temp

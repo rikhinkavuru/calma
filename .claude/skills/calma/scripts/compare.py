@@ -56,7 +56,13 @@ def _infer_precision(claimed):
     if "e" in s or "E" in s:
         return 0.0
     if "." not in s or c == int(c):
-        return 0.5
+        # An integer claim in the unit range (0 / 1 / -1) is almost always a bounded metric stated
+        # whole - "accuracy 1", "0 errors", "AUC 1" - meaning the exact value, NOT "value +/- 0.5".
+        # Granting the half-ULP 0.5 there is half the entire [0,1]/[-1,1] range and false-CONFIRMS
+        # gross overclaims (claim 1 vs true 0.85). Use a tight one-significant-figure tolerance so a
+        # genuine perfect/zero score still confirms (recompute ~= the claim) but a material overclaim
+        # refutes. Larger integers (counts, multiples) keep the half-ULP 0.5.
+        return 0.05 if abs(c) <= 1.0 else 0.5
     d = len(s.split(".", 1)[1])
     if d > 6:
         tol = 1e-12 * max(1.0, abs(c))

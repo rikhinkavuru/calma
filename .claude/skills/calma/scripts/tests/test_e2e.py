@@ -31,7 +31,8 @@ def truth(cond, label):
 res = C.verify(BTC, run_id="test_e2e", force=True)  # force: the fixture persists across suite runs
 truth(res["repo_verdict"] == "REFUTED", "BTC -> repo REFUTED")
 truth(res["gate_exit"] == 1, "BTC gate exit 1 (valid, not clean)")
-truth(res["report"].startswith("REFUTED"), "report leads with REFUTED")
+truth(res["report"].splitlines()[0].lstrip("✗✓▲ ").startswith("REFUTED"),
+      "report leads with REFUTED (after the ✗ verdict symbol)")
 truth(res.get("teardown") and "CALMA TEARDOWN" in res["teardown"] and "RECOMPUTED" in res["teardown"],
       "shareable teardown card produced on REFUTED")
 truth("+14,698%" in res["report"] and "-32.4%" in res["report"],

@@ -227,7 +227,9 @@ truth(svg and svg.startswith("<svg") and "REFUTED" in svg and "0.87" in svg, "SV
 truth(REPmod.svg_card({"repo_verdict": "CONFIRMED", "claims": []}) is None, "no SVG card for a pass")
 
 # --- report formatting ---
-truth(REP.fmt_value(146.97697947938846, "total_return") == "+14,698%", "total_return formats as percent")
+truth(REP.fmt_value(146.97697947938846, "total_return") == "147.0x (+14,698%)",
+      "total_return >=5x formats as a multiple with the raw percent alongside")
+truth(REP.fmt_value(0.0488, "total_return") == "+4.9%", "small total_return still formats as percent")
 truth(REP.fmt_value(-0.3243140055429462, "total_return") == "-32.4%", "negative return formats")
 truth(REP.fmt_value(0.87, "accuracy") == "0.87", "accuracy stays a plain number")
 truth(REP.fmt_value(4200000.0, "column_sum") == "4,200,000", "sums get thousands separators")
@@ -470,18 +472,20 @@ truth(C._resolve_timeout(7, {"run": {"timeout": 99}}) == 7, "timeout: CLI flag w
 truth(C._resolve_timeout(None, {"run": {"timeout": "nope"}}) == 120,
       "timeout: garbage run.timeout degrades to the default")
 
-# --- P1-2 first-run notice: once per target, stderr, never again ---
+# --- P1-2 first-run notice: once per target, on STDOUT after the verdict (footnote), never again ---
 fr = os.path.join(tmp, "firstrun")
 os.makedirs(fr)
 shutil.copy(os.path.join(stable, "main.py"), os.path.join(fr, "main.py"))
 r1 = subprocess.run([sys.executable, CAL, "verify", fr, "sum 45"],
                     capture_output=True, text=True)
-truth("--trust third-party for counterparty code" in r1.stderr,
-      "notice: first verify prints the one-line trust notice on stderr")
-truth(r1.stderr.count("calma re-executes") == 1, "notice: exactly ONE line")
+truth("--trust third-party for counterparty code" in r1.stdout,
+      "notice: first verify prints the trust footnote on stdout (below the verdict)")
+truth(r1.stdout.count("calma re-executed") == 1, "notice: exactly ONE line")
+truth(r1.stdout.index("calma re-executed") > r1.stdout.index("confidence"),
+      "notice: prints AFTER the verdict line, not above it")
 r2 = subprocess.run([sys.executable, CAL, "verify", fr, "sum 45", "--force"],
                     capture_output=True, text=True)
-truth("calma re-executes" not in r2.stderr, "notice: never shown twice (cached marker)")
+truth("calma re-executed" not in r2.stdout, "notice: never shown twice (cached marker)")
 
 # --- P2 stderr redaction: $HOME never enters ledgers via captured output tails ---
 rd = os.path.join(tmp, "redact")

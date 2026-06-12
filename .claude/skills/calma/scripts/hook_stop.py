@@ -331,7 +331,7 @@ def _block_payload(cand, res):
         'reported: "%s".' % cand["claim"],
         "VERDICT: %s - claimed %s, recomputed %s%s."
         % (verdict, claimed, recomputed,
-           (" (confidence %s/100)" % conf) if conf is not None else ""),
+           (" (confidence %d/100)" % round(conf * 100)) if isinstance(conf, (int, float)) else ""),
     ]
     if res.get("reason"):
         reason_bits.append("engine reason: %s" % res["reason"])

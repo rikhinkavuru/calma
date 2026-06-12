@@ -240,6 +240,18 @@ def claim_precision(text):
     d = len(raw.split(".", 1)[1]) if "." in raw else 0
     scale = {"%": 0.01, "k": 1e3, "K": 1e3, "m": 1e6, "M": 1e6, "b": 1e9, "B": 1e9}.get(
         m.group(3) or "", 1.0)
+    # An integer claim in the unit range (0 / 1 / -1, no %/k/M suffix) is almost always a bounded
+    # metric stated whole - "accuracy 1", "0 errors" - meaning the exact value, NOT "value +/- 0.5".
+    # The half-ULP 0.5 there is half the entire [0,1]/[-1,1] range and false-CONFIRMS gross overclaims
+    # (claim 1 vs true 0.85). Tighten to a one-significant-figure tolerance: a true perfect/zero score
+    # still confirms (recompute ~= claim) but a material overclaim refutes. (Percent claims like "100%"
+    # already scale to 0.005; counts/multiples >=2 keep the half-ULP.)
+    if d == 0 and scale == 1.0:
+        try:
+            if abs(float(raw)) <= 1.0:
+                return 0.05
+        except ValueError:
+            pass
     return 0.5 * 10 ** (-d) * scale
 
 

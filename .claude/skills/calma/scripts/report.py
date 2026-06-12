@@ -56,6 +56,10 @@ def fmt_value(value, metric_id=None):
     if v != v:
         return "NaN"
     if metric_id in PERCENT_METRICS or metric_id in UNSIGNED_PERCENT_METRICS:
+        # a return of >= ~5 reads cleaner as a multiple, but keep the raw percent alongside it so the
+        # scale still lands: 10.3258 -> "10.3x (+1,033%)"; 146.98 -> "147.0x (+14,698%)".
+        if metric_id in PERCENT_METRICS and abs(v) >= 5:
+            return "{:.1f}x ({:+,.0f}%)".format(v, v * 100.0)
         pct = v * 100.0
         sign = "+" if metric_id in PERCENT_METRICS else ""
         if abs(pct) >= 100:
@@ -89,7 +93,20 @@ def _fix_line(led, diff=None):
     return None
 
 
-def render(led, diff=None):
+_SYMBOL = {V.CONFIRMED: "✓", V.CAVEATS: "✓", V.REFUTED: "✗",
+           V.INCONCLUSIVE: "▲", "MIXED": "✗"}
+_ANSI = {V.CONFIRMED: "32", V.CAVEATS: "33", V.REFUTED: "31",
+         V.INCONCLUSIVE: "33", "MIXED": "31"}
+_DET_GLOSS = {"controlled-to-bit": "bit-exact", "measured-band": "stable within tolerance",
+              "uncontrolled": "not bit-reproducible"}
+
+
+def _det(mode):
+    g = _DET_GLOSS.get(mode)
+    return ("%s (%s)" % (mode, g)) if g else (mode or "?")
+
+
+def render(led, diff=None, color=False):
     rv = led.get("repo_verdict", V.INCONCLUSIVE)
     word, gloss = _TOPLINE.get(rv, _TOPLINE[V.INCONCLUSIVE])
     c0 = led["claims"][0] if led.get("claims") else {}
@@ -101,7 +118,11 @@ def render(led, diff=None):
         word += " (scope=reproduction)"
         gloss = "no claim was given - the result re-runs and the number recomputes"
     conf = c0.get("headline_confidence") or 0.0
-    head = "%s  (confidence %d/100)" % (word, int(round(conf * 100))) if conf > 0 else word
+    # headline: a ✓/✗/▲ symbol + (on a tty) one ANSI color, so the answer is unmistakable at a glance.
+    label = "%s %s" % (_SYMBOL.get(rv, "·"), word)
+    if color and rv in _ANSI:
+        label = "\x1b[1;%sm%s\x1b[0m" % (_ANSI[rv], label)
+    head = "%s  (confidence %d/100)" % (label, int(round(conf * 100))) if conf > 0 else label
     lines = ["%s  -  %s" % (head, gloss)]
     if scope_repro:
         lines.append("  recomputed %s = %s  (state a claim to check a number against it)"
@@ -149,13 +170,13 @@ def render(led, diff=None):
             # "not verified" scope limit on its own quiet line (a CONFIRMED is reproduction, not
             # a soundness blessing) instead of cramming it into a wall of terms.
             lines.append("  verified by re-execution (isolation: %s, determinism: %s)"
-                         % (sc.get("isolation_tier", "?"), sc.get("determinism_mode", "?")))
+                         % (sc.get("isolation_tier", "?"), _det(sc.get("determinism_mode"))))
             if nv:
                 lines.append("  not verified: " + "; ".join(nv))
         else:
             lines.append("  scope: %s | isolation: %s | determinism: %s%s"
                          % (", ".join(checked) or "-", sc.get("isolation_tier", "?"),
-                            sc.get("determinism_mode", "?"),
+                            _det(sc.get("determinism_mode")),
                             (" | not verified: " + "; ".join(nv)) if nv else ""))
         if sc.get("binding_note"):
             lines.append("  checked: " + sc["binding_note"])
