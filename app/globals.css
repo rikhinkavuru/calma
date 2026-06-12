@@ -323,13 +323,14 @@ img, svg, canvas { display: block; max-width: 100%; }
    so the recording's dead side margins are cropped symmetrically. */
 .hero__movie {
   margin: 0 auto; border-radius: 14px; overflow: hidden;
-  height: min(61vh, 590px); aspect-ratio: 1.58;
-  max-width: min(1100px, 100%); position: relative;
+  height: min(61vh, 590px); aspect-ratio: 1.46;
+  max-width: min(1100px, 100%);
 }
+/* object-fit crops the recording's dead side margins while the element box
+   stays equal to the visible frame — so the native controls fit the frame */
 .hero__movie video {
   display: block; background: #0a0907;
-  height: 100%; width: auto; max-width: none;
-  position: relative; left: 50%; transform: translateX(-50%);
+  width: 100%; height: 100%; object-fit: cover;
 }
 
 /* ============================================================ sections */
