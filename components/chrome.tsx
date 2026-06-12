@@ -127,15 +127,28 @@ export function Nav({ onRequest }: { onRequest: () => void }) {
   );
 }
 
+/* The canonical quicklinks. Every page shows the full set so nothing
+   ever goes missing from the navbar. Anchor targets are absolute (/#…)
+   so they resolve correctly from sub-pages too. */
+export const QUICKLINKS: { href: string; label: string }[] = [
+  { href: "/#problem", label: "The problem" },
+  { href: "/#overview", label: "How it works" },
+  { href: "/#features", label: "Features" },
+  { href: "/recipes", label: "Recipes" },
+  { href: "/registry", label: "Registry" },
+  { href: "/lab", label: "The lab" },
+];
+
 /* Shared sub-page header: same chrome, takes plain links (server-page safe)
-   plus either an onCta callback (client pages) or a ctaHref. */
+   plus either an onCta callback (client pages) or a ctaHref.
+   Defaults to the full QUICKLINKS so the navbar is always complete. */
 export function SubNav({
-  links,
+  links = QUICKLINKS,
   onCta,
   ctaHref,
   ctaLabel = "Request verification",
 }: {
-  links: { href: string; label: string }[];
+  links?: { href: string; label: string }[];
   onCta?: () => void;
   ctaHref?: string;
   ctaLabel?: string;

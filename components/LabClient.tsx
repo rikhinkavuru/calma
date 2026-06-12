@@ -92,15 +92,7 @@ export default function LabClient() {
   return (
     <>
       <div className="grain" aria-hidden="true"></div>
-      <SubNav
-        links={[
-          { href: "/#overview", label: "How it works" },
-          { href: "/recipes", label: "Recipes" },
-          { href: "/registry", label: "Registry" },
-          { href: "/", label: "The free skill" },
-        ]}
-        onCta={() => setDlg(true)}
-      />
+      <SubNav onCta={() => setDlg(true)} />
 
       <main className="rpage">
         <section className="sec rpage__head">

@@ -13,15 +13,7 @@ export default function RecipesPage() {
   return (
     <>
       <div className="grain" aria-hidden="true"></div>
-      <SubNav
-        links={[
-          { href: "/#overview", label: "How it works" },
-          { href: "/registry", label: "Registry" },
-          { href: "/lab", label: "The lab" },
-        ]}
-        ctaHref="/"
-        ctaLabel="← Back to Calma"
-      />
+      <SubNav ctaHref="/" ctaLabel="← Back to Calma" />
 
       <main className="rpage">
         <section className="sec rpage__head">
