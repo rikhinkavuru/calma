@@ -36,7 +36,7 @@ export function Hero({ onRequest }: { onRequest: () => void }) {
 
         <Reveal delay={500}>
           <div className="hero__demo">
-            <figure className="term hero__movie">
+            <figure className="hero__movie">
               <video
                 src="/video/hero-demo.mp4"
                 autoPlay

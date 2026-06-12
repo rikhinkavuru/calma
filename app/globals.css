@@ -315,7 +315,7 @@ img, svg, canvas { display: block; max-width: 100%; }
   font-size: clamp(15px, 1.3vw, 17px); max-width: 40em;
 }
 .hero__inner--center .hero__cta { justify-content: center; margin-top: 24px; gap: 12px; }
-.hero__inner--center .hero__cta .pbtn { padding: 10px 18px; font-size: 11px; }
+.hero__inner--center .hero__cta .pbtn { padding: 8px 14px; font-size: 10px; letter-spacing: 0.14em; }
 .hero__inner--center .hero__demo { margin-top: clamp(24px, 4vh, 38px); width: 100%; }
 
 /* the demo recording: sized so headline + CTAs + video share one Mac viewport.
