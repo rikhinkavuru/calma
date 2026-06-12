@@ -18,7 +18,7 @@ export function Hero() {
           </p>
         </Reveal>
 
-        <Reveal delay={400}>
+        <Reveal delay={400} className="hero__fill">
           <div className="hero__demo">
             <figure className="hero__movie">
               <video
