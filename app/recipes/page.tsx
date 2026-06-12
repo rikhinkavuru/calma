@@ -13,6 +13,9 @@ export default function RecipesPage() {
   return (
     <>
       <div className="grain" aria-hidden="true"></div>
+      <div className="nebula nebula--fixed nebula--recipes" aria-hidden="true">
+        <i />
+      </div>
       <SubNav requestDialog />
 
       <main className="rpage">

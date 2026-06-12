@@ -22,12 +22,17 @@ export default function App() {
       <Nav onRequest={openDlg} />
       <main>
         <Hero onRequest={openDlg} />
-        <Problem />
-        <Overview />
-        <Features />
-        <Benefits onRequest={openDlg} />
-        <About />
-        <Faqs />
+        <div className="nebula-host">
+          <div className="nebula nebula--band nebula--home" aria-hidden="true">
+            <i />
+          </div>
+          <Problem />
+          <Overview />
+          <Features />
+          <Benefits onRequest={openDlg} />
+          <About />
+          <Faqs />
+        </div>
       </main>
       <Outro />
       <RequestDialog open={dlg} onClose={() => setDlg(false)} />
