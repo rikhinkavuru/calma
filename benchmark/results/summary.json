@@ -24,12 +24,12 @@
   "Calma": {
     "flawed": 24,
     "honest": 12,
-    "caught": 14,
+    "caught": 24,
     "false_confirm": 0,
-    "abstain_flawed": 10,
+    "abstain_flawed": 0,
     "passed": 12,
     "false_alarm": 0,
     "abstain_honest": 0,
-    "catch_rate": 0.5833333333333334
+    "catch_rate": 1.0
   }
 }

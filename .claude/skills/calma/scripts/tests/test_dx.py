@@ -148,6 +148,32 @@ with open(os.path.join(amb, "main.py"), "w") as fh:
 res = C.verify(amb, claim="123456789")  # wildly wrong bare number, metric auto-picked
 truth(res["repo_verdict"] != "REFUTED", "bare-number claim + auto metric never REFUTES (got %s)" % res["repo_verdict"])
 
+# --- value-family REFUTE: a PINNED generic metric on a UNIQUE clean numeric column can now refute a
+# clear lie (was a coverage gap: it degraded to INCONCLUSIVE). Unambiguous-binding => independently-bound.
+vf = os.path.join(tmp, "vf")
+os.makedirs(vf)
+with open(os.path.join(vf, "main.py"), "w") as fh:
+    fh.write("import csv\n"
+             "w = csv.writer(open('out.csv','w',newline=''))\n"
+             "w.writerow(['value'])\n"
+             "[w.writerow([float(i)]) for i in range(100)]\n")  # sum=4950, mean=49.5
+res = C.verify(vf, claim="1000000", metric="column_sum", force=True)
+truth(res["repo_verdict"] == "REFUTED", "pinned column_sum on a unique column REFUTES a clear lie (got %s)" % res["repo_verdict"])
+res = C.verify(vf, claim="4950", metric="column_sum", force=True)
+truth(res["repo_verdict"] in ("CONFIRMED", "CONFIRMED-WITH-CAVEATS"), "honest pinned column_sum CONFIRMS (got %s)" % res["repo_verdict"])
+
+# --- ambiguity guard: TWO same-tag numeric columns -> binding is NOT unique -> stays plausibly-bound,
+# so even a pinned metric + clear gap degrades to INCONCLUSIVE (never a false REFUTE from a wrong column)
+amb2 = os.path.join(tmp, "amb2")
+os.makedirs(amb2)
+with open(os.path.join(amb2, "main.py"), "w") as fh:
+    fh.write("import csv\n"
+             "w = csv.writer(open('out.csv','w',newline=''))\n"
+             "w.writerow(['value','amount'])\n"               # two generic-numeric columns
+             "[w.writerow([float(i), float(i*2)]) for i in range(100)]\n")
+res = C.verify(amb2, claim="1000000", metric="column_sum", force=True)
+truth(res["repo_verdict"] != "REFUTED", "ambiguous (2 value-ish columns) never REFUTES (got %s)" % res["repo_verdict"])
+
 # --- replay: a REFUTED run replays and reproduces ---
 ml = os.path.join(tmp, "ml")
 os.makedirs(ml)

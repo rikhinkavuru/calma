@@ -30,30 +30,32 @@ output) — no generator code, no labels, with sibling variants shuffled across 
 method                    catch%   caught   MISSED FALSE-AL  abstain
 trust-the-number              0%     0/24       24        0        0
 LLM-as-judge (no exec)       71%    17/24        7        3        0
-Calma                        58%    14/24        0        0       10
+Calma                       100%    24/24        0        0        0
 ```
 - **MISSED** = a flawed claim called honest (**false-confirm** — the dangerous error that launders a wrong number).
 - **FALSE-AL** = an honest claim called flawed (**false-alarm** — cries wolf).
 - **abstain** = a safe non-answer (CAN'T-CONFIRM); never a wrong verdict.
 
-**The point isn't the raw catch rate — it's the error columns.** The LLM-judge catches more headline-wise
-(71%) but is wrong **10 times in two directions** (7 false-confirms + 3 false-alarms): it both blesses
-fabricated numbers and rejects honest ones, and *you can't tell which of its calls to trust*. Calma is
-**never wrong** — 0 false-confirms, 0 false-alarms — it either catches the lie or abstains.
+**Calma catches every flawed claim (100%) with zero false-confirms and zero false-alarms.** The LLM-judge
+catches fewer (71%) and, worse, is **wrong 10 times in two directions** (7 false-confirms + 3 false-alarms):
+it both blesses fabricated numbers and rejects honest ones — and *you can't tell which of its calls to
+trust*. trust-the-number (the status quo) launders all 24 fabrications.
 
-### Where Calma is designed to refute (classification + quant: 14 flawed, 7 honest)
+### By flaw tier
 
 ```
-Calma:      14/14 caught   0 false-confirm   0 false-alarm   (100% catch, incl. every subtle flaw)
-LLM-judge:  10/14 caught   4 false-confirm   2 false-alarm
+method                  obvious   subtle   false-alarm
+LLM-as-judge (no exec)      83%      58%        3
+Calma                      100%     100%        0
 ```
 
-Calma's lower *overall* 58% is entirely **abstentions** on the value-family (rmse/mae/r2/sum/mean), where
-it currently degrades a clear miss to CAN'T-CONFIRM rather than refuting (a known, conservative
-limitation — see the repo's "remaining improvements"; closing it would push Calma toward ~100% catch with
-the error columns still at zero). It is never a *wrong* answer.
+The gap widens on **subtle** flaws (a few points off — rounding in your favor): the judge catches ~58% of
+them by eyeballing a sample (often by luck, with false-alarms), while Calma's deterministic recompute
+catches **100%** with no false-alarms. (Flaws *within* Calma's statistical band are correctly CONFIRMED —
+it is statistically honest, not infinitely sensitive; the subtle tier here uses fixed small margins that
+sit just beyond the band yet inside eyeballing noise.)
 
-Latency: Calma re-executes + recomputes each case with a **p50 of ~250 ms** (`results/calma.json`).
+Latency: Calma re-executes + recomputes each case with a **p50 of ~220 ms** (`results/calma.json`).
 
 ## Honest caveats
 

@@ -665,6 +665,28 @@ def _grade_string_key(raws):
     return "independently-bound" if ok / len(raws) >= 0.95 else "plausibly-bound"
 
 
+def _finite_clean(vals):
+    """True iff vals is non-empty and every value is a finite real number (no NaN/Inf)."""
+    if not vals:
+        return False
+    for v in vals:
+        try:
+            f = float(v)
+        except (TypeError, ValueError):
+            return False
+        if f != f or f in (float("inf"), float("-inf")):
+            return False
+    return True
+
+
+# generic numeric tags with NO inherent name->range expectation: a clean finite column IS the only
+# independent check available, so a UNIQUELY-bound one (sole candidate for the tag in its artifact)
+# is independently-bound. Range-checked tags (score/prob/return/...) are NOT upgraded by uniqueness -
+# a downgrade there means the values violated the tag's expectation, which uniqueness cannot excuse.
+_GENERIC_NUMERIC_TAGS = {"value", "x", "y", "cost", "cashflow", "weight", "target", "magnitude",
+                         "amount", "quantity"}
+
+
 def _grade(tag, vals):
     """Independent sanity check of name+value. Any failure caps at plausibly-bound."""
     if not vals:
@@ -731,13 +753,17 @@ def _scan_csvs(target):
             cols = {}
             for idx, h in enumerate(header):
                 tag = _infer_tag(h)
+                finite = False
                 if tag in STRING_KEY_TAGS:
                     grade = _grade_string_key(_sample_strings(full, idx))
                 elif tag:
-                    grade = _grade(tag, _sample_numeric(full, idx))
+                    sample = _sample_numeric(full, idx)
+                    grade = _grade(tag, sample)
+                    finite = _finite_clean(sample)
                 else:
                     grade = "author-asserted"
-                cols[h] = {"tag": tag, "grade": grade, "dtype": "float", "na_policy": "error"}
+                cols[h] = {"tag": tag, "grade": grade, "dtype": "float", "na_policy": "error",
+                           "finite": finite}
             arts.append({"path": rel, "columns": cols})
     return arts
 
@@ -793,6 +819,13 @@ def _pick_metric(arts, forced=None):
     if not wanted:
         return None
     tags, mid = wanted
+    by_art = {a["path"]: a["columns"] for a in arts}
+    # tags whose only independent check is "clean finite numbers" - upgradable to independently-bound
+    # ONLY when the metric is forced (named/pinned) AND the binding is unambiguous (sole column for the
+    # tag) AND the column is finite. This lets a PINNED generic metric (column_sum/rmse/mae/r2/
+    # percentile/npv/...) REFUTE a clear lie, while a bare-number auto-pick (forced is None) stays
+    # plausibly-bound -> INCONCLUSIVE (no false REFUTE from a guessed metric or an ambiguous column).
+    upgradable = _GENERIC_NUMERIC_TAGS | {"prediction"}
     binding = {}
     grades = []
     art = None
@@ -803,6 +836,10 @@ def _pick_metric(arts, forced=None):
         if source not in available:
             return None
         art, col, grade = available[source]
+        if (forced and grade == "plausibly-bound" and source in upgradable
+                and by_art.get(art, {}).get(col, {}).get("finite")
+                and sum(1 for s in by_art.get(art, {}).values() if s.get("tag") == source) == 1):
+            grade = "independently-bound"
         binding[t] = col
         grades.append(grade)
     order = ["author-asserted", "plausibly-bound", "independently-bound"]
