@@ -1,7 +1,6 @@
 "use client";
 
 import { Atmo, Reveal } from "./chrome";
-import { Demo } from "./Demo";
 
 export function Hero({ onRequest }: { onRequest: () => void }) {
   return (
@@ -42,7 +41,31 @@ export function Hero({ onRequest }: { onRequest: () => void }) {
 
         <Reveal delay={650}>
           <div className="hero__demo">
-            <Demo />
+            <figure className="term hero__movie">
+              <div className="term__bar">
+                <div className="term__dots" aria-hidden="true">
+                  <i></i>
+                  <i></i>
+                  <i></i>
+                </div>
+                <span className="term__title">Live recording — the zero-touch catch</span>
+                <span className="term__title" aria-hidden="true">87s</span>
+              </div>
+              <video
+                src="/video/hero-demo.mp4"
+                autoPlay
+                muted
+                loop
+                playsInline
+                controls
+                preload="metadata"
+                aria-label="Screen recording: an AI agent reports an inflated backtest return; calma blocks the turn, refutes the number, and the agent corrects itself"
+              />
+              <figcaption className="hero__movie-cap micro">
+                Unscripted session — the agent reports +19,971%, calma re-executes the work
+                and blocks the turn: the real number is +168%.
+              </figcaption>
+            </figure>
           </div>
         </Reveal>
       </div>
