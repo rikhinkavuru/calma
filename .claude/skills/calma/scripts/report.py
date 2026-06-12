@@ -144,10 +144,19 @@ def render(led, diff=None):
         fams = sc.get("families", {})
         checked = [k for k, v in fams.items() if str(v).startswith("checked")]
         nv = sc.get("not_verified", [])
-        lines.append("  scope: %s | isolation: %s | determinism: %s%s"
-                     % (", ".join(checked) or "-", sc.get("isolation_tier", "?"),
-                        sc.get("determinism_mode", "?"),
-                        (" | not verified: " + "; ".join(nv)) if nv else ""))
+        if rv == V.CONFIRMED:
+            # clean pass: lead with the plain reassurance, not the families jargon; keep the honest
+            # "not verified" scope limit on its own quiet line (a CONFIRMED is reproduction, not
+            # a soundness blessing) instead of cramming it into a wall of terms.
+            lines.append("  verified by re-execution (isolation: %s, determinism: %s)"
+                         % (sc.get("isolation_tier", "?"), sc.get("determinism_mode", "?")))
+            if nv:
+                lines.append("  not verified: " + "; ".join(nv))
+        else:
+            lines.append("  scope: %s | isolation: %s | determinism: %s%s"
+                         % (", ".join(checked) or "-", sc.get("isolation_tier", "?"),
+                            sc.get("determinism_mode", "?"),
+                            (" | not verified: " + "; ".join(nv)) if nv else ""))
         if sc.get("binding_note"):
             lines.append("  checked: " + sc["binding_note"])
     return "\n".join(lines)

@@ -2,6 +2,49 @@
 
 All notable changes to the calma skill/CLI. Dates are UTC.
 
+## 0.7.0 — 2026-06-12
+
+### Served-fraction corpus 6/9 → 9/9 (served_fraction = 1.0)
+
+- **Isolation fix (node + any realpath-resolving runtime):** the Seatbelt profile now grants
+  `file-read-metadata` (lstat/stat/readlink) on the run base's exact ancestor chain, so a runtime
+  can resolve its entrypoint while directory listing and file-content reads under `/Users` stay
+  denied. Doctor still proves zero secret-reads + zero egress; an adversarial probe confirms the
+  boundary (lstat allowed, `listdir`/`open` denied).
+- **Restore/run interpreter consistency:** a Python repo whose deps restore into `<base>/.calma_venv`
+  now runs under that venv, not the host interpreter.
+- **Whole-program determinism:** `controlled-to-bit` now requires every `.py` in the program tree
+  (not just the entry file) to be free of RNG/GPU/scientific-stack imports; the numpy-backed stack
+  (pandas/scipy/sklearn/statsmodels) is treated as non-bit-deterministic.
+- **Two vendored real MIT repos** under `assets/corpus/` (each with `VENDORED.md` provenance):
+  `momentum-strategy` (yfinance → frozen snapshot) and `btc-sma-crossover` (Coinbase via the
+  `calma_vendor` record/replay shim). The latter replaces the retired `crypto-backtester` (deleted
+  upstream + binance HTTP 451 = unreproducible).
+- **calma_vendor shim:** forwards request headers on record (Coinbase 403s without a User-Agent),
+  honors requests `params`, and patches `requests.Session`/ccxt — not just module-level helpers.
+
+### Zero-touch guardrail — engages on far more real projects
+
+- **Widened the verifiable-target gate** (`hook_stop.py`): recognizes Parquet/JSON-lines/npy/feather/
+  sqlite/tsv artifacts (not just `.csv`), excludes config JSONs (package.json, tsconfig.json, …), and
+  broadens the entrypoint candidate list (evaluate/eval/score/experiment/benchmark/analysis). The
+  CSV-only gate was the dominant reason the hook never fired on real repos.
+- **Host-level sandbox-tier cache:** the ~30s `doctor` positive-control runs once per machine
+  (`~/.calma`), not once per project (override dir via `CALMA_STATE_DIR`).
+
+### UX & performance
+
+- Bad-`--metric` error now points to `calma recipes` (the actual list) instead of `--help`.
+- CONFIRMED output leads with a plain "verified by re-execution" line and keeps the honest
+  "not verified" scope limit on its own quiet line, instead of a wall of families/isolation jargon.
+- Memoized NA-policy lookup in `recompute._numeric_cols` (no longer re-walks `contract.artifacts`
+  per bound column).
+
+### 0.6.2 (folded in) — Stop-hook transcript-flush fix
+
+- The Stop hook prefers the harness-provided `last_assistant_message`; on current Claude Code the
+  transcript file isn't flushed when Stop runs, which had silently killed every real-session catch.
+
 ## 0.6.1 — 2026-06-11
 
 - Site: the request-verification form now actually delivers (with an honest failure

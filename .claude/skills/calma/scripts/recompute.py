@@ -70,11 +70,17 @@ def _numeric_cols(contract, artifact_path, binding, base, metric_id=None):
     fn = R.get(metric_id) if metric_id else None
     string_tags = set((fn.manifest.get("string_tags") if fn else []) or [])
     cache = {}
+    na_cache = {}
 
     def load(path):
         if path not in cache:
             cache[path] = _load_cols(_safe_join(base, path))
         return cache[path]
+
+    def na_policies(path):  # memoized per artifact - avoid re-walking contract.artifacts per column
+        if path not in na_cache:
+            na_cache[path] = _na_policies(contract, path)
+        return na_cache[path]
 
     cols = {}
     for tag, col_name in binding.items():
@@ -86,7 +92,7 @@ def _numeric_cols(contract, artifact_path, binding, base, metric_id=None):
         if tag in string_tags:
             cols[col_name] = [str(v).strip() for v in raw]
         else:
-            cols[col_name] = _to_numeric(raw, _na_policies(contract, art).get(cname, "error"))
+            cols[col_name] = _to_numeric(raw, na_policies(art).get(cname, "error"))
     return cols
 
 

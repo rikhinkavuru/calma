@@ -28,7 +28,7 @@ import report as REP
 import run_hermetic as H
 import verdict as V
 
-__version__ = "0.6.1"
+__version__ = "0.7.0"
 
 QUANT_METRICS = {"total_return", "sharpe", "max_drawdown"}
 DEFAULT_TIMEOUT_S = 120
@@ -440,8 +440,8 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
         if tag_hits:
             hint = ("%r is a binding tag, not a recipe - recipes that bind it: %s. %s"
                     % (metric, ", ".join(tag_hits), hint)).strip()
-        raise ValueError("no recipe named %r. %s (full list: calma verify --help)"
-                         % (metric, hint or "see the recipe ids in --help"))
+        raise ValueError("no recipe named %r. %s (full list: calma recipes)"
+                         % (metric, hint or "run `calma recipes` for the full list"))
     if not os.path.isdir(target):
         raise ValueError("target directory does not exist: %s" % target)
     if not any(n for n in os.listdir(target) if n not in (".calma", ".DS_Store")):

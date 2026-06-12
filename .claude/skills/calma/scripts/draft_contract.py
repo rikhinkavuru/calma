@@ -68,7 +68,8 @@ METRIC_BY_TAGS = [
 ]
 # common entrypoint names first; gen_fixture.py last (calma's own fixture convention)
 ENTRYPOINT_CANDIDATES = ["run.sh", "main.py", "run.py", "train.py", "pipeline.py", "backtest.py",
-                         "analyze.py", "gen_fixture.py"]
+                         "analyze.py", "analysis.py", "evaluate.py", "eval.py", "score.py",
+                         "experiment.py", "benchmark.py", "gen_fixture.py"]
 
 # free-text claim -> metric hint (first match wins; word-boundary matched). Order matters:
 # "total return" must hit total_return before "total" hits column_sum; "average precision"

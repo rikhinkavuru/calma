@@ -173,21 +173,26 @@ truth(not os.path.exists(os.path.join(empty, ".calma")),
       "no-litter: unverifiable target gets NO .calma dir (no breadcrumbs before the gate)")
 
 # isolation gate: a verifiable target whose cached doctor says "no verified sandbox" is
-# skipped with a breadcrumb (the hook never auto-executes code without a verified tier)
+# skipped with a breadcrumb (the hook never auto-executes code without a verified tier). The
+# tier is a HOST property, cached at CALMA_STATE_DIR (a temp dir here) so the fixture controls it
+# without touching the real ~/.calma and the costly probe doesn't re-run per project.
 gated = os.path.join(tmp_root, "gated")
 shutil.copytree(BTC_SRC, gated, ignore=shutil.ignore_patterns(".calma"))
-os.makedirs(os.path.join(gated, ".calma"))
-with open(os.path.join(gated, ".calma", HK.STATE_NAME), "w") as f:
+host_dir = os.path.join(tmp_root, "host_state")
+os.makedirs(host_dir)
+with open(os.path.join(host_dir, HK.STATE_NAME), "w") as f:
     json.dump({"sandbox_tier": {"tier": "host-not-isolated", "ts": time.time()}}, f)
+host_env = {"CALMA_STATE_DIR": host_dir}
 tp_gate = write_transcript(tdir, "Done! The backtest returned +14,698% on the held-out period.")
-out, rc, _ = run_hook(gated, tp_gate)
+out, rc, _ = run_hook(gated, tp_gate, env_extra=host_env)
 truth(rc == 0 and out == "", "isolation gate: no verified sandbox -> silent")
 truth(any(e["event"] == "skip" and e.get("reason") == "no-verified-sandbox"
           for e in history(gated)), "isolation gate: skip breadcrumbed as no-verified-sandbox")
 # config force_unverified overrides the gate (operator explicitly trusts this host)
+os.makedirs(os.path.join(gated, ".calma"), exist_ok=True)
 with open(os.path.join(gated, ".calma", "config.json"), "w") as f:
     json.dump({"hook": {"force_unverified": True}}, f)
-out, rc, _ = run_hook(gated, tp_gate)
+out, rc, _ = run_hook(gated, tp_gate, env_extra=host_env)
 forced = {}
 try:
     forced = json.loads(out)
@@ -196,12 +201,22 @@ except ValueError:
 truth(forced.get("decision") == "block",
       "isolation gate: force_unverified override verifies (and catches) anyway")
 os.remove(os.path.join(gated, ".calma", "config.json"))
-# a stale (past-TTL) cached tier is re-probed: on this host the real doctor result governs
-with open(os.path.join(gated, ".calma", HK.STATE_NAME), "w") as f:
+# a stale (past-TTL) host-cached tier is re-probed: the real doctor result governs
+stale_host = os.path.join(tmp_root, "host_stale")
+os.makedirs(stale_host)
+with open(os.path.join(stale_host, HK.STATE_NAME), "w") as f:
     json.dump({"sandbox_tier": {"tier": "host-not-isolated",
                                 "ts": time.time() - HK.SANDBOX_TTL_S - 10}}, f)
-st = HK._load_state(gated)
-tier, changed = HK._sandbox_tier(gated, st)
+_prev_state_dir = os.environ.get("CALMA_STATE_DIR")
+os.environ["CALMA_STATE_DIR"] = stale_host
+try:
+    st = HK._load_state(gated)
+    tier, changed = HK._sandbox_tier(gated, st)
+finally:
+    if _prev_state_dir is None:
+        os.environ.pop("CALMA_STATE_DIR", None)
+    else:
+        os.environ["CALMA_STATE_DIR"] = _prev_state_dir
 truth(changed and tier and tier != "", "isolation gate: stale TTL re-probes the real tier")
 
 # CONFIRMED -> silent (honest claim equal to the true recomputed value)
@@ -336,6 +351,13 @@ race2 = json.dumps({
 out, rc, _ = run_hook(btc_race, tp_old, stdin_raw=race2)
 truth(rc == 0 and out == "",
       "race: harness-provided text wins over transcript (no false fire)")
+
+# widened target gate: data artifacts beyond .csv count; config jsons do NOT (else the hook
+# would engage on every web repo with a package.json)
+for ext in ("data.csv", "preds.parquet", "out.jsonl", "scores.npy", "results.json", "db.sqlite"):
+    truth(HK._is_data_artifact(ext), "data artifact recognized: %s" % ext)
+for cfg in ("package.json", "tsconfig.json", "next.config.json", "vercel.json"):
+    truth(not HK._is_data_artifact(cfg), "config json is NOT a data artifact: %s" % cfg)
 
 shutil.rmtree(tmp_root, ignore_errors=True)
 print("hook: %d checks, %d failures" % (_n, _fail))

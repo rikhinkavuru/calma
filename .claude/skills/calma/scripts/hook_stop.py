@@ -61,6 +61,24 @@ _CSV_SCAN_CAP = 400                  # dir entries examined during artifact pref
 SANDBOX_TTL_S = 24 * 3600            # how long a cached doctor (sandbox tier) result is trusted
 VERIFIED_TIERS = ("seatbelt-verified", "tier0", "container", "vm")
 
+# machine-readable artifacts calma can recompute from - a metric claim is only worth
+# auto-verifying where one of these exists (broadened past .csv: real projects emit Parquet/
+# JSON-lines/npy/feather/sqlite too, which kept the hook from ever engaging on them).
+_DATA_EXT = (".csv", ".tsv", ".parquet", ".npy", ".npz", ".feather", ".arrow", ".jsonl",
+             ".ndjson", ".db", ".sqlite", ".sqlite3")
+# .json is data OR config; count it only when it isn't an obvious config/manifest file
+_CONFIG_JSON = {"package.json", "package-lock.json", "tsconfig.json", "composer.json",
+                "manifest.json", "vercel.json", "renovate.json", "babel.config.json"}
+
+
+def _is_data_artifact(name):
+    low = name.lower()
+    if low.endswith(_DATA_EXT):
+        return True
+    if low.endswith(".json") and name not in _CONFIG_JSON and not low.endswith(".config.json"):
+        return True
+    return False
+
 
 def _now_iso():
     return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
@@ -159,7 +177,7 @@ def _verifiable_target(cwd):
                 seen += 1
                 if seen > _CSV_SCAN_CAP:
                     return False
-                if name.lower().endswith(".csv"):
+                if _is_data_artifact(name):
                     return True
         return False
     except Exception:
@@ -206,19 +224,56 @@ def _breadcrumb(cwd, event, **fields):
         pass
 
 
-def _sandbox_tier(cwd, state):
-    """The achieved isolation tier for cwd, from a cached doctor result in hook state
-    (TTL'd) or a fresh run_hermetic.doctor probe. Returns (tier, state_changed)."""
-    cached = state.get("sandbox_tier") or {}
+def _host_state_path():
+    base = os.environ.get("CALMA_STATE_DIR") or os.path.join(os.path.expanduser("~"), ".calma")
+    return os.path.join(base, STATE_NAME)
+
+
+def _fresh(cached):
     try:
-        fresh = (time.time() - float(cached.get("ts", 0))) < SANDBOX_TTL_S
+        return (time.time() - float(cached.get("ts", 0))) < SANDBOX_TTL_S
     except (TypeError, ValueError):
-        fresh = False
-    if cached.get("tier") and fresh:
+        return False
+
+
+def _sandbox_tier(cwd, state):
+    """The achieved isolation tier, cached. The tier is a property of the HOST (does sandbox-exec
+    exist and deny egress + secret reads), not the project, so the probe is cached at user level
+    (~/.calma) and reused across every project - the ~30s positive-control runs once per machine,
+    not once per repo (the previous per-project cache made every new project pay it). Returns
+    (tier, project_state_changed)."""
+    host = {}
+    try:
+        with open(_host_state_path()) as f:
+            host = (json.load(f).get("sandbox_tier") or {})
+    except (OSError, ValueError, AttributeError):
+        host = {}
+    if host.get("tier") and _fresh(host):
+        return host["tier"], False
+    # fall back to a (legacy) per-project cache before paying for a fresh probe
+    cached = state.get("sandbox_tier") or {}
+    if cached.get("tier") and _fresh(cached):
         return cached["tier"], False
     import run_hermetic as H
     tier = H.doctor(cwd).get("tier", "host-not-isolated")
-    state["sandbox_tier"] = {"tier": tier, "ts": time.time()}
+    rec = {"tier": tier, "ts": time.time()}
+    state["sandbox_tier"] = rec
+    try:  # persist host-wide so other projects skip the probe
+        os.makedirs(os.path.dirname(_host_state_path()), exist_ok=True)
+        try:
+            with open(_host_state_path()) as f:
+                hs = json.load(f)
+            if not isinstance(hs, dict):
+                hs = {}
+        except (OSError, ValueError):
+            hs = {}
+        hs["sandbox_tier"] = rec
+        tmp = _host_state_path() + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(hs, f, indent=2)
+        os.replace(tmp, _host_state_path())
+    except OSError:
+        pass
     return tier, True
 
 

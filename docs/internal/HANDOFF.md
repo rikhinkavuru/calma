@@ -84,6 +84,21 @@ Onboarding for a fresh Claude Code session. Read this, then `.claude/skills/calm
   tier. Attestation URIs migrated to github.com/rikhinkavuru/calma/* (legacy calma.dev bundles
   stay valid). SECURITY.md + CHANGELOG.md added. Suite: 18 suites green (~1,540 checks).
 
+- **Served-fraction 9/9 + zero-touch/UX/perf pass (2026-06-12, calma 0.7.0 — current)**: the
+  real-repo + cross-language served-fraction corpus reached **9/9** (`served_fraction = 1.0`) via
+  three general engine fixes (isolation metadata-ancestor reads so node serves; restore→run venv
+  consistency; whole-program determinism) and two newly-vendored real MIT repos under
+  `assets/corpus/` (momentum-strategy via data snapshot, btc-sma-crossover via the calma_vendor
+  HTTP record/replay shim on Coinbase — replaces the dead/geo-blocked crypto-backtester). Zero-touch
+  guardrail now engages on far more projects (gate accepts Parquet/JSON-lines/npy/sqlite/…, not just
+  CSV; broader entrypoint list; host-level sandbox-tier cache so the 30s probe runs once per machine).
+  UX/perf: bad-metric error points to `calma recipes`, CONFIRMED output de-jargoned, NA-policy lookup
+  memoized, shim forwards headers/params + patches requests.Session/ccxt. All versions reconciled to
+  0.7.0 (plugin/marketplace/calma.py/site). See CALIBRATION.md + CHANGELOG.md. **Open follow-ups
+  (proposed, not done):** AUC/DeLong O(n²)→O(n log n) kernel rewrite (needs reference-vector bit
+  validation), sniffer recall on backticked metrics, site Next 15/React 19 bump + `engines.node`,
+  a real `pip install` / `calma` on PATH installer. Suite: 18 suites green on py3.13 + py3.14.
+
 ## Key invariants (machine-enforced — do not violate)
 
 - No statistic or verdict label is ever computed by a model. `verdict()` in `verdict.py` is the
