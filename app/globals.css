@@ -307,24 +307,29 @@ img, svg, canvas { display: block; max-width: 100%; }
 /* ---------------- hero: centered, one-screen layout ---------------- */
 .hero__inner--center {
   display: flex; flex-direction: column; align-items: center; text-align: center;
-  padding-top: clamp(80px, 10vh, 104px); padding-bottom: clamp(36px, 5vh, 60px);
+  padding-top: clamp(100px, 13vh, 136px); padding-bottom: clamp(36px, 5vh, 60px);
 }
-.hero__inner--center .h1 { max-width: 15em; }
-.hero__inner--center .hero__lead { margin-inline: auto; }
-.hero__inner--center .hero__cta { justify-content: center; margin-top: 28px; }
-.hero__inner--center .hero__demo { margin-top: clamp(28px, 4.5vh, 44px); width: 100%; }
+.hero__inner--center .h1 { max-width: 15em; font-size: clamp(32px, 4.2vw, 48px); }
+.hero__inner--center .hero__lead {
+  margin-inline: auto; margin-top: 16px;
+  font-size: clamp(15px, 1.3vw, 17px); max-width: 40em;
+}
+.hero__inner--center .hero__cta { justify-content: center; margin-top: 24px; gap: 12px; }
+.hero__inner--center .hero__cta .pbtn { padding: 10px 18px; font-size: 11px; }
+.hero__inner--center .hero__demo { margin-top: clamp(24px, 4vh, 38px); width: 100%; }
 
-/* the demo recording: sized so headline + CTAs + video share one Mac viewport */
+/* the demo recording: sized so headline + CTAs + video share one Mac viewport.
+   The frame is deliberately narrower than the video's 16:9 (aspect-ratio below)
+   so the recording's dead side margins are cropped symmetrically. */
 .hero__movie {
-  margin: 0 auto; width: fit-content; max-width: 100%;
-  border-radius: 14px; overflow: hidden;
+  margin: 0 auto; border-radius: 14px; overflow: hidden;
+  height: min(61vh, 590px); aspect-ratio: 1.58;
+  max-width: min(1100px, 100%); position: relative;
 }
 .hero__movie video {
   display: block; background: #0a0907;
-  width: auto; height: auto;
-  max-width: min(1040px, 100%);
-  max-height: 60vh;
-  border-radius: 14px;
+  height: 100%; width: auto; max-width: none;
+  position: relative; left: 50%; transform: translateX(-50%);
 }
 
 /* ============================================================ sections */
