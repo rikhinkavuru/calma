@@ -135,7 +135,11 @@ def compare(recompute, contract, isolation_tier="tier0", container_present=None,
             "determinism_mode": determinism_mode, "sufficient_k": sufficient_k,
             "unbounded_op_present": False, "path_dependent": bool(rec.get("path_dependent")),
             "m2_calibrated": m2_calibrated, "recompute_degenerate": bool(rec.get("degenerate")),
-            "claim_confirmed_target": bool(m.get("claim_confirmed")) and bool(m.get("headline")),
+            # a confirmed claim target can REFUTE whether or not it is THE headline metric - this is
+            # what lets a committed multi-metric contract catch a fabricated SECONDARY metric (-> MIXED).
+            # claim_confirmed already implies a claimed value on a pinned/independently-bound metric, so
+            # the old `and headline` was redundant for drafted contracts and swallowed secondary lies.
+            "claim_confirmed_target": bool(m.get("claim_confirmed")),
             "convention_capped": conv_capped,
             "fraud_multiple_met": bool(gap is not None and gap > FRAUD_M * eff),
             "outputs_unstable": bool(outputs_unstable),

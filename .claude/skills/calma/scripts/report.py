@@ -127,6 +127,19 @@ def render(led, diff=None, color=False):
     if scope_repro:
         lines.append("  recomputed %s = %s  (state a claim to check a number against it)"
                      % (c0.get("metric"), fmt_value(c0.get("recomputed_value"), c0.get("metric"))))
+    # multi-metric contract: show EVERY metric's verdict, not just the headline - a per-row table so a
+    # broken secondary metric is visible at a glance (claimed -> recomputed, aligned).
+    claims = [c for c in led.get("claims", []) if c.get("metric")]
+    if len(claims) > 1:
+        w = max(len(str(c.get("metric"))) for c in claims)
+        for c in claims:
+            cv, rvv, mid = c.get("claimed_value"), c.get("recomputed_value"), c.get("metric")
+            sym = _SYMBOL.get(c.get("verdict"), "·")
+            if color and c.get("verdict") in _ANSI:
+                sym = "\x1b[%sm%s\x1b[0m" % (_ANSI[c["verdict"]], sym)
+            num = ("claimed %s -> recomputed %s" % (fmt_value(cv, mid), fmt_value(rvv, mid))
+                   if cv is not None else "recomputed %s" % fmt_value(rvv, mid))
+            lines.append("  %s %-*s  %s  [%s]" % (sym, w, mid, num, display(c.get("verdict"))))
     # line 2: the single most-limiting thing. On a REFUTED the numeric-collapse line below already
     # carries the metric-mismatch, so prefer a DIFFERENT blocker (e.g. baseline) over repeating it.
     limiter = None
@@ -144,14 +157,18 @@ def render(led, diff=None, color=False):
         limiter = diff["metrics"][0].get("reason")
     if limiter:
         lines.append("  - " + limiter)
-    # the numeric collapse + reproduction for a break
+    # the numeric collapse + reproduction for a break. With a multi-metric table above, the per-row
+    # numbers are already shown - skip the single collapse (claims[0] may be a CONFIRMED row, which
+    # would mislead) and just point reproduce at the first broken metric.
     if rv in ("REFUTED", "MIXED") and led.get("claims"):
-        c = led["claims"][0]
-        if c.get("claimed_value") is not None and c.get("recomputed_value") is not None:
-            mid = c.get("metric")
-            lines.append("  claimed %s  ->  recomputed %s" % (fmt_value(c["claimed_value"], mid),
-                                                              fmt_value(c["recomputed_value"], mid)))
-        rep = c.get("reproduction_or_reverify", {})
+        broken = next((c for c in led["claims"] if c.get("verdict") == V.REFUTED), led["claims"][0])
+        if len(claims) <= 1:
+            c = led["claims"][0]
+            if c.get("claimed_value") is not None and c.get("recomputed_value") is not None:
+                mid = c.get("metric")
+                lines.append("  claimed %s  ->  recomputed %s" % (fmt_value(c["claimed_value"], mid),
+                                                                  fmt_value(c["recomputed_value"], mid)))
+        rep = broken.get("reproduction_or_reverify", {})
         if rep.get("command"):
             lines.append("  reproduce: " + rep["command"])
     # the fix line: an INCONCLUSIVE (or any not-clean outcome with a known unblock) names who-can-act

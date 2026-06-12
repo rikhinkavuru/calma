@@ -613,6 +613,11 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
             if man.get("files"):
                 _trace("manifest", "%d raw artifacts content-hashed (root %s...)"
                        % (len(man["files"]), man.get("manifest_sha256", "")[:12]))
+            # committed multi-metric contracts: re-derive each metric's binding from the now-emitted
+            # data + confirm its claim target, so a fabricated SECONDARY metric REFUTES (-> repo MIXED)
+            # instead of being silently demoted. Never downgrades an author-declared status.
+            if contract_path == committed:
+                DC.regrade_committed(contract, target)
             diff = CMP.compare(rec, contract, isolation_tier=run_res.get("isolation_tier", "none"),
                                determinism_mode=run_res.get("determinism_mode", "uncontrolled"),
                                untrusted=(contract.get("env", {}).get("trust") == "untrusted-third-party"),
@@ -804,9 +809,12 @@ def stats(target):
 
 
 def _json_result(res):
-    """The agent-consumable structured verdict (stable shape; no prose parsing needed)."""
+    """The agent-consumable structured verdict (stable shape; no prose parsing needed). The top-level
+    metric/claimed/recomputed mirror the FIRST claim for back-compat; `metrics` carries ALL of them so
+    a multi-metric contract's every verdict is reachable without parsing the ledger."""
     led = res["ledger"]
-    c0 = (led.get("claims") or [{}])[0]
+    claims = led.get("claims") or [{}]
+    c0 = claims[0]
     return {
         "verdict": res["repo_verdict"],
         "clean": res["gate_exit"] == 0,
@@ -817,6 +825,10 @@ def _json_result(res):
         "claimed": c0.get("claimed_value"),
         "recomputed": c0.get("recomputed_value"),
         "reason": c0.get("reason"),
+        "metrics": [{"metric": c.get("metric"), "verdict": c.get("verdict"),
+                     "claimed": c.get("claimed_value"), "recomputed": c.get("recomputed_value"),
+                     "headline": bool(c.get("headline")), "reason": c.get("reason")}
+                    for c in claims if c.get("metric")],
         "fix": REP.fix_line(led) if res["repo_verdict"] != "CONFIRMED" else None,
         "note": res.get("claim_note"),
         "isolation_tier": led.get("scope", {}).get("isolation_tier"),

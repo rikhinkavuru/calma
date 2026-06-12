@@ -587,6 +587,65 @@ def load_contract(path):
     return obj
 
 
+_GRADE_ORDER = ["author-asserted", "plausibly-bound", "independently-bound"]
+
+
+def regrade_committed(contract, target):
+    """Re-derive each committed metric's binding_status from the ACTUAL data and confirm its claim
+    target, so a hand-written multi-metric verify.yaml can REFUTE a fabricated SECONDARY metric (it
+    used to silently demote it to INCONCLUSIVE). Every committed metric is explicitly pinned by the
+    author, so it is a confirmed target; its binding is graded like a forced/unique drafted one
+    (generic-numeric upgraded to independently-bound only when clean-finite). Never DOWNGRADES a
+    status the author declared (max of declared vs re-derived) - so existing committed fixtures are
+    unaffected. Mutates and returns the contract."""
+    upgradable = _GENERIC_NUMERIC_TAGS | {"prediction"}
+    # grade every declared column once, per artifact, with within-artifact tag-uniqueness
+    cell = {}  # (artifact_path, column) -> (grade, finite, tag, tag_count_in_artifact)
+    for a in contract.get("artifacts", []):
+        path = a.get("path")
+        full = os.path.join(target, path) if path else None
+        cols = a.get("columns") or {}
+        tcount = {}
+        for _cn, spec in cols.items():
+            t = (spec or {}).get("tag")
+            if t:
+                tcount[t] = tcount.get(t, 0) + 1
+        header_idx = {}
+        if full and os.path.exists(full):
+            try:
+                header_idx = {h: i for i, h in enumerate(next(csv.reader(open(full, newline=""))))}
+            except (StopIteration, OSError):
+                header_idx = {}
+        for cn, spec in cols.items():
+            t = (spec or {}).get("tag")
+            if not t or cn not in header_idx:
+                cell[(path, cn)] = ("author-asserted", False, t, tcount.get(t, 0))
+                continue
+            if t in STRING_KEY_TAGS:
+                g, fin = _grade_string_key(_sample_strings(full, header_idx[cn])), False
+            else:
+                sample = _sample_numeric(full, header_idx[cn])
+                g, fin = _grade(t, sample), _finite_clean(sample)
+            cell[(path, cn)] = (g, fin, t, tcount.get(t, 0))
+    for m in contract.get("metrics", []):
+        art = m.get("artifact")
+        binding = m.get("binding") or {}
+        grades = []
+        for tag, col in binding.items():
+            g, fin, t, cnt = cell.get((art, col), ("author-asserted", False, tag, 0))
+            if g == "plausibly-bound" and tag in upgradable and fin and cnt == 1:
+                g = "independently-bound"
+            grades.append(g)
+        regraded = min(grades, key=_GRADE_ORDER.index) if grades else "author-asserted"
+        declared = m.get("binding_status", "author-asserted")
+        # never downgrade what the author declared; otherwise take the data-derived grade
+        m["binding_status"] = max(declared, regraded, key=_GRADE_ORDER.index) \
+            if declared in _GRADE_ORDER else regraded
+        if m.get("claimed_value") is not None and m.get("metric_id"):
+            m["claim_confirmed"] = True
+    return contract
+
+
 def validate_contract(contract):
     """Light structural check against the verify schema's required fields. Returns a list of errors."""
     errs = []

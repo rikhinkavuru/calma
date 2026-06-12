@@ -174,6 +174,36 @@ with open(os.path.join(amb2, "main.py"), "w") as fh:
 res = C.verify(amb2, claim="1000000", metric="column_sum", force=True)
 truth(res["repo_verdict"] != "REFUTED", "ambiguous (2 value-ish columns) never REFUTES (got %s)" % res["repo_verdict"])
 
+# --- committed multi-metric: a fabricated SECONDARY metric must be caught (-> MIXED), not swallowed,
+# and the report must show EVERY metric (not just claims[0]) ---
+mm = os.path.join(tmp, "mm")
+os.makedirs(os.path.join(mm, "runs"))
+with open(os.path.join(mm, "gen.py"), "w") as fh:
+    fh.write("import os; os.makedirs('runs', exist_ok=True)\n")
+with open(os.path.join(mm, "runs", "preds.csv"), "w") as fh:
+    fh.write("y_true,y_pred\n")
+    rows = [(1, 1)] * 42 + [(0, 0)] * 43 + [(1, 0)] * 8 + [(0, 1)] * 7   # accuracy 0.85
+    fh.write("".join("%d,%d\n" % r for r in rows))
+with open(os.path.join(mm, "verify.yaml"), "w") as fh:
+    json.dump({"run": {"entrypoint": "gen.py", "network": "off", "cwd": "."},
+               "env": {"ecosystem": "python", "trust": "own-code"},
+               "artifacts": [{"path": "runs/preds.csv", "re_emit": False,
+                              "columns": {"y_true": {"tag": "label"}, "y_pred": {"tag": "prediction"}}}],
+               "metrics": [{"metric_id": "accuracy", "artifact": "runs/preds.csv",
+                            "binding": {"label": "y_true", "prediction": "y_pred"},
+                            "claimed_value": 0.85, "headline": True},
+                           {"metric_id": "recall", "artifact": "runs/preds.csv",
+                            "binding": {"label": "y_true", "prediction": "y_pred"},
+                            "claimed_value": 0.99, "headline": False}]}, fh)  # recall fabricated
+res = C.verify(mm, force=True)
+truth(res["repo_verdict"] == "MIXED",
+      "committed multi-metric: fabricated SECONDARY metric -> MIXED (got %s)" % res["repo_verdict"])
+truth("accuracy" in res["report"] and "recall" in res["report"],
+      "multi-metric report shows EVERY metric, not just claims[0]")
+_jm = {m["metric"]: m["verdict"] for m in C._json_result(res)["metrics"]}
+truth(_jm.get("accuracy") == "CONFIRMED" and _jm.get("recall") == "REFUTED",
+      "--json metrics array carries every per-metric verdict")
+
 # --- replay: a REFUTED run replays and reproduces ---
 ml = os.path.join(tmp, "ml")
 os.makedirs(ml)
