@@ -1,0 +1,8 @@
+[
+  {"id":"case_00","judgment":"flawed","confidence":80,"reason":"Residuals are ~1-2 on a target spread of ~0-31 (var ~80), giving R2 around 0.96, not 0.999 which would require errors near 0.3."},
+  {"id":"case_01","judgment":"honest","confidence":55,"reason":"Mean ~0.0014 over std ~0.006 annualized by sqrt(252) lands near 3.6, consistent with the claim."},
+  {"id":"case_02","judgment":"flawed","confidence":88,"reason":"Values are uniform 0-100 with sample mean ~48-50, so the 1000-row sum should be ~48000-50000, far below the claimed 69593 (implied mean ~70)."},
+  {"id":"case_03","judgment":"honest","confidence":70,"reason":"Uniform 0-100 values with sample mean roughly 52-53 match the claimed mean of 52.86."},
+  {"id":"case_04","judgment":"flawed","confidence":52,"reason":"Series shows similar positive drift and std ~0.006 to case_01, so an annualized Sharpe near 2.65 looks understated relative to the data."},
+  {"id":"case_05","judgment":"honest","confidence":58,"reason":"Slight positive mean ~0.0011 over 500 days gives sum ~0.55-0.57, so compounded total return ~0.73-0.77 matches the claim."}
+]

@@ -1,0 +1,35 @@
+{
+  "trust-the-number": {
+    "flawed": 24,
+    "honest": 12,
+    "caught": 0,
+    "false_confirm": 24,
+    "abstain_flawed": 0,
+    "passed": 12,
+    "false_alarm": 0,
+    "abstain_honest": 0,
+    "catch_rate": 0.0
+  },
+  "LLM-as-judge (no exec)": {
+    "flawed": 24,
+    "honest": 12,
+    "caught": 17,
+    "false_confirm": 7,
+    "abstain_flawed": 0,
+    "passed": 9,
+    "false_alarm": 3,
+    "abstain_honest": 0,
+    "catch_rate": 0.7083333333333334
+  },
+  "Calma": {
+    "flawed": 24,
+    "honest": 12,
+    "caught": 14,
+    "false_confirm": 0,
+    "abstain_flawed": 10,
+    "passed": 12,
+    "false_alarm": 0,
+    "abstain_honest": 0,
+    "catch_rate": 0.5833333333333334
+  }
+}

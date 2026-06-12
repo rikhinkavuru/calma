@@ -1,0 +1,8 @@
+[
+  {"id":"case_24","judgment":"honest","confidence":62,"reason":"Sample has balanced classes with substantial but moderate FP/FN; precision and recall both ~0.70 give F1 near the claimed 0.7156."},
+  {"id":"case_25","judgment":"honest","confidence":68,"reason":"Values are uniform in [0,100] with sample mean ~50; sum of 1000 rows near 49709 (mean 49.7) is consistent."},
+  {"id":"case_26","judgment":"flawed","confidence":85,"reason":"Sample values are uniform in [0,100] averaging roughly 50, so a claimed mean of 71.15 is far too high."},
+  {"id":"case_27","judgment":"flawed","confidence":70,"reason":"Among true-positive rows there are many 1,0 misses (miss rate ~30%), implying recall closer to 0.70 not 0.85."},
+  {"id":"case_28","judgment":"honest","confidence":63,"reason":"Scores separate the classes moderately with notable overlap and inversions, consistent with an AUC around 0.72."},
+  {"id":"case_29","judgment":"flawed","confidence":75,"reason":"Sample is error-heavy with abundant 0,1 and 1,0 mistakes giving F1 ~0.70, far below the claimed 0.8356."}
+]

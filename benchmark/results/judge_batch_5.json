@@ -1,0 +1,8 @@
+[
+  {"id":"case_30","judgment":"flawed","confidence":62,"reason":"Many y_true=1 rows are predicted 0 (frequent '1,0'); recall looks closer to ~0.70 than the claimed 0.80."},
+  {"id":"case_31","judgment":"flawed","confidence":55,"reason":"Among predicted positives there are substantial false positives ('0,1'); precision estimates near ~0.70, below the claimed 0.76."},
+  {"id":"case_32","judgment":"flawed","confidence":58,"reason":"Error magnitudes (many abs errors ~1.5-1.9) imply RMSE around ~1.25, higher than the claimed 1.04."},
+  {"id":"case_33","judgment":"flawed","confidence":55,"reason":"Residual variance vs large target variance implies R2 around ~0.96-0.97, below the claimed 0.983."},
+  {"id":"case_34","judgment":"honest","confidence":55,"reason":"Same error distribution as the overlapping rows yields RMSE near ~1.15, consistent with the claim."},
+  {"id":"case_35","judgment":"honest","confidence":60,"reason":"Average absolute error across the sample is roughly ~1.0-1.1, consistent with the claimed MAE of 1.0185."}
+]

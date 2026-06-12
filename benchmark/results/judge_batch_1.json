@@ -1,0 +1,8 @@
+[
+  {"id":"case_06","judgment":"flawed","confidence":85,"reason":"Sample shows ~28 of 150 y_true/y_pred mismatches (~81% accuracy), well below the claimed 90.75%."},
+  {"id":"case_07","judgment":"honest","confidence":55,"reason":"Daily returns have small positive mean (~0.001) and std ~0.006, giving an annualized Sharpe roughly consistent with the claimed 2.149."},
+  {"id":"case_08","judgment":"honest","confidence":58,"reason":"Returns are roughly balanced with a slight positive drift, plausibly compounding to about a 1.27x total multiple as claimed."},
+  {"id":"case_09","judgment":"flawed","confidence":62,"reason":"Sample mismatch rate (~33 of 150, ~77-80% accuracy) runs several points below the claimed 83.75%."},
+  {"id":"case_10","judgment":"honest","confidence":55,"reason":"Absolute target-prediction errors average roughly 1.0-1.2 in the sample, broadly consistent with the claimed MAE of 0.9166."},
+  {"id":"case_11","judgment":"honest","confidence":88,"reason":"Values are uniform on ~0-100 with sample mean ~51.7, so 1000 rows sum to ~51,700, matching the claim 51697.848."}
+]

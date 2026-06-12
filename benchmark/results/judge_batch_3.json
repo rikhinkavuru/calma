@@ -1,0 +1,8 @@
+[
+  {"id":"case_18","judgment":"flawed","confidence":80,"reason":"Many y_true=1 rows are predicted 0, so recall is roughly 0.7, far below the claimed 0.92."},
+  {"id":"case_19","judgment":"honest","confidence":68,"reason":"Slightly positive daily returns (~0.0012 mean) compounded over 500 days give ~0.8 total return, matching the claim."},
+  {"id":"case_20","judgment":"honest","confidence":70,"reason":"Mismatch rate in the sample is roughly 21-22%, consistent with the claimed accuracy of 0.7875."},
+  {"id":"case_21","judgment":"flawed","confidence":62,"reason":"False positives (0,1) among predicted positives appear too frequent for precision 0.81; actual looks closer to ~0.68."},
+  {"id":"case_22","judgment":"honest","confidence":62,"reason":"Score column shows only weak separation between classes, consistent with a modest AUC around 0.67."},
+  {"id":"case_23","judgment":"flawed","confidence":88,"reason":"Typical target-prediction errors are ~1-2, implying RMSE ~1.5, far above the claimed 0.6345."}
+]

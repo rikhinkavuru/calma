@@ -1,0 +1,362 @@
+[
+  {
+    "id": "acc_a_honest",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/acc_a",
+    "metric": "accuracy",
+    "n_rows": 800,
+    "true_value": 0.7875,
+    "claim": 0.7875,
+    "label": "honest",
+    "tier": "honest"
+  },
+  {
+    "id": "acc_a_obvious",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/acc_a",
+    "metric": "accuracy",
+    "n_rows": 800,
+    "true_value": 0.7875,
+    "claim": 0.9075,
+    "label": "flawed",
+    "tier": "obvious"
+  },
+  {
+    "id": "acc_a_subtle",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/acc_a",
+    "metric": "accuracy",
+    "n_rows": 800,
+    "true_value": 0.7875,
+    "claim": 0.8375,
+    "label": "flawed",
+    "tier": "subtle"
+  },
+  {
+    "id": "prec_a_honest",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/prec_a",
+    "metric": "precision",
+    "n_rows": 800,
+    "true_value": 0.7616580310880829,
+    "claim": 0.7617,
+    "label": "honest",
+    "tier": "honest"
+  },
+  {
+    "id": "prec_a_obvious",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/prec_a",
+    "metric": "precision",
+    "n_rows": 800,
+    "true_value": 0.7616580310880829,
+    "claim": 0.8817,
+    "label": "flawed",
+    "tier": "obvious"
+  },
+  {
+    "id": "prec_a_subtle",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/prec_a",
+    "metric": "precision",
+    "n_rows": 800,
+    "true_value": 0.7616580310880829,
+    "claim": 0.8117,
+    "label": "flawed",
+    "tier": "subtle"
+  },
+  {
+    "id": "rec_a_honest",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/rec_a",
+    "metric": "recall",
+    "n_rows": 800,
+    "true_value": 0.8,
+    "claim": 0.8,
+    "label": "honest",
+    "tier": "honest"
+  },
+  {
+    "id": "rec_a_obvious",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/rec_a",
+    "metric": "recall",
+    "n_rows": 800,
+    "true_value": 0.8,
+    "claim": 0.92,
+    "label": "flawed",
+    "tier": "obvious"
+  },
+  {
+    "id": "rec_a_subtle",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/rec_a",
+    "metric": "recall",
+    "n_rows": 800,
+    "true_value": 0.8,
+    "claim": 0.85,
+    "label": "flawed",
+    "tier": "subtle"
+  },
+  {
+    "id": "f1_a_honest",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/f1_a",
+    "metric": "f1",
+    "n_rows": 800,
+    "true_value": 0.715568862275449,
+    "claim": 0.7156,
+    "label": "honest",
+    "tier": "honest"
+  },
+  {
+    "id": "f1_a_obvious",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/f1_a",
+    "metric": "f1",
+    "n_rows": 800,
+    "true_value": 0.715568862275449,
+    "claim": 0.8356,
+    "label": "flawed",
+    "tier": "obvious"
+  },
+  {
+    "id": "f1_a_subtle",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/f1_a",
+    "metric": "f1",
+    "n_rows": 800,
+    "true_value": 0.715568862275449,
+    "claim": 0.7656,
+    "label": "flawed",
+    "tier": "subtle"
+  },
+  {
+    "id": "auc_a_honest",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/auc_a",
+    "metric": "auc",
+    "n_rows": 600,
+    "true_value": 0.6712827420378266,
+    "claim": 0.6713,
+    "label": "honest",
+    "tier": "honest"
+  },
+  {
+    "id": "auc_a_obvious",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/auc_a",
+    "metric": "auc",
+    "n_rows": 600,
+    "true_value": 0.6712827420378266,
+    "claim": 0.7913,
+    "label": "flawed",
+    "tier": "obvious"
+  },
+  {
+    "id": "auc_a_subtle",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/auc_a",
+    "metric": "auc",
+    "n_rows": 600,
+    "true_value": 0.6712827420378266,
+    "claim": 0.7213,
+    "label": "flawed",
+    "tier": "subtle"
+  },
+  {
+    "id": "tr_a_honest",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/tr_a",
+    "metric": "total_return",
+    "n_rows": 500,
+    "true_value": 0.7688988022187913,
+    "claim": 0.7689,
+    "label": "honest",
+    "tier": "honest"
+  },
+  {
+    "id": "tr_a_obvious",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/tr_a",
+    "metric": "total_return",
+    "n_rows": 500,
+    "true_value": 0.7688988022187913,
+    "claim": 1.2689,
+    "label": "flawed",
+    "tier": "obvious"
+  },
+  {
+    "id": "tr_a_subtle",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/tr_a",
+    "metric": "total_return",
+    "n_rows": 500,
+    "true_value": 0.7688988022187913,
+    "claim": 0.8289,
+    "label": "flawed",
+    "tier": "subtle"
+  },
+  {
+    "id": "shp_a_honest",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/shp_a",
+    "metric": "sharpe",
+    "n_rows": 500,
+    "true_value": 2.149336215260076,
+    "claim": 2.149,
+    "label": "honest",
+    "tier": "honest"
+  },
+  {
+    "id": "shp_a_obvious",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/shp_a",
+    "metric": "sharpe",
+    "n_rows": 500,
+    "true_value": 2.149336215260076,
+    "claim": 3.649,
+    "label": "flawed",
+    "tier": "obvious"
+  },
+  {
+    "id": "shp_a_subtle",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/shp_a",
+    "metric": "sharpe",
+    "n_rows": 500,
+    "true_value": 2.149336215260076,
+    "claim": 2.649,
+    "label": "flawed",
+    "tier": "subtle"
+  },
+  {
+    "id": "rmse_a_honest",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/rmse_a",
+    "metric": "rmse",
+    "n_rows": 700,
+    "true_value": 1.1536352188620829,
+    "claim": 1.1536,
+    "label": "honest",
+    "tier": "honest"
+  },
+  {
+    "id": "rmse_a_obvious",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/rmse_a",
+    "metric": "rmse",
+    "n_rows": 700,
+    "true_value": 1.1536352188620829,
+    "claim": 0.6345,
+    "label": "flawed",
+    "tier": "obvious"
+  },
+  {
+    "id": "rmse_a_subtle",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/rmse_a",
+    "metric": "rmse",
+    "n_rows": 700,
+    "true_value": 1.1536352188620829,
+    "claim": 1.0383,
+    "label": "flawed",
+    "tier": "subtle"
+  },
+  {
+    "id": "mae_a_honest",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/mae_a",
+    "metric": "mae",
+    "n_rows": 700,
+    "true_value": 1.0184622085714286,
+    "claim": 1.0185,
+    "label": "honest",
+    "tier": "honest"
+  },
+  {
+    "id": "mae_a_obvious",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/mae_a",
+    "metric": "mae",
+    "n_rows": 700,
+    "true_value": 1.0184622085714286,
+    "claim": 0.5602,
+    "label": "flawed",
+    "tier": "obvious"
+  },
+  {
+    "id": "mae_a_subtle",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/mae_a",
+    "metric": "mae",
+    "n_rows": 700,
+    "true_value": 1.0184622085714286,
+    "claim": 0.9166,
+    "label": "flawed",
+    "tier": "subtle"
+  },
+  {
+    "id": "r2_a_honest",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/r2_a",
+    "metric": "r2",
+    "n_rows": 700,
+    "true_value": 0.9826287536774769,
+    "claim": 0.9826,
+    "label": "honest",
+    "tier": "honest"
+  },
+  {
+    "id": "r2_a_obvious",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/r2_a",
+    "metric": "r2",
+    "n_rows": 700,
+    "true_value": 0.9826287536774769,
+    "claim": 0.999,
+    "label": "flawed",
+    "tier": "obvious"
+  },
+  {
+    "id": "r2_a_subtle",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/r2_a",
+    "metric": "r2",
+    "n_rows": 700,
+    "true_value": 0.9826287536774769,
+    "claim": 0.999,
+    "label": "flawed",
+    "tier": "subtle"
+  },
+  {
+    "id": "sum_a_honest",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/sum_a",
+    "metric": "column_sum",
+    "n_rows": 1000,
+    "true_value": 49709.469262,
+    "claim": 49709.47,
+    "label": "honest",
+    "tier": "honest"
+  },
+  {
+    "id": "sum_a_obvious",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/sum_a",
+    "metric": "column_sum",
+    "n_rows": 1000,
+    "true_value": 49709.469262,
+    "claim": 69593.257,
+    "label": "flawed",
+    "tier": "obvious"
+  },
+  {
+    "id": "sum_a_subtle",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/sum_a",
+    "metric": "column_sum",
+    "n_rows": 1000,
+    "true_value": 49709.469262,
+    "claim": 51697.848,
+    "label": "flawed",
+    "tier": "subtle"
+  },
+  {
+    "id": "mean_a_honest",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/mean_a",
+    "metric": "column_mean",
+    "n_rows": 1000,
+    "true_value": 50.823934618,
+    "claim": 50.8239,
+    "label": "honest",
+    "tier": "honest"
+  },
+  {
+    "id": "mean_a_obvious",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/mean_a",
+    "metric": "column_mean",
+    "n_rows": 1000,
+    "true_value": 50.823934618,
+    "claim": 71.1535,
+    "label": "flawed",
+    "tier": "obvious"
+  },
+  {
+    "id": "mean_a_subtle",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/mean_a",
+    "metric": "column_mean",
+    "n_rows": 1000,
+    "true_value": 50.823934618,
+    "claim": 52.8569,
+    "label": "flawed",
+    "tier": "subtle"
+  }
+]

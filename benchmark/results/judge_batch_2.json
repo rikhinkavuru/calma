@@ -1,0 +1,8 @@
+[
+  {"id":"case_12","judgment":"honest","confidence":80,"reason":"Values are uniform over [0,100] and well-spread, so a sample mean of ~50.82 is consistent with the data."},
+  {"id":"case_13","judgment":"flawed","confidence":78,"reason":"Among y_pred=1 rows the sample has many 0,1 false positives, implying precision ~0.6, far below the claimed 0.8817."},
+  {"id":"case_14","judgment":"flawed","confidence":75,"reason":"Sample shows abundant 0,1 false positives and 1,0 false negatives, giving F1 ~0.6 rather than the claimed 0.7656."},
+  {"id":"case_15","judgment":"flawed","confidence":82,"reason":"Residuals are commonly ~1-2 against a target std of ~9, implying R2 ~0.99, not the claimed 0.999."},
+  {"id":"case_16","judgment":"flawed","confidence":80,"reason":"Per-row absolute errors average roughly 1.2-1.4, well above the claimed MAE of 0.5602."},
+  {"id":"case_17","judgment":"flawed","confidence":80,"reason":"Score shows almost no separation between y_true classes (many true=1 with low scores, true=0 with high), implying AUC near 0.5, not 0.7913."}
+]

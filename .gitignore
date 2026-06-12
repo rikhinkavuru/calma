@@ -24,3 +24,6 @@ __pycache__/
 .claude/skills/calma/assets/corpus/*/runs/
 .claude/skills/calma/assets/corpus/**/.calma_venv/
 .gstack/
+# benchmark: regenerable per-case run outputs + calma state (gen.py + manifest.json are the source)
+benchmark/cases/*/runs/
+benchmark/cases/**/.calma/
