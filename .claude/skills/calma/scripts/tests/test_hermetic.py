@@ -121,5 +121,38 @@ with open(os.path.join(du, "verify.yaml"), "w") as fh:
 r3 = H.run(os.path.join(du, "verify.yaml"), base=du)
 truth(r3["exit_code"] == 3 and r3["phase"] == "refused", "untrusted + no container -> refused exit 3")
 
+# isolation profile: metadata-only ancestor reads (lets node etc. realpath-resolve the entrypoint
+# without opening directory listing / content reads under /Users). Structural guards so a future edit
+# can't silently regress either side.
+prof = H._profile(BTC)
+ancs = H._ancestors(BTC)
+truth("(allow file-read-metadata" in prof, "profile grants file-read-metadata on ancestors")
+truth(all(('(literal "%s")' % a) in prof for a in ancs), "every base ancestor is a metadata literal")
+truth("(deny file-read*\n  (subpath \"/Users\")" in prof, "directory listing / content reads under /Users still denied")
+truth("/Users" in ancs and os.path.dirname(os.path.realpath(BTC)) in ancs, "_ancestors spans /Users down to the parent")
+
+# on a sandbox host, the metadata grant must NOT open directory listing or secret reads (the boundary)
+if doc["sandbox_exec"]:
+    sec = os.path.join(os.path.realpath(os.path.expanduser("~")), ".calma_hermtest_secret")
+    open(sec, "w").write("TOP")
+    probe = ("import os,json;r={};\n"
+             "try:\n os.lstat('/Users');r['lstat']='ok'\nexcept Exception:\n r['lstat']='denied'\n"
+             "try:\n os.listdir('/Users');r['list']='LEAK'\nexcept Exception:\n r['list']='denied'\n"
+             "try:\n open(%r).read();r['read']='LEAK'\nexcept Exception:\n r['read']='denied'\n"
+             "print(json.dumps(r))" % sec)
+    rc, out, err, _ = H._run_sandboxed(H._profile(BTC), [sys.executable, "-c", probe], BTC, 30)
+    os.unlink(sec)
+    pr = json.loads([ln for ln in out.splitlines() if ln.startswith("{")][0]) if out.strip() else {}
+    truth(pr.get("lstat") == "ok", "ancestor metadata (lstat) is allowed under the profile")
+    truth(pr.get("list") == "denied", "directory listing under /Users stays denied (no enumeration)")
+    truth(pr.get("read") == "denied", "secret-content read under /Users stays denied")
+
+# venv-aware run: a restored project venv is used for the run interpreter when present
+truth(H._venv_python(du) is None, "no .calma_venv -> host interpreter")
+vbin = os.path.join(du, ".calma_venv", "bin")
+os.makedirs(vbin, exist_ok=True)
+open(os.path.join(vbin, "python"), "w").close()
+truth(H._venv_python(du) == os.path.join(vbin, "python"), "restored .calma_venv -> its interpreter is used")
+
 print("run_hermetic: %d checks, %d failures" % (_n, _fail))
 sys.exit(1 if _fail else 0)

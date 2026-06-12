@@ -1,0 +1,6 @@
+{"run":{"entrypoint":"replay.py","network":"off","cwd":"."},
+ "env":{"ecosystem":"python","trust":"own-code"},
+ "artifacts":[{"path":"runs/trades.csv","re_emit":true,"columns":{"pnl":{"tag":"value","na_policy":"error"}}}],
+ "metrics":[{"metric_id":"column_sum","artifact":"runs/trades.csv","binding":{"value":"pnl"},
+             "convention":null,"claimed_value":19024.77,"headline":true,"binding_status":"independently-bound","claim_confirmed":true}],
+ "baselines":[]}

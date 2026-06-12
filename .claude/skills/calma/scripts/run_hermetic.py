@@ -27,7 +27,9 @@ import tempfile
 
 # AST-detected modules. GPU/ML -> uncontrolled (BLAS/cuda nondeterminism); RNG -> measured-band.
 NONDET_MODULES = {"torch", "tensorflow", "cupy", "jax"}
-RNG_MODULES = {"random", "secrets", "numpy"}  # numpy conservatively (numpy.random / BLAS threading)
+# numpy and the numpy-backed scientific stack: BLAS reduction order is not bit-stable across
+# threads/builds, so a program touching these cannot be PROVEN bit-deterministic -> measured-band.
+RNG_MODULES = {"random", "secrets", "numpy", "pandas", "scipy", "sklearn", "statsmodels"}
 # stdlib sources of run-to-run variation: importing any of these means we cannot PROVE bit-determinism
 NONDET_STDLIB = {"time", "datetime", "uuid", "socket", "threading", "multiprocessing"}
 
@@ -43,6 +45,21 @@ def _within(base, rel):
     return full, (full == rb or full.startswith(rb + os.sep))
 
 
+def _ancestors(path):
+    """Every proper ancestor directory of `path` from / down to its parent (path itself excluded).
+    These are the components a runtime must lstat/readlink to realpath-resolve an entrypoint that
+    lives under a denied subtree (e.g. node's CJS loader lstat'ing /Users on the way to the script)."""
+    path = os.path.realpath(path)
+    out, cur = [], path
+    while True:
+        parent = os.path.dirname(cur)
+        if parent == cur:  # reached "/"
+            break
+        out.append(parent)
+        cur = parent
+    return out
+
+
 def _profile(base):
     """allow-default for the system paths the interpreter needs, then DENY the things we verify and
     claim: network egress, and reads of ALL user homes (/Users) + known system-secret dirs. The base is
@@ -55,6 +72,13 @@ def _profile(base):
     (refused otherwise)."""
     home = os.path.realpath(os.path.expanduser("~"))
     base = os.path.realpath(base)
+    # metadata-only (lstat/stat/readlink) on the EXACT ancestor chain of the run base. A runtime that
+    # realpath-resolves its entrypoint must lstat every parent directory on the way down (node's CJS
+    # loader lstat's /Users -> EPERM under a blanket /Users read-deny). Granting file-read-metadata
+    # (NOT file-read-data) on just those literal ancestors lets any language resolve its script while
+    # directory listing and file-content reads stay denied across /Users - so secrets cannot be read
+    # and the tree cannot be enumerated (the doctor positive-control still proves zero leaks).
+    anc = " ".join('(literal "%s")' % a for a in _ancestors(base))
     return '''(version 1)
 (allow default)
 (deny network*)
@@ -67,13 +91,16 @@ def _profile(base):
 (allow file-read*
   (subpath "%s/.julia") (subpath "%s/.cargo") (subpath "%s/.rustup")
   (subpath "%s/.npm") (subpath "%s/.nvm") (subpath "%s/.node-gyp"))
+;; metadata-only on the base's ancestor directories (entrypoint realpath resolution) - data reads
+;; and directory listings under /Users remain denied; this only re-allows lstat/stat/readlink.
+(allow file-read-metadata %s)
 (allow file-read* (subpath "%s"))
 (deny file-write* (subpath "/Users"))
 (allow file-write* (subpath "%s") (subpath "/tmp") (subpath "/private/tmp") (subpath "/private/var/folders") (literal "/dev/null") (literal "/dev/tty"))
 ;; AFTER the allow (Seatbelt is last-match-wins): the code under test can never write calma's
 ;; own verdict state - no planted cache.json, no forged ledgers, no hook-state tampering.
 (deny file-write* (subpath "%s/.calma"))
-''' % (home, home, home, home, home, home, base, base, base)
+''' % (home, home, home, home, home, home, anc, base, base, base)
 
 
 def _run_sandboxed(profile_text, argv, cwd, timeout=120, env=None):
@@ -165,14 +192,14 @@ def doctor(repo_root=None):
     return info
 
 
-def _detect_determinism(entrypoint_path):
-    """Conservative AST scan: only pure-stdlib code with NO RNG/GPU imports is controlled-to-bit.
-    Catches aliased/from-imports the old regex missed (import random as r; from random import random;
-    import secrets; numpy/torch aliases; os.urandom). Unparseable -> uncontrolled (fail safe)."""
+def _scan_one(path):
+    """AST-scan a single file -> (modules:set, urandom:bool, dynamic:str|None, parsed:bool). Catches
+    aliased/from-imports a regex would miss (import random as r; from random import random; numpy
+    aliases; os.urandom) plus dynamic import/exec."""
     try:
-        tree = ast.parse(open(entrypoint_path).read())
-    except (OSError, SyntaxError) as e:
-        return "uncontrolled", "entrypoint unparseable (%s)" % type(e).__name__
+        tree = ast.parse(open(path).read())
+    except (OSError, SyntaxError):
+        return set(), False, None, False
     mods, urandom, dynamic = set(), False, None
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
@@ -188,18 +215,68 @@ def _detect_determinism(entrypoint_path):
                 dynamic = "importlib.import_module"
         elif isinstance(node, ast.Name) and node.id in ("__import__", "exec", "eval", "compile"):
             dynamic = node.id
+    return mods, urandom, dynamic, True
+
+
+def _project_pyfiles(base):
+    """Every .py file under base that is part of the program under test - EXCLUDING calma's own
+    bookkeeping and the restored dependency venv (.calma, .calma_venv) and bytecode caches. Determinism
+    is a property of the whole program, not just the entry file: a thin entrypoint over local modules
+    that import numpy is NOT bit-deterministic, and stamping it controlled-to-bit would overclaim."""
+    out = []
+    for dp, dirs, names in os.walk(base):
+        dirs[:] = [d for d in dirs if not d.startswith(".") and d != "__pycache__"]
+        for n in names:
+            if n.endswith(".py"):
+                out.append(os.path.join(dp, n))
+    return out
+
+
+def _detect_determinism(entrypoint_path, base=None):
+    """Conservative whole-program AST scan: controlled-to-bit ONLY when EVERY .py file under the
+    program tree is pure-stdlib with no RNG/GPU/scientific-stack imports. The entrypoint is
+    authoritative for parse failure (unparseable entry -> uncontrolled, fail safe); other files are
+    best-effort. Bias is always toward the weaker (more-caveated) stamp.
+
+    Whole-tree scan happens ONLY when `base` is supplied (real runs always pass the contract base).
+    A bare single-file call (base=None) scans just the entrypoint - so callers pointing at a file in a
+    shared/unrelated directory don't get tarred by neighbors."""
+    e_mods, e_urandom, e_dynamic, e_ok = _scan_one(entrypoint_path)
+    if not e_ok:
+        return "uncontrolled", "entrypoint unparseable"
+    mods, urandom, dynamic = set(e_mods), e_urandom, e_dynamic
+    contributors = {entrypoint_path: e_mods}
+    for f in (_project_pyfiles(base) if base else []):
+        if os.path.abspath(f) == os.path.abspath(entrypoint_path):
+            continue
+        fm, fu, fd, ok = _scan_one(f)
+        if not ok:
+            continue
+        mods |= fm
+        urandom = urandom or fu
+        dynamic = dynamic or fd
+        contributors[f] = fm
+
+    _rel_base = base or os.path.dirname(os.path.abspath(entrypoint_path))
+
+    def _where(name):
+        hits = [os.path.relpath(p, _rel_base) for p, ms in contributors.items() if name in ms]
+        return (" (in %s)" % hits[0]) if hits else ""
+
     if dynamic:
-        # dynamic import / code execution -> purity cannot be proven statically; fail safe
         return "uncontrolled", "uses %s (dynamic import/exec); determinism cannot be proven statically" % dynamic
     if "importlib" in mods:
         return "uncontrolled", "imports importlib (dynamic import); determinism cannot be proven statically"
-    if mods & NONDET_MODULES:
-        return "uncontrolled", "imports a GPU/ML framework (%s); band must be measured (M2)" % \
-            ", ".join(sorted(mods & NONDET_MODULES))
+    gpu = mods & NONDET_MODULES
+    if gpu:
+        return "uncontrolled", "imports a GPU/ML framework (%s%s); band must be measured (M2)" % \
+            (", ".join(sorted(gpu)), _where(sorted(gpu)[0]))
     rng = (mods & (RNG_MODULES | NONDET_STDLIB)) | ({"os.urandom"} if urandom else set())
     if rng:
-        return "measured-band", "uses %s; bit-determinism cannot be proven, band must be measured (M2)" % ", ".join(sorted(rng))
-    return "controlled-to-bit", "pure-stdlib, no RNG/GPU imports (structural)"
+        first = sorted(rng)[0]
+        return "measured-band", "uses %s%s; bit-determinism cannot be proven, band must be measured (M2)" % \
+            (", ".join(sorted(rng)), _where(first))
+    return "controlled-to-bit", "pure-stdlib, no RNG/GPU imports (whole-program structural)"
 
 
 def _which(*names):
@@ -207,6 +284,15 @@ def _which(*names):
         if shutil.which(n):
             return shutil.which(n)
     return None
+
+
+def _venv_python(base):
+    """If a restored project venv exists under <base>/.calma_venv, return its interpreter. Restoring
+    deps then running under a DIFFERENT interpreter is unsound (the run can't import what restore
+    installed); a dep-heavy repo would silently fail the run gate. When the restore step built a venv,
+    the run must use it. Returns None when there is no venv (stdlib repos keep the host interpreter)."""
+    cand = os.path.join(base, ".calma_venv", "bin", "python")
+    return cand if os.path.exists(cand) else None
 
 
 def _lang_dispatch(entry_path, base):
@@ -277,9 +363,14 @@ def run(contract_path, base=None, timeout=120, trust_override=None):
         return {"phase": "refused", "exit_code": 3, "isolation_tier": isolation_tier, "language": lang,
                 "container_present": False, "killed": False,
                 "reason": "no toolchain for .%s entrypoints on this host" % lang}
+    # restore/run interpreter consistency: a Python repo whose deps were restored into <base>/.calma_venv
+    # must RUN under that venv, not the host interpreter (else it can't import what restore installed).
+    venv_py = _venv_python(base) if lang == "python" else None
+    if venv_py:
+        run_argv = [venv_py] + run_argv[1:]
     # determinism: AST proof for Python; non-Python cannot be statically proven -> uncontrolled
     if lang == "python":
-        det_mode, det_note = _detect_determinism(entry_path)
+        det_mode, det_note = _detect_determinism(entry_path, base)
     else:
         det_mode, det_note = "uncontrolled", "%s: bit-determinism not statically provable (non-Python)" % lang
     out_dir = os.path.join(base, "runs")
@@ -310,6 +401,7 @@ def run(contract_path, base=None, timeout=120, trust_override=None):
         "run_exit_status": rc,
         "isolation_tier": isolation_tier,
         "container_present": tier_verified,
+        "interpreter": "restored-venv" if venv_py else "host",
         "determinism_mode": det_mode, "determinism_note": det_note,
         "install_network": net_stamp, "run_network": net_stamp, "hermeticity": herm_stamp,
         "stdout_tail": (out or "")[-500:], "stderr_tail": (err or "")[-500:],

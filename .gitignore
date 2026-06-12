@@ -20,4 +20,7 @@ __pycache__/
 
 # regenerated cross-language fixture outputs (the entrypoint re-emits them)
 .claude/skills/calma/assets/lang/*/runs/
+# regenerated vendored-corpus outputs + restored dep venvs (the committed httpcache/snapshot stays)
+.claude/skills/calma/assets/corpus/*/runs/
+.claude/skills/calma/assets/corpus/**/.calma_venv/
 .gstack/

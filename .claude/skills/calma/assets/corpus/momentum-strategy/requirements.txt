@@ -1,0 +1,5 @@
+# Pinned to wheels that match the upstream repo's pandas<2.1-era semantics while installing on a
+# modern Python (cp313 wheels, no source build). The headline compute path imports only numpy + pandas;
+# yfinance/plotly/streamlit/scipy are intentionally omitted (the run is offline and emits no plots).
+numpy==2.1.3
+pandas==2.2.3

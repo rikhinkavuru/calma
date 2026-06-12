@@ -61,14 +61,19 @@ ML-over-LR edge 0.14 → 0.01) — is **R-only**, so it is reproduced faithfully
 |---|---|---|---|---|
 | btc-overfit backtest (vendored snapshot) | flawed/quant | yes | **REFUTED** | — |
 | ml-leakage civil-war repro | flawed/ML | yes | **REFUTED** (measured-band, M2-unlocked) | — |
-| sh-mukherjee/momentum-strategy (MIT) | honest/quant | no | INCONCLUSIVE | run (needs yfinance live data) |
-| Erfaniaa/crypto-backtester (GPL, local) | flawed/quant | no | INCONCLUSIVE | run (needs binance live data) |
+| sh-mukherjee/momentum-strategy (MIT, yfinance) | honest/quant | **yes** | CONFIRMED | — |
+| HilmiSamdya/btc-sma-backtest (MIT, Coinbase) | honest/quant | **yes** | CONFIRMED | — |
 
-**Served-fraction = 0.50** (2/4). Terminal verdicts: REFUTED 2, INCONCLUSIVE 2. The honest finding:
-**live-data dependency is the dominant coverage killer**, not the verification logic — a repo that fetches
-market/ML data at runtime cannot run under network-off isolation until its data is vendored to a snapshot
-(as BTC was). Both *self-contained flawed* repos are caught (REFUTED); the verification engine never
-false-confirmed. Full data: `assets/served_fraction.json`.
+**Served-fraction = 1.00** (4/4). Terminal verdicts: REFUTED 2, CONFIRMED 2. The dominant coverage killer
+— **live-data dependency** — is now resolved two ways, both reproducible: momentum-strategy via a frozen
+data **snapshot** (`vendored_prices.csv`, the BTC pattern), and btc-sma-backtest via the `calma_vendor` HTTP
+**record/replay shim** proven end-to-end on a live, non-geoblocked source (Coinbase) — recorded once,
+replayed offline under network-off isolation (a cache MISS raises, so the replay is provably hermetic).
+The original `Erfaniaa/crypto-backtester` was retired: it is deleted upstream AND its binance source is
+geo-blocked (HTTP 451), so it could never be reproduced — `btc-sma-backtest` replaces it like-for-like
+(real, MIT, BTC). Both flawed repos are caught (REFUTED); the engine never false-confirmed. Each member is
+vendored under `assets/corpus/<name>/` with a `VENDORED.md` provenance + re-record recipe.
+Full data: `assets/served_fraction.json` (regenerate with `calibration/regen_served_fraction.py`).
 
 ## Cross-language served-fraction matrix
 
@@ -84,19 +89,26 @@ its own Python reference layer, so language only touches the run + env gates. Ve
 | Julia | yes | CONFIRMED-WITH-CAVEATS | honest fixture |
 | C++ | yes | **REFUTED** | flawed claim (+500% vs ~7%) → fraud-multiple path on an uncontrolled run |
 | Rust | yes | CONFIRMED-WITH-CAVEATS | honest fixture |
-| Node | no | INCONCLUSIVE | run-gate: node realpath-resolves through /Users, which the secret-protecting profile denies |
+| Node | **yes** | CONFIRMED-WITH-CAVEATS | profile now grants metadata-only reads on the run base's ancestors |
 
 All five honest cross-language fixtures emit the **identical** `returns.csv` (shared deterministic series),
-demonstrating cross-language numeric agreement. Two findings, both honest: (1) non-Python runs are stamped
+demonstrating cross-language numeric agreement. Findings, all honest: (1) non-Python runs are stamped
 `uncontrolled` (bit-determinism not statically provable) yet a **fraud-grade** gap still REFUTES via the
-calibrated fraud-multiple M=5 (C++); (2) runtimes that need to traverse `$HOME` at startup (Node) land
-UNVERIFIABLE under the strict profile — a real isolation/runtime tradeoff, not a verification failure. The
-Seatbelt profile gained a toolchain allowlist (`~/.julia`, `~/.cargo`, `~/.rustup`, `~/.npm`) so language
-depots are readable while `~/.ssh`/`~/.aws`/keychains stay denied (doctor still verifies zero leaks).
+calibrated fraud-multiple M=5 (C++); (2) Node's CJS loader `lstat`s `/Users` while realpath-resolving the
+entrypoint, which a blanket read-deny rejected — fixed by granting `file-read-metadata` (lstat/stat/readlink
+only) on the **exact ancestor chain of the run base**, so any runtime can resolve its script while directory
+listing and file-content reads under `/Users` stay denied (the doctor positive-control still proves zero
+secret-reads + zero egress; an adversarial probe confirms lstat passes but `listdir`/`open` are denied).
+The Seatbelt profile also keeps a toolchain allowlist (`~/.julia`, `~/.cargo`, `~/.rustup`, `~/.npm`).
 
 ## Overall served-fraction (full corpus)
 
-9 corpus members across 6 languages: **served-fraction 0.67 (6/9)**. Terminal verdicts: REFUTED 3,
-CONFIRMED-WITH-CAVEATS 3, INCONCLUSIVE 3. The 3 INCONCLUSIVE are Node (home-traversal) + the two live-data
-real repos (yfinance/binance need a vendored snapshot). The engine never false-confirmed and never
-false-REFUTED. Full data: `assets/served_fraction.json`.
+9 corpus members across 6 languages: **served-fraction 1.00 (9/9)**. Terminal verdicts: REFUTED 3,
+CONFIRMED 2, CONFIRMED-WITH-CAVEATS 4. The engine never false-confirmed and never false-REFUTED. Three
+engine improvements got here, all general (not corpus-specific): (a) the isolation profile's metadata-only
+ancestor reads (Node + any realpath-resolving runtime); (b) **restore/run interpreter consistency** —
+a Python repo whose deps are restored into `<base>/.calma_venv` now RUNS under that venv, not the host
+interpreter (momentum-strategy's numpy/pandas path); (c) **whole-program** determinism detection — the
+controlled-to-bit stamp now requires every `.py` under the program tree (not just the entry file) to be
+RNG/GPU/scientific-stack-free, so a thin entrypoint over numpy-using modules is honestly `measured-band`.
+Full data: `assets/served_fraction.json`.

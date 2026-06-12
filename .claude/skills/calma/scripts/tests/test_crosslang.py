@@ -26,11 +26,14 @@ def truth(cond, label):
 
 
 # (dir, toolchain binary, expected verdict). C++ fixture is flawed -> REFUTED; the rest honest -> CAVEATS.
+# Node is served since the isolation profile grants metadata-only reads on the run base's ancestors
+# (its CJS loader lstat's /Users while realpath-resolving the entrypoint).
 CASES = [
     ("r", "Rscript", V.CAVEATS),
     ("julia", "julia", V.CAVEATS),
     ("cpp", "c++", V.REFUTED),
     ("rust", "rustc", V.CAVEATS),
+    ("node", "node", V.CAVEATS),
 ]
 for d, tool, expected in CASES:
     if not shutil.which(tool):

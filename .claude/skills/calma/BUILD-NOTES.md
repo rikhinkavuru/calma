@@ -525,3 +525,43 @@ no-verified-sandbox skip + force_unverified override + TTL re-probe); test_attes
 Full suite: 18 suites, 0 failures. Dogfood: A/B/A reproduced-then-fixed on a /tmp copy of
 assets/btc; `registry verify registry/` exit 0; `attest verify` on the pre-migration btc bundle
 passes; `calma demo` still catches the inflated backtest.
+
+## Served-fraction corpus to 9/9 (2026-06-12)
+
+The real-repo + cross-language served-fraction corpus went from **6/9 → 9/9** (`served_fraction = 1.0`;
+REFUTED 3, CONFIRMED 2, CONFIRMED-WITH-CAVEATS 4; zero false-confirms, zero false-REFUTEs). Three general
+engine fixes + two newly-vendored real repos, not corpus-specific hacks. Regenerate the artifact with
+`calibration/regen_served_fraction.py` (records the full corpus; needs toolchains + network for restore).
+
+- **Node served (isolation fix).** Node's CJS loader `lstat`s `/Users` while realpath-resolving the
+  entrypoint; the blanket `(deny file-read* (subpath "/Users"))` rejected it (EPERM → run-gate fail).
+  `run_hermetic._profile` now emits `(allow file-read-metadata <literal ancestor>...)` for the EXACT
+  ancestor chain of the run base (`_ancestors`). Metadata-only (lstat/stat/readlink) lets any runtime
+  resolve its script; directory listing and file-content reads under `/Users` stay denied. Doctor still
+  proves zero secret-reads + zero egress; an adversarial probe (test_hermetic.py) confirms lstat passes
+  while `listdir`/`open` are denied. Node added to test_crosslang.py CASES.
+- **Restore/run interpreter consistency.** A Python repo whose deps are restored into `<base>/.calma_venv`
+  now RUNS under that venv (`_venv_python`), not the host interpreter — otherwise a dep-heavy repo silently
+  fails the run gate (can't import what restore installed). Run result carries `interpreter: restored-venv|host`.
+- **Whole-program determinism.** `_detect_determinism(entry, base)` now scans EVERY `.py` under the program
+  tree (excl. `.calma*`/`.calma_venv`/`__pycache__`), not just the entry file, so a thin entrypoint over
+  numpy-using local modules is honestly `measured-band` (was wrongly `controlled-to-bit`). Scientific stack
+  (pandas/scipy/sklearn/statsmodels) added to the RNG/non-bit set. Whole-tree only when `base` is given;
+  a bare single-file call stays single-file (so callers in shared dirs aren't tarred by neighbors).
+- **Two vendored real repos** under `assets/corpus/<name>/` (each with `VENDORED.md` provenance + re-record
+  recipe). (1) `momentum-strategy` (sh-mukherjee, MIT, yfinance) — frozen `vendored_prices.csv` snapshot,
+  unchanged signals→risk→backtest compute path, pinned deps (cp313 wheels), `total_return = -2.76%` →
+  CONFIRMED. (2) `btc-sma-crossover` (HilmiSamdya/btc-sma-backtest, MIT) — the upstream SMA-crossover+TP/SL
+  strategy driven by BTC-USD OHLC fetched from Coinbase via the `calma_vendor` HTTP record/replay shim
+  (recorded once, replayed offline, hermetic), `total_profit = 19024.77` via `column_sum` → CONFIRMED. This
+  replaces the retired `Erfaniaa/crypto-backtester` (deleted upstream + binance HTTP 451 = unreproducible).
+- **calma_vendor shim hardening.** record now forwards request **headers** (Coinbase 403s without a
+  User-Agent), honors requests **`params`** (folds the querystring into the cache key + fetch, so paged GETs
+  don't alias), and patches **`requests.Session.request`** (covers `requests.Session()` and ccxt, what real
+  repos actually use — not just the module-level helpers). The shim is vendored alongside btc-sma-crossover
+  (self-contained under network-off isolation) with a byte-identical drift guard in test_vendor.py.
+
+**Tests.** test_hermetic.py 16 → 25 (metadata-ancestor profile structure + sandbox boundary probe: lstat
+allowed, listdir/read denied; venv-aware interpreter selection); test_vendor.py 2 → 8 (params keying +
+differing-params MISS, Session replay, drift guard); test_crosslang.py +node; test_m2.py +btc-sma-crossover
+offline shim replay. Full suite green under both Homebrew python3.13 and system python3.14: 18 suites, 0 failures.

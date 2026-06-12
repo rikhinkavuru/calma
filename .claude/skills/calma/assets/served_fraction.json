@@ -1,7 +1,7 @@
 {
   "n": 9,
-  "served": 6,
-  "served_fraction": 0.667,
+  "served": 9,
+  "served_fraction": 1.0,
   "by_language": {
     "cpp": {
       "served": 1,
@@ -20,20 +20,20 @@
       }
     },
     "node": {
-      "served": 0,
+      "served": 1,
       "n": 1,
-      "served_fraction": 0.0,
+      "served_fraction": 1.0,
       "verdicts": {
-        "INCONCLUSIVE": 1
+        "CONFIRMED-WITH-CAVEATS": 1
       }
     },
     "python": {
-      "served": 2,
+      "served": 4,
       "n": 4,
-      "served_fraction": 0.5,
+      "served_fraction": 1.0,
       "verdicts": {
         "REFUTED": 2,
-        "INCONCLUSIVE": 2
+        "CONFIRMED": 2
       }
     },
     "r": {
@@ -54,9 +54,9 @@
     }
   },
   "terminal_verdicts": {
-    "INCONCLUSIVE": 3,
     "REFUTED": 3,
-    "CONFIRMED-WITH-CAVEATS": 3
+    "CONFIRMED": 2,
+    "CONFIRMED-WITH-CAVEATS": 4
   },
   "rows": [
     {
@@ -88,6 +88,36 @@
       "failing_gate": null,
       "verdict": "REFUTED",
       "determinism": "measured-band"
+    },
+    {
+      "repo": "momentum-strategy",
+      "language": "python",
+      "label": "sh-mukherjee/momentum-strategy (MIT, yfinance -> vendored snapshot)",
+      "gates": {
+        "restore": true,
+        "run": true,
+        "emit_raw": true,
+        "bind": true
+      },
+      "served": true,
+      "failing_gate": null,
+      "verdict": "CONFIRMED",
+      "determinism": "measured-band"
+    },
+    {
+      "repo": "btc-sma-crossover",
+      "language": "python",
+      "label": "HilmiSamdya/btc-sma-backtest (MIT, Coinbase via record/replay shim)",
+      "gates": {
+        "restore": true,
+        "run": true,
+        "emit_raw": true,
+        "bind": true
+      },
+      "served": true,
+      "failing_gate": null,
+      "verdict": "CONFIRMED",
+      "determinism": "controlled-to-bit"
     },
     {
       "repo": "r",
@@ -155,44 +185,14 @@
       "label": "Node total-return fixture (honest)",
       "gates": {
         "restore": true,
-        "run": false,
-        "emit_raw": false,
+        "run": true,
+        "emit_raw": true,
         "bind": true
       },
-      "served": false,
-      "failing_gate": "run",
-      "verdict": "INCONCLUSIVE",
+      "served": true,
+      "failing_gate": null,
+      "verdict": "CONFIRMED-WITH-CAVEATS",
       "determinism": "uncontrolled"
-    },
-    {
-      "repo": "momentum-strategy",
-      "language": "python",
-      "label": "sh-mukherjee/momentum-strategy (MIT, yfinance)",
-      "gates": {
-        "restore": true,
-        "run": false,
-        "emit_raw": false,
-        "bind": false
-      },
-      "served": false,
-      "failing_gate": "run",
-      "verdict": "INCONCLUSIVE",
-      "determinism": null
-    },
-    {
-      "repo": "crypto-backtester",
-      "language": "python",
-      "label": "Erfaniaa/crypto-backtester (GPL, binance)",
-      "gates": {
-        "restore": true,
-        "run": false,
-        "emit_raw": false,
-        "bind": false
-      },
-      "served": false,
-      "failing_gate": "run",
-      "verdict": "INCONCLUSIVE",
-      "determinism": null
     }
   ]
 }

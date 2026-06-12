@@ -85,9 +85,21 @@ truth(btc["served"] and btc["verdict"] == V.REFUTED, "served-fraction: BTC serve
 leak = SF.assess(os.path.join(A, "leakage"), label="leakage")
 truth(leak["served"] and leak["verdict"] == V.REFUTED, "served-fraction: leakage served + REFUTED")
 truth(leak["determinism"] == "measured-band", "leakage runs on the M2-unlocked measured-band path")
-import shutil
+
+# vendored live-data member, fully offline: the btc-sma-crossover strategy replays its Coinbase fetch
+# from the committed record/replay cache (network OFF) and verifies. Proves the calma_vendor HTTP shim
+# end-to-end on a real source without any toolchain/venv/network, so it runs in CI.
+import shutil  # noqa: E402
+sma = SF.assess(os.path.join(A, "corpus", "btc-sma-crossover"), label="btc-sma-crossover")
+truth(sma["served"] and sma["verdict"] in (V.CONFIRMED, V.CAVEATS),
+      "served-fraction: btc-sma-crossover served + CONFIRMED (shim replay, offline)")
+truth(sma["gates"]["run"] and sma["gates"]["emit_raw"],
+      "btc-sma-crossover runs hermetically (cache replay) and emits a recompute artifact")
+shutil.rmtree(os.path.join(A, "corpus", "btc-sma-crossover", "runs"), ignore_errors=True)
+
 for d in ("btc", "leakage"):
     shutil.rmtree(os.path.join(A, d, ".calma"), ignore_errors=True)
+shutil.rmtree(os.path.join(A, "corpus", "btc-sma-crossover", ".calma"), ignore_errors=True)
 
 print("m2: %d checks, %d failures" % (_n, _fail))
 sys.exit(1 if _fail else 0)
