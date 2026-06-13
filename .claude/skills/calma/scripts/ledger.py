@@ -35,6 +35,9 @@ EXEC_DIMENSIONS = {
 SEVERITIES = {"blocker", "major", "minor", "info"}
 BLOCKING_SEVERITIES = {"blocker", "major"}
 CLEARED_STATUSES = {"resolved", "waived", "accepted"}
+# soundness dimensions (WS4) whose open blocking findings degrade a clean CONFIRMED to CAVEATS:
+# the number reproduces, but it is gross-not-net / cherry-picked / survivorship-biased.
+SOUNDNESS_CAVEAT_DIMENSIONS = {"execution-realism", "selection", "data-integrity"}
 REVERIFY_KINDS = {"static-reread", "artifact-recheck", "requires-reexecution"}
 FIXABLE = {"editor", "author", "operator", "none"}
 BINDING_STATES = {"independently-bound", "plausibly-bound", "author-asserted"}
@@ -100,6 +103,15 @@ def compute_repo_verdict(led):
         if all(c["verdict"] == V.INCONCLUSIVE for c in claims):
             return V.INCONCLUSIVE
     if any(c["verdict"] == V.CAVEATS for c in claims):
+        return V.CAVEATS
+    # WS4: an open blocking soundness finding (omitted costs / cherry-picked window / survivorship)
+    # means the headline number reproduces but the result is narrower/biased than the claim implies -
+    # degrade a clean CONFIRMED to CONFIRMED-WITH-CAVEATS (never up to REFUTED: that stays the verdict()
+    # path on a bound metric). Conservative and honest; the finding carries the explanation + fix.
+    if any(f.get("dimension") in SOUNDNESS_CAVEAT_DIMENSIONS
+           and f.get("severity") in BLOCKING_SEVERITIES
+           and f.get("status") not in CLEARED_STATUSES
+           for f in led.get("findings", [])):
         return V.CAVEATS
     return V.CONFIRMED
 

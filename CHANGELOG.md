@@ -4,6 +4,28 @@ All notable changes to the calma skill/CLI. Dates are UTC.
 
 ## 0.9.0 — 2026-06-13
 
+### WS4 — Backtest checks that catch the common inflated-deck failures
+
+- New `backtest_checks.py`, run additively in the verify pipeline, each catch stating the assumption
+  it made:
+  - **omitted costs (gross-sold-as-net):** applies the declared fee/slippage model (a `costs`
+    `{fee_bps, turnover_col}` block, or a per-period cost column) to the bound returns and flags when
+    the claimed return tracks the GROSS series while net-of-cost is materially lower — with the exact
+    gross, net, and cost-drag numbers.
+  - **cherry-picked window:** compares the claimed window (`claimed_periods` / `claimed_window`) to the
+    history actually present in the bound artifact; flags when the claim implies more periods/range
+    than the data covers.
+  - **survivorship universe:** flags a declared survivors-only / non-point-in-time universe (returns
+    upward-biased) with the point-in-time rebuild as the unblock.
+- These emit ledger findings on the existing dimensions (execution-realism / selection /
+  data-integrity). An open blocking soundness finding now degrades a clean CONFIRMED to
+  **CONFIRMED-WITH-CAVEATS** (the number reproduces, but it is gross-not-net / cherry-picked /
+  survivorship-biased) — never up to REFUTED (that stays the `verdict()` path on a bound metric).
+  Deck-vs-code mismatch was already caught by the core recompute+verdict path.
+- Tests: `test_backtest_checks.py` (15 checks) — each catch FIRES on the planted failure and stays
+  SILENT on the honest deck (no false alarms), and the findings keep the ledger valid. Verified on
+  three planted CLI decks (omitted costs, wrong window, survivorship), each correctly degraded.
+
 ### WS3 — Robust intake for the quant wedge
 
 - New `intake.py` + `calma verify --restore`: detect the interpreter, **restore + PIN** the repo's

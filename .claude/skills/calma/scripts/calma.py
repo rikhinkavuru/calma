@@ -19,6 +19,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import attest
+import backtest_checks as BC
 import compare as CMP
 import draft_contract as DC
 import intake as INTAKE
@@ -287,6 +288,14 @@ def _assemble_ledger(contract, diff, run_res):
             "reverify": {"kind": "requires-reexecution", "source": "baseline",
                          "expected": "strategy edge over baseline > 0"},
         })
+    # WS4 backtest catches (omitted costs / cherry-picked window / survivorship universe) - additive
+    # findings off the bound artifact. Only when the run actually reproduced (exit 0) and there is a
+    # claim to judge; deck-vs-code mismatch is already handled above by the recompute+verdict path.
+    if claims and run_res.get("exit_code", 0) == 0:
+        _base = run_res.get("base") or (
+            os.path.dirname(os.path.dirname(run_res["run_dir"])) if run_res.get("run_dir") else None)
+        if _base:
+            findings.extend(BC.run_checks(contract, _base, claims[0]["id"]))
     metric_ids = [m["metric_id"] for m in diff["metrics"]]
     # surface which binding was auto-picked (the one surface the producer influences)
     binding_note = None
