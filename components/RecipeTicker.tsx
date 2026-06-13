@@ -1,26 +1,28 @@
 "use client";
 
-/* A kinetic coverage strip: each segment is one recipe family — a category
-   glyph (its mark), the family name, and a few of its metrics. Differentiated
-   by glyph + grouping, not a flat word stream. Pauses on hover. */
+import { Reveal } from "./chrome";
+import { FAMILIES } from "@/app/recipes/data";
 
-type Fam = { fam: string; glyph: GlyphKind; metrics: string[] };
+/* The recipe coverage band: a heading, a kinetic strip of every family, and a
+   browse CTA. Each segment carries a category glyph + tone; each metric is a
+   live link that lights up and jumps to its entry on the recipes page. */
+
 type GlyphKind =
   | "trading" | "class" | "reg" | "analytics" | "eng"
-  | "retrieval" | "stats" | "risk" | "finance" | "forecast";
+  | "retrieval" | "stats" | "finance" | "compiled";
+type Tone = "amber" | "teal" | "sky";
 
-const FAMILIES: Fam[] = [
-  { fam: "Trading", glyph: "trading", metrics: ["Sharpe", "Sortino", "Calmar", "max drawdown"] },
-  { fam: "Classification", glyph: "class", metrics: ["AUC", "F1", "MCC", "log-loss"] },
-  { fam: "Regression", glyph: "reg", metrics: ["RMSE", "MAE", "R²"] },
-  { fam: "Analytics", glyph: "analytics", metrics: ["median", "p95", "growth", "join-loss"] },
-  { fam: "Engineering", glyph: "eng", metrics: ["p99 latency", "throughput", "peak memory"] },
-  { fam: "Retrieval & LLM", glyph: "retrieval", metrics: ["recall@k", "NDCG", "pass@k", "MRR"] },
-  { fam: "Statistics", glyph: "stats", metrics: ["p-value", "chi-square", "Cohen's d"] },
-  { fam: "Quant risk", glyph: "risk", metrics: ["VaR", "CVaR", "beta"] },
-  { fam: "Finance", glyph: "finance", metrics: ["CAGR", "IRR", "churn"] },
-  { fam: "Forecasting", glyph: "forecast", metrics: ["MAPE", "WAPE", "MASE"] },
-];
+const META: Record<string, { glyph: GlyphKind; tone: Tone }> = {
+  trading: { glyph: "trading", tone: "amber" },
+  classification: { glyph: "class", tone: "teal" },
+  regression: { glyph: "reg", tone: "sky" },
+  analytics: { glyph: "analytics", tone: "amber" },
+  engineering: { glyph: "eng", tone: "sky" },
+  retrieval: { glyph: "retrieval", tone: "teal" },
+  stats: { glyph: "stats", tone: "sky" },
+  finance: { glyph: "finance", tone: "amber" },
+  compiled: { glyph: "compiled", tone: "teal" },
+};
 
 function Glyph({ kind }: { kind: GlyphKind }) {
   const p = { className: "rtick__glyph", viewBox: "0 0 18 18", "aria-hidden": true } as const;
@@ -75,12 +77,6 @@ function Glyph({ kind }: { kind: GlyphKind }) {
           <path d="M2 15 C 6 15, 6 4, 9 4 C 12 4, 12 15, 16 15" />
         </svg>
       );
-    case "risk":
-      return (
-        <svg {...p}>
-          <path d="M9 2 L15 5 V9 C15 13 12 15 9 16 C6 15 3 13 3 9 V5 Z" />
-        </svg>
-      );
     case "finance":
       return (
         <svg {...p}>
@@ -88,30 +84,77 @@ function Glyph({ kind }: { kind: GlyphKind }) {
           <line x1="9" y1="4.5" x2="9" y2="13.5" />
         </svg>
       );
-    case "forecast":
+    case "compiled":
       return (
         <svg {...p}>
-          <line x1="2" y1="9" x2="9" y2="9" />
-          <line x1="9" y1="9" x2="13" y2="9" strokeDasharray="2 2.4" />
-          <polyline points="11.5 6 14.5 9 11.5 12" />
+          <path d="M6 3 C 3 3, 3 9, 1.5 9 C 3 9, 3 15, 6 15" />
+          <path d="M12 3 C 15 3, 15 9, 16.5 9 C 15 9, 15 15, 12 15" />
         </svg>
       );
   }
 }
 
-export function RecipeTicker() {
-  const segs = [...FAMILIES, ...FAMILIES];
+function Segment({ famKey, title, recipes }: { famKey: string; title: string; recipes: { id: string; name: string }[] }) {
+  const meta = META[famKey] ?? { glyph: "compiled" as GlyphKind, tone: "teal" as Tone };
   return (
-    <div className="rtick" aria-label="Recipe families Calma verifies">
-      <div className="rtick__track">
-        {segs.map((f, i) => (
-          <span className="rtick__seg" key={i}>
-            <Glyph kind={f.glyph} />
-            <span className="rtick__fam">{f.fam}</span>
-            <span className="rtick__metrics">{f.metrics.join(" · ")}</span>
-          </span>
+    <span className={`rtick__seg rtick__seg--${meta.tone}`}>
+      <Glyph kind={meta.glyph} />
+      <span className="rtick__fam">{title}</span>
+      <span className="rtick__metrics">
+        {recipes.map((r) => (
+          <a className="rtick__metric" href={`/recipes#${r.id}`} key={r.id}>
+            {r.name}
+          </a>
         ))}
+      </span>
+    </span>
+  );
+}
+
+export function RecipeTicker() {
+  const segs = FAMILIES.map((f) => ({
+    famKey: f.key,
+    title: f.title,
+    recipes: f.recipes.slice(0, 4).map((r) => ({ id: r.id, name: r.name })),
+  }));
+  const loop = [...segs, ...segs];
+
+  return (
+    <section className="sec recsec" id="recipes">
+      <div className="wrap recsec__head">
+        <Reveal>
+          <span className="kicker">The recipe library</span>
+        </Reveal>
+        <Reveal delay={120}>
+          <h2 className="h2 recsec__h2">
+            <span className="recsec__num">100+</span> validated recipes
+          </h2>
+        </Reveal>
+        <Reveal delay={200}>
+          <p className="lead recsec__lead">
+            One deterministic procedure per number, each validated against its published reference.
+            Hover to light one up — click to jump straight to how it&apos;s rebuilt.
+          </p>
+        </Reveal>
       </div>
-    </div>
+
+      <Reveal delay={150} className="recsec__rail">
+        <div className="rtick" aria-label="Recipe families Calma verifies">
+          <div className="rtick__track">
+            {loop.map((s, i) => (
+              <Segment key={`${s.famKey}-${i}`} famKey={s.famKey} title={s.title} recipes={s.recipes} />
+            ))}
+          </div>
+        </div>
+      </Reveal>
+
+      <div className="wrap recsec__foot">
+        <Reveal>
+          <a className="pbtn pbtn--amber" href="/recipes">
+            Browse the library →
+          </a>
+        </Reveal>
+      </div>
+    </section>
   );
 }

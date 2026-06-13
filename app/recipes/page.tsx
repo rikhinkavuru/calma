@@ -68,7 +68,7 @@ export default function RecipesPage() {
                 <p className="rfam__blurb">{fam.blurb}</p>
                 <div className="rlist">
                   {fam.recipes.map((r) => (
-                    <article className="rcp" key={r.id}>
+                    <article className="rcp" key={r.id} id={r.id}>
                       <div className="rcp__top">
                         <h3 className="rcp__name">{r.name}</h3>
                         <span className="rcp__id mono">{r.id}</span>

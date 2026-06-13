@@ -18,6 +18,7 @@
   --amber: #e89a5d;
   --sun: #ffb36b;
   --teal: #7fb89e;
+  --sky: #79b8d1;
   --deep: #2e4f6d;
 
   --mono: "Space Mono", ui-monospace, Menlo, monospace;
@@ -356,6 +357,7 @@ img, svg, canvas { display: block; max-width: 100%; }
   content: ""; position: absolute; left: 0; right: 0; top: -1px; height: 1px;
   background: linear-gradient(90deg, transparent, rgba(232, 154, 93, 0.35), transparent);
 }
+.sec--teal::before { background: linear-gradient(90deg, transparent, rgba(127, 184, 158, 0.4), transparent); }
 .sec__head { margin-bottom: clamp(40px, 5vw, 64px); display: flex; flex-direction: column; gap: 18px; }
 
 /* ---------------- problem ---------------- */
@@ -542,22 +544,45 @@ img, svg, canvas { display: block; max-width: 100%; }
 .frow:hover .frow__art .cart .amber { stroke-width: 2; }
 .frow:hover .frow__art .cart text.amber { stroke-width: 0; }
 
-/* ---------------- kinetic coverage ticker (full-bleed band) ---------------- */
+/* ---------------- recipe coverage band ---------------- */
+.recsec { overflow: hidden; }
+.recsec__head { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 16px; margin-bottom: clamp(34px, 4vw, 54px); }
+.recsec__h2 { max-width: none; }
+.recsec__num { color: var(--amber); }
+.recsec__lead { max-width: 50em; }
+.recsec__foot { display: flex; justify-content: center; margin-top: clamp(34px, 4vw, 54px); }
+
+/* kinetic, full-bleed ticker */
 .rtick {
   position: relative; overflow: hidden;
   border-block: 1px solid var(--hairline); background: rgba(233, 221, 196, 0.015);
   -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
   mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
 }
-.rtick__track { display: flex; width: max-content; animation: rtick 64s linear infinite; }
+.rtick__track { display: flex; width: max-content; animation: rtick 72s linear infinite; }
 .rtick:hover .rtick__track { animation-play-state: paused; }
 .rtick__seg {
-  display: inline-flex; align-items: center; gap: 13px; padding: 18px 34px;
+  display: inline-flex; align-items: center; gap: 13px; padding: 17px 30px;
   border-right: 1px solid var(--hairline); white-space: nowrap;
 }
 .rtick__glyph { width: 18px; height: 18px; flex: none; stroke: var(--amber); stroke-width: 1.4; fill: none; }
 .rtick__fam { font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--cream); }
-.rtick__metrics { font-family: var(--mono); font-size: 12px; letter-spacing: 0.03em; color: var(--cream-55); }
+.rtick__metrics { display: inline-flex; align-items: center; }
+.rtick__metric {
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.02em; color: var(--cream-55);
+  padding: 2px 11px; transition: color 0.2s ease, text-shadow 0.2s ease;
+}
+.rtick__metric + .rtick__metric { border-left: 1px solid var(--hairline); }
+/* per-family tone — glyph + family name carry color; metrics light up on hover */
+.rtick__seg--amber .rtick__glyph { stroke: var(--amber); }
+.rtick__seg--teal .rtick__glyph { stroke: var(--teal); }
+.rtick__seg--sky .rtick__glyph { stroke: var(--sky); }
+.rtick__seg--amber .rtick__fam { color: var(--amber); }
+.rtick__seg--teal .rtick__fam { color: var(--teal); }
+.rtick__seg--sky .rtick__fam { color: var(--sky); }
+.rtick__seg--amber .rtick__metric:hover { color: var(--amber); text-shadow: 0 0 16px rgba(232, 154, 93, 0.55); }
+.rtick__seg--teal .rtick__metric:hover { color: var(--teal); text-shadow: 0 0 16px rgba(127, 184, 158, 0.55); }
+.rtick__seg--sky .rtick__metric:hover { color: var(--sky); text-shadow: 0 0 16px rgba(121, 184, 209, 0.55); }
 @keyframes rtick { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 
 /* ---------------- benefits ---------------- */
@@ -597,6 +622,11 @@ img, svg, canvas { display: block; max-width: 100%; }
 .cart text.amber { fill: var(--amber); stroke: none; }
 .cart text.dim { fill: var(--cream-35); stroke: none; }
 .cart text { font-family: var(--mono); font-size: 13px; fill: var(--cream-55); stroke: none; }
+/* tone overrides so benefit illustrations carry the wider palette */
+.benefit__art--teal .cart .amber { stroke: var(--teal); }
+.benefit__art--teal .cart .amber-fill, .benefit__art--teal .cart text.amber { fill: var(--teal); }
+.benefit__art--sky .cart .amber { stroke: var(--sky); }
+.benefit__art--sky .cart .amber-fill, .benefit__art--sky .cart text.amber { fill: var(--sky); }
 
 /* ---------------- about ---------------- */
 .about { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(30px, 5vw, 80px); align-items: center; }
@@ -795,7 +825,10 @@ img, svg, canvas { display: block; max-width: 100%; }
   padding: clamp(18px, 2.2vw, 26px);
   border-right: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline);
   display: flex; flex-direction: column; gap: 9px; background: rgba(17, 15, 11, 0.45);
+  scroll-margin-top: 96px;
 }
+/* a recipe linked from the ticker glows briefly on arrival */
+.rcp:target { background: rgba(232, 154, 93, 0.08); box-shadow: inset 0 0 0 1px rgba(232, 154, 93, 0.45); }
 .rlist .rcp:nth-child(3n) { border-right: 0; }
 .rcp__top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .rcp__name { font-size: 17px; font-weight: 500; color: var(--cream); }

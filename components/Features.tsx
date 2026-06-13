@@ -42,7 +42,7 @@ const FEATURES: {
 
 export function Features() {
   return (
-    <section className="sec sec--alt" id="features">
+    <section className="sec sec--alt sec--teal" id="features">
       <div className="wrap">
         <div className="sec__head">
           <Reveal>
@@ -75,27 +75,6 @@ export function Features() {
             </Reveal>
           ))}
         </div>
-
-        <Reveal delay={150} style={{ marginTop: "clamp(40px, 5vw, 68px)" }}>
-          <div className="rband">
-            <div className="rband__n">
-              <span className="rband__num">100+</span>
-              <span className="rband__sub">validated recipes</span>
-            </div>
-            <p className="rband__copy">
-              A recipe is how Calma rebuilds one kind of number — a Sortino ratio, a p95 latency, a
-              pass@1, a Fisher exact p, a WER — from the raw output files. <b>Every one is validated
-              against the published reference implementation</b> (scikit-learn, SciPy, NumPy,
-              numpy-financial, statsmodels) across 385 pinned reference vectors before it ships,
-              and runs deterministically: same inputs, same number, to the bit. New recipes are
-              compiled, not improvised: drafted offline, admitted by a deterministic gate, frozen
-              under a content hash.
-            </p>
-            <a className="pbtn pbtn--amber" href="/recipes">
-              Browse the library
-            </a>
-          </div>
-        </Reveal>
       </div>
     </section>
   );
