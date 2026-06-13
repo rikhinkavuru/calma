@@ -1,6 +1,6 @@
 "use client";
 
-import { Reveal } from "./chrome";
+import { Cross, Reveal } from "./chrome";
 
 const ITEMS: [string, React.ReactNode][] = [
   [
@@ -45,22 +45,41 @@ const ITEMS: [string, React.ReactNode][] = [
 
 export function Faqs() {
   return (
-    <section className="sec sec--light" id="faq">
+    <section className="sec" id="faq">
       <div className="wrap">
-        <div className="sec__head">
-          <Reveal>
-            <span className="kicker">Questions</span>
+        <div className="faqlay">
+          <div className="faqlay__main">
+            <div className="sec__head">
+              <Reveal>
+                <span className="kicker">Questions</span>
+              </Reveal>
+            </div>
+            <div className="faq">
+              {ITEMS.map(([q, a], i) => (
+                <Reveal key={q as string} delay={i * 60}>
+                  <details>
+                    <summary>{q}</summary>
+                    <div className="a">{a}</div>
+                  </details>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+
+          <Reveal delay={150} className="faqlay__aside">
+            <figure className="photo">
+              <Cross className="tl" />
+              <Cross className="br" />
+              <img
+                src="/img/lab.webp"
+                alt="A desk lamp examining a stack of printed pages in a dark room"
+                width={1200}
+                height={896}
+                loading="lazy"
+              />
+              <figcaption className="photo__cap">Whoever did the work never grades it.</figcaption>
+            </figure>
           </Reveal>
-        </div>
-        <div className="faq">
-          {ITEMS.map(([q, a], i) => (
-            <Reveal key={q as string} delay={i * 60}>
-              <details>
-                <summary>{q}</summary>
-                <div className="a">{a}</div>
-              </details>
-            </Reveal>
-          ))}
         </div>
       </div>
     </section>

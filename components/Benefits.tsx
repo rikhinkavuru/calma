@@ -5,7 +5,7 @@ import { Reveal } from "./chrome";
 
 export function Benefits({ onRequest }: { onRequest: () => void }) {
   return (
-    <section className="sec sec--light" id="benefits">
+    <section className="sec sec--spot-cool" id="benefits">
       <div className="wrap">
         <div className="sec__head">
           <Reveal>

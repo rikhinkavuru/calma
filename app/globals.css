@@ -359,6 +359,27 @@ img, svg, canvas { display: block; max-width: 100%; }
 }
 .sec--teal::before { background: linear-gradient(90deg, transparent, rgba(127, 184, 158, 0.4), transparent); }
 
+/* directional atmosphere — depth without another flat color band. one warm, one
+   cool, offset to different corners so they read as light, not stripes */
+.sec--spot::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 0;
+  background: radial-gradient(46% 52% at 26% 46%, rgba(232, 154, 93, 0.11), transparent 70%);
+}
+.sec--spot-cool::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 0;
+  background: radial-gradient(50% 52% at 80% 44%, rgba(77, 138, 115, 0.12), transparent 70%);
+}
+.sec--spot > .wrap, .sec--spot-cool > .wrap { position: relative; z-index: 1; }
+
+/* FAQ + the lab photo, side by side */
+.faqlay { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: clamp(40px, 6vw, 88px); align-items: center; }
+.faqlay__main .sec__head { margin-bottom: clamp(28px, 3.5vw, 40px); }
+.faqlay .faq { max-width: none; }
+@media (max-width: 900px) {
+  .faqlay { grid-template-columns: 1fr; gap: clamp(36px, 8vw, 52px); }
+  .faqlay__aside { order: -1; }
+}
+
 /* LIGHT BAND — flips the local palette to paper + ink so every component that
    reads the tokens adapts automatically. Amber stays the accent (darkened a
    step so it stays legible on paper). Alternated with dark bands for contrast. */

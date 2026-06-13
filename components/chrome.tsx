@@ -87,7 +87,7 @@ function Burger({ open, onToggle }: { open: boolean; onToggle: () => void }) {
    on scroll identically everywhere. Any per-page nav variant is a bug. */
 const NAV_LINKS: { href: string; label: string }[] = [
   { href: "/#problem", label: "The problem" },
-  { href: "/#overview", label: "How it works" },
+  { href: "/#benchmarks", label: "Benchmarks" },
   { href: "/#features", label: "Features" },
   { href: "/recipes", label: "Recipes" },
   { href: "/registry", label: "Registry" },
