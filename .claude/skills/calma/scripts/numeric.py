@@ -2521,3 +2521,177 @@ def holm_rejections(pvals, alpha):
         else:
             break
     return float(count)
+
+
+# ======================================================================================
+# Pack RM - risk-model validation: VaR backtesting + distribution shift / discrimination.
+# ======================================================================================
+
+def _clnp(c, p):
+    return c * dlog(p) if (c > 0 and p > 0) else 0.0
+
+
+def kupiec_pof(flags, p0, output="p"):
+    """Kupiec POF (unconditional coverage) LR test; flags 1 = VaR exception, p0 = expected rate.
+    LR = -2[(n-x)ln(1-p0)+x ln p0 - (n-x)ln(1-pi) - x ln pi]; chi2(1)."""
+    n = len(flags)
+    if n < 1 or _has_nan(flags) or not (0.0 < p0 < 1.0):
+        return float("nan")
+    x = sum(1 for f in flags if f != 0)
+    pi = x / n
+    ll0 = (n - x) * dlog(1 - p0) + _clnp(x, p0)
+    ll1 = _clnp(n - x, 1 - pi) + _clnp(x, pi)
+    lr = -2.0 * (ll0 - ll1)
+    if lr < 0:
+        lr = 0.0
+    return lr if output == "statistic" else chi2_sf(lr, 1)
+
+
+def _markov_counts(flags):
+    n00 = n01 = n10 = n11 = 0
+    for prev, cur in zip(flags, flags[1:]):
+        p_ = 1 if prev != 0 else 0
+        c_ = 1 if cur != 0 else 0
+        if p_ == 0 and c_ == 0:
+            n00 += 1
+        elif p_ == 0 and c_ == 1:
+            n01 += 1
+        elif p_ == 1 and c_ == 0:
+            n10 += 1
+        else:
+            n11 += 1
+    return n00, n01, n10, n11
+
+
+def christoffersen_independence(flags, output="p"):
+    """Christoffersen LR test of independence (first-order Markov) of exceptions; chi2(1)."""
+    if len(flags) < 2 or _has_nan(flags):
+        return float("nan")
+    n00, n01, n10, n11 = _markov_counts(flags)
+    t = n00 + n01 + n10 + n11
+    if t == 0:
+        return float("nan")
+    pi = (n01 + n11) / t
+    pi01 = n01 / (n00 + n01) if (n00 + n01) > 0 else 0.0
+    pi11 = n11 / (n10 + n11) if (n10 + n11) > 0 else 0.0
+    ll_ind = _clnp(n00 + n10, 1 - pi) + _clnp(n01 + n11, pi)
+    ll_mkv = (_clnp(n00, 1 - pi01) + _clnp(n01, pi01)
+              + _clnp(n10, 1 - pi11) + _clnp(n11, pi11))
+    lr = -2.0 * (ll_ind - ll_mkv)
+    if lr < 0:
+        lr = 0.0
+    return lr if output == "statistic" else chi2_sf(lr, 1)
+
+
+def christoffersen_cc(flags, p0, output="p"):
+    """Christoffersen conditional coverage: LR_uc + LR_ind; chi2(2)."""
+    uc = kupiec_pof(flags, p0, "statistic")
+    ind = christoffersen_independence(flags, "statistic")
+    if uc != uc or ind != ind:
+        return float("nan")
+    lr = uc + ind
+    return lr if output == "statistic" else chi2_sf(lr, 2)
+
+
+def psi(expected, actual):
+    """Population Stability Index: sum (a_i - e_i) ln(a_i/e_i) over normalized bin shares."""
+    if len(expected) != len(actual) or not expected or _has_nan(expected) or _has_nan(actual):
+        return float("nan")
+    se = math.fsum(expected)
+    sa = math.fsum(actual)
+    if se <= 0 or sa <= 0:
+        return float("nan")
+    tot = 0.0
+    for e, a in zip(expected, actual):
+        ep, ap = e / se, a / sa
+        if ep <= 0 or ap <= 0:
+            return float("nan")
+        tot += (ap - ep) * dlog(ap / ep)
+    return tot
+
+
+def information_value(groups, labels):
+    """Credit-scoring Information Value: sum (good% - bad%) * ln(good%/bad%) over bins; label 1 = bad."""
+    if len(groups) != len(labels) or not groups or _has_nan(labels):
+        return float("nan")
+    bins = {}
+    for g, y in zip(groups, labels):
+        b = bins.setdefault(g.strip(), [0, 0])
+        b[1 if y != 0 else 0] += 1
+    tg = sum(b[0] for b in bins.values())
+    tb = sum(b[1] for b in bins.values())
+    if tg == 0 or tb == 0:
+        return float("nan")
+    iv = 0.0
+    for b in bins.values():
+        dg, db = b[0] / tg, b[1] / tb
+        if dg > 0 and db > 0:
+            iv += (dg - db) * dlog(dg / db)
+    return iv
+
+
+def kl_divergence(p, q):
+    """Kullback-Leibler divergence sum p ln(p/q) over normalized distributions (scipy.stats.entropy)."""
+    if len(p) != len(q) or not p or _has_nan(p) or _has_nan(q):
+        return float("nan")
+    sp, sq = math.fsum(p), math.fsum(q)
+    if sp <= 0 or sq <= 0:
+        return float("nan")
+    tot = 0.0
+    for pi, qi in zip(p, q):
+        a, b = pi / sp, qi / sq
+        if a > 0:
+            if b <= 0:
+                return float("inf")
+            tot += a * dlog(a / b)
+    return tot
+
+
+def js_divergence(p, q):
+    """Jensen-Shannon divergence (natural log): 0.5 KL(P||M) + 0.5 KL(Q||M), M = (P+Q)/2."""
+    if len(p) != len(q) or not p or _has_nan(p) or _has_nan(q):
+        return float("nan")
+    sp, sq = math.fsum(p), math.fsum(q)
+    if sp <= 0 or sq <= 0:
+        return float("nan")
+    pp = [x / sp for x in p]
+    qq = [x / sq for x in q]
+    mm = [(a + b) / 2.0 for a, b in zip(pp, qq)]
+    kl_pm = math.fsum(a * dlog(a / m) for a, m in zip(pp, mm) if a > 0)
+    kl_qm = math.fsum(a * dlog(a / m) for a, m in zip(qq, mm) if a > 0)
+    return 0.5 * kl_pm + 0.5 * kl_qm
+
+
+def _ecdf_pts(a, b):
+    import bisect
+    sa, sb = sorted(a), sorted(b)
+    allv = sorted(set(sa) | set(sb))
+    na, nb = len(sa), len(sb)
+    return [(x, bisect.bisect_right(sa, x) / na, bisect.bisect_right(sb, x) / nb) for x in allv]
+
+
+def wasserstein_1d(a, b):
+    """1-D Wasserstein-1 distance between two samples: integral |F_a - F_b| (scipy wasserstein_distance)."""
+    if not a or not b or _has_nan(a) or _has_nan(b):
+        return float("nan")
+    pts = _ecdf_pts(a, b)
+    return math.fsum(abs(pts[i][1] - pts[i][2]) * (pts[i + 1][0] - pts[i][0]) for i in range(len(pts) - 1))
+
+
+def energy_distance(a, b):
+    """Energy distance between two samples: sqrt(2 * integral (F_a - F_b)^2) (scipy energy_distance)."""
+    if not a or not b or _has_nan(a) or _has_nan(b):
+        return float("nan")
+    pts = _ecdf_pts(a, b)
+    s2 = math.fsum((pts[i][1] - pts[i][2]) ** 2 * (pts[i + 1][0] - pts[i][0]) for i in range(len(pts) - 1))
+    return math.sqrt(2.0 * s2)
+
+
+def ks_2samp(a, b):
+    """Two-sample Kolmogorov-Smirnov D statistic: max |F_a - F_b| (scipy.stats.ks_2samp.statistic)."""
+    if not a or not b or _has_nan(a) or _has_nan(b):
+        return float("nan")
+    d = 0.0
+    for _, fa, fb in _ecdf_pts(a, b):
+        d = max(d, abs(fa - fb))
+    return d

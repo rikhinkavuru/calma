@@ -1397,3 +1397,70 @@ def holm_rejections(cols, binding, convention=None):
     pvals = cols[binding["value"]]
     alpha = float(convention) if convention else 0.05
     return _result(N.holm_rejections(pvals, alpha), {"m": len(pvals), "alpha": alpha, "method": "holm"})
+
+
+# ======================================================================================
+# Pack RM - risk-model validation: VaR backtesting + distribution shift / discrimination.
+# ======================================================================================
+
+@register("kupiec_pof", family="quant", required_tags=["flag"], set_maturity="reviewed",
+          accepted_conventions=["0.01", "0.025", "0.05"])
+def kupiec_pof(cols, binding, convention=None):
+    flags = cols[binding["flag"]]
+    rate = float(convention) if convention else 0.01
+    return _result(N.kupiec_pof(flags, rate, "p"), {"n": len(flags), "expected_rate": rate})
+
+
+@register("christoffersen_independence", family="quant", required_tags=["flag"], set_maturity="reviewed")
+def christoffersen_independence(cols, binding, convention=None):
+    flags = cols[binding["flag"]]
+    return _result(N.christoffersen_independence(flags, "p"), {"n": len(flags)})
+
+
+@register("christoffersen_cc", family="quant", required_tags=["flag"], set_maturity="reviewed",
+          accepted_conventions=["0.01", "0.025", "0.05"])
+def christoffersen_cc(cols, binding, convention=None):
+    flags = cols[binding["flag"]]
+    rate = float(convention) if convention else 0.01
+    return _result(N.christoffersen_cc(flags, rate, "p"), {"n": len(flags), "expected_rate": rate})
+
+
+@register("psi", family="analytics", required_tags=["expected", "actual"], set_maturity="reviewed")
+def psi(cols, binding, convention=None):
+    e, a = cols[binding["expected"]], cols[binding["actual"]]
+    return _result(N.psi(e, a), {"bins": len(e)})
+
+
+@register("information_value", family="stats", required_tags=["group", "label"], string_tags=["group"],
+          set_maturity="reviewed")
+def information_value(cols, binding, convention=None):
+    g, y = cols[binding["group"]], cols[binding["label"]]
+    return _result(N.information_value(g, y), {"n": len(y), "bad_label": 1})
+
+
+@register("kl_divergence", family="stats", required_tags=["p", "q"], set_maturity="reviewed")
+def kl_divergence(cols, binding, convention=None):
+    return _result(N.kl_divergence(cols[binding["p"]], cols[binding["q"]]), {"bins": len(cols[binding["p"]])})
+
+
+@register("js_divergence", family="stats", required_tags=["p", "q"], set_maturity="reviewed")
+def js_divergence(cols, binding, convention=None):
+    return _result(N.js_divergence(cols[binding["p"]], cols[binding["q"]]), {"bins": len(cols[binding["p"]])})
+
+
+@register("wasserstein_1d", family="stats", required_tags=["sample_a", "sample_b"], set_maturity="reviewed")
+def wasserstein_1d(cols, binding, convention=None):
+    a, b = cols[binding["sample_a"]], cols[binding["sample_b"]]
+    return _result(N.wasserstein_1d(a, b), {"n_a": len(a), "n_b": len(b)})
+
+
+@register("energy_distance", family="stats", required_tags=["sample_a", "sample_b"], set_maturity="reviewed")
+def energy_distance(cols, binding, convention=None):
+    a, b = cols[binding["sample_a"]], cols[binding["sample_b"]]
+    return _result(N.energy_distance(a, b), {"n_a": len(a), "n_b": len(b)})
+
+
+@register("ks_2samp", family="stats", required_tags=["sample_a", "sample_b"], set_maturity="reviewed")
+def ks_2samp(cols, binding, convention=None):
+    a, b = cols[binding["sample_a"]], cols[binding["sample_b"]]
+    return _result(N.ks_2samp(a, b), {"n_a": len(a), "n_b": len(b)})

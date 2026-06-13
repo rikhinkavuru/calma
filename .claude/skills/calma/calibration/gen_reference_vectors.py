@@ -904,6 +904,83 @@ case("bh_rejections", "bh_rejections", {"pvals": pv, "alpha": 0.05},
 case("holm_rejections", "holm_rejections", {"pvals": pv, "alpha": 0.05},
      float(multipletests(pv, alpha=0.05, method="holm")[0].sum()), atol=0.0, rtol=0.0)
 
+# ============================ Pack RM - risk-model validation ============================
+
+
+def _clnp_ref(c, p):
+    return c * float(np.log(p)) if (c > 0 and p > 0) else 0.0
+
+
+# VaR exception sequence (1 = breach)
+ex = [1 if u < 0.03 else 0 for u in uniforms(80, 250)]
+rm_p0 = 0.01
+_nx, _nn = sum(ex), len(ex)
+_pi = _nx / _nn
+_ll0 = (_nn - _nx) * float(np.log(1 - rm_p0)) + _clnp_ref(_nx, rm_p0)
+_ll1 = _clnp_ref(_nn - _nx, 1 - _pi) + _clnp_ref(_nx, _pi)
+_lruc = max(0.0, -2.0 * (_ll0 - _ll1))
+ex_f = [float(f) for f in ex]
+case("kupiec_pof", "kupiec_pof", {"flags": ex_f, "p0": rm_p0}, float(stats.chi2.sf(_lruc, 1)), atol=1e-9)
+_n00 = _n01 = _n10 = _n11 = 0
+for _pr, _cu in zip(ex, ex[1:]):
+    if _pr == 0 and _cu == 0:
+        _n00 += 1
+    elif _pr == 0 and _cu == 1:
+        _n01 += 1
+    elif _pr == 1 and _cu == 0:
+        _n10 += 1
+    else:
+        _n11 += 1
+_t = _n00 + _n01 + _n10 + _n11
+_piC = (_n01 + _n11) / _t
+_pi01 = _n01 / (_n00 + _n01) if (_n00 + _n01) > 0 else 0.0
+_pi11 = _n11 / (_n10 + _n11) if (_n10 + _n11) > 0 else 0.0
+_llind = _clnp_ref(_n00 + _n10, 1 - _piC) + _clnp_ref(_n01 + _n11, _piC)
+_llmkv = (_clnp_ref(_n00, 1 - _pi01) + _clnp_ref(_n01, _pi01)
+          + _clnp_ref(_n10, 1 - _pi11) + _clnp_ref(_n11, _pi11))
+_lrind = max(0.0, -2.0 * (_llind - _llmkv))
+case("christoffersen_independence", "christoffersen_independence", {"flags": ex_f},
+     float(stats.chi2.sf(_lrind, 1)), atol=1e-9)
+case("christoffersen_cc", "christoffersen_cc", {"flags": ex_f, "p0": rm_p0},
+     float(stats.chi2.sf(_lruc + _lrind, 2)), atol=1e-9)
+
+# Population Stability Index
+psi_e = uniforms(81, 12, 1.0, 100.0)
+psi_a = uniforms(82, 12, 1.0, 100.0)
+_se, _sa = sum(psi_e), sum(psi_a)
+_psi = float(sum((a / _sa - e / _se) * np.log((a / _sa) / (e / _se)) for e, a in zip(psi_e, psi_a)))
+case("psi", "psi", {"expected": psi_e, "actual": psi_a}, _psi, atol=1e-11)
+
+# Information value (binned good/bad; label 1 = bad)
+iv_g = [["b1", "b2", "b3", "b4"][int(u * 4)] for u in uniforms(83, 300)]
+iv_y = [1.0 if v < (0.6 if g in ("b1", "b2") else 0.3) else 0.0 for g, v in zip(iv_g, uniforms(84, 300))]
+_ivb = {}
+for _g, _y in zip(iv_g, iv_y):
+    _bb = _ivb.setdefault(_g, [0, 0])
+    _bb[1 if _y != 0 else 0] += 1
+_tg = sum(b[0] for b in _ivb.values())
+_tb = sum(b[1] for b in _ivb.values())
+_iv = float(sum((b[0] / _tg - b[1] / _tb) * np.log((b[0] / _tg) / (b[1] / _tb))
+                for b in _ivb.values() if b[0] > 0 and b[1] > 0))
+case("information_value", "information_value", {"groups": iv_g, "labels": iv_y}, _iv, atol=1e-11)
+
+# KL / JS divergence
+kp = uniforms(85, 15, 0.1, 5.0)
+kq = uniforms(86, 15, 0.1, 5.0)
+case("kl_divergence", "kl_divergence", {"p": kp, "q": kq}, float(stats.entropy(kp, kq)), atol=1e-11)
+_P = np.array(kp) / sum(kp)
+_Q = np.array(kq) / sum(kq)
+_Md = (_P + _Q) / 2.0
+case("js_divergence", "js_divergence", {"p": kp, "q": kq},
+     float(0.5 * stats.entropy(_P, _Md) + 0.5 * stats.entropy(_Q, _Md)), atol=1e-11)
+
+# Wasserstein / energy / two-sample KS
+wa = uniforms(87, 90, 0.0, 10.0)
+wb = uniforms(88, 80, 1.0, 12.0)
+case("wasserstein_1d", "wasserstein_1d", {"a": wa, "b": wb}, float(stats.wasserstein_distance(wa, wb)), atol=1e-10)
+case("energy_distance", "energy_distance", {"a": wa, "b": wb}, float(stats.energy_distance(wa, wb)), atol=1e-10)
+case("ks_2samp", "ks_2samp", {"a": wa, "b": wb}, float(stats.ks_2samp(wa, wb).statistic), atol=1e-12)
+
 # ============================ write ============================
 
 doc = {

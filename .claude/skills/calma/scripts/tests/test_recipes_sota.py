@@ -215,6 +215,17 @@ KINDS = {
     "wilson_upper": lambda a: N.wilson_upper(a["flags"], a["level"]),
     "bh_rejections": lambda a: N.bh_rejections(a["pvals"], a["alpha"]),
     "holm_rejections": lambda a: N.holm_rejections(a["pvals"], a["alpha"]),
+    # pack RM - risk-model validation
+    "kupiec_pof": lambda a: N.kupiec_pof(a["flags"], a["p0"], "p"),
+    "christoffersen_independence": lambda a: N.christoffersen_independence(a["flags"], "p"),
+    "christoffersen_cc": lambda a: N.christoffersen_cc(a["flags"], a["p0"], "p"),
+    "psi": lambda a: N.psi(a["expected"], a["actual"]),
+    "information_value": lambda a: N.information_value(a["groups"], a["labels"]),
+    "kl_divergence": lambda a: N.kl_divergence(a["p"], a["q"]),
+    "js_divergence": lambda a: N.js_divergence(a["p"], a["q"]),
+    "wasserstein_1d": lambda a: N.wasserstein_1d(a["a"], a["b"]),
+    "energy_distance": lambda a: N.energy_distance(a["a"], a["b"]),
+    "ks_2samp": lambda a: N.ks_2samp(a["a"], a["b"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -277,10 +288,13 @@ EXPECTED = {
     # pack ST2 - variance / distribution / nonparametric + CIs + multiplicity (10)
     "levene", "bartlett", "fligner", "kruskal_wallis", "wilcoxon_signed_rank",
     "anderson_darling", "wilson_lower", "wilson_upper", "bh_rejections", "holm_rejections",
+    # pack RM - risk-model validation (10)
+    "kupiec_pof", "christoffersen_independence", "christoffersen_cc", "psi", "information_value",
+    "kl_divergence", "js_divergence", "wasserstein_1d", "energy_distance", "ks_2samp",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 161 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 171 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402
