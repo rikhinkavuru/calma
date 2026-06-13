@@ -1,8 +1,12 @@
 [
-  {"id":"case_30","judgment":"flawed","confidence":62,"reason":"Many y_true=1 rows are predicted 0 (frequent '1,0'); recall looks closer to ~0.70 than the claimed 0.80."},
-  {"id":"case_31","judgment":"flawed","confidence":55,"reason":"Among predicted positives there are substantial false positives ('0,1'); precision estimates near ~0.70, below the claimed 0.76."},
-  {"id":"case_32","judgment":"flawed","confidence":58,"reason":"Error magnitudes (many abs errors ~1.5-1.9) imply RMSE around ~1.25, higher than the claimed 1.04."},
-  {"id":"case_33","judgment":"flawed","confidence":55,"reason":"Residual variance vs large target variance implies R2 around ~0.96-0.97, below the claimed 0.983."},
-  {"id":"case_34","judgment":"honest","confidence":55,"reason":"Same error distribution as the overlapping rows yields RMSE near ~1.15, consistent with the claim."},
-  {"id":"case_35","judgment":"honest","confidence":60,"reason":"Average absolute error across the sample is roughly ~1.0-1.1, consistent with the claimed MAE of 1.0185."}
+  {"id":"case_50","judgment":"flawed","confidence":75,"reason":"Sample shows ~36/150 mismatches (exact_match ~0.76), about 3 SE below the claimed 0.8567."},
+  {"id":"case_51","judgment":"flawed","confidence":70,"reason":"12 false negatives against ~55 true positives in the sample gives recall ~0.82, far below the claimed 0.92 which would predict only ~5-6 FNs."},
+  {"id":"case_52","judgment":"honest","confidence":80,"reason":"36 errors in 150 sampled rows gives accuracy ~0.760, fully consistent with the claimed 0.7697 over 178 rows."},
+  {"id":"case_53","judgment":"flawed","confidence":60,"reason":"Sample returns sum to ~+0.078 (mean ~0.0005/day), extrapolating to ~25-30% total return over 500 days, well short of the claimed 82.9% which needs ~0.0012/day."},
+  {"id":"case_54","judgment":"honest","confidence":97,"reason":"All 42 rows shown: 11x5000 minus 9x3000 plus the 22 remaining trades nets exactly 19024.77, matching the claim to the cent."},
+  {"id":"case_55","judgment":"flawed","confidence":72,"reason":"~34 errors in the 150-row sample gives accuracy ~0.77, about 2.5-3 SE below the claimed 0.8558."},
+  {"id":"case_56","judgment":"flawed","confidence":68,"reason":"Daily std is ~0.007 (annualized ~0.11); the claimed 0.0607 matches neither daily nor annualized convention and looks under-reported by roughly half."},
+  {"id":"case_57","judgment":"flawed","confidence":55,"reason":"7 errors in 150 sampled rows (4.7%) vs claimed 2.89% (expected ~4.3 errors); suggests under-reported error rate, though small counts make this uncertain."},
+  {"id":"case_58","judgment":"flawed","confidence":70,"reason":"~36/150 errors (accuracy ~0.76) with concentrated 3->8 and 8->9 confusions implies macro-F1 ~0.75-0.78, well below the claimed 0.8552."},
+  {"id":"case_59","judgment":"flawed","confidence":55,"reason":"Mean squared error across all 150 sampled rows is consistently ~0.146 (three 50-row blocks: 0.147/0.147/0.146), ~6% above the claimed 0.1382 - a subtle under-report, though near sampling noise."}
 ]

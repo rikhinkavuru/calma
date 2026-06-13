@@ -1,0 +1,264 @@
+{
+  "libraries": {
+    "numpy": "2.4.6",
+    "scikit-learn": "1.9.0",
+    "scipy": "1.17.1"
+  },
+  "tolerance_rel": 1e-09,
+  "bases": 28,
+  "mismatches": 0,
+  "results": [
+    {
+      "base": "acc_a",
+      "metric": "accuracy",
+      "oracle": 0.7875,
+      "reference": 0.7875,
+      "rel_diff": 0.0,
+      "match": true,
+      "reference_impl": "sklearn.metrics.accuracy_score"
+    },
+    {
+      "base": "auc_a",
+      "metric": "auc",
+      "oracle": 0.6712827420378266,
+      "reference": 0.6712827420378266,
+      "rel_diff": 0.0,
+      "match": true,
+      "reference_impl": "sklearn.metrics.roc_auc_score"
+    },
+    {
+      "base": "bacc_a",
+      "metric": "balanced_accuracy",
+      "oracle": 0.8037609875594409,
+      "reference": 0.8037609875594409,
+      "rel_diff": 0.0,
+      "match": true,
+      "reference_impl": "sklearn.metrics.balanced_accuracy_score"
+    },
+    {
+      "base": "brier_a",
+      "metric": "brier",
+      "oracle": 0.13818548001631129,
+      "reference": 0.13818548001631129,
+      "rel_diff": 0.0,
+      "match": true,
+      "reference_impl": "sklearn.metrics.brier_score_loss"
+    },
+    {
+      "base": "cagr_a",
+      "metric": "cagr",
+      "oracle": 0.13696324682301042,
+      "reference": 0.13696324682301042,
+      "rel_diff": 0.0,
+      "match": true,
+      "reference_impl": "(end/start)^(1/years)-1, NumPy"
+    },
+    {
+      "base": "corr_a",
+      "metric": "correlation",
+      "oracle": 0.8683608213860858,
+      "reference": 0.8683608213860857,
+      "rel_diff": 1.2785273094806465e-16,
+      "match": true,
+      "reference_impl": "scipy.stats.pearsonr"
+    },
+    {
+      "base": "em_a",
+      "metric": "exact_match",
+      "oracle": 0.7366666666666667,
+      "reference": 0.7366666666666667,
+      "rel_diff": 0.0,
+      "match": true,
+      "reference_impl": "exact string equality (SQuAD strict EM definition)"
+    },
+    {
+      "base": "err_a",
+      "metric": "error_rate",
+      "oracle": 0.0525,
+      "reference": 0.0525,
+      "rel_diff": 0.0,
+      "match": true,
+      "reference_impl": "mean(flag!=0), NumPy"
+    },
+    {
+      "base": "f1_a",
+      "metric": "f1",
+      "oracle": 0.715568862275449,
+      "reference": 0.7155688622754491,
+      "rel_diff": 1.5515250637021016e-16,
+      "match": true,
+      "reference_impl": "sklearn.metrics.f1_score"
+    },
+    {
+      "base": "logl_a",
+      "metric": "log_loss",
+      "oracle": 0.42149555138619754,
+      "reference": 0.42149555138619754,
+      "rel_diff": 0.0,
+      "match": true,
+      "reference_impl": "sklearn.metrics.log_loss"
+    },
+    {
+      "base": "mae_a",
+      "metric": "mae",
+      "oracle": 1.0184622085714286,
+      "reference": 1.0184622085714288,
+      "rel_diff": 2.1801948374352317e-16,
+      "match": true,
+      "reference_impl": "sklearn.metrics.mean_absolute_error"
+    },
+    {
+      "base": "mape_a",
+      "metric": "mape",
+      "oracle": 0.07672775177570852,
+      "reference": 0.07672775177570852,
+      "rel_diff": 0.0,
+      "match": true,
+      "reference_impl": "sklearn.metrics.mean_absolute_percentage_error"
+    },
+    {
+      "base": "mcc_a",
+      "metric": "mcc",
+      "oracle": 0.5981690915099909,
+      "reference": 0.5981690915099909,
+      "rel_diff": 0.0,
+      "match": true,
+      "reference_impl": "sklearn.metrics.matthews_corrcoef"
+    },
+    {
+      "base": "mean_a",
+      "metric": "column_mean",
+      "oracle": 50.823934618,
+      "reference": 50.823934618,
+      "rel_diff": 0.0,
+      "match": true,
+      "reference_impl": "numpy.mean"
+    },
+    {
+      "base": "med_a",
+      "metric": "column_median",
+      "oracle": 124.929391,
+      "reference": 124.929391,
+      "rel_diff": 0.0,
+      "match": true,
+      "reference_impl": "numpy.median"
+    },
+    {
+      "base": "mrr_a",
+      "metric": "mrr",
+      "oracle": 0.8666666666666667,
+      "reference": 0.8666666666666667,
+      "rel_diff": 0.0,
+      "match": true,
+      "reference_impl": "standard MRR definition, NumPy"
+    },
+    {
+      "base": "p95_a",
+      "metric": "latency_p95",
+      "oracle": 308.22815,
+      "reference": 308.22815,
+      "rel_diff": 0.0,
+      "match": true,
+      "reference_impl": "numpy.percentile(95) [linear/method-7]"
+    },
+    {
+      "base": "prauc_a",
+      "metric": "pr_auc",
+      "oracle": 0.9191351031969084,
+      "reference": 0.9191351031969078,
+      "rel_diff": 6.039498550123979e-16,
+      "match": true,
+      "reference_impl": "sklearn.metrics.average_precision_score"
+    },
+    {
+      "base": "prec_a",
+      "metric": "precision",
+      "oracle": 0.7616580310880829,
+      "reference": 0.7616580310880829,
+      "rel_diff": 0.0,
+      "match": true,
+      "reference_impl": "sklearn.metrics.precision_score"
+    },
+    {
+      "base": "r2_a",
+      "metric": "r2",
+      "oracle": 0.8436587872232865,
+      "reference": 0.8436587872232865,
+      "rel_diff": 0.0,
+      "match": true,
+      "reference_impl": "sklearn.metrics.r2_score"
+    },
+    {
+      "base": "rec_a",
+      "metric": "recall",
+      "oracle": 0.8,
+      "reference": 0.8,
+      "rel_diff": 0.0,
+      "match": true,
+      "reference_impl": "sklearn.metrics.recall_score"
+    },
+    {
+      "base": "rk_a",
+      "metric": "recall_at_k",
+      "oracle": 0.7984325396825397,
+      "reference": 0.7984325396825397,
+      "rel_diff": 0.0,
+      "match": true,
+      "reference_impl": "standard IR recall@k (TREC convention), NumPy"
+    },
+    {
+      "base": "rmse_a",
+      "metric": "rmse",
+      "oracle": 1.1536352188620829,
+      "reference": 1.1536352188620829,
+      "rel_diff": 0.0,
+      "match": true,
+      "reference_impl": "sqrt(sklearn.metrics.mean_squared_error)"
+    },
+    {
+      "base": "shp_a",
+      "metric": "sharpe",
+      "oracle": 2.149336215260076,
+      "reference": 2.1493362152600755,
+      "rel_diff": 2.0661691116404816e-16,
+      "match": true,
+      "reference_impl": "mean/std(ddof=1)*sqrt(252), NumPy"
+    },
+    {
+      "base": "srt_a",
+      "metric": "sortino",
+      "oracle": 4.743270001928424,
+      "reference": 4.7432700019284235,
+      "rel_diff": 1.872502344034869e-16,
+      "match": true,
+      "reference_impl": "mean/downside-RMS*sqrt(252) (Sortino & Price 1994), NumPy"
+    },
+    {
+      "base": "sum_a",
+      "metric": "column_sum",
+      "oracle": 49709.469262,
+      "reference": 49709.469262,
+      "rel_diff": 0.0,
+      "match": true,
+      "reference_impl": "numpy.sum"
+    },
+    {
+      "base": "tr_a",
+      "metric": "total_return",
+      "oracle": 0.7688988022187913,
+      "reference": 0.7688988022187913,
+      "rel_diff": 0.0,
+      "match": true,
+      "reference_impl": "prod(1+r)-1, NumPy"
+    },
+    {
+      "base": "vol_a",
+      "metric": "volatility",
+      "oracle": 0.11032613729295615,
+      "reference": 0.11032613729295615,
+      "rel_diff": 0.0,
+      "match": true,
+      "reference_impl": "std(ddof=1)*sqrt(252), NumPy"
+    }
+  ]
+}

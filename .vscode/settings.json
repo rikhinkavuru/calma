@@ -1,0 +1,26 @@
+{
+  // Keep VSCode's file watcher + search indexer off the heavy regenerable dirs.
+  // (node_modules is ~10k files and .next regrows to ~80MB on every build - watching
+  // them is what pegs the CPU / overheats the machine when this folder is open.)
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/.next/**": true,
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/__pycache__/**": true,
+    "**/.calma/**": true,
+    "**/.calma_venv/**": true,
+    "**/benchmark/cases/**/runs/**": true,
+    "**/.gstack/**": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/.next": true,
+    "**/__pycache__": true,
+    "**/.calma": true,
+    "**/.calma_venv": true,
+    "**/package-lock.json": true
+  },
+  // don't let the TS server eat memory indexing the whole monorepo's JS
+  "typescript.tsserver.maxTsServerMemory": 2048
+}

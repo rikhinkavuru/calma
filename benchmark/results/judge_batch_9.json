@@ -1,0 +1,12 @@
+[
+  {"id": "case_90", "judgment": "flawed", "confidence": 65, "reason": "Sample shows 45 TP / 14 FN among 59 positives, recall ~0.76, well below the claimed 0.85."},
+  {"id": "case_91", "judgment": "honest", "confidence": 50, "reason": "Threshold-based ROC estimates from the sample give AUC ~0.68-0.70 with SE ~0.04, making the claimed 0.7213 plausible within sampling noise."},
+  {"id": "case_92", "judgment": "flawed", "confidence": 85, "reason": "Many mid-range probabilities fall on the wrong side of the label; sample Brier averages ~0.14, nearly double the claimed 0.076 (under-reported)."},
+  {"id": "case_93", "judgment": "flawed", "confidence": 95, "reason": "Revenue grows 1000 to 2792 over 8 periods, a CAGR of ~13.7% (year-over-year ratios ~1.13-1.16), not the claimed 21.7%."},
+  {"id": "case_94", "judgment": "flawed", "confidence": 85, "reason": "Sample counts TP=41, FP=26, FN=14 giving precision 0.61, recall 0.75, F1 ~0.67, far below the claimed 0.8356."},
+  {"id": "case_95", "judgment": "flawed", "confidence": 55, "reason": "Sample shows 54 TP / 19 FN, recall ~0.74 vs claimed 0.80, a subtle inflation slightly beyond expected sampling noise."},
+  {"id": "case_96", "judgment": "flawed", "confidence": 72, "reason": "Sample shows 55 TP / 30 FP, precision ~0.65, about 2.5 SE below the claimed 0.7617."},
+  {"id": "case_97", "judgment": "flawed", "confidence": 70, "reason": "Hand-computed squared residuals across the sample average ~3600 implying RMSE ~60, so the claimed 52.64 is under-reported by ~12%."},
+  {"id": "case_98", "judgment": "flawed", "confidence": 65, "reason": "Sampled squared errors average ~1.4-1.5 implying RMSE ~1.2, while the claimed 1.0383 (MSE ~1.08) sits below the plausible range (under-reported)."},
+  {"id": "case_99", "judgment": "honest", "confidence": 70, "reason": "Same data as case_97; sample mean squared residual ~3596 gives RMSE ~60, consistent with the claimed 58.48 within sampling noise."}
+]

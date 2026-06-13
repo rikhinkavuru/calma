@@ -2,7 +2,7 @@
 
 A reproducible benchmark for the one job that matters: given a computational result and a *claimed*
 headline number, decide whether the claim is **honest** (matches what the data actually yields) or
-**flawed** (materially wrong). It compares three approaches on the same labeled corpus:
+**flawed** (materially wrong). Three approaches, same 117 labeled cases:
 
 | approach | what it does |
 |---|---|
@@ -10,67 +10,87 @@ headline number, decide whether the claim is **honest** (matches what the data a
 | **LLM-as-judge** | the common "ask an LLM whether this result looks right" eval — reasons over the data + claim, **no code execution** |
 | **Calma** | re-executes the project and **recomputes** the metric from the raw outputs on deterministic kernels |
 
-## Corpus
+## Corpus: 117 cases, 3 tracks, 30 metrics, 8 families
 
-`gen_corpus.py` builds **36 cases** (12 honest + 12 *obvious* flaws + 12 *subtle* flaws) across 12 datasets
-spanning classification (accuracy, precision, recall, f1, auc), quant (total_return, sharpe), regression
-(rmse, mae, r2), and analytics (column_sum, column_mean). Every dataset is 500–1000 rows of deterministic,
-pure-stdlib data; the **true** value is computed by an *independent* pure-Python oracle (not Calma's
-kernels). Two flaw tiers:
-- **obvious** — a large overclaim a reviewer could catch by eyeballing a sample (e.g. accuracy +0.12).
-- **subtle** — small but real (e.g. accuracy +0.05, sum +4%): beyond Calma's statistical band so it
-  deterministically refutes, yet inside the noise of eyeballing a 150-row sample.
+**Synthetic track (84 cases).** 28 deterministic pure-stdlib bases across classification (accuracy,
+precision, recall, f1, auc, log_loss, brier, mcc, balanced_accuracy), retrieval/LLM-eval (pr_auc,
+recall@5, mrr, exact_match), regression + forecasting (rmse, mae, r2, mape), quant (total_return,
+sharpe, volatility, sortino, cagr), analytics (sum, mean, median), engineering (latency p95,
+error_rate), and stats (pearson correlation). Every ground-truth oracle is **cross-validated against
+the published reference implementation** — scikit-learn, SciPy, NumPy — to ≤1e-9 relative
+(`validate_oracles.py`; recorded run: **28/28 exact** on scikit-learn 1.9.0 / SciPy 1.17.1 /
+NumPy 2.4.6 — `results/oracle_validation.json`).
 
-The LLM-judge sees an **anonymized** case (opaque id, the metric, the claim, and a ≤150-row sample of the
-output) — no generator code, no labels, with sibling variants shuffled across batches (`prep_judge.py`).
+**External track (29 cases).** Real scikit-learn models on **recognized benchmark datasets** —
+Breast Cancer Wisconsin (UCI), Optical Handwritten Digits (UCI), Wine (UCI), and the Diabetes
+regression benchmark (Efron et al. 2004) — with 5-fold out-of-fold predictions (fixed seeds) frozen
+to CSV. Ground truth is **scikit-learn's own metric** on those predictions (the canonical
+implementation, version recorded in the manifest). Models are feature-restricted/regularized so
+metrics land in the realistic model-card range rather than ceiling values.
 
-## Results (recorded run; `results/summary.json`)
+**Real-world track (4 cases).** Cases with citable provenance: a replication of a **published
+academic-correction case** (the civil-war RF leakage study — reported AUC ~0.97, leakage-corrected
+~0.91; the claim under test is the published inflated number), a real BTC backtest that claimed
+**+14,698%** (recomputes to −32.4% out-of-sample), and two real vendored GitHub repos
+(sh-mukherjee/momentum-strategy, HilmiSamdya/btc-sma-backtest) with their honest numbers.
+
+**Flaw tiers.** Each base carries an honest claim, an **obvious** flaw (a large misreport a reviewer
+could catch by eyeballing a sample), and a **subtle** flaw (a few points / 4–10% — the way numbers
+actually get shaded), with sign-aware direction (lower-is-better metrics get *under*-reported).
+Where a dataset is too small for a subtle lie to clear the 95% sampling band (Wine, n=178), the
+subtle tier is dropped — a refusal to refute a statistically indistinguishable claim is *correct*,
+and the benchmark doesn't punish honesty.
+
+**Anonymization.** The LLM judge sees opaque ids, the metric, the claim, and a ≤150-row sample —
+no labels, no generator code, siblings shuffled across batches with different sample windows
+(`prep_judge.py`).
+
+## Results (recorded run; `results/summary.json`, `results/site_data.json`)
 
 ```
-method                    catch%   caught   MISSED FALSE-AL  abstain
-trust-the-number              0%     0/24       24        0        0
-LLM-as-judge (no exec)       71%    17/24        7        3        0
-Calma                       100%    24/24        0        0        0
+method                    catch%   caught   MISSED  FALSE-AL  abstain
+trust-the-number              0%     0/77       77         0        0
+LLM-as-judge (no exec)       82%    63/77       14        12        0
+Calma                       100%    77/77        0         0        0
 ```
-- **MISSED** = a flawed claim called honest (**false-confirm** — the dangerous error that launders a wrong number).
-- **FALSE-AL** = an honest claim called flawed (**false-alarm** — cries wolf).
-- **abstain** = a safe non-answer (CAN'T-CONFIRM); never a wrong verdict.
+- **MISSED** = flawed claim called honest (**false-confirm** — the dangerous error that launders a wrong number)
+- **FALSE-AL** = honest claim called flawed (**false-alarm** — cries wolf)
 
-**Calma catches every flawed claim (100%) with zero false-confirms and zero false-alarms.** The LLM-judge
-catches fewer (71%) and, worse, is **wrong 10 times in two directions** (7 false-confirms + 3 false-alarms):
-it both blesses fabricated numbers and rejects honest ones — and *you can't tell which of its calls to
-trust*. trust-the-number (the status quo) launders all 24 fabrications.
-
-### By flaw tier
+### By difficulty and by track
 
 ```
-method                  obvious   subtle   false-alarm
-LLM-as-judge (no exec)      83%      58%        3
-Calma                      100%     100%        0
+                          obvious   subtle   real-world   false-alarms     synthetic  external(UCI)  real-world
+LLM-as-judge (no exec)       97%      68%        50%           12            80%/18w     89%/7w        50%/1w
+Calma                       100%     100%       100%            0           100%/0w     100%/0w       100%/0w
+                                                                            (catch% / wrong verdicts)
 ```
 
-The gap widens on **subtle** flaws (a few points off — rounding in your favor): the judge catches ~58% of
-them by eyeballing a sample (often by luck, with false-alarms), while Calma's deterministic recompute
-catches **100%** with no false-alarms. (Flaws *within* Calma's statistical band are correctly CONFIRMED —
-it is statistically honest, not infinitely sensitive; the subtle tier here uses fixed small margins that
-sit just beyond the band yet inside eyeballing noise.)
-
-Latency: Calma re-executes + recomputes each case with a **p50 of ~220 ms** (`results/calma.json`).
+**The headline isn't the catch rate — it's the error columns.** The judge is strong on obvious
+flaws (97%) but collapses where it matters: **68% on subtle shading, 50% on the real-world cases**,
+and it was *wrong 26 times in two directions* — it both blessed fabricated numbers (14×) and
+rejected honest ones (12×), and nothing in its output tells you which calls to trust. Calma caught
+**every flaw on every track — including the published leakage case and the +14,698% backtest — with
+zero wrong verdicts**, at a **p50 of ~216 ms** per verification.
 
 ## Honest caveats
 
-- The LLM-judge is the realistic *eval* condition (no execution). A judge **allowed to write and run code**
-  would approach Calma's accuracy — but that is just re-execution without Calma's determinism, zero-false
-  guarantees, isolation, and signed/replayable proof; it is not the "LLM-as-judge" baseline people deploy.
-- **Data-validation** tools (Great Expectations / pandera) check schemas and value ranges, not whether a
+- The LLM-judge is the realistic *eval* condition (no execution). A judge allowed to write and run
+  code would approach Calma's accuracy — but that is re-execution without Calma's determinism,
+  zero-false-verdict guarantees, sandbox isolation, and signed/replayable proof.
+- Data-validation tools (Great Expectations / pandera) check schemas and ranges, not whether a
   *claimed metric* recomputes — they would catch ~0 of these by construction (not run here).
+- Calma's recipes are themselves validated against 385 byte-reproducible reference vectors from
+  published implementations (`assets/reference_vectors.json`) — independent of this benchmark.
 
 ## Reproduce
 
 ```bash
-python3 benchmark/gen_corpus.py     # build the labeled corpus (deterministic) + manifest.json
-python3 benchmark/run_calma.py      # Calma over the corpus -> results/calma.json
-python3 benchmark/prep_judge.py     # anonymized judge batches -> judge_batches/ + judge_map.json
+python3 benchmark/gen_corpus.py                     # synthetic track (deterministic, stdlib)
+python3 -m venv /tmp/calma_bench_venv && /tmp/calma_bench_venv/bin/pip install numpy scikit-learn scipy
+/tmp/calma_bench_venv/bin/python benchmark/external_track.py    # UCI/sklearn track + real-world entries
+/tmp/calma_bench_venv/bin/python benchmark/validate_oracles.py  # oracle cross-validation report
+python3.13 benchmark/run_calma.py                   # calma over all 117 (3.13: momentum deps need cp313 wheels)
+python3 benchmark/prep_judge.py                     # anonymized judge batches
 #   run the LLM-as-judge on each judge_batches/batch_*.json (no code execution) -> results/judge_batch_*.json
-python3 benchmark/score.py          # three-way comparison -> table + results/summary.json
+python3 benchmark/score.py                          # tables + summary.json + site_data.json
 ```

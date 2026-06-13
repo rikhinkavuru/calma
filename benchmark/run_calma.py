@@ -23,12 +23,30 @@ def _predict(verdict):
     return "abstain"
 
 
+def _restore_deps(case_dir):
+    """A real-world repo with a requirements.txt needs its deps in <dir>/.calma_venv (the verify
+    runs the entrypoint under that venv). One-time per checkout; pure-stdlib cases skip this.
+    NOTE: pinned wheels may require python3.13 (pandas 2.2.3 has no cp314 wheels) - run this
+    harness with a matching interpreter (see benchmark/README.md)."""
+    req = os.path.join(case_dir, "requirements.txt")
+    venv = os.path.join(case_dir, ".calma_venv")
+    if not os.path.exists(req) or os.path.exists(venv):
+        return
+    print("  restoring deps for %s (one-time)..." % os.path.basename(case_dir))
+    subprocess.run([sys.executable, "-m", "venv", venv], check=True, capture_output=True)
+    subprocess.run([os.path.join(venv, "bin", "pip"), "install", "-q", "--only-binary=:all:",
+                    "-r", req], check=True, capture_output=True, timeout=600)
+
+
 def run():
     manifest = json.load(open(os.path.join(HERE, "manifest.json")))
     out = []
     for m in manifest:
+        _restore_deps(m["dir"])
         t0 = time.time()
-        p = subprocess.run([sys.executable, CALMA, "verify", m["dir"], str(m["claim"]),
+        # claim_text carries any convention the claim needs (e.g. "recall@5 0.62" -> k=5)
+        p = subprocess.run([sys.executable, CALMA, "verify", m["dir"],
+                            m.get("claim_text") or str(m["claim"]),
                             "--metric", m["metric"], "--json", "--force"],
                            capture_output=True, text=True)
         ms = int((time.time() - t0) * 1000)

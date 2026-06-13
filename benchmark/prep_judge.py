@@ -16,10 +16,13 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SAMPLE = 150
 
 
-def _read_body(case_dir):
-    runs = os.path.join(case_dir, "runs")
-    art = next(f for f in sorted(os.listdir(runs)) if f.endswith(".csv"))
-    with open(os.path.join(runs, art)) as f:
+def _read_body(case_dir, artifact=None):
+    if artifact:
+        path = os.path.join(case_dir, artifact)
+    else:
+        runs = os.path.join(case_dir, "runs")
+        path = os.path.join(runs, next(f for f in sorted(os.listdir(runs)) if f.endswith(".csv")))
+    with open(path) as f:
         lines = f.read().splitlines()
     return lines[0], lines[1:]
 
@@ -35,12 +38,12 @@ def main():
         m = manifest[mi]
         opaque = "case_%02d" % opaque_idx
         mapping[opaque] = m["id"]
-        header, body = _read_body(m["dir"])
+        header, body = _read_body(m["dir"], m.get("artifact"))
         # a per-case contiguous window (offset by the opaque index) so sibling variants that share a
         # dataset don't present byte-identical samples
         off = (opaque_idx * 7) % max(1, len(body) - SAMPLE) if len(body) > SAMPLE else 0
         sample = body[off:off + SAMPLE]
-        cases.append({"id": opaque, "metric": m["metric"], "claim": m["claim"],
+        cases.append({"id": opaque, "metric": m.get("display") or m["metric"], "claim": m["claim"],
                       "n_rows": m["n_rows"], "columns": header,
                       "sample_note": "showing %d of %d rows" % (len(sample), m["n_rows"]),
                       "sample_csv": "\n".join([header] + sample)})
@@ -48,7 +51,7 @@ def main():
     os.makedirs(os.path.join(HERE, "judge_batches"), exist_ok=True)
     for f in os.listdir(os.path.join(HERE, "judge_batches")):
         os.remove(os.path.join(HERE, "judge_batches", f))
-    k = 6
+    k = 10
     batches = [cases[i:i + k] for i in range(0, len(cases), k)]
     for i, b in enumerate(batches):
         json.dump(b, open(os.path.join(HERE, "judge_batches", "batch_%d.json" % i), "w"), indent=2)

@@ -1,0 +1,9 @@
+[
+  {"id": "case_110", "judgment": "honest", "confidence": 70, "reason": "Mentally summing absolute errors across all 150 sample rows gives MAE ~49.8 (early rows ~53, last 30 rows ~33), consistent with the claimed 48.93 within sampling noise."},
+  {"id": "case_111", "judgment": "flawed", "confidence": 88, "reason": "Revenue grows 1000 -> 2792.36 over 9 rows = 8 compounding periods, so CAGR = 2.792^(1/8)-1 ~ 13.7% (YoY growth mostly ~13.5%), while the claimed 15.7% matches the off-by-one ^(1/7) computation."},
+  {"id": "case_112", "judgment": "flawed", "confidence": 65, "reason": "The 150-row sample has 38 mismatches (accuracy ~0.747) with weak classes 4 (~0.53 recall) and 8 (~0.44 recall), giving balanced accuracy ~0.75-0.77, several points below the claimed 0.8055."},
+  {"id": "case_113", "judgment": "flawed", "confidence": 60, "reason": "Mean squared error (prob vs label) over the 150-row sample is ~0.105, and a calibration decomposition agrees (~0.10), making the claimed 0.1244 about 18% off."},
+  {"id": "case_114", "judgment": "honest", "confidence": 85, "reason": "Summing absolute errors over all 150 sample rows gives MAE ~1.01, matching the claimed 1.0185 closely."},
+  {"id": "case_115", "judgment": "honest", "confidence": 85, "reason": "Running mean of absolute percentage errors over the first 50 sample rows stabilizes at ~0.069-0.070, matching the claimed 0.0691."},
+  {"id": "case_116", "judgment": "flawed", "confidence": 85, "reason": "Sample mean daily return ~0.00067 with downside deviation ~0.004 implies an annualized Sortino around 2.5-3, far below the claimed 6.243 (over 2x inflated)."}
+]

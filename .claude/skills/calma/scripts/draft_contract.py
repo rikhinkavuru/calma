@@ -855,7 +855,7 @@ def _detect_entrypoint(target):
 TAG_ALIASES = {"prob": ("score",), "target": ("label",), "value": ("duration",)}
 
 
-def _pick_metric(arts, forced=None):
+def _pick_metric(arts, forced=None, target=None):
     """Return (metric_id, artifact_rel, binding, binding_status) or None."""
     # map tag -> (artifact, column, grade)
     available = {}
@@ -864,11 +864,15 @@ def _pick_metric(arts, forced=None):
             if spec["tag"]:
                 available.setdefault(spec["tag"], (a["path"], cname, spec["grade"]))
     wanted = None
+    metric_string_tags = set()
     if forced:
         # bind whatever tags the recipe needs from availability
         import recipes as R
         fn = R.get(forced)
         req = set((fn.manifest.get("required_tags") if fn else []) or [])
+        # tags this RECIPE declares as string-typed (e.g. exact_match's prediction/reference):
+        # their numeric grade is meaningless for text - they re-grade as string keys below
+        metric_string_tags = set((fn.manifest.get("string_tags") if fn else []) or [])
         wanted = (req, forced)
     else:
         for tags, mid in METRIC_BY_TAGS:
@@ -895,9 +899,18 @@ def _pick_metric(arts, forced=None):
         if source not in available:
             return None
         art, col, grade = available[source]
-        if (forced and grade == "plausibly-bound" and source in upgradable
-                and by_art.get(art, {}).get(col, {}).get("finite")
-                and sum(1 for s in by_art.get(art, {}).values() if s.get("tag") == source) == 1):
+        unique = sum(1 for s in by_art.get(art, {}).values() if s.get("tag") == source) == 1
+        if forced and t in metric_string_tags and target and unique:
+            # metric-declared STRING column (e.g. exact_match prediction/reference): grade by
+            # string-key coverage like query/group - the numeric grade is meaningless for text
+            full = os.path.join(target, art)
+            try:
+                header = next(csv.reader(open(full, newline="")))
+                grade = _grade_string_key(_sample_strings(full, header.index(col)))
+            except (OSError, StopIteration, ValueError):
+                grade = "author-asserted"
+        elif (forced and grade == "plausibly-bound" and source in upgradable
+                and by_art.get(art, {}).get(col, {}).get("finite") and unique):
             grade = "independently-bound"
         binding[t] = col
         grades.append(grade)
@@ -930,7 +943,7 @@ def draft(target, claim=None, metric=None):
         "metrics": [],
         "baselines": [],
     }
-    picked = _pick_metric(arts, metric)
+    picked = _pick_metric(arts, metric, target=target)
     if picked:
         mid, art, binding, grade = picked
         # Claim-aware disambiguation: a claim ABOUT the benchmark ("buy and hold returned X",

@@ -1,35 +1,38 @@
 {
   "trust-the-number": {
-    "flawed": 24,
-    "honest": 12,
+    "flawed": 77,
+    "honest": 40,
     "caught": 0,
-    "false_confirm": 24,
+    "false_confirm": 77,
     "abstain_flawed": 0,
-    "passed": 12,
+    "passed": 40,
     "false_alarm": 0,
     "abstain_honest": 0,
-    "catch_rate": 0.0
+    "catch_rate": 0.0,
+    "wrong": 77
   },
   "LLM-as-judge (no exec)": {
-    "flawed": 24,
-    "honest": 12,
-    "caught": 17,
-    "false_confirm": 7,
+    "flawed": 77,
+    "honest": 40,
+    "caught": 63,
+    "false_confirm": 14,
     "abstain_flawed": 0,
-    "passed": 9,
-    "false_alarm": 3,
+    "passed": 28,
+    "false_alarm": 12,
     "abstain_honest": 0,
-    "catch_rate": 0.7083333333333334
+    "catch_rate": 0.8181818181818182,
+    "wrong": 26
   },
   "Calma": {
-    "flawed": 24,
-    "honest": 12,
-    "caught": 24,
+    "flawed": 77,
+    "honest": 40,
+    "caught": 77,
     "false_confirm": 0,
     "abstain_flawed": 0,
-    "passed": 12,
+    "passed": 40,
     "false_alarm": 0,
     "abstain_honest": 0,
-    "catch_rate": 1.0
+    "catch_rate": 1.0,
+    "wrong": 0
   }
 }

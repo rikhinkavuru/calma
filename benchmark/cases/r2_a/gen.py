@@ -11,7 +11,7 @@ rows = []
 for i in range(700):
     x = next(g) * 10.0
     y_true = 3.0 * x + 2.0
-    y_pred = y_true + (next(g) - 0.5) * 4.0
+    y_pred = y_true + (next(g) - 0.5) * 12.0
     rows.append((round(y_true, 6), round(y_pred, 6)))
 with open("runs/reg.csv", "w", newline="") as f:
     w = csv.writer(f); w.writerow(["target", "prediction"])

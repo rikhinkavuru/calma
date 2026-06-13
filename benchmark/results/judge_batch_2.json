@@ -1,8 +1,12 @@
 [
-  {"id":"case_12","judgment":"honest","confidence":80,"reason":"Values are uniform over [0,100] and well-spread, so a sample mean of ~50.82 is consistent with the data."},
-  {"id":"case_13","judgment":"flawed","confidence":78,"reason":"Among y_pred=1 rows the sample has many 0,1 false positives, implying precision ~0.6, far below the claimed 0.8817."},
-  {"id":"case_14","judgment":"flawed","confidence":75,"reason":"Sample shows abundant 0,1 false positives and 1,0 false negatives, giving F1 ~0.6 rather than the claimed 0.7656."},
-  {"id":"case_15","judgment":"flawed","confidence":82,"reason":"Residuals are commonly ~1-2 against a target std of ~9, implying R2 ~0.99, not the claimed 0.999."},
-  {"id":"case_16","judgment":"flawed","confidence":80,"reason":"Per-row absolute errors average roughly 1.2-1.4, well above the claimed MAE of 0.5602."},
-  {"id":"case_17","judgment":"flawed","confidence":80,"reason":"Score shows almost no separation between y_true classes (many true=1 with low scores, true=0 with high), implying AUC near 0.5, not 0.7913."}
+  {"id": "case_20", "judgment": "honest", "confidence": 55, "reason": "Sample mean ~0.00097/day with std ~0.0057 gives annualized Sharpe ~2.5-2.8, and the claim-implied mean (0.00078) is within 0.5 SE of the sample mean, so 2.149 is consistent."},
+  {"id": "case_21", "judgment": "flawed", "confidence": 70, "reason": "14 of 150 sampled latencies (9.3%) exceed the claimed p95 of 277.4 where ~5% should (z~2.4), and the sample's own p95 is ~303ms, so the claim is under-reported by ~9%."},
+  {"id": "case_22", "judgment": "honest", "confidence": 45, "reason": "Sample mean return ~+0.00036/day extrapolates to a cumulative growth factor ~1.17-1.27 over 500 days, comfortably consistent with the claimed 1.2689 given sampling error."},
+  {"id": "case_23", "judgment": "honest", "confidence": 60, "reason": "33 mismatches in 150 rows gives 0.78 sample exact-match vs claim 0.7367, only ~1.2 SD apart for a 150-of-600 sample — within binomial noise."},
+  {"id": "case_24", "judgment": "honest", "confidence": 60, "reason": "Residual MSE estimated from ~70 sampled pairs is ~3550 against target variance ~5900, giving R2 ~0.40, matching the claimed 0.4232 within estimation noise."},
+  {"id": "case_25", "judgment": "flawed", "confidence": 68, "reason": "35 mismatches (15 '1,0' + 20 '0,1') in 150 rows gives sample accuracy 0.767 vs claim 0.8375 (z~2.35) — accuracy over-reported by ~7 points."},
+  {"id": "case_26", "judgment": "flawed", "confidence": 62, "reason": "Summing absolute errors over all 150 sampled rows gives MAE ~1.01 (errors look uniform on [0,2]), so the claimed 0.9166 is ~9% under-reported (~2 SD) for a lower-is-better metric."},
+  {"id": "case_27", "judgment": "honest", "confidence": 72, "reason": "Sample of 150 averages ~51.6 vs claim-implied mean 51.70 for the 1000-row sum, well within the ~2.4 standard error."},
+  {"id": "case_28", "judgment": "flawed", "confidence": 75, "reason": "Sample confusion counts (TP=92, FP=9, FN=0) give F1 ~0.953; the claim 0.9112 exactly equals the precision and would require ~9% false negatives that the 92 sampled positives rule out."},
+  {"id": "case_29", "judgment": "honest", "confidence": 72, "reason": "Sample of 150 averages ~51.3 vs claimed mean 50.82, within the ~2.4 standard error for a uniform 0-100 column."}
 ]

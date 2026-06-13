@@ -10,7 +10,7 @@
     "recomputed": 0.7875,
     "prediction": "honest",
     "correct": true,
-    "ms": 301
+    "ms": 238
   },
   {
     "id": "acc_a_obvious",
@@ -23,7 +23,7 @@
     "recomputed": 0.7875,
     "prediction": "flawed",
     "correct": true,
-    "ms": 273
+    "ms": 218
   },
   {
     "id": "acc_a_subtle",
@@ -36,7 +36,7 @@
     "recomputed": 0.7875,
     "prediction": "flawed",
     "correct": true,
-    "ms": 243
+    "ms": 222
   },
   {
     "id": "prec_a_honest",
@@ -49,7 +49,7 @@
     "recomputed": 0.7616580310880829,
     "prediction": "honest",
     "correct": true,
-    "ms": 247
+    "ms": 229
   },
   {
     "id": "prec_a_obvious",
@@ -62,7 +62,7 @@
     "recomputed": 0.7616580310880829,
     "prediction": "flawed",
     "correct": true,
-    "ms": 241
+    "ms": 227
   },
   {
     "id": "prec_a_subtle",
@@ -75,7 +75,7 @@
     "recomputed": 0.7616580310880829,
     "prediction": "flawed",
     "correct": true,
-    "ms": 238
+    "ms": 227
   },
   {
     "id": "rec_a_honest",
@@ -88,7 +88,7 @@
     "recomputed": 0.8,
     "prediction": "honest",
     "correct": true,
-    "ms": 255
+    "ms": 229
   },
   {
     "id": "rec_a_obvious",
@@ -101,7 +101,7 @@
     "recomputed": 0.8,
     "prediction": "flawed",
     "correct": true,
-    "ms": 221
+    "ms": 227
   },
   {
     "id": "rec_a_subtle",
@@ -114,7 +114,7 @@
     "recomputed": 0.8,
     "prediction": "flawed",
     "correct": true,
-    "ms": 220
+    "ms": 214
   },
   {
     "id": "f1_a_honest",
@@ -127,7 +127,7 @@
     "recomputed": 0.715568862275449,
     "prediction": "honest",
     "correct": true,
-    "ms": 215
+    "ms": 211
   },
   {
     "id": "f1_a_obvious",
@@ -140,7 +140,7 @@
     "recomputed": 0.715568862275449,
     "prediction": "flawed",
     "correct": true,
-    "ms": 218
+    "ms": 210
   },
   {
     "id": "f1_a_subtle",
@@ -153,7 +153,7 @@
     "recomputed": 0.715568862275449,
     "prediction": "flawed",
     "correct": true,
-    "ms": 205
+    "ms": 206
   },
   {
     "id": "auc_a_honest",
@@ -166,7 +166,7 @@
     "recomputed": 0.6712827420378266,
     "prediction": "honest",
     "correct": true,
-    "ms": 259
+    "ms": 261
   },
   {
     "id": "auc_a_obvious",
@@ -179,7 +179,7 @@
     "recomputed": 0.6712827420378266,
     "prediction": "flawed",
     "correct": true,
-    "ms": 264
+    "ms": 249
   },
   {
     "id": "auc_a_subtle",
@@ -192,85 +192,319 @@
     "recomputed": 0.6712827420378266,
     "prediction": "flawed",
     "correct": true,
-    "ms": 311
+    "ms": 240
   },
   {
-    "id": "tr_a_honest",
-    "metric": "total_return",
-    "n_rows": 500,
-    "true_value": 0.7688988022187913,
-    "claim": 0.7689,
+    "id": "logl_a_honest",
+    "metric": "log_loss",
+    "n_rows": 900,
+    "true_value": 0.42149555138619754,
+    "claim": 0.4215,
     "label": "honest",
     "verdict": "CONFIRMED",
-    "recomputed": 0.768898802218791,
+    "recomputed": 0.42149555138619754,
     "prediction": "honest",
     "correct": true,
-    "ms": 274
+    "ms": 197
   },
   {
-    "id": "tr_a_obvious",
-    "metric": "total_return",
-    "n_rows": 500,
-    "true_value": 0.7688988022187913,
-    "claim": 1.2689,
+    "id": "logl_a_obvious",
+    "metric": "log_loss",
+    "n_rows": 900,
+    "true_value": 0.42149555138619754,
+    "claim": 0.2318,
     "label": "flawed",
     "verdict": "REFUTED",
-    "recomputed": 0.768898802218791,
+    "recomputed": 0.42149555138619754,
     "prediction": "flawed",
     "correct": true,
-    "ms": 266
+    "ms": 190
   },
   {
-    "id": "tr_a_subtle",
-    "metric": "total_return",
-    "n_rows": 500,
-    "true_value": 0.7688988022187913,
-    "claim": 0.8289,
+    "id": "logl_a_subtle",
+    "metric": "log_loss",
+    "n_rows": 900,
+    "true_value": 0.42149555138619754,
+    "claim": 0.3793,
     "label": "flawed",
     "verdict": "REFUTED",
-    "recomputed": 0.768898802218791,
+    "recomputed": 0.42149555138619754,
     "prediction": "flawed",
     "correct": true,
-    "ms": 232
+    "ms": 194
   },
   {
-    "id": "shp_a_honest",
-    "metric": "sharpe",
-    "n_rows": 500,
-    "true_value": 2.149336215260076,
-    "claim": 2.149,
+    "id": "brier_a_honest",
+    "metric": "brier",
+    "n_rows": 900,
+    "true_value": 0.13818548001631129,
+    "claim": 0.1382,
     "label": "honest",
     "verdict": "CONFIRMED",
-    "recomputed": 2.149336215260076,
+    "recomputed": 0.13818548001631129,
     "prediction": "honest",
     "correct": true,
-    "ms": 238
+    "ms": 193
   },
   {
-    "id": "shp_a_obvious",
-    "metric": "sharpe",
-    "n_rows": 500,
-    "true_value": 2.149336215260076,
-    "claim": 3.649,
+    "id": "brier_a_obvious",
+    "metric": "brier",
+    "n_rows": 900,
+    "true_value": 0.13818548001631129,
+    "claim": 0.076,
     "label": "flawed",
     "verdict": "REFUTED",
-    "recomputed": 2.149336215260076,
+    "recomputed": 0.13818548001631129,
     "prediction": "flawed",
     "correct": true,
-    "ms": 233
+    "ms": 203
   },
   {
-    "id": "shp_a_subtle",
-    "metric": "sharpe",
-    "n_rows": 500,
-    "true_value": 2.149336215260076,
-    "claim": 2.649,
+    "id": "brier_a_subtle",
+    "metric": "brier",
+    "n_rows": 900,
+    "true_value": 0.13818548001631129,
+    "claim": 0.1244,
     "label": "flawed",
     "verdict": "REFUTED",
-    "recomputed": 2.149336215260076,
+    "recomputed": 0.13818548001631129,
     "prediction": "flawed",
     "correct": true,
-    "ms": 234
+    "ms": 192
+  },
+  {
+    "id": "mcc_a_honest",
+    "metric": "mcc",
+    "n_rows": 900,
+    "true_value": 0.5981690915099909,
+    "claim": 0.5982,
+    "label": "honest",
+    "verdict": "CONFIRMED",
+    "recomputed": 0.5981690915099909,
+    "prediction": "honest",
+    "correct": true,
+    "ms": 200
+  },
+  {
+    "id": "mcc_a_obvious",
+    "metric": "mcc",
+    "n_rows": 900,
+    "true_value": 0.5981690915099909,
+    "claim": 0.7182,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.5981690915099909,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 193
+  },
+  {
+    "id": "mcc_a_subtle",
+    "metric": "mcc",
+    "n_rows": 900,
+    "true_value": 0.5981690915099909,
+    "claim": 0.6482,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.5981690915099909,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 191
+  },
+  {
+    "id": "bacc_a_honest",
+    "metric": "balanced_accuracy",
+    "n_rows": 900,
+    "true_value": 0.8037609875594409,
+    "claim": 0.8038,
+    "label": "honest",
+    "verdict": "CONFIRMED",
+    "recomputed": 0.8037609875594409,
+    "prediction": "honest",
+    "correct": true,
+    "ms": 205
+  },
+  {
+    "id": "bacc_a_obvious",
+    "metric": "balanced_accuracy",
+    "n_rows": 900,
+    "true_value": 0.8037609875594409,
+    "claim": 0.9238,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.8037609875594409,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 197
+  },
+  {
+    "id": "bacc_a_subtle",
+    "metric": "balanced_accuracy",
+    "n_rows": 900,
+    "true_value": 0.8037609875594409,
+    "claim": 0.8538,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.8037609875594409,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 213
+  },
+  {
+    "id": "prauc_a_honest",
+    "metric": "pr_auc",
+    "n_rows": 700,
+    "true_value": 0.9191351031969084,
+    "claim": 0.9191,
+    "label": "honest",
+    "verdict": "CONFIRMED",
+    "recomputed": 0.9191351031969078,
+    "prediction": "honest",
+    "correct": true,
+    "ms": 208
+  },
+  {
+    "id": "prauc_a_obvious",
+    "metric": "pr_auc",
+    "n_rows": 700,
+    "true_value": 0.9191351031969084,
+    "claim": 0.999,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.9191351031969078,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 204
+  },
+  {
+    "id": "prauc_a_subtle",
+    "metric": "pr_auc",
+    "n_rows": 700,
+    "true_value": 0.9191351031969084,
+    "claim": 0.9691,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.9191351031969078,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 201
+  },
+  {
+    "id": "rk_a_honest",
+    "metric": "recall_at_k",
+    "n_rows": 600,
+    "true_value": 0.7984325396825397,
+    "claim": 0.7984,
+    "label": "honest",
+    "verdict": "CONFIRMED",
+    "recomputed": 0.7984325396825397,
+    "prediction": "honest",
+    "correct": true,
+    "ms": 202
+  },
+  {
+    "id": "rk_a_obvious",
+    "metric": "recall_at_k",
+    "n_rows": 600,
+    "true_value": 0.7984325396825397,
+    "claim": 0.9184,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.7984325396825397,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 201
+  },
+  {
+    "id": "rk_a_subtle",
+    "metric": "recall_at_k",
+    "n_rows": 600,
+    "true_value": 0.7984325396825397,
+    "claim": 0.8484,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.7984325396825397,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 196
+  },
+  {
+    "id": "mrr_a_honest",
+    "metric": "mrr",
+    "n_rows": 600,
+    "true_value": 0.8666666666666667,
+    "claim": 0.8667,
+    "label": "honest",
+    "verdict": "CONFIRMED",
+    "recomputed": 0.8666666666666667,
+    "prediction": "honest",
+    "correct": true,
+    "ms": 200
+  },
+  {
+    "id": "mrr_a_obvious",
+    "metric": "mrr",
+    "n_rows": 600,
+    "true_value": 0.8666666666666667,
+    "claim": 0.9867,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.8666666666666667,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 200
+  },
+  {
+    "id": "mrr_a_subtle",
+    "metric": "mrr",
+    "n_rows": 600,
+    "true_value": 0.8666666666666667,
+    "claim": 0.9167,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.8666666666666667,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 186
+  },
+  {
+    "id": "em_a_honest",
+    "metric": "exact_match",
+    "n_rows": 600,
+    "true_value": 0.7366666666666667,
+    "claim": 0.7367,
+    "label": "honest",
+    "verdict": "CONFIRMED",
+    "recomputed": 0.7366666666666667,
+    "prediction": "honest",
+    "correct": true,
+    "ms": 195
+  },
+  {
+    "id": "em_a_obvious",
+    "metric": "exact_match",
+    "n_rows": 600,
+    "true_value": 0.7366666666666667,
+    "claim": 0.8567,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.7366666666666667,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 204
+  },
+  {
+    "id": "em_a_subtle",
+    "metric": "exact_match",
+    "n_rows": 600,
+    "true_value": 0.7366666666666667,
+    "claim": 0.7867,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.7366666666666667,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 193
   },
   {
     "id": "rmse_a_honest",
@@ -283,7 +517,7 @@
     "recomputed": 1.1536352188620829,
     "prediction": "honest",
     "correct": true,
-    "ms": 231
+    "ms": 208
   },
   {
     "id": "rmse_a_obvious",
@@ -296,7 +530,7 @@
     "recomputed": 1.1536352188620829,
     "prediction": "flawed",
     "correct": true,
-    "ms": 215
+    "ms": 206
   },
   {
     "id": "rmse_a_subtle",
@@ -309,7 +543,7 @@
     "recomputed": 1.1536352188620829,
     "prediction": "flawed",
     "correct": true,
-    "ms": 213
+    "ms": 200
   },
   {
     "id": "mae_a_honest",
@@ -322,7 +556,7 @@
     "recomputed": 1.0184622085714286,
     "prediction": "honest",
     "correct": true,
-    "ms": 223
+    "ms": 203
   },
   {
     "id": "mae_a_obvious",
@@ -335,7 +569,7 @@
     "recomputed": 1.0184622085714286,
     "prediction": "flawed",
     "correct": true,
-    "ms": 203
+    "ms": 204
   },
   {
     "id": "mae_a_subtle",
@@ -348,46 +582,280 @@
     "recomputed": 1.0184622085714286,
     "prediction": "flawed",
     "correct": true,
-    "ms": 194
+    "ms": 207
   },
   {
     "id": "r2_a_honest",
     "metric": "r2",
     "n_rows": 700,
-    "true_value": 0.9826287536774769,
-    "claim": 0.9826,
+    "true_value": 0.8436587872232865,
+    "claim": 0.8437,
     "label": "honest",
     "verdict": "CONFIRMED",
-    "recomputed": 0.9826287536774769,
+    "recomputed": 0.8436587872232865,
     "prediction": "honest",
     "correct": true,
-    "ms": 203
+    "ms": 208
   },
   {
     "id": "r2_a_obvious",
     "metric": "r2",
     "n_rows": 700,
-    "true_value": 0.9826287536774769,
-    "claim": 0.999,
+    "true_value": 0.8436587872232865,
+    "claim": 0.9637,
     "label": "flawed",
     "verdict": "REFUTED",
-    "recomputed": 0.9826287536774769,
+    "recomputed": 0.8436587872232865,
     "prediction": "flawed",
     "correct": true,
-    "ms": 196
+    "ms": 212
   },
   {
     "id": "r2_a_subtle",
     "metric": "r2",
     "n_rows": 700,
-    "true_value": 0.9826287536774769,
-    "claim": 0.999,
+    "true_value": 0.8436587872232865,
+    "claim": 0.8937,
     "label": "flawed",
     "verdict": "REFUTED",
-    "recomputed": 0.9826287536774769,
+    "recomputed": 0.8436587872232865,
     "prediction": "flawed",
     "correct": true,
-    "ms": 201
+    "ms": 216
+  },
+  {
+    "id": "mape_a_honest",
+    "metric": "mape",
+    "n_rows": 600,
+    "true_value": 0.07672775177570852,
+    "claim": 0.0767,
+    "label": "honest",
+    "verdict": "CONFIRMED",
+    "recomputed": 0.07672775177570852,
+    "prediction": "honest",
+    "correct": true,
+    "ms": 209
+  },
+  {
+    "id": "mape_a_obvious",
+    "metric": "mape",
+    "n_rows": 600,
+    "true_value": 0.07672775177570852,
+    "claim": 0.0422,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.07672775177570852,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 209
+  },
+  {
+    "id": "mape_a_subtle",
+    "metric": "mape",
+    "n_rows": 600,
+    "true_value": 0.07672775177570852,
+    "claim": 0.0691,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.07672775177570852,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 207
+  },
+  {
+    "id": "tr_a_honest",
+    "metric": "total_return",
+    "n_rows": 500,
+    "true_value": 0.7688988022187913,
+    "claim": 0.7689,
+    "label": "honest",
+    "verdict": "CONFIRMED",
+    "recomputed": 0.768898802218791,
+    "prediction": "honest",
+    "correct": true,
+    "ms": 229
+  },
+  {
+    "id": "tr_a_obvious",
+    "metric": "total_return",
+    "n_rows": 500,
+    "true_value": 0.7688988022187913,
+    "claim": 1.2689,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.768898802218791,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 208
+  },
+  {
+    "id": "tr_a_subtle",
+    "metric": "total_return",
+    "n_rows": 500,
+    "true_value": 0.7688988022187913,
+    "claim": 0.8289,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.768898802218791,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 235
+  },
+  {
+    "id": "shp_a_honest",
+    "metric": "sharpe",
+    "n_rows": 500,
+    "true_value": 2.149336215260076,
+    "claim": 2.149,
+    "label": "honest",
+    "verdict": "CONFIRMED",
+    "recomputed": 2.149336215260076,
+    "prediction": "honest",
+    "correct": true,
+    "ms": 204
+  },
+  {
+    "id": "shp_a_obvious",
+    "metric": "sharpe",
+    "n_rows": 500,
+    "true_value": 2.149336215260076,
+    "claim": 3.649,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 2.149336215260076,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 207
+  },
+  {
+    "id": "shp_a_subtle",
+    "metric": "sharpe",
+    "n_rows": 500,
+    "true_value": 2.149336215260076,
+    "claim": 2.649,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 2.149336215260076,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 214
+  },
+  {
+    "id": "vol_a_honest",
+    "metric": "volatility",
+    "n_rows": 504,
+    "true_value": 0.11032613729295615,
+    "claim": 0.1103,
+    "label": "honest",
+    "verdict": "CONFIRMED",
+    "recomputed": 0.11032613729295615,
+    "prediction": "honest",
+    "correct": true,
+    "ms": 215
+  },
+  {
+    "id": "vol_a_obvious",
+    "metric": "volatility",
+    "n_rows": 504,
+    "true_value": 0.11032613729295615,
+    "claim": 0.0607,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.11032613729295615,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 227
+  },
+  {
+    "id": "vol_a_subtle",
+    "metric": "volatility",
+    "n_rows": 504,
+    "true_value": 0.11032613729295615,
+    "claim": 0.0993,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.11032613729295615,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 347
+  },
+  {
+    "id": "srt_a_honest",
+    "metric": "sortino",
+    "n_rows": 504,
+    "true_value": 4.743270001928424,
+    "claim": 4.743,
+    "label": "honest",
+    "verdict": "CONFIRMED",
+    "recomputed": 4.743270001928424,
+    "prediction": "honest",
+    "correct": true,
+    "ms": 446
+  },
+  {
+    "id": "srt_a_obvious",
+    "metric": "sortino",
+    "n_rows": 504,
+    "true_value": 4.743270001928424,
+    "claim": 6.243,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 4.743270001928424,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 306
+  },
+  {
+    "id": "srt_a_subtle",
+    "metric": "sortino",
+    "n_rows": 504,
+    "true_value": 4.743270001928424,
+    "claim": 5.243,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 4.743270001928424,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 275
+  },
+  {
+    "id": "cagr_a_honest",
+    "metric": "cagr",
+    "n_rows": 9,
+    "true_value": 0.13696324682301042,
+    "claim": 0.137,
+    "label": "honest",
+    "verdict": "CONFIRMED",
+    "recomputed": 0.13696324682301042,
+    "prediction": "honest",
+    "correct": true,
+    "ms": 291
+  },
+  {
+    "id": "cagr_a_obvious",
+    "metric": "cagr",
+    "n_rows": 9,
+    "true_value": 0.13696324682301042,
+    "claim": 0.217,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.13696324682301042,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 329
+  },
+  {
+    "id": "cagr_a_subtle",
+    "metric": "cagr",
+    "n_rows": 9,
+    "true_value": 0.13696324682301042,
+    "claim": 0.157,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.13696324682301042,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 274
   },
   {
     "id": "sum_a_honest",
@@ -400,7 +868,7 @@
     "recomputed": 49709.469262,
     "prediction": "honest",
     "correct": true,
-    "ms": 198
+    "ms": 286
   },
   {
     "id": "sum_a_obvious",
@@ -413,7 +881,7 @@
     "recomputed": 49709.469262,
     "prediction": "flawed",
     "correct": true,
-    "ms": 192
+    "ms": 273
   },
   {
     "id": "sum_a_subtle",
@@ -426,7 +894,7 @@
     "recomputed": 49709.469262,
     "prediction": "flawed",
     "correct": true,
-    "ms": 198
+    "ms": 228
   },
   {
     "id": "mean_a_honest",
@@ -439,7 +907,7 @@
     "recomputed": 50.823934618,
     "prediction": "honest",
     "correct": true,
-    "ms": 200
+    "ms": 225
   },
   {
     "id": "mean_a_obvious",
@@ -452,7 +920,7 @@
     "recomputed": 50.823934618,
     "prediction": "flawed",
     "correct": true,
-    "ms": 200
+    "ms": 223
   },
   {
     "id": "mean_a_subtle",
@@ -465,6 +933,591 @@
     "recomputed": 50.823934618,
     "prediction": "flawed",
     "correct": true,
-    "ms": 195
+    "ms": 225
+  },
+  {
+    "id": "med_a_honest",
+    "metric": "column_median",
+    "n_rows": 1101,
+    "true_value": 124.929391,
+    "claim": 124.929,
+    "label": "honest",
+    "verdict": "CONFIRMED",
+    "recomputed": 124.929391,
+    "prediction": "honest",
+    "correct": true,
+    "ms": 204
+  },
+  {
+    "id": "med_a_obvious",
+    "metric": "column_median",
+    "n_rows": 1101,
+    "true_value": 124.929391,
+    "claim": 174.9011,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 124.929391,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 203
+  },
+  {
+    "id": "med_a_subtle",
+    "metric": "column_median",
+    "n_rows": 1101,
+    "true_value": 124.929391,
+    "claim": 129.9266,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 124.929391,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 197
+  },
+  {
+    "id": "p95_a_honest",
+    "metric": "latency_p95",
+    "n_rows": 1500,
+    "true_value": 308.22815,
+    "claim": 308.2,
+    "label": "honest",
+    "verdict": "CONFIRMED",
+    "recomputed": 308.22815,
+    "prediction": "honest",
+    "correct": true,
+    "ms": 206
+  },
+  {
+    "id": "p95_a_obvious",
+    "metric": "latency_p95",
+    "n_rows": 1500,
+    "true_value": 308.22815,
+    "claim": 169.5255,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 308.22815,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 212
+  },
+  {
+    "id": "p95_a_subtle",
+    "metric": "latency_p95",
+    "n_rows": 1500,
+    "true_value": 308.22815,
+    "claim": 277.4053,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 308.22815,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 204
+  },
+  {
+    "id": "err_a_honest",
+    "metric": "error_rate",
+    "n_rows": 2000,
+    "true_value": 0.0525,
+    "claim": 0.0525,
+    "label": "honest",
+    "verdict": "CONFIRMED",
+    "recomputed": 0.0525,
+    "prediction": "honest",
+    "correct": true,
+    "ms": 193
+  },
+  {
+    "id": "err_a_obvious",
+    "metric": "error_rate",
+    "n_rows": 2000,
+    "true_value": 0.0525,
+    "claim": 0.0289,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.0525,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 186
+  },
+  {
+    "id": "err_a_subtle",
+    "metric": "error_rate",
+    "n_rows": 2000,
+    "true_value": 0.0525,
+    "claim": 0.0473,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.0525,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 196
+  },
+  {
+    "id": "corr_a_honest",
+    "metric": "correlation",
+    "n_rows": 800,
+    "true_value": 0.8683608213860858,
+    "claim": 0.8684,
+    "label": "honest",
+    "verdict": "CONFIRMED",
+    "recomputed": 0.868360821386086,
+    "prediction": "honest",
+    "correct": true,
+    "ms": 188
+  },
+  {
+    "id": "corr_a_obvious",
+    "metric": "correlation",
+    "n_rows": 800,
+    "true_value": 0.8683608213860858,
+    "claim": 0.9884,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.868360821386086,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 200
+  },
+  {
+    "id": "corr_a_subtle",
+    "metric": "correlation",
+    "n_rows": 800,
+    "true_value": 0.8683608213860858,
+    "claim": 0.9184,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.868360821386086,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 221
+  },
+  {
+    "id": "ext_bc_acc_honest",
+    "metric": "accuracy",
+    "n_rows": 569,
+    "true_value": 0.8804920913884007,
+    "claim": 0.8805,
+    "label": "honest",
+    "verdict": "CONFIRMED",
+    "recomputed": 0.8804920913884007,
+    "prediction": "honest",
+    "correct": true,
+    "ms": 337
+  },
+  {
+    "id": "ext_bc_acc_obvious",
+    "metric": "accuracy",
+    "n_rows": 569,
+    "true_value": 0.8804920913884007,
+    "claim": 0.999,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.8804920913884007,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 243
+  },
+  {
+    "id": "ext_bc_acc_subtle",
+    "metric": "accuracy",
+    "n_rows": 569,
+    "true_value": 0.8804920913884007,
+    "claim": 0.9305,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.8804920913884007,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 231
+  },
+  {
+    "id": "ext_bc_f1_honest",
+    "metric": "f1",
+    "n_rows": 569,
+    "true_value": 0.9112271540469974,
+    "claim": 0.9112,
+    "label": "honest",
+    "verdict": "CONFIRMED",
+    "recomputed": 0.9112271540469974,
+    "prediction": "honest",
+    "correct": true,
+    "ms": 232
+  },
+  {
+    "id": "ext_bc_f1_obvious",
+    "metric": "f1",
+    "n_rows": 569,
+    "true_value": 0.9112271540469974,
+    "claim": 0.999,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.9112271540469974,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 235
+  },
+  {
+    "id": "ext_bc_f1_subtle",
+    "metric": "f1",
+    "n_rows": 569,
+    "true_value": 0.9112271540469974,
+    "claim": 0.9612,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.9112271540469974,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 235
+  },
+  {
+    "id": "ext_bc_auc_honest",
+    "metric": "auc",
+    "n_rows": 569,
+    "true_value": 0.9432640980920671,
+    "claim": 0.9433,
+    "label": "honest",
+    "verdict": "CONFIRMED",
+    "recomputed": 0.943264098092067,
+    "prediction": "honest",
+    "correct": true,
+    "ms": 272
+  },
+  {
+    "id": "ext_bc_auc_obvious",
+    "metric": "auc",
+    "n_rows": 569,
+    "true_value": 0.9432640980920671,
+    "claim": 0.999,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.943264098092067,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 284
+  },
+  {
+    "id": "ext_bc_auc_subtle",
+    "metric": "auc",
+    "n_rows": 569,
+    "true_value": 0.9432640980920671,
+    "claim": 0.9933,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.943264098092067,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 282
+  },
+  {
+    "id": "ext_dg_acc_honest",
+    "metric": "accuracy",
+    "n_rows": 1797,
+    "true_value": 0.8057874234835838,
+    "claim": 0.8058,
+    "label": "honest",
+    "verdict": "CONFIRMED",
+    "recomputed": 0.8057874234835838,
+    "prediction": "honest",
+    "correct": true,
+    "ms": 240
+  },
+  {
+    "id": "ext_dg_acc_obvious",
+    "metric": "accuracy",
+    "n_rows": 1797,
+    "true_value": 0.8057874234835838,
+    "claim": 0.9258,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.8057874234835838,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 288
+  },
+  {
+    "id": "ext_dg_acc_subtle",
+    "metric": "accuracy",
+    "n_rows": 1797,
+    "true_value": 0.8057874234835838,
+    "claim": 0.8558,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.8057874234835838,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 240
+  },
+  {
+    "id": "ext_dg_bacc_honest",
+    "metric": "balanced_accuracy",
+    "n_rows": 1797,
+    "true_value": 0.8054916852148578,
+    "claim": 0.8055,
+    "label": "honest",
+    "verdict": "CONFIRMED",
+    "recomputed": 0.8054916852148578,
+    "prediction": "honest",
+    "correct": true,
+    "ms": 230
+  },
+  {
+    "id": "ext_dg_bacc_obvious",
+    "metric": "balanced_accuracy",
+    "n_rows": 1797,
+    "true_value": 0.8054916852148578,
+    "claim": 0.9255,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.8054916852148578,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 226
+  },
+  {
+    "id": "ext_dg_bacc_subtle",
+    "metric": "balanced_accuracy",
+    "n_rows": 1797,
+    "true_value": 0.8054916852148578,
+    "claim": 0.8555,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.8054916852148578,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 228
+  },
+  {
+    "id": "ext_dg_mf1_honest",
+    "metric": "macro_f1",
+    "n_rows": 1797,
+    "true_value": 0.8051652601165313,
+    "claim": 0.8052,
+    "label": "honest",
+    "verdict": "CONFIRMED",
+    "recomputed": 0.8051652601165316,
+    "prediction": "honest",
+    "correct": true,
+    "ms": 277
+  },
+  {
+    "id": "ext_dg_mf1_obvious",
+    "metric": "macro_f1",
+    "n_rows": 1797,
+    "true_value": 0.8051652601165313,
+    "claim": 0.9252,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.8051652601165316,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 293
+  },
+  {
+    "id": "ext_dg_mf1_subtle",
+    "metric": "macro_f1",
+    "n_rows": 1797,
+    "true_value": 0.8051652601165313,
+    "claim": 0.8552,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.8051652601165316,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 281
+  },
+  {
+    "id": "ext_wn_acc_honest",
+    "metric": "accuracy",
+    "n_rows": 178,
+    "true_value": 0.7696629213483146,
+    "claim": 0.7697,
+    "label": "honest",
+    "verdict": "CONFIRMED",
+    "recomputed": 0.7696629213483146,
+    "prediction": "honest",
+    "correct": true,
+    "ms": 256
+  },
+  {
+    "id": "ext_wn_acc_obvious",
+    "metric": "accuracy",
+    "n_rows": 178,
+    "true_value": 0.7696629213483146,
+    "claim": 0.8897,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.7696629213483146,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 223
+  },
+  {
+    "id": "ext_db_rmse_honest",
+    "metric": "rmse",
+    "n_rows": 442,
+    "true_value": 58.48382435886707,
+    "claim": 58.4838,
+    "label": "honest",
+    "verdict": "CONFIRMED",
+    "recomputed": 58.48382435547373,
+    "prediction": "honest",
+    "correct": true,
+    "ms": 229
+  },
+  {
+    "id": "ext_db_rmse_obvious",
+    "metric": "rmse",
+    "n_rows": 442,
+    "true_value": 58.48382435886707,
+    "claim": 32.1661,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 58.48382435547373,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 225
+  },
+  {
+    "id": "ext_db_rmse_subtle",
+    "metric": "rmse",
+    "n_rows": 442,
+    "true_value": 58.48382435886707,
+    "claim": 52.6354,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 58.48382435547373,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 240
+  },
+  {
+    "id": "ext_db_mae_honest",
+    "metric": "mae",
+    "n_rows": 442,
+    "true_value": 48.932514720930655,
+    "claim": 48.9325,
+    "label": "honest",
+    "verdict": "CONFIRMED",
+    "recomputed": 48.932514705882355,
+    "prediction": "honest",
+    "correct": true,
+    "ms": 218
+  },
+  {
+    "id": "ext_db_mae_obvious",
+    "metric": "mae",
+    "n_rows": 442,
+    "true_value": 48.932514720930655,
+    "claim": 26.9129,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 48.932514705882355,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 210
+  },
+  {
+    "id": "ext_db_mae_subtle",
+    "metric": "mae",
+    "n_rows": 442,
+    "true_value": 48.932514720930655,
+    "claim": 44.0393,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 48.932514705882355,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 215
+  },
+  {
+    "id": "ext_db_r2_honest",
+    "metric": "r2",
+    "n_rows": 442,
+    "true_value": 0.423199982613338,
+    "claim": 0.4232,
+    "label": "honest",
+    "verdict": "CONFIRMED",
+    "recomputed": 0.42319998268027204,
+    "prediction": "honest",
+    "correct": true,
+    "ms": 254
+  },
+  {
+    "id": "ext_db_r2_obvious",
+    "metric": "r2",
+    "n_rows": 442,
+    "true_value": 0.423199982613338,
+    "claim": 0.5432,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.42319998268027204,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 244
+  },
+  {
+    "id": "ext_db_r2_subtle",
+    "metric": "r2",
+    "n_rows": 442,
+    "true_value": 0.423199982613338,
+    "claim": 0.4732,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.42319998268027204,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 233
+  },
+  {
+    "id": "rw_leakage",
+    "metric": "auc",
+    "n_rows": 4000,
+    "true_value": null,
+    "claim": 0.97,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": 0.8247642768190714,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 2721
+  },
+  {
+    "id": "rw_btc",
+    "metric": "total_return",
+    "n_rows": 1250,
+    "true_value": null,
+    "claim": 146.98,
+    "label": "flawed",
+    "verdict": "REFUTED",
+    "recomputed": -0.3243140055429462,
+    "prediction": "flawed",
+    "correct": true,
+    "ms": 428
+  },
+  {
+    "id": "rw_momentum",
+    "metric": "total_return",
+    "n_rows": 2607,
+    "true_value": null,
+    "claim": -0.0276,
+    "label": "honest",
+    "verdict": "CONFIRMED",
+    "recomputed": -0.027571159660228384,
+    "prediction": "honest",
+    "correct": true,
+    "ms": 9049
+  },
+  {
+    "id": "rw_btcsma",
+    "metric": "column_sum",
+    "n_rows": 42,
+    "true_value": null,
+    "claim": 19024.77,
+    "label": "honest",
+    "verdict": "CONFIRMED",
+    "recomputed": 19024.77,
+    "prediction": "honest",
+    "correct": true,
+    "ms": 191
   }
 ]
