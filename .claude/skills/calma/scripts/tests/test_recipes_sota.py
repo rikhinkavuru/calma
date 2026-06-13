@@ -204,6 +204,17 @@ KINDS = {
     "eta_squared": lambda a: N.eta_squared(a["groups"], a["values"]),
     "g_test": lambda a: N.g_test(a["groups"], a["outcomes"], a["output"]),
     "mcnemar": lambda a: N.mcnemar_p(a["a"], a["b"]),
+    # pack ST2
+    "levene": lambda a: N.levene(a["groups"], a["values"]),
+    "bartlett": lambda a: N.bartlett(a["groups"], a["values"]),
+    "fligner": lambda a: N.fligner(a["groups"], a["values"]),
+    "kruskal_wallis": lambda a: N.kruskal_wallis(a["groups"], a["values"]),
+    "wilcoxon_signed_rank": lambda a: N.wilcoxon_signed_rank(a["a"], a["b"]),
+    "anderson_darling": lambda a: N.anderson_darling(a["xs"]),
+    "wilson_lower": lambda a: N.wilson_lower(a["flags"], a["level"]),
+    "wilson_upper": lambda a: N.wilson_upper(a["flags"], a["level"]),
+    "bh_rejections": lambda a: N.bh_rejections(a["pvals"], a["alpha"]),
+    "holm_rejections": lambda a: N.holm_rejections(a["pvals"], a["alpha"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -263,10 +274,13 @@ EXPECTED = {
     # pack ST - statistics & hypothesis tests (8)
     "point_biserial", "kendall_tau", "theil_sen_slope", "cliffs_delta", "rank_biserial",
     "eta_squared", "g_test", "mcnemar",
+    # pack ST2 - variance / distribution / nonparametric + CIs + multiplicity (10)
+    "levene", "bartlett", "fligner", "kruskal_wallis", "wilcoxon_signed_rank",
+    "anderson_darling", "wilson_lower", "wilson_upper", "bh_rejections", "holm_rejections",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 151 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 161 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

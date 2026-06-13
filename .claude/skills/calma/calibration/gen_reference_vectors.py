@@ -857,6 +857,53 @@ _mc = sm_mcnemar([[_n11, _n10], [_n01, _n00]], exact=False, correction=True)
 case("mcnemar", "mcnemar", {"a": [float(x) for x in mc_a], "b": [float(x) for x in mc_b]},
      float(_mc.pvalue), atol=1e-9)
 
+# ============================ Pack ST2 - variance/distribution/nonparametric ============================
+
+from statsmodels.stats.proportion import proportion_confint  # noqa: E402
+from statsmodels.stats.multitest import multipletests  # noqa: E402
+
+# k-sample groups with different spread/location (rounded -> ties exercise tie corrections)
+_lvnm = ["A", "B", "C"]
+_scale = {"A": 1.0, "B": 2.0, "C": 0.5}
+_loc = {"A": 0.0, "B": 1.0, "C": -1.0}
+lv_g = [_lvnm[int(u * 3)] for u in uniforms(70, 180)]
+lv_v = [round(_loc[g] + _scale[g] * e, 1) for g, e in zip(lv_g, uniforms(71, 180, -2.0, 2.0))]
+_samples = [[v for v, g in zip(lv_v, lv_g) if g == nm] for nm in _lvnm]
+case("levene", "levene", {"groups": lv_g, "values": lv_v},
+     float(stats.levene(*_samples, center="median")[1]), atol=1e-10)
+case("bartlett", "bartlett", {"groups": lv_g, "values": lv_v},
+     float(stats.bartlett(*_samples)[1]), atol=1e-9)
+case("fligner", "fligner", {"groups": lv_g, "values": lv_v},
+     float(stats.fligner(*_samples, center="median")[1]), atol=1e-9)
+case("kruskal_wallis", "kruskal_wallis", {"groups": lv_g, "values": lv_v},
+     float(stats.kruskal(*_samples)[1]), atol=1e-9)
+
+# Wilcoxon signed-rank (paired, continuous -> no zeros)
+ws_a = uniforms(72, 80, 0.0, 10.0)
+ws_b = [x + e for x, e in zip(ws_a, uniforms(73, 80, -2.0, 3.0))]
+_wd = [x - y for x, y in zip(ws_a, ws_b)]
+case("wilcoxon_signed_rank", "wilcoxon_signed_rank", {"a": ws_a, "b": ws_b},
+     float(stats.wilcoxon(_wd, method="approx")[1]), atol=1e-9)
+
+# Anderson-Darling A^2 (normality)
+ad_x = uniforms(74, 100, -3.0, 5.0)
+case("anderson_darling", "anderson_darling", {"xs": ad_x},
+     float(stats.anderson(ad_x, "norm").statistic), atol=1e-9)
+
+# Wilson score interval bounds
+wl_f = [1.0 if u < 0.4 else 0.0 for u in uniforms(75, 150)]
+_x = int(sum(wl_f))
+_lo, _hi = proportion_confint(_x, len(wl_f), alpha=0.05, method="wilson")
+case("wilson_lower", "wilson_lower", {"flags": wl_f, "level": 0.95}, float(_lo), atol=1e-10)
+case("wilson_upper", "wilson_upper", {"flags": wl_f, "level": 0.95}, float(_hi), atol=1e-10)
+
+# Multiple-testing rejection counts
+pv = [round(u ** 2, 6) for u in uniforms(76, 40)]
+case("bh_rejections", "bh_rejections", {"pvals": pv, "alpha": 0.05},
+     float(multipletests(pv, alpha=0.05, method="fdr_bh")[0].sum()), atol=0.0, rtol=0.0)
+case("holm_rejections", "holm_rejections", {"pvals": pv, "alpha": 0.05},
+     float(multipletests(pv, alpha=0.05, method="holm")[0].sum()), atol=0.0, rtol=0.0)
+
 # ============================ write ============================
 
 doc = {

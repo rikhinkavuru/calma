@@ -1322,3 +1322,78 @@ def g_test(cols, binding, convention=None):
 def mcnemar(cols, binding, convention=None):
     a, b = cols[binding["sample_a"]], cols[binding["sample_b"]]
     return _result(N.mcnemar_p(a, b), {"n": len(a)})
+
+
+# ======================================================================================
+# Pack ST2 - variance / distribution / nonparametric k-sample tests + CIs + multiplicity.
+# ======================================================================================
+
+@register("levene", family="stats", required_tags=["group", "value"], string_tags=["group"],
+          set_maturity="reviewed")
+def levene(cols, binding, convention=None):
+    g, v = cols[binding["group"]], cols[binding["value"]]
+    return _result(N.levene(g, v), {"n": len(v), "center": "median"})
+
+
+@register("bartlett", family="stats", required_tags=["group", "value"], string_tags=["group"],
+          set_maturity="reviewed")
+def bartlett(cols, binding, convention=None):
+    g, v = cols[binding["group"]], cols[binding["value"]]
+    return _result(N.bartlett(g, v), {"n": len(v)})
+
+
+@register("fligner", family="stats", required_tags=["group", "value"], string_tags=["group"],
+          set_maturity="reviewed")
+def fligner(cols, binding, convention=None):
+    g, v = cols[binding["group"]], cols[binding["value"]]
+    return _result(N.fligner(g, v), {"n": len(v), "center": "median"})
+
+
+@register("kruskal_wallis", family="stats", required_tags=["group", "value"], string_tags=["group"],
+          set_maturity="reviewed")
+def kruskal_wallis(cols, binding, convention=None):
+    g, v = cols[binding["group"]], cols[binding["value"]]
+    return _result(N.kruskal_wallis(g, v), {"n": len(v)})
+
+
+@register("wilcoxon_signed_rank", family="stats", required_tags=["sample_a", "sample_b"],
+          set_maturity="reviewed")
+def wilcoxon_signed_rank(cols, binding, convention=None):
+    a, b = cols[binding["sample_a"]], cols[binding["sample_b"]]
+    return _result(N.wilcoxon_signed_rank(a, b), {"n": len(a), "method": "approx"})
+
+
+@register("anderson_darling", family="stats", required_tags=["value"], set_maturity="reviewed")
+def anderson_darling(cols, binding, convention=None):
+    v = cols[binding["value"]]
+    return _result(N.anderson_darling(v), {"n": len(v), "dist": "norm"})
+
+
+@register("wilson_lower", family="stats", required_tags=["flag"], set_maturity="reviewed",
+          accepted_conventions=["90", "95", "99"])
+def wilson_lower(cols, binding, convention=None):
+    flags = cols[binding["flag"]]
+    lvl = {"90": 0.9, "95": 0.95, "99": 0.99}.get(str(convention).strip(), 0.95) if convention else 0.95
+    return _result(N.wilson_lower(flags, lvl), {"n": len(flags), "level": lvl, "bound": "lower"})
+
+
+@register("wilson_upper", family="stats", required_tags=["flag"], set_maturity="reviewed",
+          accepted_conventions=["90", "95", "99"])
+def wilson_upper(cols, binding, convention=None):
+    flags = cols[binding["flag"]]
+    lvl = {"90": 0.9, "95": 0.95, "99": 0.99}.get(str(convention).strip(), 0.95) if convention else 0.95
+    return _result(N.wilson_upper(flags, lvl), {"n": len(flags), "level": lvl, "bound": "upper"})
+
+
+@register("bh_rejections", family="stats", required_tags=["value"], set_maturity="reviewed")
+def bh_rejections(cols, binding, convention=None):
+    pvals = cols[binding["value"]]
+    alpha = float(convention) if convention else 0.05
+    return _result(N.bh_rejections(pvals, alpha), {"m": len(pvals), "alpha": alpha, "method": "fdr_bh"})
+
+
+@register("holm_rejections", family="stats", required_tags=["value"], set_maturity="reviewed")
+def holm_rejections(cols, binding, convention=None):
+    pvals = cols[binding["value"]]
+    alpha = float(convention) if convention else 0.05
+    return _result(N.holm_rejections(pvals, alpha), {"m": len(pvals), "alpha": alpha, "method": "holm"})

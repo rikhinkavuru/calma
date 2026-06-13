@@ -2318,3 +2318,206 @@ def mcnemar_p(a, b):
         return float("nan")
     stat = (abs(n10 - n01) - 1.0) ** 2 / (n10 + n01)
     return chi2_sf(stat, 1)
+
+
+# ======================================================================================
+# Pack ST2 - variance / distribution / nonparametric k-sample tests + CIs + multiplicity.
+# ======================================================================================
+
+def _bucket(groups, values):
+    b = {}
+    for g, v in zip(groups, values):
+        b.setdefault(g.strip(), []).append(v)
+    return b
+
+
+def _tie_term(sorted_vals):
+    """sum(t^3 - t) over tie groups of an ascending list."""
+    n = len(sorted_vals)
+    tot = 0.0
+    i = 0
+    while i < n:
+        j = i
+        while j < n and sorted_vals[j] == sorted_vals[i]:
+            j += 1
+        t = j - i
+        tot += t ** 3 - t
+        i = j
+    return tot
+
+
+def levene(groups, values):
+    """Levene/Brown-Forsythe test (center='median'); p via F (scipy.stats.levene)."""
+    if not groups or len(groups) != len(values) or _has_nan(values):
+        return float("nan")
+    b = _bucket(groups, values)
+    k = len(b)
+    if k < 2:
+        return float("nan")
+    z = {g: [abs(x - quantile(vs, 0.5)) for x in vs] for g, vs in b.items()}
+    n = len(values)
+    allz = [zz for zs in z.values() for zz in zs]
+    zbar = fmean(allz)
+    num = math.fsum(len(zs) * (fmean(zs) - zbar) ** 2 for zs in z.values())
+    den = math.fsum(math.fsum((zz - fmean(zs)) ** 2 for zz in zs) for zs in z.values())
+    if den <= 0:
+        return float("nan")
+    w = (n - k) / (k - 1) * num / den
+    return f_sf(w, k - 1, n - k)
+
+
+def bartlett(groups, values):
+    """Bartlett's test for equal variances; p via chi2 (scipy.stats.bartlett)."""
+    if not groups or len(groups) != len(values) or _has_nan(values):
+        return float("nan")
+    b = _bucket(groups, values)
+    k = len(b)
+    if k < 2:
+        return float("nan")
+    ns = [len(vs) for vs in b.values()]
+    if any(nj < 2 for nj in ns):
+        return float("nan")
+    vars = [fvar(vs, ddof=1) for vs in b.values()]
+    if any(v <= 0 for v in vars):
+        return float("nan")
+    n = sum(ns)
+    sp2 = math.fsum((nj - 1) * v for nj, v in zip(ns, vars)) / (n - k)
+    if sp2 <= 0:
+        return float("nan")
+    num = (n - k) * dlog(sp2) - math.fsum((nj - 1) * dlog(v) for nj, v in zip(ns, vars))
+    c = 1.0 + (1.0 / (3.0 * (k - 1))) * (math.fsum(1.0 / (nj - 1) for nj in ns) - 1.0 / (n - k))
+    return chi2_sf(num / c, k - 1)
+
+
+def fligner(groups, values):
+    """Fligner-Killeen test (center='median'); p via chi2 (scipy.stats.fligner)."""
+    if not groups or len(groups) != len(values) or _has_nan(values):
+        return float("nan")
+    b = _bucket(groups, values)
+    k = len(b)
+    if k < 2:
+        return float("nan")
+    z, gi = [], []
+    for idx, (g, vs) in enumerate(b.items()):
+        med = quantile(vs, 0.5)
+        for x in vs:
+            z.append(abs(x - med))
+            gi.append(idx)
+    n = len(z)
+    ranks = _avg_ranks(z)
+    a = [z_ppf(0.5 + r / (2.0 * (n + 1))) for r in ranks]
+    abar = fmean(a)
+    v = fvar(a, ddof=1)
+    if v <= 0:
+        return float("nan")
+    sums, counts = {}, {}
+    for ai, g in zip(a, gi):
+        sums[g] = sums.get(g, 0.0) + ai
+        counts[g] = counts.get(g, 0) + 1
+    stat = math.fsum(counts[g] * (sums[g] / counts[g] - abar) ** 2 for g in counts) / v
+    return chi2_sf(stat, k - 1)
+
+
+def kruskal_wallis(groups, values):
+    """Kruskal-Wallis H test, tie-corrected; p via chi2 (scipy.stats.kruskal)."""
+    if not groups or len(groups) != len(values) or _has_nan(values):
+        return float("nan")
+    b = _bucket(groups, values)
+    k = len(b)
+    if k < 2:
+        return float("nan")
+    n = len(values)
+    ranks = _avg_ranks(values)
+    rs, rc = {}, {}
+    for r, g in zip(ranks, (gg.strip() for gg in groups)):
+        rs[g] = rs.get(g, 0.0) + r
+        rc[g] = rc.get(g, 0) + 1
+    h = 12.0 / (n * (n + 1)) * math.fsum(rs[g] ** 2 / rc[g] for g in rs) - 3.0 * (n + 1)
+    corr = 1.0 - _tie_term(sorted(values)) / (n ** 3 - n)
+    if corr <= 0:
+        return float("nan")
+    return chi2_sf(h / corr, k - 1)
+
+
+def wilcoxon_signed_rank(a, b):
+    """Wilcoxon signed-rank test on paired (a-b); normal approximation, tie-corrected, zeros
+    dropped, no continuity correction (scipy.stats.wilcoxon method='approx')."""
+    if len(a) != len(b) or not a or _has_nan(a) or _has_nan(b):
+        return float("nan")
+    d = [x - y for x, y in zip(a, b) if x - y != 0]
+    n = len(d)
+    if n < 1:
+        return float("nan")
+    ranks = _avg_ranks([abs(x) for x in d])
+    wpos = math.fsum(r for r, x in zip(ranks, d) if x > 0)
+    mn = n * (n + 1) / 4.0
+    se = math.sqrt(n * (n + 1) * (2 * n + 1) / 24.0 - _tie_term(sorted(abs(x) for x in d)) / 48.0)
+    if se <= 0:
+        return float("nan")
+    z = (wpos - mn) / se
+    return min(1.0, 2.0 * normal_sf(abs(z)))
+
+
+def anderson_darling(xs):
+    """Anderson-Darling A^2 statistic for normality (scipy.stats.anderson, dist='norm')."""
+    n = len(xs)
+    if n < 2 or _has_nan(xs):
+        return float("nan")
+    mu = fmean(xs)
+    s = fstd(xs, ddof=1)
+    if not (s > 0):
+        return float("nan")
+    w = sorted((x - mu) / s for x in xs)
+    acc = math.fsum((2 * (i + 1) - 1) * (dlog(1.0 - normal_sf(w[i])) + dlog(normal_sf(w[n - 1 - i])))
+                    for i in range(n))
+    return -n - acc / n
+
+
+def _wilson(flags, level, bound):
+    n = len(flags)
+    if n < 1 or _has_nan(flags) or not (0.0 < level < 1.0):
+        return float("nan")
+    x = sum(1 for f in flags if f != 0)
+    phat = x / n
+    z = z_ppf(0.5 + level / 2.0)
+    z2 = z * z
+    denom = 1.0 + z2 / n
+    center = (phat + z2 / (2 * n)) / denom
+    half = (z / denom) * math.sqrt(phat * (1 - phat) / n + z2 / (4 * n * n))
+    return center - half if bound == "lower" else center + half
+
+
+def wilson_lower(flags, level):
+    return _wilson(flags, level, "lower")
+
+
+def wilson_upper(flags, level):
+    return _wilson(flags, level, "upper")
+
+
+def bh_rejections(pvals, alpha):
+    """Count rejected by Benjamini-Hochberg FDR at `alpha` (statsmodels fdr_bh)."""
+    m = len(pvals)
+    if m < 1 or _has_nan(pvals):
+        return float("nan")
+    sp = sorted(pvals)
+    maxk = 0
+    for k in range(1, m + 1):
+        if sp[k - 1] <= (k / m) * alpha:
+            maxk = k
+    return float(maxk)
+
+
+def holm_rejections(pvals, alpha):
+    """Count rejected by Holm-Bonferroni at `alpha` (statsmodels holm)."""
+    m = len(pvals)
+    if m < 1 or _has_nan(pvals):
+        return float("nan")
+    sp = sorted(pvals)
+    count = 0
+    for k in range(1, m + 1):
+        if sp[k - 1] <= alpha / (m - k + 1):
+            count += 1
+        else:
+            break
+    return float(count)
