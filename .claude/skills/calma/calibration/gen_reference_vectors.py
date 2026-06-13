@@ -1029,6 +1029,48 @@ case("gamma_deviance", "gamma_deviance", {"pred": rg_pred, "actual": rg_actual},
 case("d2_absolute_error", "d2_absolute_error", {"pred": rg_pred, "actual": rg_actual},
      float(skm.d2_absolute_error_score(rg_actual, rg_pred)), atol=1e-11)
 
+# ============================ Pack AN - analytics / data-quality / robust stats ============================
+
+from statsmodels.stats.diagnostic import acorr_ljungbox  # noqa: E402
+
+an_x = uniforms(94, 200, 5.0, 50.0)
+_ax = np.array(an_x)
+case("variance", "variance", {"xs": an_x}, float(np.var(_ax, ddof=1)), atol=1e-9)
+case("range_value", "range_value", {"xs": an_x}, float(np.max(_ax) - np.min(_ax)), atol=1e-12)
+case("mean_abs_deviation", "mean_abs_deviation", {"xs": an_x},
+     float(np.mean(np.abs(_ax - np.mean(_ax)))), atol=1e-10)
+case("median_abs_deviation", "median_abs_deviation", {"xs": an_x},
+     float(stats.median_abs_deviation(_ax, scale=1.0)), atol=1e-10)
+case("trimmed_mean", "trimmed_mean", {"xs": an_x, "proportion": 0.1},
+     float(stats.trim_mean(_ax, 0.1)), atol=1e-10)
+case("geometric_mean", "geometric_mean", {"xs": an_x}, float(stats.gmean(_ax)), atol=1e-10)
+case("harmonic_mean", "harmonic_mean", {"xs": an_x}, float(stats.hmean(_ax)), atol=1e-10)
+_m = float(np.mean(_ax))
+case("theil_index", "theil_index", {"xs": an_x},
+     float(np.mean((_ax / _m) * np.log(_ax / _m))), atol=1e-11)
+case("atkinson_index", "atkinson_index", {"xs": an_x}, float(1.0 - stats.gmean(_ax) / _m), atol=1e-10)
+_q1, _q3 = float(np.quantile(_ax, 0.25)), float(np.quantile(_ax, 0.75))
+case("quartile_coefficient_dispersion", "quartile_coefficient_dispersion", {"xs": an_x},
+     (_q3 - _q1) / (_q3 + _q1), atol=1e-11)
+case("index_of_dispersion", "index_of_dispersion", {"xs": an_x}, float(np.var(_ax, ddof=1) / _m), atol=1e-10)
+
+an_v = uniforms(95, 80, 0.0, 10.0)
+an_w = uniforms(96, 80, 0.5, 3.0)
+case("weighted_mean", "weighted_mean", {"values": an_v, "weights": an_w},
+     float(np.average(an_v, weights=an_w)), atol=1e-11)
+
+cov_x = uniforms(97, 90, 0.0, 10.0)
+cov_y = [2.0 * x + e for x, e in zip(cov_x, uniforms(98, 90, -2.0, 2.0))]
+case("covariance", "covariance", {"xs": cov_x, "ys": cov_y},
+     float(np.cov(cov_x, cov_y, ddof=1)[0, 1]), atol=1e-10)
+
+uq_raw = [str(int(u * 20)) for u in uniforms(101, 150)]
+case("uniqueness_ratio", "uniqueness_ratio", {"raw": uq_raw}, len(set(uq_raw)) / len(uq_raw), atol=1e-12)
+
+ts = uniforms(102, 120, -1.0, 1.0)
+_lb = acorr_ljungbox(np.array(ts), lags=[10], return_df=True)
+case("ljung_box", "ljung_box", {"xs": ts, "lags": 10}, float(_lb["lb_pvalue"].iloc[0]), atol=1e-9)
+
 # ============================ write ============================
 
 doc = {

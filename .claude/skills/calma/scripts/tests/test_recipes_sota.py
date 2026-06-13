@@ -244,6 +244,22 @@ KINDS = {
     "poisson_deviance": lambda a: N.poisson_deviance(a["pred"], a["actual"]),
     "gamma_deviance": lambda a: N.gamma_deviance(a["pred"], a["actual"]),
     "d2_absolute_error": lambda a: N.d2_absolute_error(a["pred"], a["actual"]),
+    # pack AN - analytics / data-quality / robust-stats
+    "variance": lambda a: N.variance(a["xs"]),
+    "range_value": lambda a: N.range_value(a["xs"]),
+    "mean_abs_deviation": lambda a: N.mean_abs_deviation(a["xs"]),
+    "median_abs_deviation": lambda a: N.median_abs_deviation(a["xs"]),
+    "trimmed_mean": lambda a: N.trimmed_mean(a["xs"], a["proportion"]),
+    "geometric_mean": lambda a: N.geometric_mean(a["xs"]),
+    "harmonic_mean": lambda a: N.harmonic_mean(a["xs"]),
+    "weighted_mean": lambda a: N.weighted_mean(a["values"], a["weights"]),
+    "covariance": lambda a: N.covariance(a["xs"], a["ys"]),
+    "theil_index": lambda a: N.theil_index(a["xs"]),
+    "atkinson_index": lambda a: N.atkinson_index(a["xs"]),
+    "quartile_coefficient_dispersion": lambda a: N.quartile_coefficient_dispersion(a["xs"]),
+    "index_of_dispersion": lambda a: N.index_of_dispersion(a["xs"]),
+    "uniqueness_ratio": lambda a: N.uniqueness_ratio(a["raw"]),
+    "ljung_box": lambda a: N.ljung_box(a["xs"], a["lags"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -314,10 +330,15 @@ EXPECTED = {
     "false_discovery_rate", "positive_likelihood_ratio", "negative_likelihood_ratio",
     "diagnostic_odds_ratio", "threat_score", "fowlkes_mallows", "concordance_correlation",
     "huber_loss", "poisson_deviance", "gamma_deviance", "d2_absolute_error",
+    # pack AN - analytics / data-quality / robust-stats depth (15)
+    "variance", "range_value", "mean_abs_deviation", "median_abs_deviation", "trimmed_mean",
+    "geometric_mean", "harmonic_mean", "weighted_mean", "covariance", "theil_index",
+    "atkinson_index", "quartile_coefficient_dispersion", "index_of_dispersion", "uniqueness_ratio",
+    "ljung_box",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 188 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 203 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

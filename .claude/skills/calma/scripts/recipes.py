@@ -1522,3 +1522,59 @@ def gamma_deviance(cols, binding, convention=None):
 def d2_absolute_error(cols, binding, convention=None):
     p, t = cols[binding["prediction"]], cols[binding["target"]]
     return _result(N.d2_absolute_error(p, t), {"n": len(t)})
+
+
+# ======================================================================================
+# Pack AN - analytics / data-quality / robust-stats depth (validated vs scipy/statsmodels).
+# ======================================================================================
+
+def _val(fn):
+    def recipe(cols, binding, convention=None):
+        v = cols[binding["value"]]
+        return _result(fn(v), {"n": len(v)})
+    return recipe
+
+
+for _mid, _fn in (
+    ("variance", "variance"), ("range_value", "range_value"), ("mean_abs_deviation", "mean_abs_deviation"),
+    ("median_abs_deviation", "median_abs_deviation"), ("geometric_mean", "geometric_mean"),
+    ("harmonic_mean", "harmonic_mean"), ("theil_index", "theil_index"), ("atkinson_index", "atkinson_index"),
+    ("quartile_coefficient_dispersion", "quartile_coefficient_dispersion"),
+    ("index_of_dispersion", "index_of_dispersion"),
+):
+    register(_mid, family="analytics", required_tags=["value"], set_maturity="reviewed")(_val(getattr(N, _fn)))
+
+
+@register("trimmed_mean", family="analytics", required_tags=["value"], set_maturity="reviewed",
+          accepted_conventions=["proportion=<v>"])
+def trimmed_mean(cols, binding, convention=None):
+    v = cols[binding["value"]]
+    prop = _conv_float(convention, "proportion", 0.1)
+    return _result(N.trimmed_mean(v, prop), {"n": len(v), "proportion": prop})
+
+
+@register("weighted_mean", family="analytics", required_tags=["value", "weight"], set_maturity="reviewed")
+def weighted_mean(cols, binding, convention=None):
+    v, w = cols[binding["value"]], cols[binding["weight"]]
+    return _result(N.weighted_mean(v, w), {"n": len(v)})
+
+
+@register("covariance", family="analytics", required_tags=["x", "y"], set_maturity="reviewed")
+def covariance(cols, binding, convention=None):
+    x, y = cols[binding["x"]], cols[binding["y"]]
+    return _result(N.covariance(x, y), {"n": len(x)})
+
+
+@register("uniqueness_ratio", family="analytics", required_tags=["value"], string_tags=["value"],
+          set_maturity="reviewed")
+def uniqueness_ratio(cols, binding, convention=None):
+    v = cols[binding["value"]]
+    return _result(N.uniqueness_ratio(v), {"n": len(v)})
+
+
+@register("ljung_box", family="stats", required_tags=["value"], set_maturity="reviewed",
+          accepted_conventions=["lags=<int>"])
+def ljung_box(cols, binding, convention=None):
+    v = cols[binding["value"]]
+    lags = _conv_int(convention, "lags", 10)
+    return _result(N.ljung_box(v, lags), {"n": len(v), "lags": lags})

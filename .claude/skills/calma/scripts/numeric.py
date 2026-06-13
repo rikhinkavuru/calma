@@ -2862,3 +2862,135 @@ def d2_absolute_error(pred, actual):
     med = quantile(actual, 0.5)
     mae_null = math.fsum(abs(a - med) for a in actual) / len(actual)
     return 1.0 - mae_model / mae_null if mae_null > 0 else float("nan")
+
+
+# ======================================================================================
+# Pack AN - analytics / data-quality / robust-stats depth (validated vs scipy/statsmodels).
+# ======================================================================================
+
+def variance(xs):
+    """Sample variance (ddof=1)."""
+    return fvar(xs, 1) if len(xs) > 1 and not _has_nan(xs) else float("nan")
+
+
+def range_value(xs):
+    """Max - min."""
+    if not xs or _has_nan(xs):
+        return float("nan")
+    return max(xs) - min(xs)
+
+
+def mean_abs_deviation(xs):
+    """Mean absolute deviation around the mean: mean(|x - mean|)."""
+    if not xs or _has_nan(xs):
+        return float("nan")
+    m = fmean(xs)
+    return math.fsum(abs(x - m) for x in xs) / len(xs)
+
+
+def median_abs_deviation(xs):
+    """Median absolute deviation (scale=1): median(|x - median(x)|) (scipy.stats.median_abs_deviation)."""
+    if not xs or _has_nan(xs):
+        return float("nan")
+    med = quantile(xs, 0.5)
+    return quantile([abs(x - med) for x in xs], 0.5)
+
+
+def trimmed_mean(xs, proportion):
+    """Symmetric trimmed mean cutting `proportion` from each tail (scipy.stats.trim_mean)."""
+    if not xs or _has_nan(xs) or not (0.0 <= proportion < 0.5):
+        return float("nan")
+    s = sorted(xs)
+    k = int(proportion * len(s))
+    core = s[k:len(s) - k]
+    return fmean(core) if core else float("nan")
+
+
+def geometric_mean(xs):
+    """Geometric mean: exp(mean(ln x)); positive data (scipy.stats.gmean)."""
+    if not xs or _has_nan(xs) or any(x <= 0 for x in xs):
+        return float("nan")
+    return dexp(math.fsum(dlog(x) for x in xs) / len(xs))
+
+
+def harmonic_mean(xs):
+    """Harmonic mean: n / sum(1/x); positive data (scipy.stats.hmean)."""
+    if not xs or _has_nan(xs) or any(x <= 0 for x in xs):
+        return float("nan")
+    return len(xs) / math.fsum(1.0 / x for x in xs)
+
+
+def weighted_mean(values, weights):
+    """Weighted mean: sum(w*x) / sum(w)."""
+    if len(values) != len(weights) or not values or _has_nan(values) or _has_nan(weights):
+        return float("nan")
+    sw = math.fsum(weights)
+    if sw == 0:
+        return float("nan")
+    return math.fsum(w * x for x, w in zip(values, weights)) / sw
+
+
+def covariance(xs, ys):
+    """Sample covariance (ddof=1)."""
+    n = len(xs)
+    if n < 2 or len(ys) != n or _has_nan(xs) or _has_nan(ys):
+        return float("nan")
+    mx, my = fmean(xs), fmean(ys)
+    return math.fsum((x - mx) * (y - my) for x, y in zip(xs, ys)) / (n - 1)
+
+
+def theil_index(xs):
+    """Theil T inequality index: (1/n) sum (x/mean) ln(x/mean); positive data."""
+    if not xs or _has_nan(xs) or any(x <= 0 for x in xs):
+        return float("nan")
+    m = fmean(xs)
+    if m <= 0:
+        return float("nan")
+    return math.fsum((x / m) * dlog(x / m) for x in xs) / len(xs)
+
+
+def atkinson_index(xs):
+    """Atkinson index with inequality aversion epsilon=1: 1 - geomean/mean; positive data."""
+    if not xs or _has_nan(xs) or any(x <= 0 for x in xs):
+        return float("nan")
+    m = fmean(xs)
+    if m <= 0:
+        return float("nan")
+    return 1.0 - geometric_mean(xs) / m
+
+
+def quartile_coefficient_dispersion(xs):
+    """(Q3 - Q1) / (Q3 + Q1)."""
+    if not xs or _has_nan(xs):
+        return float("nan")
+    q1, q3 = quantile(xs, 0.25), quantile(xs, 0.75)
+    return (q3 - q1) / (q3 + q1) if (q3 + q1) != 0 else float("nan")
+
+
+def index_of_dispersion(xs):
+    """Fano factor: sample variance / mean."""
+    if len(xs) < 2 or _has_nan(xs):
+        return float("nan")
+    m = fmean(xs)
+    return fvar(xs, 1) / m if m != 0 else float("nan")
+
+
+def uniqueness_ratio(raw, include_null=False):
+    """Distinct values / total rows."""
+    if not raw:
+        return float("nan")
+    return distinct_count(raw, include_null) / len(raw)
+
+
+def ljung_box(xs, lags):
+    """Ljung-Box Q at `lags` h: Q = n(n+2) sum_{k=1}^h rho_k^2/(n-k); p via chi2(h)
+    (statsmodels acorr_ljungbox)."""
+    n = len(xs)
+    if n < 3 or _has_nan(xs) or lags < 1 or lags >= n:
+        return float("nan")
+    q = 0.0
+    for k in range(1, lags + 1):
+        rho = autocorrelation(xs, k)
+        q += rho * rho / (n - k)
+    q *= n * (n + 2)
+    return chi2_sf(q, lags)
