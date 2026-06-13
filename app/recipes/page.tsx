@@ -34,53 +34,67 @@ export default function RecipesPage() {
                 reference vectors before it ships; and when its input is broken or ambiguous it{" "}
                 <b>degrades to “can&apos;t confirm”</b> instead of guessing.
               </p>
-              <p className="rpage__legend micro">
-                Claim it verifies · how the number is rebuilt · validated against
-              </p>
             </div>
           </div>
         </section>
 
-        {FAMILIES.map((fam, fi) => (
-          <section className="sec rfam" key={fam.key} id={fam.key}>
-            <div className="wrap">
-              <div className="rfam__head">
-                <span className="kicker">
-                  {String(fi + 1).padStart(2, "0")} · {fam.title}
-                </span>
-                <span className="rfam__count mono">
-                  {fam.recipes.length} recipe{fam.recipes.length > 1 ? "s" : ""}
-                </span>
-              </div>
-              <p className="rfam__blurb">{fam.blurb}</p>
-              <div className="rlist">
-                {fam.recipes.map((r) => (
-                  <article className="rcp" key={r.id}>
-                    <div className="rcp__top">
-                      <h3 className="rcp__name">{r.name}</h3>
-                      <span className="rcp__id mono">{r.id}</span>
-                    </div>
-                    <p className="rcp__claim">{r.claim}</p>
-                    <p className="rcp__what">{r.what}</p>
-                    <p className="rcp__how">
-                      <span className="rcp__k">recompute</span> {r.how}
-                    </p>
-                    <div className="rcp__meta">
-                      <span className="rcp__ref">
-                        <span className="rcp__k">validated against</span> {r.ref}
-                      </span>
-                      {r.conv ? (
-                        <span className="rcp__conv">
-                          <span className="rcp__k">conventions</span> {r.conv}
+        <div className="rpage__body">
+          <aside className="rtoc" aria-label="Recipe families">
+            <span className="rtoc__title">Contents</span>
+            <ol>
+              {FAMILIES.map((fam, fi) => (
+                <li key={fam.key}>
+                  <a href={`#${fam.key}`}>
+                    <span className="rtoc__n">{String(fi + 1).padStart(2, "0")}</span>
+                    <span className="rtoc__label">{fam.title}</span>
+                    <span className="rtoc__c">{fam.recipes.length}</span>
+                  </a>
+                </li>
+              ))}
+            </ol>
+          </aside>
+
+          <div className="rpage__fams">
+            {FAMILIES.map((fam, fi) => (
+              <section className="rfam" key={fam.key} id={fam.key}>
+                <div className="rfam__head">
+                  <span className="kicker">
+                    {String(fi + 1).padStart(2, "0")} · {fam.title}
+                  </span>
+                  <span className="rfam__count mono">
+                    {fam.recipes.length} recipe{fam.recipes.length > 1 ? "s" : ""}
+                  </span>
+                </div>
+                <p className="rfam__blurb">{fam.blurb}</p>
+                <div className="rlist">
+                  {fam.recipes.map((r) => (
+                    <article className="rcp" key={r.id}>
+                      <div className="rcp__top">
+                        <h3 className="rcp__name">{r.name}</h3>
+                        <span className="rcp__id mono">{r.id}</span>
+                      </div>
+                      <p className="rcp__claim">{r.claim}</p>
+                      <p className="rcp__what">{r.what}</p>
+                      <p className="rcp__how">
+                        <span className="rcp__k">recompute</span> {r.how}
+                      </p>
+                      <div className="rcp__meta">
+                        <span className="rcp__ref">
+                          <span className="rcp__k">validated against</span> {r.ref}
                         </span>
-                      ) : null}
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </div>
-          </section>
-        ))}
+                        {r.conv ? (
+                          <span className="rcp__conv">
+                            <span className="rcp__k">conventions</span> {r.conv}
+                          </span>
+                        ) : null}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+        </div>
 
         <section className="sec rpage__foot">
           <div className="wrap">

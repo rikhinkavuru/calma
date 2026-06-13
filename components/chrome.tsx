@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { motion } from "framer-motion";
 import { GITHUB_URL } from "./contact";
+
+const EASE = [0.22, 1, 0.36, 1] as const;
 
 export function useInView<T extends Element = HTMLDivElement>(threshold = 0.18) {
   const ref = useRef<T | null>(null);
@@ -35,15 +38,17 @@ export function Reveal({
   className?: string;
   style?: CSSProperties;
 }) {
-  const [ref, seen] = useInView<HTMLDivElement>(0.15);
   return (
-    <div
-      ref={ref}
-      className={"rv" + (seen ? " in" : "") + (className ? " " + className : "")}
-      style={{ ...style, ["--d" as string]: `${delay}ms` }}
+    <motion.div
+      className={"rv" + (className ? " " + className : "")}
+      style={style}
+      initial={{ opacity: 0, y: 18 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "0px 0px -8% 0px" }}
+      transition={{ duration: 0.7, ease: EASE, delay: delay / 1000 }}
     >
       {children}
-    </div>
+    </motion.div>
   );
 }
 

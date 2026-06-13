@@ -189,9 +189,9 @@ img, svg, canvas { display: block; max-width: 100%; }
 .nav__links a { font-size: 14px; color: var(--cream-70); transition: color 0.2s ease; }
 .nav__links a:hover { color: var(--cream); }
 .nav__cta {
-  font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+  font-family: var(--mono); font-size: 8px; letter-spacing: 0.08em; text-transform: uppercase;
   background: transparent; color: var(--cream);
-  border: 1px solid var(--cream-55); padding: 3px 8px; font-size: 9px;
+  border: 1px solid var(--hairline); padding: 2px 7px;
   transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
 }
 .nav__cta:hover { border-color: var(--cream); background: var(--cream); color: var(--void); }
@@ -319,7 +319,7 @@ img, svg, canvas { display: block; max-width: 100%; }
 .hero__inner--center {
   display: flex; flex-direction: column; align-items: center; text-align: center;
   min-height: 100vh; min-height: 100svh;
-  padding-top: clamp(96px, 12vh, 136px); padding-bottom: clamp(30px, 4.5vh, 52px);
+  padding-top: clamp(124px, 15vh, 172px); padding-bottom: clamp(30px, 4.5vh, 52px);
 }
 .hero__inner--center .h1 { max-width: 15em; font-size: clamp(32px, 4.2vw, 48px); }
 .hero__inner--center .hero__lead {
@@ -327,26 +327,24 @@ img, svg, canvas { display: block; max-width: 100%; }
   font-size: clamp(15px, 1.3vw, 17px); max-width: 40em;
 }
 .hero__inner--center .hero__fill { width: 100%; }
-.hero__inner--center .hero__demo { margin-top: clamp(26px, 4.2vh, 46px); width: 100%; }
+.hero__inner--center .hero__demo { margin-top: clamp(42px, 6vh, 72px); width: 100%; }
 
-/* the recording, deliberately a notch smaller than full-bleed and a touch wider
-   than its native ratio (16:10 vs 1.48:1) — reads as a cinematic inset, and the
-   hero keeps air around it instead of wall-to-wall video */
+/* the recording, shown whole at its native 4:3 — a cinematic inset with air
+   around it. taller frame than before so nothing is cropped top or bottom */
 .hero__movie {
   margin: 0 auto; border-radius: 14px; overflow: hidden;
-  height: clamp(280px, calc(100vh - 430px), 600px);
-  aspect-ratio: 16 / 10;
-  max-width: min(1080px, 92vw);
+  height: clamp(340px, calc(100vh - 360px), 680px);
+  aspect-ratio: 4 / 3;
+  max-width: min(940px, 94vw);
   box-shadow:
     0 40px 90px rgba(0, 0, 0, 0.55),
     0 14px 34px rgba(0, 0, 0, 0.45),
     0 2px 8px rgba(0, 0, 0, 0.4);
 }
-/* object-fit keeps the element box equal to the visible frame (native
-   controls fit), cropping only if the width cap bites on narrow screens */
+/* contain shows the entire recording — no edges cropped */
 .hero__movie video {
   display: block; background: #0a0907;
-  width: 100%; height: 100%; object-fit: cover;
+  width: 100%; height: 100%; object-fit: contain;
 }
 
 /* ============================================================ sections */
@@ -509,6 +507,28 @@ img, svg, canvas { display: block; max-width: 100%; }
 .features--3 .feat:nth-child(3n) { border-right: 0; }
 .features--3 .feat:nth-child(n) { border-bottom: 1px solid var(--hairline); }
 .features--3 .feat:nth-child(n + 7) { border-bottom: 0; }
+
+/* ---------------- feature rows (alternating art / text) ---------------- */
+.frows { display: flex; flex-direction: column; gap: clamp(30px, 4.5vw, 60px); }
+.frow { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(28px, 5vw, 72px); align-items: center; }
+.frows > .rv:nth-child(even) .frow__art { order: 2; }
+.frow__art {
+  border: 1px solid var(--hairline); background: rgba(17, 15, 11, 0.72);
+  aspect-ratio: 16 / 10; display: grid; place-items: center; overflow: hidden;
+  transition: box-shadow 0.35s var(--ease), border-color 0.35s ease;
+}
+.frow:hover .frow__art {
+  box-shadow: 7px 7px 0 rgba(232, 154, 93, 0.18);
+  border-color: rgba(232, 154, 93, 0.4);
+}
+.frow__art svg { width: 82%; height: auto; }
+.frow__text { display: flex; flex-direction: column; gap: 14px; }
+.frow__k {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.24em;
+  text-transform: uppercase; color: var(--amber);
+}
+.frow__text h3 { font-size: clamp(22px, 2.5vw, 31px); font-weight: 500; line-height: 1.16; letter-spacing: -0.01em; }
+.frow__text p { font-size: 15.5px; line-height: 1.72; color: var(--cream-55); max-width: 48ch; }
 
 /* ---------------- benefits ---------------- */
 .benefits { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(24px, 3.5vw, 44px); }
@@ -707,7 +727,33 @@ img, svg, canvas { display: block; max-width: 100%; }
   font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
   color: var(--cream-55); border: 1px solid var(--hairline); padding: 3px 8px;
 }
-.rfam { padding-block: clamp(28px, 4vw, 44px); }
+/* recipes layout: sticky table of contents + families column */
+.rpage__body {
+  max-width: var(--maxw); margin-inline: auto;
+  padding-inline: clamp(20px, 5vw, 56px);
+  padding-bottom: clamp(40px, 6vw, 80px);
+  display: grid; grid-template-columns: 232px minmax(0, 1fr);
+  gap: clamp(28px, 4vw, 60px); align-items: start;
+}
+.rtoc { position: sticky; top: 88px; align-self: start; }
+.rtoc__title {
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.3em;
+  text-transform: uppercase; color: var(--amber);
+}
+.rtoc ol { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; }
+.rtoc li a {
+  display: flex; align-items: baseline; gap: 12px; padding: 9px 0;
+  font-size: 13.5px; line-height: 1.3; color: var(--cream-55);
+  border-bottom: 1px solid var(--hairline); transition: color 0.2s ease;
+}
+.rtoc li:first-child a { border-top: 1px solid var(--hairline); }
+.rtoc li a:hover { color: var(--cream); }
+.rtoc__n { font-family: var(--mono); font-size: 10px; color: var(--cream-35); }
+.rtoc__label { flex: 1; }
+.rtoc__c { font-family: var(--mono); font-size: 10px; color: var(--cream-35); }
+
+.rfam { padding-block: clamp(24px, 3vw, 40px); scroll-margin-top: 88px; }
+.rfam:first-child { padding-top: 0; }
 .rfam__head { display: flex; justify-content: space-between; align-items: baseline; gap: 18px; }
 .rfam__count { font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--cream-35); }
 .rfam__blurb { margin-top: 10px; margin-bottom: 22px; font-size: 15.5px; line-height: 1.65; color: var(--cream-55); max-width: 62ch; }
@@ -767,6 +813,12 @@ img, svg, canvas { display: block; max-width: 100%; }
   .rlist { grid-template-columns: 1fr 1fr; }
   .rlist .rcp:nth-child(3n) { border-right: 1px solid var(--hairline); }
   .rlist .rcp:nth-child(2n) { border-right: 0; }
+  .rpage__body { grid-template-columns: 1fr; gap: 10px; }
+  .rtoc { position: static; top: auto; }
+  .rtoc ol { flex-direction: row; flex-wrap: wrap; gap: 4px 18px; margin-top: 10px; }
+  .rtoc li a { border-bottom: 0; padding: 5px 0; }
+  .rtoc li:first-child a { border-top: 0; }
+  .rtoc__c { display: none; }
 }
 @media (max-width: 640px) {
   .rlist { grid-template-columns: 1fr; }
@@ -789,6 +841,8 @@ img, svg, canvas { display: block; max-width: 100%; }
   .step { border-right: 0; border-bottom: 1px solid var(--hairline); }
   .step:last-child { border-bottom: 0; }
   .benefits { grid-template-columns: 1fr; }
+  .frow { grid-template-columns: 1fr; gap: 20px; }
+  .frows > .rv:nth-child(even) .frow__art { order: 0; }
   .nav__links a { display: none; }
   .nav__burger { display: inline-block; }
   .nav__menu { display: flex; }

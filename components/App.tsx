@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { MotionConfig } from "framer-motion";
 import { Nav } from "./chrome";
 import { Hero } from "./Hero";
 import { Problem } from "./Catch";
@@ -18,7 +19,7 @@ export default function App() {
   const openDlg = () => setDlg(true);
 
   return (
-    <>
+    <MotionConfig reducedMotion="user">
       <div className="grain" aria-hidden="true"></div>
       <Nav />
       <main>
@@ -35,6 +36,6 @@ export default function App() {
       </main>
       <Outro />
       <RequestDialog open={dlg} onClose={() => setDlg(false)} />
-    </>
+    </MotionConfig>
   );
 }

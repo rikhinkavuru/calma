@@ -209,15 +209,12 @@ export function Benchmarks() {
               )}
 
               <div className="bench__prov">
-                117 cases · 30 metrics · UCI benchmark datasets + published cases · ground
-                truth cross-validated against scikit-learn, SciPy &amp; NumPy · ~216 ms per check
-                {" · "}
                 <a
                   href="https://github.com/rikhinkavuru/calma/tree/main/benchmark"
                   target="_blank"
                   rel="noreferrer"
                 >
-                  methodology
+                  Full methodology &amp; data →
                 </a>
               </div>
             </div>
