@@ -491,7 +491,10 @@ def _docker_argv(base, inner_argv, env, image, out_dir, probe=False):
     while the engagement source (incl. .calma) can never be tampered with. The probe omits the
     writable mount (it proves the floor: even with nothing writable, egress + host-secret read fail)."""
     name = "calma_%d_%d" % (os.getpid(), _docker_next())
-    argv = [_docker_bin(), "run", "--name", name] + _docker_hardening()
+    # `_docker_bin()` is None when docker isn't on PATH (e.g. a docker-less CI runner); the real
+    # run path gates on `_docker_available()` and fails loud, but the argv builder itself must stay
+    # a clean list of strings so structural/pure tests (and `" ".join`) never see a None.
+    argv = [_docker_bin() or "docker", "run", "--name", name] + _docker_hardening()
     argv += ["--user", _docker_user(), "-w", "/work", "-v", "%s:/work:ro" % base]
     if not probe and out_dir:
         argv += ["-v", "%s:/work/runs:rw" % out_dir]
