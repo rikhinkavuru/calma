@@ -14,8 +14,7 @@ opinion.
 
 ## Demo
 
-<!-- DEMO: replace this with the recorded GIF/video, e.g. ![Calma demo](docs/demo.gif) -->
-*(Demo recording coming soon.)*
+![Calma catching a real inflated backtest: `calma demo` re-executes it and recomputes +14,698% down to −32.4%](docs/demo.gif)
 
 Try it on a real inflated backtest that ships with this repo — one command, no setup, no network:
 

@@ -64,7 +64,7 @@ Manual runs of the Calma loop on real public claims. Goal: (1) tech signal — d
 
 Not a static read — an actual run. Reproduces the exact lie pattern of the "3000%" bot (in-sample
 parameter mining + leverage, no out-of-sample, no costs) on **real Coinbase BTC-USD daily data**
-(3000 bars, 2018–02026), then runs Calma's recompute pillar: the *same* params, out-of-sample,
+(3000 bars, 2018–2026), then runs Calma's recompute pillar: the *same* params, out-of-sample,
 with real fees + slippage. No lookahead — the collapse is purely overfit + costs.
 Reproducible: `scripts/teardowns/btc_overfit_teardown.py` (pure stdlib).
 

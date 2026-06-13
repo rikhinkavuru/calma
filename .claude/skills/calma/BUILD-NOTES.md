@@ -565,3 +565,44 @@ engine fixes + two newly-vendored real repos, not corpus-specific hacks. Regener
 allowed, listdir/read denied; venv-aware interpreter selection); test_vendor.py 2 → 8 (params keying +
 differing-params MISS, Session replay, drift guard); test_crosslang.py +node; test_m2.py +btc-sma-crossover
 offline shim replay. Full suite green under both Homebrew python3.13 and system python3.14: 18 suites, 0 failures.
+
+## Value-family REFUTE + batch/multi-metric + packaging + benchmark v2 (2026-06-12, 0.8.0)
+
+The coverage gap that mattered most: a clearly-fabricated *value-family* number (a column sum, mean, RMSE,
+NPV, p95 latency, …) used to degrade to INCONCLUSIVE instead of being caught, because its binding was treated
+as weaker than a domain metric's. 0.8.0 closes that without spending the zero-false-refute guarantee.
+
+- **Value-family can REFUTE — but only on an unambiguous binding.** A pinned/named generic-numeric metric
+  (`column_sum`, `mean`, `median`, `percentile`, `rmse`, `mae`, `r2`, `mape`, `correlation`, `npv`, `irr`,
+  `cagr`, `latency_p*`, …) upgrades its binding to `independently-bound` — and thus becomes REFUTE-eligible —
+  ONLY when the metric is **forced** (named in the claim or via `--metric`) AND the emitted column is the
+  **unique** clean-finite candidate for that tag. A bare number, an auto-picked metric, or an ambiguous
+  (multi-column) binding stays conservative → INCONCLUSIVE. The verdict gate in `verdict.py` is unchanged;
+  this is purely a binding-strength upgrade, so the FP-guard corpus (zero false-REFUTE) still holds.
+- **Multi-metric contracts no longer swallow a broken secondary.** A committed contract with several declared
+  metrics now re-grades EACH metric from the emitted data and confirms it as a target (never downgrading a
+  declared status), and `claim_confirmed_target` no longer requires `headline` — so a fabricated SECONDARY
+  metric makes the repo **MIXED** rather than CONFIRMED-on-the-headline. The report and `--json` now surface
+  every metric (a per-metric ✓/✗ table; `--json` gains a `metrics: […]` array). Existing committed fixtures +
+  the 9/9 served-fraction corpus are unchanged.
+- **Batch mode.** `calma batch <dir>… | --manifest <TSV>` verifies many targets in one run and prints ONE
+  summary table (target | metric | claimed | recomputed | verdict) with a roll-up exit (1 if any fails);
+  `--json` emits a per-target array. This is the realistic multi-result usage path (a folder of runs, a
+  manifest of claims) rather than one-target-at-a-time.
+- **Presentation & packaging.** A live while-running spinner (`⠹ re-executing <entrypoint> (Ns)`) on an
+  interactive stderr so a long re-execution doesn't look frozen (no-op in pipes / CI / `--json`). An on-PATH
+  installer — `./install.sh` / `make install` symlink `bin/calma` (pure stdlib, no pip); the wrapper sets
+  `CALMA_INVOKED_AS` so echoed hints read `calma replay …` (copy-pasteable). Site bumped Next 14→15, React
+  18→19, framer-motion 12, `@types` refreshed, `engines.node >=20` pinned (build verified clean).
+- **Benchmark v2 (`benchmark/`).** Rebuilt to 117 labeled cases across 3 tracks (synthetic 84 / external 29 on
+  UCI Breast-Cancer/Digits/Wine + the Diabetes regression benchmark via 5-fold out-of-fold predictions /
+  real-world 4 with citable provenance), 30 metrics, 8 families. Every synthetic oracle is cross-validated
+  against its published reference implementation (`validate_oracles.py`: 28/28 exact on scikit-learn 1.9.0 /
+  SciPy 1.17.1 / NumPy 2.4.6). After the value-family fix: **Calma 100% catch (77/77), 0 false-confirms,
+  0 false-alarms** vs LLM-as-judge 82% (63/77) with **26 wrong verdicts** (14 false-confirms + 12
+  false-alarms) vs trust-the-number 0%. (The v2 corpus rebuild landed just after the initial 0.8.0
+  changelog draft, which had reported a pre-v2 71%/7+3; `benchmark/results/summary.json` is authoritative
+  and the CHANGELOG now reflects the v2 figures.)
+
+All versions reconciled to 0.8.0 (plugin/marketplace/calma.py/site). Full suite green on Homebrew python3.13
+and system python3.14: **18 suites, 1,588 checks, 0 failures**. See CHANGELOG.md (0.8.0).

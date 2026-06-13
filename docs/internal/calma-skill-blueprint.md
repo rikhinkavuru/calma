@@ -1,5 +1,15 @@
 # Calma — Stage-1 Skill Blueprint (hardened)
 
+> **STATUS (2026-06-13, historical design artifact — do not retro-edit the body).** This is the
+> pre-build Stage-1 spec; its milestone-gated language (M0→M5) is intentional and preserved as the
+> record. Reality as of calma 0.8.0: the engine, the attestation chain (DSSE/in-toto + SSHSIG +
+> RFC 3161 + optional Sigstore), the hash-chained public registry, the zero-touch Stop-hook
+> guardrail, and the recipe compiler have all **shipped**; 120 reference-validated recipes; 18
+> suites / 1,588 checks. The deep-validity families (leakage re-run, deflated-Sharpe/PBO,
+> realism deflators, contamination) remain **roadmap M3–M4, not delivered**. The companion
+> `docs/calma-build-runbook.md` referenced below was a planning scratch doc and is **not kept** in
+> the repo — the canonical build log is `.claude/skills/calma/BUILD-NOTES.md`.
+
 > Verified, hardened build spec for Calma's Stage-1 open-source verification skill.
 > Produced by a multi-agent research → design → converge → **4-round harden** workflow.
 > Convergence path: 0.46 → 0.82 (converge) → 4 hardening rounds applied.

@@ -124,8 +124,8 @@ Onboarding for a fresh Claude Code session. Read this, then `.claude/skills/calm
   py3.14 (1,620 on the 0.9.0 branch). See
   CHANGELOG.md. **Open follow-ups (proposed, not done):** AUC/DeLong O(n²)→O(n log n) kernel rewrite
   (needs reference-vector bit validation), sniffer recall on backticked metrics, a real `pip install`
-  to PyPI (the on-PATH symlink installer shipped; PyPI distribution did not), embed the recorded demo
-  GIF into README (README still shows the "coming soon" placeholder).
+  to PyPI (the on-PATH symlink installer shipped; PyPI distribution did not). (The README demo-GIF
+  embed — `docs/demo.gif` — was completed 2026-06-13.)
 
 - **Pilot-hardening WS1 (2026-06-13, calma 0.9.0 — branch `pilot-hardening`)**: a real **container
   isolation tier** for untrusted counterparty code lands in `run_hermetic.py` behind a backend
@@ -220,9 +220,13 @@ bullet above).
 renders the genesis entry). The `calma.dev` predicate-URI problem is RESOLVED — the 0.6.1 pass
 migrated active predicate/subject URIs to `github.com/rikhinkavuru/calma/*` (legacy `calma.dev`
 bundles stay valid and `attest.py` still accepts them), so no schema bump is owed before real
-engagements. Still open: README has a demo-GIF placeholder (`*(Demo recording coming soon.)*`,
-~line 19) — the demo was recorded (see `~/calma-strategy/DEMO-VIDEO.md`) but the cut has not been
-embedded yet; fill from the video's 10s cut.
+engagements. README demo embed DONE (2026-06-13): `docs/demo.gif` (a clean VHS recording of `calma
+demo` catching the +14,698% → −32.4% backtest) is embedded in the README Demo section, replacing the
+"coming soon" placeholder. Source is committed at `docs/demo.tape` — regenerate from the repo root
+with `vhs docs/demo.tape` (needs `brew install vhs ttyd ffmpeg`; `CALMA_TRACE` controls the verbose
+re-exec trace shown). The longer narrated zero-touch cut
+(`~/calma-strategy/demo-video-raw-2026-06-12.mp4`, +19,971% staged scenario) is still the asset for a
+hosted/launch video if wanted.
 
 ## Gotchas
 
