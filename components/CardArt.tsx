@@ -32,14 +32,20 @@ export function CardArt({ kind }: { kind: Kind }) {
   if (kind === "verdict")
     return (
       <svg className="cart" viewBox="0 0 400 250" aria-hidden="true">
-        {/* claimed vs rebuilt → a verdict, decided by code */}
-        <text x="74" y="74">claimed</text>
-        <text x="250" y="74" textAnchor="end">2.1</text>
-        <text x="74" y="118">rebuilt</text>
-        <text x="250" y="118" textAnchor="end">1.6</text>
-        <line x1="74" y1="142" x2="326" y2="142" className="dim" />
-        <rect x="118" y="166" width="164" height="48" className="amber" />
-        <text x="200" y="196" textAnchor="middle" className="amber">REFUTED</text>
+        {/* two results compared, then a verdict stamped by deterministic code */}
+        <circle cx="60" cy="96" r="3" className="dim" />
+        <line x1="64" y1="96" x2="196" y2="96" className="dim" />
+        <circle cx="196" cy="96" r="4" className="amber" />
+        <circle cx="60" cy="130" r="3" className="dim" />
+        <line x1="64" y1="130" x2="138" y2="130" className="dim" />
+        <circle cx="138" cy="130" r="4" className="amber" />
+        {/* the gap the two endpoints don't share */}
+        <line x1="138" y1="100" x2="196" y2="100" className="dim" strokeDasharray="3 4" />
+        {/* a deterministic seal — concentric rings + a struck mark */}
+        <circle cx="298" cy="140" r="44" className="amber" />
+        <circle cx="298" cy="140" r="33" className="amber" />
+        <path d="M283 140 l10 11 l21 -24" className="amber" />
+        <text x="200" y="232" textAnchor="middle">decided by code</text>
       </svg>
     );
   if (kind === "claim")

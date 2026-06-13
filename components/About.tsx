@@ -5,7 +5,7 @@ import { CONTACT_EMAIL, FOUNDER, GITHUB_URL } from "./contact";
 
 export function About() {
   return (
-    <section className="sec" id="about">
+    <section className="sec sec--alt" id="about">
       <div className="wrap">
         <div className="sec__head">
           <Reveal>

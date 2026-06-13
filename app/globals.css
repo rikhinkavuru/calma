@@ -349,6 +349,13 @@ img, svg, canvas { display: block; max-width: 100%; }
 
 /* ============================================================ sections */
 .sec { position: relative; padding-block: clamp(80px, 12vw, 140px); }
+/* alternating bands break the flat-dark monotony so sections stop blending.
+   a hair of elevation + edge hairlines, plus one faint amber seam at the top */
+.sec--alt { background: rgba(233, 221, 196, 0.022); border-block: 1px solid var(--hairline); }
+.sec--alt::before {
+  content: ""; position: absolute; left: 0; right: 0; top: -1px; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(232, 154, 93, 0.35), transparent);
+}
 .sec__head { margin-bottom: clamp(40px, 5vw, 64px); display: flex; flex-direction: column; gap: 18px; }
 
 /* ---------------- problem ---------------- */
@@ -398,7 +405,8 @@ img, svg, canvas { display: block; max-width: 100%; }
 .bench__tab.is-on::before { background: var(--amber); }
 .bench__tabtitle { display: block; font-family: var(--mono); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; }
 .bench__tabdesc { display: none; margin-top: 8px; font-size: 14px; line-height: 1.55; color: var(--cream-55); max-width: 30em; }
-.bench__tab.is-on .bench__tabdesc { display: block; }
+/* reserve the tallest description's height so cycling tabs never reflow the page */
+.bench__tab.is-on .bench__tabdesc { display: block; min-height: 92px; }
 .bench__timer {
   position: absolute; left: 0; bottom: -1px; height: 1px; width: 100%;
   transform-origin: left; background: var(--amber); opacity: 0.45;
@@ -529,6 +537,27 @@ img, svg, canvas { display: block; max-width: 100%; }
 }
 .frow__text h3 { font-size: clamp(22px, 2.5vw, 31px); font-weight: 500; line-height: 1.16; letter-spacing: -0.01em; }
 .frow__text p { font-size: 15.5px; line-height: 1.72; color: var(--cream-55); max-width: 48ch; }
+/* the amber accent in each illustration comes alive on hover */
+.frow__art .cart .amber { transition: stroke-width 0.4s var(--ease), opacity 0.4s var(--ease); }
+.frow:hover .frow__art .cart .amber { stroke-width: 2; }
+.frow:hover .frow__art .cart text.amber { stroke-width: 0; }
+
+/* ---------------- kinetic recipe ticker ---------------- */
+.rmarq {
+  position: relative; overflow: hidden; margin-top: clamp(40px, 5vw, 68px);
+  border-block: 1px solid var(--hairline);
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
+}
+.rmarq__track { display: flex; width: max-content; animation: rmarq 42s linear infinite; }
+.rmarq:hover .rmarq__track { animation-play-state: paused; }
+.rmarq__item {
+  display: inline-flex; align-items: center; gap: 18px; padding: 15px 0 15px 18px;
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--cream-55); white-space: nowrap;
+}
+.rmarq__item::before { content: ""; width: 4px; height: 4px; background: var(--amber); transform: rotate(45deg); flex: none; }
+@keyframes rmarq { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 
 /* ---------------- benefits ---------------- */
 .benefits { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(24px, 3.5vw, 44px); }

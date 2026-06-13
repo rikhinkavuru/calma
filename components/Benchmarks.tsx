@@ -100,7 +100,7 @@ export function Benchmarks() {
   const grow = seen && armed;
 
   return (
-    <section className="sec" id="benchmarks">
+    <section className="sec sec--alt" id="benchmarks">
       <div className="wrap">
         <div className="bench" ref={ref}>
           <Reveal>
