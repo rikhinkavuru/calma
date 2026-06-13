@@ -138,8 +138,35 @@ Onboarding for a fresh Claude Code session. Read this, then `.claude/skills/calm
   fallback); `--trust third-party` auto-escalates to the container tier; firecracker is a fail-loud stub.
   Honest stamp: shares the colima VM kernel, NOT escape-isolated (microVM = funded tier, stubbed).
   `test_hermetic.py` 25→57 checks incl. a hostile-repo containment battery (egress / planted-secret /
-  out-of-`runs` writes all contained, container removed). **WS2–WS6 + dress rehearsals in-flight on the
-  same branch** — plan at `~/.claude/plans/mighty-dancing-hammock.md`. Suite: 18 suites green.
+  out-of-`runs` writes all contained, container removed). A fresh no-context red-team subagent failed
+  on ALL walls → stamped isolated.
+
+- **Pilot-hardening WS2–WS6 + rehearsals (2026-06-13, calma 0.9.0 — branch `pilot-hardening`)**, plan
+  at `PLAN.md` / `~/.claude/plans/mighty-dancing-hammock.md`:
+  - **WS2** `calma report <run_dir>`: branded HTML (prints to PDF; claim / verdict / measured gap /
+    explicit scope-of-verification / limits / hashes) + a self-contained **offline replay bundle**
+    (`replay/`) that re-derives the verdict byte-for-byte on a fresh machine with no calma install
+    (pure-stdlib `attest.verify_bundle` closure + `replay.sh`); a forged-verdict bundle fails it.
+    `report.py` + `test_report.py` (33 checks).
+  - **WS3** `intake.py` + `calma verify --restore`: detect interpreter, restore+pin deps
+    (requirements/pyproject/setup/conda; renv/DESCRIPTION) into `.calma_venv`, bind input data by hash
+    → `intake.json`. Fixed a Seatbelt gap: restored-venv base interpreters (uv/pyenv/conda) live under
+    `$HOME` via nested symlinks the profile denied — profile now re-allows interpreter DEPOT roots
+    (`~/.local/share/uv`, `~/.pyenv`, …; `~/.ssh`/`~/.aws` stay denied). Verified on pandas, backtrader,
+    R. `test_intake.py` (16 checks).
+  - **WS4** `backtest_checks.py`: omitted-costs (gross-sold-as-net), cherry-picked window, survivorship —
+    each states its assumption; an open blocking soundness finding degrades a clean CONFIRMED to
+    CONFIRMED-WITH-CAVEATS (never up to REFUTED). `test_backtest_checks.py` (15 checks). deck≠code is the
+    core catch.
+  - **WS5**: the determinism recheck fires AUTOMATICALLY on third-party trust and whenever determinism
+    isn't statically provable + a claim is judged — closes a false-confirm hole (unseeded flaky repo near
+    the claim). FLAKY message quantifies the headline swing + names the precise knob. Never false-refute
+    (a seeded run still CONFIRMS).
+  - **WS6 + rehearsals**: `rehearsals/run_rehearsal.py` drives the whole pipeline on 5 repos / 4 stacks
+    into a SCRATCH registry with a THROWAWAY key (founder key + genesis chain untouched) →
+    `REHEARSALS.md`. Chain verifies offline; redaction-by-construction independently confirmed.
+  - Suite: **21 suites green**. Container tier needs colima running (`colima start`); the funded
+    microVM/Firecracker tier is stubbed and fails loud.
 
 ## Key invariants (machine-enforced — do not violate)
 

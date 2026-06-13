@@ -29,3 +29,10 @@ benchmark/cases/*/runs/
 benchmark/cases/**/.calma/
 # external-track run outputs (regenerable: gen.py copies data/ -> runs/)
 benchmark/cases_external/*/runs/
+graphify-out/
+
+# rehearsal run outputs + scratch registry (regenerable via rehearsals/run_rehearsal.py)
+rehearsals/registry-scratch/
+rehearsals/repos/*/.calma/
+rehearsals/repos/*/.calma_venv/
+rehearsals/repos/*/runs/

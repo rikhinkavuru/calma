@@ -4,6 +4,21 @@ All notable changes to the calma skill/CLI. Dates are UTC.
 
 ## 0.9.0 — 2026-06-13
 
+### WS6 + dress rehearsals — end-to-end pilot pipeline + registry dry-run
+
+- New `rehearsals/run_rehearsal.py`: drives the WHOLE pilot pipeline (intake +restore → isolated run
+  → recompute → signed bundle → branded report + offline replay bundle → a redacted hash-chained
+  registry entry) on quant repos across stacks, using a THROWAWAY key + a SCRATCH registry so the
+  founder lab key and the committed genesis chain are never touched. Writes `REHEARSALS.md`.
+- Ran on 5 repos / 4 stacks: BTC inflated backtest (container isolation → **REFUTED**, the walk-forward
+  catch), a real MIT pandas momentum repo (**CONFIRMED**), a backtrader strategy (restored →
+  **CONFIRMED**), an R strategy (**CONFIRMED-WITH-CAVEATS**, R determinism uncontrolled), and an
+  omitted-costs deck (**CONFIRMED-WITH-CAVEATS**, the WS4 gross-sold-as-net catch). Each produced a
+  signed bundle, a report + replay bundle, and a redacted registry entry.
+- Registry dry-run (WS6): all 5 redacted entries appended, the **hash chain verifies offline**, and an
+  independent leak scan confirms **redaction-by-construction** — every entry carries only
+  claim/metric/claimed/recomputed/verdict/hashes/keyid/dates; no code, data, or positions.
+
 ### WS5 — Graceful handling of THEIR non-determinism
 
 - The determinism recheck (re-execute, diff the artifact bytes) now **fires automatically** when it
