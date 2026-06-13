@@ -329,14 +329,14 @@ img, svg, canvas { display: block; max-width: 100%; }
 .hero__inner--center .hero__fill { width: 100%; }
 .hero__inner--center .hero__demo { margin-top: clamp(16px, 2.8vh, 26px); width: 100%; }
 
-/* the recording at its native ratio, sized to consume the viewport height the
-   headline stack leaves over (~310px incl. nav padding) — the hero fills the
-   screen with no dead band under the video */
+/* the recording, deliberately a notch smaller than full-bleed and a touch wider
+   than its native ratio (16:10 vs 1.48:1) — reads as a cinematic inset, and the
+   hero keeps air around it instead of wall-to-wall video */
 .hero__movie {
   margin: 0 auto; border-radius: 14px; overflow: hidden;
-  height: clamp(320px, calc(100vh - 240px), 880px);
-  aspect-ratio: 1296 / 874;
-  max-width: min(1200px, 94vw);
+  height: clamp(300px, calc(100vh - 330px), 640px);
+  aspect-ratio: 16 / 10;
+  max-width: min(1080px, 92vw);
   box-shadow:
     0 40px 90px rgba(0, 0, 0, 0.55),
     0 14px 34px rgba(0, 0, 0, 0.45),
@@ -376,6 +376,75 @@ img, svg, canvas { display: block; max-width: 100%; }
 .figs .v { font-family: var(--mono); font-size: clamp(19px, 2.2vw, 26px); }
 .figs .v--amber { color: var(--amber); }
 .figs .v--teal { color: var(--teal); }
+
+/* ---------------- benchmarks ---------------- */
+/* Exa-style split: story + cycling tab rail on the left, one animated chart
+   panel on the right. Bars re-grow from zero on every view change; calma is
+   always the amber series, the alternatives stay in cream tints. */
+.bench { display: grid; grid-template-columns: 0.95fr 1.35fr; gap: clamp(34px, 5vw, 72px); align-items: start; }
+.bench__h2 { margin-top: 18px; }
+.bench__lead { margin-top: 14px; }
+.bench__tabs { margin-top: 32px; display: flex; flex-direction: column; }
+.bench__tab {
+  position: relative; text-align: left; background: none; border: 0;
+  border-top: 1px solid var(--hairline); padding: 15px 2px 15px 18px;
+  color: var(--cream-55); transition: color 0.25s var(--ease);
+}
+.bench__tab:last-child { border-bottom: 1px solid var(--hairline); }
+.bench__tab:hover { color: var(--cream-70); }
+.bench__tab::before {
+  content: ""; position: absolute; left: 0; top: 15px; bottom: 15px; width: 2px;
+  background: transparent; transition: background 0.25s var(--ease);
+}
+.bench__tab.is-on { color: var(--cream); }
+.bench__tab.is-on::before { background: var(--amber); }
+.bench__tabtitle { display: block; font-family: var(--mono); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; }
+.bench__tabdesc { display: none; margin-top: 8px; font-size: 14px; line-height: 1.55; color: var(--cream-55); max-width: 30em; }
+.bench__tab.is-on .bench__tabdesc { display: block; }
+.bench__timer {
+  position: absolute; left: 0; bottom: -1px; height: 1px; width: 100%;
+  transform-origin: left; background: var(--amber); opacity: 0.45;
+  animation: benchTimer 6.5s linear forwards;
+}
+@keyframes benchTimer { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+.bench__panel { display: flex; flex-direction: column; min-height: 430px; }
+.bench__note { font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--cream-35); margin-bottom: 24px; }
+.bench__rows { display: flex; flex-direction: column; gap: 28px; flex: 1; justify-content: center; }
+.bench__row { display: grid; grid-template-columns: 130px 1fr 58px; align-items: center; gap: 14px; }
+.bench__rowlabel { font-family: var(--mono); font-size: 12.5px; color: var(--cream-55); }
+.bench__track {
+  position: relative; display: block; height: 30px; overflow: hidden;
+  background: rgba(233, 221, 196, 0.05); border: 1px solid rgba(233, 221, 196, 0.08);
+}
+.bench__bar { position: absolute; inset: 0; display: block; transform-origin: left center; transition: transform 0.9s var(--ease); }
+.bench__bar--amber { background: linear-gradient(90deg, rgba(232, 154, 93, 0.7), var(--amber)); }
+.bench__bar--mid { background: rgba(233, 221, 196, 0.34); }
+.bench__bar--dim { background: rgba(233, 221, 196, 0.16); }
+.bench__val { font-family: var(--mono); font-size: 15px; color: var(--cream); text-align: right; transition: opacity 0.5s var(--ease); }
+
+.bench__cols {
+  position: relative; flex: 1; display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: clamp(14px, 3vw, 38px); align-items: end; padding-top: 30px;
+}
+.bench__group { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.bench__colpair { display: flex; gap: 10px; align-items: flex-end; height: 230px; }
+.bench__colslot { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 8px; height: 100%; }
+.bench__colval { font-family: var(--mono); font-size: 12.5px; color: var(--cream-70); transition: opacity 0.5s var(--ease); }
+.bench__col { display: block; width: clamp(32px, 4vw, 50px); height: 190px; transform-origin: bottom center; transition: transform 0.9s var(--ease); }
+.bench__col.bench__bar--amber { background: linear-gradient(180deg, var(--sun), rgba(232, 154, 93, 0.75)); }
+.bench__grouplabel { font-size: 14px; color: var(--cream-55); }
+.bench__legend {
+  position: absolute; top: -6px; right: 0; display: flex; gap: 18px;
+  font-family: var(--mono); font-size: 11.5px; color: var(--cream-55);
+}
+.bench__dot { display: inline-block; width: 9px; height: 9px; margin-right: 7px; position: static; transform: none; }
+.bench__prov {
+  margin-top: 26px; padding-top: 14px; border-top: 1px solid var(--hairline);
+  font-family: var(--mono); font-size: 11.5px; line-height: 1.7; color: var(--cream-35);
+}
+.bench__prov a { color: var(--amber); }
+.bench__prov a:hover { text-decoration: underline; }
 
 /* ---------------- how it works ---------------- */
 .steps { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--hairline); }
@@ -707,6 +776,11 @@ img, svg, canvas { display: block; max-width: 100%; }
 /* ============================================================ responsive */
 @media (max-width: 980px) {
   .catch, .about { grid-template-columns: 1fr; }
+  .bench { grid-template-columns: 1fr; }
+  .bench__panel { min-height: 0; }
+  .bench__row { grid-template-columns: 96px 1fr 52px; }
+  .bench__colpair { height: 170px; }
+  .bench__col { height: 140px; }
   .demo { grid-template-columns: 1fr; gap: 16px; }
   .demo__net { display: none; }
   .dsteps { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding-top: 0; }

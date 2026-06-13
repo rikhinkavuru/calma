@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Nav } from "./chrome";
 import { Hero } from "./Hero";
 import { Problem } from "./Catch";
+import { Benchmarks } from "./Benchmarks";
 import { Overview } from "./Overview";
 import { Features } from "./Features";
 import { Benefits } from "./Benefits";
@@ -24,6 +25,7 @@ export default function App() {
         <Hero />
         <div className="texture">
           <Problem />
+          <Benchmarks />
           <Overview />
           <Features />
           <Benefits onRequest={openDlg} />
