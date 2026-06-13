@@ -279,6 +279,16 @@ KINDS = {
     "predictive_parity_difference": lambda a: N.predictive_parity_difference(a["pred"], a["label"], a["group"]),
     "fpr_parity_difference": lambda a: N.fpr_parity_difference(a["pred"], a["label"], a["group"]),
     "accuracy_parity_difference": lambda a: N.accuracy_parity_difference(a["pred"], a["label"], a["group"]),
+    # pack BC - survival concordance + clustering agreement
+    "concordance_index": lambda a: N.concordance_index(a["time"], a["score"], a["event"]),
+    "mutual_info_score": lambda a: N.mutual_info_score(a["a"], a["b"]),
+    "normalized_mutual_info": lambda a: N.normalized_mutual_info(a["a"], a["b"]),
+    "homogeneity_score": lambda a: N.homogeneity_score(a["a"], a["b"]),
+    "completeness_score": lambda a: N.completeness_score(a["a"], a["b"]),
+    "v_measure_score": lambda a: N.v_measure_score(a["a"], a["b"]),
+    "rand_index": lambda a: N.rand_index(a["a"], a["b"]),
+    "adjusted_rand_index": lambda a: N.adjusted_rand_index(a["a"], a["b"]),
+    "fowlkes_mallows_clustering": lambda a: N.fowlkes_mallows_clustering(a["a"], a["b"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -362,10 +372,14 @@ EXPECTED = {
     "demographic_parity_difference", "demographic_parity_ratio", "equalized_odds_difference",
     "equalized_odds_ratio", "equal_opportunity_difference", "predictive_parity_difference",
     "fpr_parity_difference", "accuracy_parity_difference",
+    # pack BC - survival concordance + clustering agreement (9)
+    "concordance_index", "mutual_info_score", "normalized_mutual_info", "homogeneity_score",
+    "completeness_score", "v_measure_score", "rand_index", "adjusted_rand_index",
+    "fowlkes_mallows_clustering",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 220 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 229 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

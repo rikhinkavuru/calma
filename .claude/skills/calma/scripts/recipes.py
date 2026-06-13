@@ -1614,3 +1614,27 @@ for _mid in ("demographic_parity_difference", "demographic_parity_ratio", "equal
              "fpr_parity_difference", "accuracy_parity_difference"):
     register(_mid, family="classification", required_tags=["prediction", "label", "group"],
              string_tags=["group"], set_maturity="reviewed")(_plg(getattr(N, _mid)))
+
+
+# ======================================================================================
+# Pack BC - survival concordance + clustering-agreement (validated vs lifelines / sklearn).
+# ======================================================================================
+
+@register("concordance_index", family="stats", required_tags=["time", "score", "event"],
+          set_maturity="reviewed")
+def concordance_index(cols, binding, convention=None):
+    t, s, e = cols[binding["time"]], cols[binding["score"]], cols[binding["event"]]
+    return _result(N.concordance_index(t, s, e), {"n": len(t)})
+
+
+def _ll(fn):
+    def recipe(cols, binding, convention=None):
+        a, b = cols[binding["labels_true"]], cols[binding["labels_pred"]]
+        return _result(fn(a, b), {"n": len(a)})
+    return recipe
+
+
+for _mid in ("mutual_info_score", "normalized_mutual_info", "homogeneity_score", "completeness_score",
+             "v_measure_score", "rand_index", "adjusted_rand_index", "fowlkes_mallows_clustering"):
+    register(_mid, family="classification", required_tags=["labels_true", "labels_pred"],
+             set_maturity="reviewed")(_ll(getattr(N, _mid)))

@@ -3199,3 +3199,157 @@ def accuracy_parity_difference(pred, label, group):
     if not _fok(pred, label, group):
         return float("nan")
     return _frange([v["acc"] for v in _grp_rates(pred, label, group).values()])
+
+
+# ======================================================================================
+# Pack BC - survival concordance + clustering-agreement (validated vs lifelines / sklearn).
+# ======================================================================================
+
+def concordance_index(times, scores, events):
+    """Harrell's C-index (lifelines.utils.concordance_index); events: 1 = observed.
+    Concordant when the longer survivor has the higher score; ties in score score 0.5."""
+    n = len(times)
+    if n < 2 or len(scores) != n or len(events) != n or _has_nan(times) or _has_nan(scores) or _has_nan(events):
+        return float("nan")
+    num = den = 0.0
+    for i in range(n):
+        if events[i] != 1:
+            continue
+        ti, si = times[i], scores[i]
+        for j in range(n):
+            if ti < times[j]:
+                den += 1
+                if si < scores[j]:
+                    num += 1
+                elif si == scores[j]:
+                    num += 0.5
+    return num / den if den > 0 else float("nan")
+
+
+def _contingency(a, b):
+    tab = {}
+    for x, y in zip(a, b):
+        row = tab.setdefault(x, {})
+        row[y] = row.get(y, 0) + 1
+    return tab
+
+
+def _comb2(x):
+    return x * (x - 1) // 2
+
+
+def _pair_counts(a, b):
+    """Returns (sum C(nij,2), sum C(ai,2), sum C(bj,2), C(n,2))."""
+    tab = _contingency(a, b)
+    n = len(a)
+    sum_ij = 0
+    bj = {}
+    sum_a = 0
+    for row in tab.values():
+        ai = sum(row.values())
+        sum_a += _comb2(ai)
+        for y, c in row.items():
+            sum_ij += _comb2(c)
+            bj[y] = bj.get(y, 0) + c
+    sum_b = sum(_comb2(c) for c in bj.values())
+    return sum_ij, sum_a, sum_b, _comb2(n)
+
+
+def _ck_marginals(a, b):
+    """Mutual information and the two label entropies (natural log)."""
+    tab = _contingency(a, b)
+    n = len(a)
+    ai = {x: sum(row.values()) for x, row in tab.items()}
+    bj = {}
+    for row in tab.values():
+        for y, c in row.items():
+            bj[y] = bj.get(y, 0) + c
+    mi = 0.0
+    for x, row in tab.items():
+        for y, nij in row.items():
+            if nij > 0:
+                mi += (nij / n) * dlog((nij * n) / (ai[x] * bj[y]))
+    hc = -math.fsum((c / n) * dlog(c / n) for c in ai.values() if c > 0)
+    hk = -math.fsum((c / n) * dlog(c / n) for c in bj.values() if c > 0)
+    return mi, hc, hk
+
+
+def _ck_ok(a, b):
+    return len(a) == len(b) and bool(a) and not _has_nan(a) and not _has_nan(b)
+
+
+def mutual_info_score(a, b):
+    """Mutual information between two labelings (sklearn.metrics.mutual_info_score, natural log)."""
+    if not _ck_ok(a, b):
+        return float("nan")
+    return _ck_marginals(a, b)[0]
+
+
+def normalized_mutual_info(a, b):
+    """Normalized MI, arithmetic average (sklearn normalized_mutual_info_score)."""
+    if not _ck_ok(a, b):
+        return float("nan")
+    mi, hc, hk = _ck_marginals(a, b)
+    denom = (hc + hk) / 2.0
+    if denom <= 0:
+        return 1.0 if mi == 0 else float("nan")
+    return mi / denom
+
+
+def homogeneity_score(a, b):
+    """Homogeneity of labeling b w.r.t. true labeling a (sklearn): MI / H(true)."""
+    if not _ck_ok(a, b):
+        return float("nan")
+    mi, hc, hk = _ck_marginals(a, b)
+    return 1.0 if hc == 0 else mi / hc
+
+
+def completeness_score(a, b):
+    """Completeness (sklearn): MI / H(pred)."""
+    if not _ck_ok(a, b):
+        return float("nan")
+    mi, hc, hk = _ck_marginals(a, b)
+    return 1.0 if hk == 0 else mi / hk
+
+
+def v_measure_score(a, b):
+    """V-measure: harmonic mean of homogeneity and completeness (sklearn)."""
+    if not _ck_ok(a, b):
+        return float("nan")
+    h = homogeneity_score(a, b)
+    c = completeness_score(a, b)
+    return 0.0 if (h + c) == 0 else 2.0 * h * c / (h + c)
+
+
+def rand_index(a, b):
+    """Rand index (sklearn.metrics.rand_score): agreeing pairs / all pairs."""
+    if not _ck_ok(a, b):
+        return float("nan")
+    sij, sa, sb, tot = _pair_counts(a, b)
+    if tot == 0:
+        return 1.0
+    return (tot + 2 * sij - sa - sb) / tot
+
+
+def adjusted_rand_index(a, b):
+    """Adjusted Rand index (sklearn.metrics.adjusted_rand_score)."""
+    if not _ck_ok(a, b):
+        return float("nan")
+    sij, sa, sb, tot = _pair_counts(a, b)
+    if tot == 0:
+        return 1.0
+    exp = sa * sb / tot
+    denom = 0.5 * (sa + sb) - exp
+    if denom == 0:
+        return 1.0 if sij == exp else 0.0
+    return (sij - exp) / denom
+
+
+def fowlkes_mallows_clustering(a, b):
+    """Fowlkes-Mallows index between two labelings (sklearn.metrics.fowlkes_mallows_score)."""
+    if not _ck_ok(a, b):
+        return float("nan")
+    sij, sa, sb, tot = _pair_counts(a, b)
+    if sa == 0 or sb == 0:
+        return 0.0
+    return sij / math.sqrt(sa * sb)

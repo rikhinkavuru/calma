@@ -1135,6 +1135,30 @@ case("predictive_parity_difference", "predictive_parity_difference", _fargs, max
 case("fpr_parity_difference", "fpr_parity_difference", _fargs, max(_fprs) - min(_fprs), atol=1e-12)
 case("accuracy_parity_difference", "accuracy_parity_difference", _fargs, max(_accs) - min(_accs), atol=1e-12)
 
+# ============================ Pack BC - survival concordance + clustering ============================
+
+from lifelines.utils import concordance_index as ll_ci  # noqa: E402
+
+surv_t = uniforms(108, 80, 1.0, 100.0)
+surv_s = uniforms(109, 80, 0.0, 1.0)
+surv_e = [1.0 if u < 0.7 else 0.0 for u in uniforms(110, 80)]
+case("concordance_index", "concordance_index", {"time": surv_t, "score": surv_s, "event": surv_e},
+     float(ll_ci(surv_t, surv_s, surv_e)), atol=1e-10)
+
+cl_a = [float(int(u * 4)) for u in uniforms(111, 200)]
+cl_b = [float(int(v * 4)) if u < 0.2 else a for a, u, v in zip(cl_a, uniforms(112, 200), uniforms(113, 200))]
+_cargs = {"a": cl_a, "b": cl_b}
+case("mutual_info_score", "mutual_info_score", _cargs, float(skm.mutual_info_score(cl_a, cl_b)), atol=1e-11)
+case("normalized_mutual_info", "normalized_mutual_info", _cargs,
+     float(skm.normalized_mutual_info_score(cl_a, cl_b)), atol=1e-11)
+case("homogeneity_score", "homogeneity_score", _cargs, float(skm.homogeneity_score(cl_a, cl_b)), atol=1e-11)
+case("completeness_score", "completeness_score", _cargs, float(skm.completeness_score(cl_a, cl_b)), atol=1e-11)
+case("v_measure_score", "v_measure_score", _cargs, float(skm.v_measure_score(cl_a, cl_b)), atol=1e-11)
+case("rand_index", "rand_index", _cargs, float(skm.rand_score(cl_a, cl_b)), atol=1e-12)
+case("adjusted_rand_index", "adjusted_rand_index", _cargs, float(skm.adjusted_rand_score(cl_a, cl_b)), atol=1e-12)
+case("fowlkes_mallows_clustering", "fowlkes_mallows_clustering", _cargs,
+     float(skm.fowlkes_mallows_score(cl_a, cl_b)), atol=1e-12)
+
 # ============================ write ============================
 
 doc = {
