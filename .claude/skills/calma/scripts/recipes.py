@@ -1267,3 +1267,58 @@ def active_return(cols, binding, convention=None):
     bench = cols[binding["benchmark"]]
     p = _periods(convention, binding)
     return _result(N.active_return(rets, bench, p), {"n": len(rets), "periods": p})
+
+
+# ======================================================================================
+# Pack ST - statistics & hypothesis tests (8 recipes).
+# ======================================================================================
+
+@register("point_biserial", family="stats", required_tags=["binary", "value"], set_maturity="reviewed")
+def point_biserial(cols, binding, convention=None):
+    return _result(N.point_biserial(cols[binding["binary"]], cols[binding["value"]]),
+                   {"n": len(cols[binding["value"]])})
+
+
+@register("kendall_tau", family="stats", required_tags=["x", "y"], set_maturity="reviewed")
+def kendall_tau(cols, binding, convention=None):
+    xs, ys = cols[binding["x"]], cols[binding["y"]]
+    return _result(N.kendall_tau(xs, ys), {"n": len(xs), "variant": "tau-b"})
+
+
+@register("theil_sen_slope", family="stats", required_tags=["x", "y"], set_maturity="reviewed")
+def theil_sen_slope(cols, binding, convention=None):
+    xs, ys = cols[binding["x"]], cols[binding["y"]]
+    return _result(N.theil_sen_slope(xs, ys), {"n": len(xs)})
+
+
+@register("cliffs_delta", family="stats", required_tags=["sample_a", "sample_b"], set_maturity="reviewed")
+def cliffs_delta(cols, binding, convention=None):
+    a, b = cols[binding["sample_a"]], cols[binding["sample_b"]]
+    return _result(N.cliffs_delta(a, b), {"n_a": len(a), "n_b": len(b)})
+
+
+@register("rank_biserial", family="stats", required_tags=["sample_a", "sample_b"], set_maturity="reviewed")
+def rank_biserial(cols, binding, convention=None):
+    a, b = cols[binding["sample_a"]], cols[binding["sample_b"]]
+    return _result(N.rank_biserial(a, b), {"n_a": len(a), "n_b": len(b)})
+
+
+@register("eta_squared", family="stats", required_tags=["group", "value"], string_tags=["group"],
+          set_maturity="reviewed")
+def eta_squared(cols, binding, convention=None):
+    groups, values = cols[binding["group"]], cols[binding["value"]]
+    return _result(N.eta_squared(groups, values), {"n": len(values)})
+
+
+@register("g_test", family="stats", required_tags=["group", "outcome"], string_tags=["group", "outcome"],
+          set_maturity="reviewed", accepted_conventions=["p", "statistic"])
+def g_test(cols, binding, convention=None):
+    groups, outcomes = cols[binding["group"]], cols[binding["outcome"]]
+    output = "statistic" if _conv_str(convention) == "statistic" else "p"
+    return _result(N.g_test(groups, outcomes, output), {"n": len(groups), "output": output})
+
+
+@register("mcnemar", family="stats", required_tags=["sample_a", "sample_b"], set_maturity="reviewed")
+def mcnemar(cols, binding, convention=None):
+    a, b = cols[binding["sample_a"]], cols[binding["sample_b"]]
+    return _result(N.mcnemar_p(a, b), {"n": len(a)})

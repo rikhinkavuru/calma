@@ -2176,3 +2176,145 @@ def active_return(rets, bench, periods):
     if len(rets) != len(bench) or not rets or _has_nan(rets) or _has_nan(bench):
         return float("nan")
     return fmean([r - b for r, b in zip(rets, bench)]) * periods
+
+
+# ======================================================================================
+# Pack ST - statistics & hypothesis tests (validated vs scipy/statsmodels).
+# ======================================================================================
+
+def _tie_pairs(vs):
+    s = sorted(vs)
+    total = 0
+    i = 0
+    n = len(s)
+    while i < n:
+        j = i
+        while j < n and s[j] == s[i]:
+            j += 1
+        t = j - i
+        total += t * (t - 1) // 2
+        i = j
+    return total
+
+
+def point_biserial(binary, value):
+    """Point-biserial correlation = Pearson r between a dichotomous and a continuous column."""
+    return pearson_r(binary, value)
+
+
+def kendall_tau(xs, ys):
+    """Kendall's tau-b (tie-corrected), scipy.stats.kendalltau semantics. O(n^2)."""
+    n = len(xs)
+    if n < 2 or len(ys) != n or _has_nan(xs) or _has_nan(ys):
+        return float("nan")
+    nc = nd = 0
+    for i in range(n):
+        xi, yi = xs[i], ys[i]
+        for j in range(i + 1, n):
+            s = (xi - xs[j]) * (yi - ys[j])
+            if s > 0:
+                nc += 1
+            elif s < 0:
+                nd += 1
+    n0 = n * (n - 1) // 2
+    denom = math.sqrt((n0 - _tie_pairs(xs)) * (n0 - _tie_pairs(ys)))
+    if denom <= 0:
+        return float("nan")
+    return (nc - nd) / denom
+
+
+def theil_sen_slope(xs, ys):
+    """Theil-Sen estimator: median of all pairwise slopes (scipy.stats.theilslopes medslope)."""
+    n = len(xs)
+    if n < 2 or len(ys) != n or _has_nan(xs) or _has_nan(ys):
+        return float("nan")
+    slopes = []
+    for i in range(n):
+        for j in range(i + 1, n):
+            dx = xs[j] - xs[i]
+            if dx != 0:
+                slopes.append((ys[j] - ys[i]) / dx)
+    return quantile(slopes, 0.5) if slopes else float("nan")
+
+
+def cliffs_delta(a, b):
+    """Cliff's delta ordinal effect size: (#(a>b) - #(a<b)) / (n_a * n_b)."""
+    n1, n2 = len(a), len(b)
+    if n1 < 1 or n2 < 1 or _has_nan(a) or _has_nan(b):
+        return float("nan")
+    gt = lt = 0
+    for x in a:
+        for y in b:
+            if x > y:
+                gt += 1
+            elif x < y:
+                lt += 1
+    return (gt - lt) / (n1 * n2)
+
+
+def rank_biserial(a, b):
+    """Wendt rank-biserial from Mann-Whitney U (for sample a): 1 - 2*U / (n1*n2)."""
+    n1, n2 = len(a), len(b)
+    if n1 < 1 or n2 < 1 or _has_nan(a) or _has_nan(b):
+        return float("nan")
+    ranks = _avg_ranks(list(a) + list(b))
+    u1 = math.fsum(ranks[:n1]) - n1 * (n1 + 1) / 2.0
+    return 1.0 - 2.0 * u1 / (n1 * n2)
+
+
+def eta_squared(groups, values):
+    """One-way eta-squared: SS_between / SS_total from raw (group, value) rows."""
+    if not groups or len(groups) != len(values) or _has_nan(values):
+        return float("nan")
+    buckets = {}
+    for g, v in zip(groups, values):
+        buckets.setdefault(g.strip(), []).append(v)
+    if len(buckets) < 2:
+        return float("nan")
+    grand = fmean(values)
+    ssb = math.fsum(len(vs) * (fmean(vs) - grand) ** 2 for vs in buckets.values())
+    sst = math.fsum((v - grand) ** 2 for v in values)
+    return ssb / sst if sst > 0 else float("nan")
+
+
+def g_test(groups, outcomes, output="p"):
+    """Likelihood-ratio G-test of independence (no continuity correction):
+    G = 2 sum O*ln(O/E); p via chi2 with (R-1)(C-1) df (scipy chi2_contingency log-likelihood)."""
+    if not groups or len(groups) != len(outcomes):
+        return float("nan")
+    rows = sorted(set(g.strip() for g in groups))
+    cols = sorted(set(o.strip() for o in outcomes))
+    nr, nc_ = len(rows), len(cols)
+    if nr < 2 or nc_ < 2:
+        return float("nan")
+    ri = {r: i for i, r in enumerate(rows)}
+    cj = {c: i for i, c in enumerate(cols)}
+    obs = [[0] * nc_ for _ in range(nr)]
+    for g, o in zip(groups, outcomes):
+        obs[ri[g.strip()]][cj[o.strip()]] += 1
+    n = len(groups)
+    rowsum = [sum(obs[i]) for i in range(nr)]
+    colsum = [sum(obs[i][j] for i in range(nr)) for j in range(nc_)]
+    g_stat = 0.0
+    for i in range(nr):
+        for j in range(nc_):
+            o_ij = obs[i][j]
+            if o_ij > 0:
+                g_stat += o_ij * dlog(o_ij / (rowsum[i] * colsum[j] / n))
+    g_stat *= 2.0
+    df = (nr - 1) * (nc_ - 1)
+    return g_stat if output == "statistic" else chi2_sf(g_stat, df)
+
+
+def mcnemar_p(a, b):
+    """McNemar's test for paired binary data, asymptotic with Edwards continuity correction:
+    (|n10 - n01| - 1)^2 / (n10 + n01), p via chi2(1) (statsmodels mcnemar exact=False, correction=True)."""
+    n = len(a)
+    if n < 1 or len(b) != n or _has_nan(a) or _has_nan(b):
+        return float("nan")
+    n10 = sum(1 for x, y in zip(a, b) if x != 0 and y == 0)
+    n01 = sum(1 for x, y in zip(a, b) if x == 0 and y != 0)
+    if n10 + n01 == 0:
+        return float("nan")
+    stat = (abs(n10 - n01) - 1.0) ** 2 / (n10 + n01)
+    return chi2_sf(stat, 1)

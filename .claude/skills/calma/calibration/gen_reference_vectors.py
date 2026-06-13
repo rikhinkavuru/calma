@@ -789,6 +789,74 @@ case("r_squared", "r_squared", {"rets": rets, "bench": bench_list}, qrho * qrho,
 case("active_return", "active_return", {"rets": rets, "bench": bench_list, "periods": qp},
      float(np.mean(qr - qbench) * qp), atol=1e-11)
 
+# ============================ Pack ST - statistics & hypothesis tests ============================
+
+from statsmodels.stats.contingency_tables import mcnemar as sm_mcnemar  # noqa: E402
+
+# point-biserial = Pearson(binary, continuous)
+pb_bin = [1.0 if u < 0.45 else 0.0 for u in uniforms(50, 200)]
+pb_val = uniforms(51, 200, 0.0, 10.0)
+case("point_biserial", "point_biserial", {"binary": pb_bin, "value": pb_val},
+     float(stats.pointbiserialr(pb_bin, pb_val)[0]), atol=1e-11)
+
+# kendall tau-b (with ties)
+kt_x = [round(u, 1) for u in uniforms(52, 120, 0.0, 5.0)]
+kt_y = [round(u, 1) for u in uniforms(53, 120, 0.0, 5.0)]
+case("kendall_tau", "kendall_tau", {"xs": kt_x, "ys": kt_y},
+     float(stats.kendalltau(kt_x, kt_y)[0]), atol=1e-11)
+
+# Theil-Sen slope
+ts_x = uniforms(54, 80, 0.0, 20.0)
+ts_y = [2.0 * x + e for x, e in zip(ts_x, uniforms(55, 80, -3.0, 3.0))]
+case("theil_sen_slope", "theil_sen_slope", {"xs": ts_x, "ys": ts_y},
+     float(stats.theilslopes(ts_y, ts_x)[0]), atol=1e-11)
+
+# Cliff's delta (definitional)
+cd_a = uniforms(56, 90, 0.0, 10.0)
+cd_b = uniforms(57, 85, 2.0, 12.0)
+_gt = sum(1 for x in cd_a for y in cd_b if x > y)
+_lt = sum(1 for x in cd_a for y in cd_b if x < y)
+case("cliffs_delta", "cliffs_delta", {"a": cd_a, "b": cd_b},
+     (_gt - _lt) / (len(cd_a) * len(cd_b)), atol=1e-12)
+
+# rank-biserial from Mann-Whitney U
+rb_a = [round(u, 1) for u in uniforms(58, 60, 0.0, 5.0)]
+rb_b = [round(u, 1) for u in uniforms(59, 70, 1.0, 6.0)]
+_u1 = float(stats.mannwhitneyu(rb_a, rb_b, alternative="two-sided", method="asymptotic").statistic)
+case("rank_biserial", "rank_biserial", {"a": rb_a, "b": rb_b},
+     1.0 - 2.0 * _u1 / (len(rb_a) * len(rb_b)), atol=1e-11)
+
+# eta-squared (one-way; definitional SS_between / SS_total)
+_names = ["A", "B", "C"]
+_offs = {"A": 0.0, "B": 1.5, "C": -1.0}
+es_g = [_names[int(u * 3)] for u in uniforms(60, 150)]
+es_v = [_offs[g] + e for g, e in zip(es_g, uniforms(61, 150, -1.0, 1.0))]
+_grand = float(np.mean(es_v))
+_ssb = float(sum((es_g.count(nm)) * (np.mean([v for v, g in zip(es_v, es_g) if g == nm]) - _grand) ** 2
+                 for nm in set(es_g)))
+_sst = float(np.sum((np.array(es_v) - _grand) ** 2))
+case("eta_squared", "eta_squared", {"groups": es_g, "values": es_v}, _ssb / _sst, atol=1e-11)
+
+# G-test of independence (log-likelihood, no continuity correction)
+gt_g = ["X" if u < 0.5 else "Y" for u in uniforms(62, 220)]
+gt_o = ["hit" if v < (0.6 if g == "X" else 0.38) else "miss"
+        for g, v in zip(gt_g, uniforms(63, 220))]
+_tab = [[sum(1 for g, o in zip(gt_g, gt_o) if g == gg and o == oo) for oo in ("hit", "miss")]
+        for gg in ("X", "Y")]
+case("g_test", "g_test", {"groups": gt_g, "outcomes": gt_o, "output": "p"},
+     float(stats.chi2_contingency(_tab, lambda_="log-likelihood", correction=False)[1]), atol=1e-9)
+
+# McNemar (paired binary, asymptotic + continuity)
+mc_a = [1 if u < 0.5 else 0 for u in uniforms(64, 160)]
+mc_b = [1 if u < 0.45 else 0 for u in uniforms(65, 160)]
+_n11 = sum(1 for x, y in zip(mc_a, mc_b) if x == 1 and y == 1)
+_n10 = sum(1 for x, y in zip(mc_a, mc_b) if x == 1 and y == 0)
+_n01 = sum(1 for x, y in zip(mc_a, mc_b) if x == 0 and y == 1)
+_n00 = sum(1 for x, y in zip(mc_a, mc_b) if x == 0 and y == 0)
+_mc = sm_mcnemar([[_n11, _n10], [_n01, _n00]], exact=False, correction=True)
+case("mcnemar", "mcnemar", {"a": [float(x) for x in mc_a], "b": [float(x) for x in mc_b]},
+     float(_mc.pvalue), atol=1e-9)
+
 # ============================ write ============================
 
 doc = {

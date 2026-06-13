@@ -195,6 +195,15 @@ KINDS = {
     "treynor_ratio": lambda a: N.treynor_ratio(a["rets"], a["bench"], a["periods"]),
     "r_squared": lambda a: N.r_squared(a["rets"], a["bench"]),
     "active_return": lambda a: N.active_return(a["rets"], a["bench"], a["periods"]),
+    # pack ST - statistics & hypothesis tests
+    "point_biserial": lambda a: N.point_biserial(a["binary"], a["value"]),
+    "kendall_tau": lambda a: N.kendall_tau(a["xs"], a["ys"]),
+    "theil_sen_slope": lambda a: N.theil_sen_slope(a["xs"], a["ys"]),
+    "cliffs_delta": lambda a: N.cliffs_delta(a["a"], a["b"]),
+    "rank_biserial": lambda a: N.rank_biserial(a["a"], a["b"]),
+    "eta_squared": lambda a: N.eta_squared(a["groups"], a["values"]),
+    "g_test": lambda a: N.g_test(a["groups"], a["outcomes"], a["output"]),
+    "mcnemar": lambda a: N.mcnemar_p(a["a"], a["b"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -251,10 +260,13 @@ EXPECTED = {
     "parametric_es", "cornish_fisher_var", "adjusted_sharpe_ratio", "probabilistic_sharpe_ratio",
     "up_capture_ratio", "down_capture_ratio", "capture_ratio", "treynor_ratio", "r_squared",
     "active_return",
+    # pack ST - statistics & hypothesis tests (8)
+    "point_biserial", "kendall_tau", "theil_sen_slope", "cliffs_delta", "rank_biserial",
+    "eta_squared", "g_test", "mcnemar",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 143 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 151 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

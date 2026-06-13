@@ -1,4 +1,4 @@
-# Recipe catalog (145 recipes, all SOTA-validated)
+# Recipe catalog (153 recipes, all SOTA-validated)
 
 Every recipe recomputes its number ONLY from raw machine-readable artifacts via the
 reference-deterministic kernels in `numeric.py` (fsum / pairwise product / sqrt, plus the
@@ -229,3 +229,18 @@ use scipy defaults (biased skew g1, biased excess kurtosis g2). Validated by
 | treynor_ratio | return, benchmark | periods | annualized mean return / β (rf=0) |
 | r_squared | return, benchmark | - | pearson(r,b)² |
 | active_return | return, benchmark | periods | mean(r−b) × periods |
+
+## Statistics & hypothesis tests (Pack ST, 8)
+
+Validated against SciPy / statsmodels.
+
+| metric_id | binding | convention | definition |
+|---|---|---|---|
+| point_biserial | binary, value | - | Pearson r between a 0/1 and a continuous column (SciPy pointbiserialr) |
+| kendall_tau | x, y | - | tau-b, tie-corrected concordant/discordant pairs (SciPy kendalltau) |
+| theil_sen_slope | x, y | - | median of all pairwise slopes (SciPy theilslopes) |
+| cliffs_delta | sample_a, sample_b | - | (#(a>b)−#(a<b))/(nₐn_b) ordinal effect size |
+| rank_biserial | sample_a, sample_b | - | 1 − 2U/(n₁n₂) from Mann-Whitney U (Wendt) |
+| eta_squared | group, value | - | SS_between / SS_total (one-way) |
+| g_test | group, outcome | p/statistic | 2·Σ O·ln(O/E), χ²((R−1)(C−1)) (SciPy log-likelihood, no continuity) |
+| mcnemar | sample_a, sample_b | - | (\|n₁₀−n₀₁\|−1)²/(n₁₀+n₀₁), χ²(1) (statsmodels asymptotic) |
