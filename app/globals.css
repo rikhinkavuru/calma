@@ -86,19 +86,19 @@ img, svg, canvas { display: block; max-width: 100%; }
   background: radial-gradient(circle at 50% 50%, transparent 49.2%, rgba(233, 221, 196, 0.05) 49.65%, transparent 50.1%);
 }
 .atmo .glow-blue {
-  width: 170vmax; height: 170vmax; left: -78vmax; top: -116vmax;
-  background: radial-gradient(circle, transparent 42%, rgba(46, 79, 109, 0.5) 50%, transparent 62%);
-  filter: blur(34px);
+  width: 175vmax; height: 175vmax; left: -80vmax; top: -118vmax;
+  background: radial-gradient(circle, transparent 41%, rgba(48, 88, 124, 0.72) 50%, transparent 63%);
+  filter: blur(30px);
 }
 .atmo .glow-teal {
-  width: 150vmax; height: 150vmax; left: -82vmax; top: -102vmax;
-  background: radial-gradient(circle, transparent 40%, rgba(77, 138, 115, 0.42) 50%, transparent 60%);
-  filter: blur(38px);
+  width: 152vmax; height: 152vmax; left: -82vmax; top: -102vmax;
+  background: radial-gradient(circle, transparent 39%, rgba(82, 154, 126, 0.6) 50%, transparent 61%);
+  filter: blur(34px);
 }
 .atmo .glow-amber {
-  width: 120vmax; height: 120vmax; left: -76vmax; top: -78vmax;
-  background: radial-gradient(circle, transparent 38%, rgba(214, 126, 64, 0.5) 49%, transparent 58%);
-  filter: blur(30px);
+  width: 122vmax; height: 122vmax; left: -76vmax; top: -78vmax;
+  background: radial-gradient(circle, transparent 37%, rgba(228, 134, 66, 0.68) 49%, transparent 59%);
+  filter: blur(26px);
 }
 .atmo .sun {
   width: 26vmax; height: 26vmax; left: 4vmax; top: 9vmax;
@@ -224,7 +224,19 @@ img, svg, canvas { display: block; max-width: 100%; }
 .pbtn--amber:hover { background: var(--amber); color: var(--void); border-color: var(--amber); }
 
 /* ============================================================ hero */
-.hero { position: relative; overflow: hidden; }
+.hero {
+  position: relative; overflow: hidden;
+  background:
+    radial-gradient(140% 90% at 14% 6%, rgba(48, 88, 124, 0.22), transparent 46%),
+    linear-gradient(180deg, rgba(28, 40, 58, 0.32) 0%, transparent 34%);
+}
+/* the atmosphere fades out at the bottom so the hero flows into the dark Problem band */
+.hero::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 34vh;
+  background: linear-gradient(180deg, transparent, var(--void));
+  pointer-events: none; z-index: 0;
+}
+.hero__inner { z-index: 1; }
 .hero__inner { position: relative; padding-top: clamp(110px, 16vh, 170px); padding-bottom: clamp(50px, 7vw, 84px); }
 .hero .kicker { display: block; margin-bottom: 20px; }
 .hero .h1 { max-width: 13em; }
@@ -367,14 +379,15 @@ img, svg, canvas { display: block; max-width: 100%; }
   --cream-70: rgba(24, 20, 16, 0.74);
   --cream-55: rgba(24, 20, 16, 0.6);
   --cream-35: rgba(24, 20, 16, 0.4);
-  --hairline: rgba(24, 20, 16, 0.16);
+  --hairline: rgba(24, 20, 16, 0.3);
   --void: #efe7d3;
   --amber: #bd6a26;
-  padding: clamp(34px, 4.5vw, 68px);
+  padding: clamp(48px, 6vw, 92px);
   border-radius: 8px;
   box-shadow: 0 50px 120px rgba(0, 0, 0, 0.5), 0 14px 44px rgba(0, 0, 0, 0.34);
 }
-.lightbox .sec__head { margin-bottom: clamp(30px, 3.6vw, 46px); }
+.lightbox .sec__head { margin-bottom: clamp(34px, 4vw, 52px); }
+.lightbox .benefit__art { border-color: rgba(24, 20, 16, 0.34); }
 .lightbox .benefit__art { background: rgba(24, 20, 16, 0.03); }
 
 /* FAQ + the lab photo, side by side (generous horizontal gap) */
@@ -401,8 +414,8 @@ img, svg, canvas { display: block; max-width: 100%; }
 }
 .fpanel__idx { font-family: var(--mono); font-size: 13px; letter-spacing: 0.24em; color: var(--amber); }
 .fpanel__title {
-  font-family: var(--mono); font-weight: 400; text-transform: uppercase;
-  font-size: clamp(30px, 4vw, 54px); line-height: 1.04; letter-spacing: 0.005em; color: var(--cream);
+  font-family: var(--disp); font-weight: 500;
+  font-size: clamp(30px, 4vw, 50px); line-height: 1.08; letter-spacing: -0.015em; color: var(--cream);
 }
 .fpanel__arrow { color: var(--amber); }
 .fpanel__text p { font-size: clamp(15px, 1.35vw, 17.5px); line-height: 1.72; color: var(--cream-55); max-width: 44ch; }
@@ -448,26 +461,28 @@ img, svg, canvas { display: block; max-width: 100%; }
 .sec__head { margin-bottom: clamp(40px, 5vw, 64px); display: flex; flex-direction: column; gap: 18px; }
 
 /* ---------------- problem ---------------- */
-.catch { display: grid; grid-template-columns: 1.4fr 1fr; gap: clamp(30px, 5vw, 70px); align-items: center; }
+.catch { display: grid; grid-template-columns: 1.5fr 1fr; gap: clamp(34px, 5vw, 76px); align-items: center; }
 .panel { border: 1px solid var(--hairline); position: relative; padding: clamp(16px, 2.4vw, 28px); background: rgba(13, 11, 8, 0.55); }
 .panel .cross.tl { top: -7px; left: -7px; }
 .panel .cross.br { bottom: -7px; right: -7px; }
 .chart { width: 100%; height: auto; }
 .chart .axis { stroke: var(--hairline); stroke-width: 1; }
-.chart .lbl { font-family: var(--mono); font-size: 12px; fill: var(--cream-55); }
+.chart .lbl { font-family: var(--mono); font-size: 14px; fill: var(--cream-55); }
 .chart .lbl--amber { fill: var(--amber); }
 .chart .lbl--teal { fill: var(--teal); }
-.chart .claimline { stroke: var(--amber); stroke-width: 1.8; fill: none; }
-.chart .realline { stroke: var(--teal); stroke-width: 1.8; fill: none; }
+.chart .axis { stroke-width: 1.3; }
+.chart .claimline { stroke: var(--amber); stroke-width: 2.6; fill: none; }
+.chart .realline { stroke: var(--teal); stroke-width: 2.6; fill: none; }
 .chart .zero { stroke: rgba(233, 221, 196, 0.25); stroke-width: 1; }
 .chart.draw .claimline, .chart.draw .realline { stroke-dasharray: var(--len, 1200); stroke-dashoffset: var(--len, 1200); animation: draw 2s var(--ease) forwards; }
 .chart.draw .realline { animation-delay: 1s; }
 @keyframes draw { to { stroke-dashoffset: 0; } }
-.figs { display: flex; flex-direction: column; margin-top: 28px; }
-.figs .fig { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding-block: 16px; border-bottom: 1px solid var(--hairline); }
+.catch > div > .lead { font-size: clamp(16.5px, 1.7vw, 20.5px); }
+.figs { display: flex; flex-direction: column; margin-top: 34px; }
+.figs .fig { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding-block: 22px; border-bottom: 1px solid var(--hairline); }
 .figs .fig:first-child { border-top: 1px solid var(--hairline); }
-.figs .k { font-size: 15px; color: var(--cream-55); }
-.figs .v { font-family: var(--mono); font-size: clamp(19px, 2.2vw, 26px); }
+.figs .k { font-size: 16.5px; color: var(--cream-55); }
+.figs .v { font-family: var(--mono); font-size: clamp(26px, 3.2vw, 42px); }
 .figs .v--amber { color: var(--amber); }
 .figs .v--teal { color: var(--teal); }
 
