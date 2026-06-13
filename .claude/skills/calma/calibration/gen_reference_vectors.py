@@ -981,6 +981,54 @@ case("wasserstein_1d", "wasserstein_1d", {"a": wa, "b": wb}, float(stats.wassers
 case("energy_distance", "energy_distance", {"a": wa, "b": wb}, float(stats.energy_distance(wa, wb)), atol=1e-10)
 case("ks_2samp", "ks_2samp", {"a": wa, "b": wb}, float(stats.ks_2samp(wa, wb).statistic), atol=1e-12)
 
+# ============================ Pack CR - classification & regression depth ============================
+
+cr_label = [1 if u < 0.45 else 0 for u in uniforms(90, 300)]
+cr_pred = [1 if u < (0.72 if y == 1 else 0.22) else 0 for y, u in zip(cr_label, uniforms(91, 300))]
+_cm = skm.confusion_matrix(cr_label, cr_pred, labels=[0, 1])
+_tn, _fp, _fn, _tp = int(_cm[0, 0]), int(_cm[0, 1]), int(_cm[1, 0]), int(_cm[1, 1])
+_pf = [float(x) for x in cr_pred]
+_lf = [float(x) for x in cr_label]
+_tpr = _tp / (_tp + _fn)
+_tnr = _tn / (_tn + _fp)
+case("g_mean", "g_mean", {"pred": _pf, "label": _lf}, float(np.sqrt(_tpr * _tnr)), atol=1e-12)
+case("youden_j", "youden_j", {"pred": _pf, "label": _lf}, _tpr + _tnr - 1.0, atol=1e-12)
+case("markedness", "markedness", {"pred": _pf, "label": _lf},
+     _tp / (_tp + _fp) + _tn / (_tn + _fn) - 1.0, atol=1e-12)
+case("negative_predictive_value", "negative_predictive_value", {"pred": _pf, "label": _lf},
+     _tn / (_tn + _fn), atol=1e-12)
+case("false_positive_rate", "false_positive_rate", {"pred": _pf, "label": _lf}, _fp / (_fp + _tn), atol=1e-12)
+case("false_negative_rate", "false_negative_rate", {"pred": _pf, "label": _lf}, _fn / (_fn + _tp), atol=1e-12)
+case("false_discovery_rate", "false_discovery_rate", {"pred": _pf, "label": _lf}, _fp / (_fp + _tp), atol=1e-12)
+_lrp, _lrn = skm.class_likelihood_ratios(cr_label, cr_pred)
+case("positive_likelihood_ratio", "positive_likelihood_ratio", {"pred": _pf, "label": _lf}, float(_lrp), atol=1e-11)
+case("negative_likelihood_ratio", "negative_likelihood_ratio", {"pred": _pf, "label": _lf}, float(_lrn), atol=1e-11)
+case("diagnostic_odds_ratio", "diagnostic_odds_ratio", {"pred": _pf, "label": _lf},
+     (_tp * _tn) / (_fp * _fn), atol=1e-10)
+case("threat_score", "threat_score", {"pred": _pf, "label": _lf}, _tp / (_tp + _fn + _fp), atol=1e-12)
+case("fowlkes_mallows", "fowlkes_mallows", {"pred": _pf, "label": _lf},
+     float(np.sqrt((_tp / (_tp + _fp)) * (_tp / (_tp + _fn)))), atol=1e-12)
+
+# regression depth (positive targets/preds for the deviances)
+rg_actual = uniforms(92, 200, 0.5, 20.0)
+rg_pred = [max(0.1, a + e) for a, e in zip(rg_actual, uniforms(93, 200, -3.0, 3.0))]
+_mp, _ma = float(np.mean(rg_pred)), float(np.mean(rg_actual))
+_vp = float(np.mean((np.array(rg_pred) - _mp) ** 2))
+_va = float(np.mean((np.array(rg_actual) - _ma) ** 2))
+_cov = float(np.mean((np.array(rg_pred) - _mp) * (np.array(rg_actual) - _ma)))
+case("concordance_correlation", "concordance_correlation", {"pred": rg_pred, "actual": rg_actual},
+     2.0 * _cov / (_vp + _va + (_mp - _ma) ** 2), atol=1e-11)
+_delta = 1.0
+_hub = float(np.mean([0.5 * (p - a) ** 2 if abs(p - a) <= _delta else _delta * (abs(p - a) - 0.5 * _delta)
+                      for p, a in zip(rg_pred, rg_actual)]))
+case("huber_loss", "huber_loss", {"pred": rg_pred, "actual": rg_actual, "delta": _delta}, _hub, atol=1e-12)
+case("poisson_deviance", "poisson_deviance", {"pred": rg_pred, "actual": rg_actual},
+     float(skm.mean_poisson_deviance(rg_actual, rg_pred)), atol=1e-11)
+case("gamma_deviance", "gamma_deviance", {"pred": rg_pred, "actual": rg_actual},
+     float(skm.mean_gamma_deviance(rg_actual, rg_pred)), atol=1e-11)
+case("d2_absolute_error", "d2_absolute_error", {"pred": rg_pred, "actual": rg_actual},
+     float(skm.d2_absolute_error_score(rg_actual, rg_pred)), atol=1e-11)
+
 # ============================ write ============================
 
 doc = {

@@ -2695,3 +2695,170 @@ def ks_2samp(a, b):
     for _, fa, fb in _ecdf_pts(a, b):
         d = max(d, abs(fa - fb))
     return d
+
+
+# ======================================================================================
+# Pack CR - classification & regression depth (validated vs scikit-learn).
+# Binary classification metrics read from the (tp, fp, fn, tn) confusion counts.
+# ======================================================================================
+
+def g_mean(pred, label):
+    """Geometric mean of sensitivity and specificity: sqrt(TPR * TNR)."""
+    if not label or _has_nan(pred) or _has_nan(label):
+        return float("nan")
+    tp, fp, fn, tn = _confusion(pred, label)
+    if (tp + fn) == 0 or (tn + fp) == 0:
+        return float("nan")
+    return math.sqrt((tp / (tp + fn)) * (tn / (tn + fp)))
+
+
+def youden_j(pred, label):
+    """Youden's J / informedness: TPR + TNR - 1."""
+    if not label or _has_nan(pred) or _has_nan(label):
+        return float("nan")
+    tp, fp, fn, tn = _confusion(pred, label)
+    if (tp + fn) == 0 or (tn + fp) == 0:
+        return float("nan")
+    return tp / (tp + fn) + tn / (tn + fp) - 1.0
+
+
+def markedness(pred, label):
+    """Markedness: PPV + NPV - 1."""
+    if not label or _has_nan(pred) or _has_nan(label):
+        return float("nan")
+    tp, fp, fn, tn = _confusion(pred, label)
+    if (tp + fp) == 0 or (tn + fn) == 0:
+        return float("nan")
+    return tp / (tp + fp) + tn / (tn + fn) - 1.0
+
+
+def negative_predictive_value(pred, label):
+    """Negative predictive value: TN / (TN + FN)."""
+    if not label or _has_nan(pred) or _has_nan(label):
+        return float("nan")
+    tp, fp, fn, tn = _confusion(pred, label)
+    return tn / (tn + fn) if (tn + fn) > 0 else float("nan")
+
+
+def false_positive_rate(pred, label):
+    if not label or _has_nan(pred) or _has_nan(label):
+        return float("nan")
+    tp, fp, fn, tn = _confusion(pred, label)
+    return fp / (fp + tn) if (fp + tn) > 0 else float("nan")
+
+
+def false_negative_rate(pred, label):
+    if not label or _has_nan(pred) or _has_nan(label):
+        return float("nan")
+    tp, fp, fn, tn = _confusion(pred, label)
+    return fn / (fn + tp) if (fn + tp) > 0 else float("nan")
+
+
+def false_discovery_rate(pred, label):
+    if not label or _has_nan(pred) or _has_nan(label):
+        return float("nan")
+    tp, fp, fn, tn = _confusion(pred, label)
+    return fp / (fp + tp) if (fp + tp) > 0 else float("nan")
+
+
+def positive_likelihood_ratio(pred, label):
+    """LR+ = TPR / FPR (sklearn class_likelihood_ratios[0])."""
+    if not label or _has_nan(pred) or _has_nan(label):
+        return float("nan")
+    tp, fp, fn, tn = _confusion(pred, label)
+    if (tp + fn) == 0 or (fp + tn) == 0 or fp == 0:
+        return float("nan")
+    return (tp / (tp + fn)) / (fp / (fp + tn))
+
+
+def negative_likelihood_ratio(pred, label):
+    """LR- = FNR / TNR (sklearn class_likelihood_ratios[1])."""
+    if not label or _has_nan(pred) or _has_nan(label):
+        return float("nan")
+    tp, fp, fn, tn = _confusion(pred, label)
+    if (tp + fn) == 0 or (fp + tn) == 0 or tn == 0:
+        return float("nan")
+    return (fn / (fn + tp)) / (tn / (tn + fp))
+
+
+def diagnostic_odds_ratio(pred, label):
+    """DOR = (TP*TN)/(FP*FN)."""
+    if not label or _has_nan(pred) or _has_nan(label):
+        return float("nan")
+    tp, fp, fn, tn = _confusion(pred, label)
+    if fp == 0 or fn == 0:
+        return float("nan")
+    return (tp * tn) / (fp * fn)
+
+
+def threat_score(pred, label):
+    """Threat score / critical success index: TP / (TP + FN + FP)."""
+    if not label or _has_nan(pred) or _has_nan(label):
+        return float("nan")
+    tp, fp, fn, tn = _confusion(pred, label)
+    den = tp + fn + fp
+    return tp / den if den > 0 else float("nan")
+
+
+def fowlkes_mallows(pred, label):
+    """Fowlkes-Mallows (binary): sqrt(PPV * TPR)."""
+    if not label or _has_nan(pred) or _has_nan(label):
+        return float("nan")
+    tp, fp, fn, tn = _confusion(pred, label)
+    if (tp + fp) == 0 or (tp + fn) == 0:
+        return float("nan")
+    return math.sqrt((tp / (tp + fp)) * (tp / (tp + fn)))
+
+
+def concordance_correlation(pred, actual):
+    """Lin's CCC: 2*cov / (var_p + var_a + (mean_p - mean_a)^2), population moments."""
+    n = len(pred)
+    if n < 1 or len(actual) != n or _has_nan(pred) or _has_nan(actual):
+        return float("nan")
+    mp, ma = fmean(pred), fmean(actual)
+    vp = math.fsum((p - mp) ** 2 for p in pred) / n
+    va = math.fsum((a - ma) ** 2 for a in actual) / n
+    cov = math.fsum((p - mp) * (a - ma) for p, a in zip(pred, actual)) / n
+    denom = vp + va + (mp - ma) ** 2
+    return 2.0 * cov / denom if denom > 0 else float("nan")
+
+
+def huber_loss(pred, actual, delta):
+    """Mean Huber loss with threshold delta."""
+    if not pred or len(actual) != len(pred) or _has_nan(pred) or _has_nan(actual) or delta <= 0:
+        return float("nan")
+    tot = 0.0
+    for p, a in zip(pred, actual):
+        e = abs(p - a)
+        tot += 0.5 * e * e if e <= delta else delta * (e - 0.5 * delta)
+    return tot / len(pred)
+
+
+def poisson_deviance(pred, actual):
+    """Mean Poisson deviance: 2*mean(a*ln(a/p) - (a-p)) (sklearn mean_poisson_deviance)."""
+    if not pred or len(actual) != len(pred) or _has_nan(pred) or _has_nan(actual):
+        return float("nan")
+    if any(p <= 0 for p in pred) or any(a < 0 for a in actual):
+        return float("nan")
+    tot = math.fsum(2.0 * ((a * dlog(a / p) if a > 0 else 0.0) - (a - p)) for p, a in zip(pred, actual))
+    return tot / len(pred)
+
+
+def gamma_deviance(pred, actual):
+    """Mean Gamma deviance: 2*mean(ln(p/a) + a/p - 1) (sklearn mean_gamma_deviance); a,p>0."""
+    if not pred or len(actual) != len(pred) or _has_nan(pred) or _has_nan(actual):
+        return float("nan")
+    if any(p <= 0 for p in pred) or any(a <= 0 for a in actual):
+        return float("nan")
+    tot = math.fsum(2.0 * (dlog(p / a) + a / p - 1.0) for p, a in zip(pred, actual))
+    return tot / len(pred)
+
+
+def d2_absolute_error(pred, actual):
+    """D2 absolute-error score: 1 - MAE(model) / MAE(median-null) (sklearn d2_absolute_error_score)."""
+    if not actual or len(pred) != len(actual) or _has_nan(pred) or _has_nan(actual):
+        return float("nan")
+    mae_model = math.fsum(abs(p - a) for p, a in zip(pred, actual)) / len(actual)
+    med = quantile(actual, 0.5)
+    mae_null = math.fsum(abs(a - med) for a in actual) / len(actual)
+    return 1.0 - mae_model / mae_null if mae_null > 0 else float("nan")

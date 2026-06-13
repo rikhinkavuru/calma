@@ -1464,3 +1464,61 @@ def energy_distance(cols, binding, convention=None):
 def ks_2samp(cols, binding, convention=None):
     a, b = cols[binding["sample_a"]], cols[binding["sample_b"]]
     return _result(N.ks_2samp(a, b), {"n_a": len(a), "n_b": len(b)})
+
+
+# ======================================================================================
+# Pack CR - classification & regression depth (validated vs scikit-learn).
+# ======================================================================================
+
+def _cls(fn):
+    def recipe(cols, binding, convention=None):
+        pred, label = cols[binding["prediction"]], cols[binding["label"]]
+        return _result(fn(pred, label), {"n": len(label)})
+    return recipe
+
+
+for _mid, _fn in (
+    ("g_mean", "g_mean"), ("youden_j", "youden_j"), ("markedness", "markedness"),
+    ("negative_predictive_value", "negative_predictive_value"),
+    ("false_positive_rate", "false_positive_rate"), ("false_negative_rate", "false_negative_rate"),
+    ("false_discovery_rate", "false_discovery_rate"),
+    ("positive_likelihood_ratio", "positive_likelihood_ratio"),
+    ("negative_likelihood_ratio", "negative_likelihood_ratio"),
+    ("diagnostic_odds_ratio", "diagnostic_odds_ratio"), ("threat_score", "threat_score"),
+    ("fowlkes_mallows", "fowlkes_mallows"),
+):
+    register(_mid, family="classification", required_tags=["prediction", "label"],
+             set_maturity="reviewed")(_cls(getattr(N, _fn)))
+
+
+@register("concordance_correlation", family="regression", required_tags=["prediction", "target"],
+          set_maturity="reviewed")
+def concordance_correlation(cols, binding, convention=None):
+    p, t = cols[binding["prediction"]], cols[binding["target"]]
+    return _result(N.concordance_correlation(p, t), {"n": len(t)})
+
+
+@register("huber_loss", family="regression", required_tags=["prediction", "target"], set_maturity="reviewed",
+          accepted_conventions=["delta=<v>"])
+def huber_loss(cols, binding, convention=None):
+    p, t = cols[binding["prediction"]], cols[binding["target"]]
+    delta = _conv_float(convention, "delta", 1.0)
+    return _result(N.huber_loss(p, t, delta), {"n": len(t), "delta": delta})
+
+
+@register("poisson_deviance", family="regression", required_tags=["prediction", "target"], set_maturity="reviewed")
+def poisson_deviance(cols, binding, convention=None):
+    p, t = cols[binding["prediction"]], cols[binding["target"]]
+    return _result(N.poisson_deviance(p, t), {"n": len(t)})
+
+
+@register("gamma_deviance", family="regression", required_tags=["prediction", "target"], set_maturity="reviewed")
+def gamma_deviance(cols, binding, convention=None):
+    p, t = cols[binding["prediction"]], cols[binding["target"]]
+    return _result(N.gamma_deviance(p, t), {"n": len(t)})
+
+
+@register("d2_absolute_error", family="regression", required_tags=["prediction", "target"], set_maturity="reviewed")
+def d2_absolute_error(cols, binding, convention=None):
+    p, t = cols[binding["prediction"]], cols[binding["target"]]
+    return _result(N.d2_absolute_error(p, t), {"n": len(t)})

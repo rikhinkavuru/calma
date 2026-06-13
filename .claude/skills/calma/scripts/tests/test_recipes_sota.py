@@ -226,6 +226,24 @@ KINDS = {
     "wasserstein_1d": lambda a: N.wasserstein_1d(a["a"], a["b"]),
     "energy_distance": lambda a: N.energy_distance(a["a"], a["b"]),
     "ks_2samp": lambda a: N.ks_2samp(a["a"], a["b"]),
+    # pack CR - classification & regression depth
+    "g_mean": lambda a: N.g_mean(a["pred"], a["label"]),
+    "youden_j": lambda a: N.youden_j(a["pred"], a["label"]),
+    "markedness": lambda a: N.markedness(a["pred"], a["label"]),
+    "negative_predictive_value": lambda a: N.negative_predictive_value(a["pred"], a["label"]),
+    "false_positive_rate": lambda a: N.false_positive_rate(a["pred"], a["label"]),
+    "false_negative_rate": lambda a: N.false_negative_rate(a["pred"], a["label"]),
+    "false_discovery_rate": lambda a: N.false_discovery_rate(a["pred"], a["label"]),
+    "positive_likelihood_ratio": lambda a: N.positive_likelihood_ratio(a["pred"], a["label"]),
+    "negative_likelihood_ratio": lambda a: N.negative_likelihood_ratio(a["pred"], a["label"]),
+    "diagnostic_odds_ratio": lambda a: N.diagnostic_odds_ratio(a["pred"], a["label"]),
+    "threat_score": lambda a: N.threat_score(a["pred"], a["label"]),
+    "fowlkes_mallows": lambda a: N.fowlkes_mallows(a["pred"], a["label"]),
+    "concordance_correlation": lambda a: N.concordance_correlation(a["pred"], a["actual"]),
+    "huber_loss": lambda a: N.huber_loss(a["pred"], a["actual"], a["delta"]),
+    "poisson_deviance": lambda a: N.poisson_deviance(a["pred"], a["actual"]),
+    "gamma_deviance": lambda a: N.gamma_deviance(a["pred"], a["actual"]),
+    "d2_absolute_error": lambda a: N.d2_absolute_error(a["pred"], a["actual"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -291,10 +309,15 @@ EXPECTED = {
     # pack RM - risk-model validation (10)
     "kupiec_pof", "christoffersen_independence", "christoffersen_cc", "psi", "information_value",
     "kl_divergence", "js_divergence", "wasserstein_1d", "energy_distance", "ks_2samp",
+    # pack CR - classification & regression depth (17)
+    "g_mean", "youden_j", "markedness", "negative_predictive_value", "false_positive_rate", "false_negative_rate",
+    "false_discovery_rate", "positive_likelihood_ratio", "negative_likelihood_ratio",
+    "diagnostic_odds_ratio", "threat_score", "fowlkes_mallows", "concordance_correlation",
+    "huber_loss", "poisson_deviance", "gamma_deviance", "d2_absolute_error",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 171 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 188 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402
