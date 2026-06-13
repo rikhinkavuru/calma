@@ -42,7 +42,6 @@ export function About() {
                 height={896}
                 loading="lazy"
               />
-              <figcaption className="photo__cap">The lab — every claim under the lamp</figcaption>
             </figure>
           </Reveal>
         </div>

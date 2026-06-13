@@ -35,7 +35,6 @@ export function Benefits({ onRequest }: { onRequest: () => void }) {
                   Get the free skill
                 </a>
               </div>
-              <span className="fine">Free · open source · MIT</span>
             </div>
           </Reveal>
 
@@ -58,7 +57,6 @@ export function Benefits({ onRequest }: { onRequest: () => void }) {
                   Read the docs
                 </a>
               </div>
-              <span className="fine">GitHub Action included</span>
             </div>
           </Reveal>
 
@@ -76,7 +74,6 @@ export function Benefits({ onRequest }: { onRequest: () => void }) {
                   How the lab works
                 </a>
               </div>
-              <span className="fine">Engagements are limited — a person replies</span>
             </div>
           </Reveal>
         </div>

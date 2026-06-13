@@ -188,13 +188,13 @@ img, svg, canvas { display: block; max-width: 100%; }
 .nav__links { display: flex; align-items: center; gap: clamp(16px, 2.8vw, 34px); }
 .nav__links a { font-size: 14px; color: var(--cream-70); transition: color 0.2s ease; }
 .nav__links a:hover { color: var(--cream); }
-.nav__cta {
-  font-family: var(--mono); font-size: 8px; letter-spacing: 0.08em; text-transform: uppercase;
-  background: transparent; color: var(--cream);
-  border: 1px solid var(--hairline); padding: 2px 7px;
+.nav .nav__cta {
+  font-family: var(--mono); font-size: 9px; letter-spacing: 0.13em; text-transform: uppercase;
+  background: transparent; color: var(--cream-70);
+  border: 1px solid var(--cream-35); padding: 6px 13px; line-height: 1;
   transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
 }
-.nav__cta:hover { border-color: var(--cream); background: var(--cream); color: var(--void); }
+.nav .nav__cta:hover { border-color: var(--cream); background: var(--cream); color: var(--void); }
 .nav__burger {
   display: none; background: none; border: 1px solid var(--hairline); color: var(--cream);
   font-size: 16px; line-height: 1; padding: 8px 12px; cursor: pointer;
@@ -321,7 +321,7 @@ img, svg, canvas { display: block; max-width: 100%; }
   min-height: 100vh; min-height: 100svh;
   padding-top: clamp(124px, 15vh, 172px); padding-bottom: clamp(30px, 4.5vh, 52px);
 }
-.hero__inner--center .h1 { max-width: 15em; font-size: clamp(32px, 4.2vw, 48px); }
+.hero__inner--center .h1 { max-width: 15em; font-size: clamp(38px, 5vw, 58px); }
 .hero__inner--center .hero__lead {
   margin-inline: auto; margin-top: 20px;
   font-size: clamp(15px, 1.3vw, 17px); max-width: 40em;
@@ -563,6 +563,8 @@ img, svg, canvas { display: block; max-width: 100%; }
 .cart .dim { stroke: var(--cream-35); }
 .cart .amber { stroke: var(--amber); }
 .cart .amber-fill { fill: var(--amber); stroke: none; }
+.cart text.amber { fill: var(--amber); stroke: none; }
+.cart text.dim { fill: var(--cream-35); stroke: none; }
 .cart text { font-family: var(--mono); font-size: 13px; fill: var(--cream-55); stroke: none; }
 
 /* ---------------- about ---------------- */

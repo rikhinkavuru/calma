@@ -12,33 +12,34 @@ export function CardArt({ kind }: { kind: Kind }) {
     return (
       <svg className="cart" viewBox="0 0 400 250" aria-hidden="true">
         {/* the work re-runs from scratch inside a sealed sandbox */}
-        <rect x="64" y="44" width="272" height="162" rx="2" />
-        <line x1="64" y1="78" x2="336" y2="78" />
-        <circle cx="84" cy="61" r="3.5" className="dim" />
-        <circle cx="98" cy="61" r="3.5" className="dim" />
-        <circle cx="112" cy="61" r="3.5" className="dim" />
-        <line x1="92" y1="104" x2="248" y2="104" className="dim" />
-        <line x1="92" y1="128" x2="288" y2="128" className="dim" />
-        <line x1="92" y1="152" x2="214" y2="152" className="dim" />
-        <path d="M232 176 a30 30 0 1 1 -10 -22" className="amber" />
-        <path d="M218 148 l5 10 l10 -3" className="amber" />
-        <text x="200" y="232" textAnchor="middle">re-run, sealed</text>
+        <rect x="64" y="48" width="272" height="150" rx="2" />
+        <line x1="64" y1="80" x2="336" y2="80" />
+        <circle cx="84" cy="64" r="3.5" className="dim" />
+        <circle cx="98" cy="64" r="3.5" className="dim" />
+        <circle cx="112" cy="64" r="3.5" className="dim" />
+        {/* a padlock in the title bar — sealed */}
+        <rect x="306" y="60" width="14" height="11" className="amber" />
+        <path d="M309 60 v-3 a4 4 0 0 1 8 0 v3" className="amber" />
+        {/* two short code lines, top half */}
+        <line x1="92" y1="106" x2="240" y2="106" className="dim" />
+        <line x1="92" y1="126" x2="284" y2="126" className="dim" />
+        {/* a clean re-run / refresh glyph in the clear lower half */}
+        <path d="M200 150 a23 23 0 1 1 -17 7" className="amber" />
+        <path d="M200 150 l-11 -3 m11 3 l-4 11" className="amber" />
+        <text x="200" y="228" textAnchor="middle">re-run, sealed</text>
       </svg>
     );
   if (kind === "verdict")
     return (
       <svg className="cart" viewBox="0 0 400 250" aria-hidden="true">
-        {/* claimed vs rebuilt — code decides, not a model */}
-        <text x="58" y="86">claimed</text>
-        <line x1="56" y1="100" x2="150" y2="100" className="dim" />
-        <text x="58" y="150">rebuilt</text>
-        <line x1="56" y1="164" x2="116" y2="164" className="dim" />
-        <line x1="206" y1="116" x2="246" y2="116" className="amber" />
-        <line x1="206" y1="134" x2="246" y2="134" className="amber" />
-        <line x1="240" y1="104" x2="212" y2="146" className="amber" />
-        <rect x="280" y="100" width="74" height="50" className="amber" />
-        <path d="M298 126 l8 8 l16 -18" className="amber" />
-        <text x="200" y="216" textAnchor="middle">deterministic</text>
+        {/* claimed vs rebuilt → a verdict, decided by code */}
+        <text x="74" y="74">claimed</text>
+        <text x="250" y="74" textAnchor="end">2.1</text>
+        <text x="74" y="118">rebuilt</text>
+        <text x="250" y="118" textAnchor="end">1.6</text>
+        <line x1="74" y1="142" x2="326" y2="142" className="dim" />
+        <rect x="118" y="166" width="164" height="48" className="amber" />
+        <text x="200" y="196" textAnchor="middle" className="amber">REFUTED</text>
       </svg>
     );
   if (kind === "claim")

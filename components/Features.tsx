@@ -15,27 +15,27 @@ const FEATURES: {
   p: string;
 }[] = [
   {
-    k: "01 · Re-execution, not review",
+    k: "Re-execution",
     art: "rerun",
-    h: "It runs the work — it never reads the report.",
+    h: "Nothing is taken on the AI’s word.",
     p: "Calma re-executes your code from scratch in a sandbox that proves its own isolation first: it plants a fake secret, tries to leak it and reach the network, and only calls the machine sealed once every attempt fails. The number is then rebuilt on bit-stable kernels — same inputs, same answer, on any machine. Python, R, Julia, C++, Rust and Node all run as a sealed black box, no SDK to add. Nothing is ever uploaded.",
   },
   {
-    k: "02 · A verdict you can’t argue with",
+    k: "Deterministic verdict",
     art: "verdict",
-    h: "Deterministic code decides — not a model.",
+    h: "A pass no model can argue its way into.",
     p: "Every number and the verdict itself come from code, so a persuasive model — or a motivated author — can’t charm its way to a pass. A claim is refuted only when the gap clears a calibrated tolerance budget drawn from the claim’s own stated precision and the metric’s noise floor; when an input is ambiguous it degrades to can’t-confirm with the exact fix. A caveat over a false alarm, every time.",
   },
   {
-    k: "03 · Reads the claim, finds the number",
+    k: "Plain-English claims",
     art: "claim",
-    h: "Plain English in. The right column out.",
-    p: "Write the claim the way you’d say it — “p95 latency 120 ms,” “pass@5 0.62,” “monthly CAGR 23.9%.” Calma parses the number, the metric, and even the convention, then scans your output files to find the column that holds it and independently double-checks that guess before it’s allowed to matter. Pin everything explicitly with one small config when you’d rather not leave it to inference.",
+    h: "Say the claim like you’d say it out loud.",
+    p: "Write it the way you’d say it — “p95 latency 120 ms,” “pass@5 0.62,” “monthly CAGR 23.9%.” Calma parses the number, the metric, and even the convention, then scans your output files to find the column that holds it and independently double-checks that guess before it’s allowed to matter. Pin everything explicitly with one small config when you’d rather not leave it to inference.",
   },
   {
-    k: "04 · Signed — and it compounds",
+    k: "Signed & portable",
     art: "signed",
-    h: "A record your counterparty can verify alone.",
+    h: "Proof your counterparty can check alone.",
     p: "Every run emits a signed report the other side checks with tools already on their machine — stock OpenSSH, fully offline — plus an optional trusted timestamp that proves the date years later. It drops into agent loops and CI, cached by content hash so unchanged work answers instantly and gating only when a claim truly breaks, and each verification appends to a track record that can’t be retconned. (DSSE/in-toto, Sigstore-compatible, RFC 3161.)",
   },
 ];
@@ -50,6 +50,12 @@ export function Features() {
           </Reveal>
           <Reveal delay={150}>
             <h2 className="h2">Simple to use. Hard to fool.</h2>
+          </Reveal>
+          <Reveal delay={250}>
+            <p className="lead">
+              The properties that separate a Calma verdict from a second opinion — under the hood of
+              every check.
+            </p>
           </Reveal>
         </div>
 
