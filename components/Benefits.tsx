@@ -5,15 +5,12 @@ import { Reveal } from "./chrome";
 
 export function Benefits({ onRequest }: { onRequest: () => void }) {
   return (
-    <section className="sec sec--spot-cool" id="benefits">
+    <section className="sec" id="benefits">
       <div className="wrap">
+        <Reveal className="lightbox">
         <div className="sec__head">
-          <Reveal>
-            <span className="kicker">Who it&apos;s for</span>
-          </Reveal>
-          <Reveal delay={150}>
-            <h2 className="h2">Three ways people use Calma.</h2>
-          </Reveal>
+          <span className="kicker">Who it&apos;s for</span>
+          <h2 className="h2">Three ways people use Calma.</h2>
         </div>
         <div className="benefits">
           <Reveal>
@@ -77,6 +74,7 @@ export function Benefits({ onRequest }: { onRequest: () => void }) {
             </div>
           </Reveal>
         </div>
+        </Reveal>
       </div>
     </section>
   );

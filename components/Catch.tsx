@@ -7,7 +7,7 @@ export function Problem() {
   const [ref, seen] = useInView<HTMLDivElement>(0.3);
 
   return (
-    <section className="sec sec--spot" id="problem">
+    <section className="sec" id="problem">
       <div className="wrap">
         <div className="sec__head">
           <Reveal>

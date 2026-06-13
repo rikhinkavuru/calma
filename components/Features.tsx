@@ -1,19 +1,14 @@
 "use client";
 
-import { Reveal } from "./chrome";
+import { useRef } from "react";
+import { motion, useScroll, useTransform } from "framer-motion";
 import { CardArt } from "./CardArt";
 
-/* Four features, each an alternating row. Every line of the old grid is folded
-   into one of these — re-execution, isolation, determinism, languages →
-   row 1; adversarial verdict, tolerances, honesty guards → row 2; plain-English
-   claims, graded contracts → row 3; attestation, CI/agent loops, the record →
-   row 4. Direct, because four rows have to carry everything. */
-const FEATURES: {
-  k: string;
-  art: "rerun" | "verdict" | "claim" | "signed";
-  h: string;
-  p: string;
-}[] = [
+/* Pinned horizontal scroll: each feature fills the screen; scrolling slides the
+   current one out to the left and the next one in. The section is tall, so it
+   takes deliberate scrolling to advance — it can't flip on a touch. Falls back
+   to a vertical stack on small screens / reduced motion (handled in CSS). */
+const FEATURES: { k: string; art: "rerun" | "verdict" | "claim" | "signed"; h: string; p: string }[] = [
   {
     k: "Re-execution",
     art: "rerun",
@@ -41,40 +36,39 @@ const FEATURES: {
 ];
 
 export function Features() {
+  const ref = useRef<HTMLElement>(null);
+  const { scrollYProgress } = useScroll({ target: ref, offset: ["start start", "end end"] });
+  const x = useTransform(scrollYProgress, [0, 1], ["0vw", `-${(FEATURES.length - 1) * 100}vw`]);
+
   return (
-    <section className="sec" id="features">
-      <div className="wrap">
-        <div className="sec__head">
-          <Reveal>
-            <span className="kicker">Features</span>
-          </Reveal>
-          <Reveal delay={150}>
-            <h2 className="h2">Simple to use. Hard to fool.</h2>
-          </Reveal>
-          <Reveal delay={250}>
-            <p className="lead">
-              The properties that separate a Calma verdict from a second opinion — under the hood of
-              every check.
-            </p>
-          </Reveal>
+    <section ref={ref} className="fscroll" id="features" style={{ height: `${FEATURES.length * 100}vh` }}>
+      <div className="fscroll__pin">
+        <div className="fscroll__label">
+          <span className="kicker">Features</span>
+          <span className="fscroll__tag">Simple to use. Hard to fool.</span>
         </div>
 
-        <div className="frows">
+        <motion.div className="fscroll__track" style={{ x }}>
           {FEATURES.map((f, i) => (
-            <Reveal key={f.k} delay={i === 0 ? 0 : 100}>
-              <div className="frow">
-                <div className="frow__art">
+            <article className="fpanel" key={f.k}>
+              <div className="fpanel__inner">
+                <div className="fpanel__art">
                   <CardArt kind={f.art} />
                 </div>
-                <div className="frow__text">
+                <div className="fpanel__text">
+                  <span className="fpanel__idx">
+                    {String(i + 1).padStart(2, "0")} / {String(FEATURES.length).padStart(2, "0")}
+                  </span>
                   <span className="frow__k">{f.k}</span>
                   <h3>{f.h}</h3>
                   <p>{f.p}</p>
                 </div>
               </div>
-            </Reveal>
+            </article>
           ))}
-        </div>
+        </motion.div>
+
+        <motion.div className="fscroll__bar" style={{ scaleX: scrollYProgress }} />
       </div>
     </section>
   );

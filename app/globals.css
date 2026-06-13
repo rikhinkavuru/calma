@@ -359,25 +359,58 @@ img, svg, canvas { display: block; max-width: 100%; }
 }
 .sec--teal::before { background: linear-gradient(90deg, transparent, rgba(127, 184, 158, 0.4), transparent); }
 
-/* directional atmosphere — depth without another flat color band. one warm, one
-   cool, offset to different corners so they read as light, not stripes */
-.sec--spot::after {
-  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 0;
-  background: radial-gradient(46% 52% at 26% 46%, rgba(232, 154, 93, 0.11), transparent 70%);
+/* a contained light box — contrast as a designed element, not a full band.
+   flips the local palette to paper + ink and lifts off the dark with a shadow */
+.lightbox {
+  background: #efe7d3; color: #181410;
+  --cream: #181410;
+  --cream-70: rgba(24, 20, 16, 0.74);
+  --cream-55: rgba(24, 20, 16, 0.6);
+  --cream-35: rgba(24, 20, 16, 0.4);
+  --hairline: rgba(24, 20, 16, 0.16);
+  --void: #efe7d3;
+  --amber: #bd6a26;
+  padding: clamp(34px, 4.5vw, 68px);
+  border-radius: 8px;
+  box-shadow: 0 50px 120px rgba(0, 0, 0, 0.5), 0 14px 44px rgba(0, 0, 0, 0.34);
 }
-.sec--spot-cool::after {
-  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 0;
-  background: radial-gradient(50% 52% at 80% 44%, rgba(77, 138, 115, 0.12), transparent 70%);
-}
-.sec--spot > .wrap, .sec--spot-cool > .wrap { position: relative; z-index: 1; }
+.lightbox .sec__head { margin-bottom: clamp(30px, 3.6vw, 46px); }
+.lightbox .benefit__art { background: rgba(24, 20, 16, 0.03); }
 
-/* FAQ + the lab photo, side by side */
-.faqlay { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: clamp(40px, 6vw, 88px); align-items: center; }
+/* FAQ + the lab photo, side by side (generous horizontal gap) */
+.faqlay { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: clamp(56px, 9vw, 132px); align-items: center; }
 .faqlay__main .sec__head { margin-bottom: clamp(28px, 3.5vw, 40px); }
 .faqlay .faq { max-width: none; }
 @media (max-width: 900px) {
   .faqlay { grid-template-columns: 1fr; gap: clamp(36px, 8vw, 52px); }
   .faqlay__aside { order: -1; }
+}
+
+/* ---------------- pinned horizontal feature scroll ---------------- */
+.fscroll { position: relative; }
+.fscroll__pin { position: sticky; top: 0; height: 100vh; overflow: hidden; display: flex; align-items: center; }
+.fscroll__track { display: flex; height: 100%; width: max-content; will-change: transform; }
+.fpanel { width: 100vw; height: 100vh; flex: none; display: grid; place-items: center; padding: clamp(96px, 13vh, 150px) clamp(24px, 8vw, 130px) clamp(70px, 9vh, 110px); }
+.fpanel__inner { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(40px, 6vw, 92px); align-items: center; width: 100%; max-width: var(--maxw); }
+.fpanel__art { border: 1px solid var(--hairline); background: rgba(17, 15, 11, 0.72); aspect-ratio: 16 / 10; display: grid; place-items: center; overflow: hidden; }
+.fpanel__art svg { width: 82%; height: auto; }
+.fpanel__text { display: flex; flex-direction: column; gap: 16px; }
+.fpanel__idx { font-family: var(--mono); font-size: 12px; letter-spacing: 0.22em; color: var(--amber); }
+.fpanel__text h3 { font-size: clamp(28px, 3.6vw, 46px); font-weight: 500; line-height: 1.12; letter-spacing: -0.015em; }
+.fpanel__text p { font-size: clamp(15.5px, 1.4vw, 18px); line-height: 1.7; color: var(--cream-55); max-width: 46ch; }
+.fscroll__label { position: absolute; top: clamp(84px, 11vh, 120px); left: clamp(24px, 8vw, 130px); z-index: 3; display: flex; flex-direction: column; gap: 8px; }
+.fscroll__tag { font-size: clamp(18px, 2vw, 24px); font-weight: 500; color: var(--cream); letter-spacing: -0.01em; }
+.fscroll__bar { position: absolute; left: 0; bottom: 0; height: 2px; width: 100%; background: var(--amber); transform-origin: left center; z-index: 3; }
+
+@media (max-width: 900px), (prefers-reduced-motion: reduce) {
+  .fscroll { height: auto !important; }
+  .fscroll__pin { position: static; height: auto; overflow: visible; display: block; }
+  .fscroll__track { flex-direction: column; width: auto; transform: none !important; }
+  .fpanel { width: 100%; height: auto; padding: clamp(48px, 11vw, 84px) 0; }
+  .fpanel__inner { grid-template-columns: 1fr; gap: 22px; max-width: none; }
+  .fpanel__art { order: -1; }
+  .fscroll__label { position: static; margin-bottom: 8px; }
+  .fscroll__bar { display: none; }
 }
 
 /* LIGHT BAND — flips the local palette to paper + ink so every component that
