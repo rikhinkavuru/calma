@@ -5,7 +5,7 @@ import { Reveal } from "./chrome";
 
 export function Benefits({ onRequest }: { onRequest: () => void }) {
   return (
-    <section className="sec" id="benefits">
+    <section className="sec sec--light" id="benefits">
       <div className="wrap">
         <div className="sec__head">
           <Reveal>
@@ -18,7 +18,7 @@ export function Benefits({ onRequest }: { onRequest: () => void }) {
         <div className="benefits">
           <Reveal>
             <div className="benefit">
-              <div className="benefit__art benefit__art--teal"><CardArt kind="builder" /></div>
+              <div className="benefit__art"><CardArt kind="builder" /></div>
               <span className="who">Builders</span>
               <h3>Catch the mistake before your users do</h3>
               <p>
@@ -40,7 +40,7 @@ export function Benefits({ onRequest }: { onRequest: () => void }) {
 
           <Reveal delay={130}>
             <div className="benefit">
-              <div className="benefit__art benefit__art--sky"><CardArt kind="team" /></div>
+              <div className="benefit__art"><CardArt kind="team" /></div>
               <span className="who">Teams</span>
               <h3>A result that doesn&apos;t reproduce never ships</h3>
               <p>

@@ -42,7 +42,7 @@ const FEATURES: {
 
 export function Features() {
   return (
-    <section className="sec sec--alt sec--teal" id="features">
+    <section className="sec" id="features">
       <div className="wrap">
         <div className="sec__head">
           <Reveal>

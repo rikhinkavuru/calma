@@ -5,7 +5,7 @@ import { Reveal } from "./chrome";
 /* HOW IT WORKS — three steps, no jargon. */
 export function Overview() {
   return (
-    <section className="sec" id="overview">
+    <section className="sec sec--light" id="overview">
       <div className="wrap">
         <div className="sec__head">
           <Reveal>

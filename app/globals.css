@@ -358,6 +358,28 @@ img, svg, canvas { display: block; max-width: 100%; }
   background: linear-gradient(90deg, transparent, rgba(232, 154, 93, 0.35), transparent);
 }
 .sec--teal::before { background: linear-gradient(90deg, transparent, rgba(127, 184, 158, 0.4), transparent); }
+
+/* LIGHT BAND — flips the local palette to paper + ink so every component that
+   reads the tokens adapts automatically. Amber stays the accent (darkened a
+   step so it stays legible on paper). Alternated with dark bands for contrast. */
+.sec--light {
+  background: #efe7d3;
+  --cream: #181410;
+  --cream-70: rgba(24, 20, 16, 0.74);
+  --cream-55: rgba(24, 20, 16, 0.6);
+  --cream-35: rgba(24, 20, 16, 0.4);
+  --hairline: rgba(24, 20, 16, 0.17);
+  --void: #efe7d3;
+  --amber: #bd6a26;
+  color: var(--cream);
+}
+/* surfaces nested inside a light band need their dark literals lightened */
+.sec--light .benefit__art { background: rgba(24, 20, 16, 0.03); }
+.sec--light .panel { background: rgba(24, 20, 16, 0.035); }
+.sec--light .bench__track { background: rgba(24, 20, 16, 0.05); border-color: rgba(24, 20, 16, 0.1); }
+.sec--light .bench__bar--mid { background: rgba(24, 20, 16, 0.32); }
+.sec--light .bench__bar--dim { background: rgba(24, 20, 16, 0.14); }
+.sec--light .bench__dot.bench__bar--mid { background: rgba(24, 20, 16, 0.32); }
 .sec__head { margin-bottom: clamp(40px, 5vw, 64px); display: flex; flex-direction: column; gap: 18px; }
 
 /* ---------------- problem ---------------- */

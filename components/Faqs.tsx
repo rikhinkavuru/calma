@@ -45,7 +45,7 @@ const ITEMS: [string, React.ReactNode][] = [
 
 export function Faqs() {
   return (
-    <section className="sec" id="faq">
+    <section className="sec sec--light" id="faq">
       <div className="wrap">
         <div className="sec__head">
           <Reveal>
