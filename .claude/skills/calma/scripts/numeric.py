@@ -3424,3 +3424,102 @@ def mtbf(flags):
         return float("nan")
     f = sum(1 for x in flags if x != 0)
     return len(flags) / f if f > 0 else float("nan")
+
+
+# ======================================================================================
+# Pack QR2 - quant performance depth (return series +/- benchmark; documented conventions).
+# ======================================================================================
+
+def _ann_return(rets, periods):
+    growth = pairwise_prod([1.0 + r for r in rets])
+    if growth <= 0:
+        return float("nan")
+    return dpow(growth, periods / len(rets)) - 1.0
+
+
+def pain_ratio(rets, periods):
+    """Annualized return / pain index (mean drawdown depth)."""
+    if len(rets) < 2 or _has_nan(rets):
+        return float("nan")
+    ann = _ann_return(rets, periods)
+    pi = pain_index(rets)
+    return ann / pi if (pi > 0 and ann == ann) else float("nan")
+
+
+def sterling_ratio(rets, periods):
+    """Sterling ratio (Deane): annualized return / (|max drawdown| + 10%)."""
+    if len(rets) < 2 or _has_nan(rets):
+        return float("nan")
+    ann = _ann_return(rets, periods)
+    den = abs(max_drawdown(rets)) + 0.10
+    return ann / den if (den > 0 and ann == ann) else float("nan")
+
+
+def burke_ratio(rets, periods):
+    """Burke ratio (continuous): annualized return / sqrt(sum(dd_t^2)) over the drawdown series."""
+    if len(rets) < 2 or _has_nan(rets):
+        return float("nan")
+    ann = _ann_return(rets, periods)
+    ss = math.sqrt(math.fsum(d * d for d in _drawdown_series(rets)))
+    return ann / ss if (ss > 0 and ann == ann) else float("nan")
+
+
+def m2_measure(rets, bench):
+    """Modigliani M2 (per-period, rf=0): (mean(r)/std(r)) * std(benchmark)."""
+    if len(rets) < 2 or len(bench) != len(rets) or _has_nan(rets) or _has_nan(bench):
+        return float("nan")
+    sd = fstd(rets, 1)
+    return (fmean(rets) / sd) * fstd(bench, 1) if sd > 0 else float("nan")
+
+
+def appraisal_ratio(rets, bench):
+    """Treynor-Black appraisal ratio (per-period): alpha / std(residuals vs benchmark)."""
+    if len(rets) < 2 or len(bench) != len(rets) or _has_nan(rets) or _has_nan(bench):
+        return float("nan")
+    b = beta(rets, bench)
+    if not (b == b):
+        return float("nan")
+    a = fmean(rets) - b * fmean(bench)
+    sr = fstd([r - (a + b * x) for r, x in zip(rets, bench)], 1)
+    return a / sr if sr > 0 else float("nan")
+
+
+def common_sense_ratio(rets):
+    """Common sense ratio: tail ratio * profit factor."""
+    tr, pf = tail_ratio(rets), profit_factor(rets)
+    return tr * pf if (tr == tr and pf == pf) else float("nan")
+
+
+def rachev_ratio(rets, level):
+    """Rachev ratio: upside expected tail (>= level quantile) / downside expected tail (<= 1-level)."""
+    if not rets or _has_nan(rets) or not (0.5 < level < 1.0):
+        return float("nan")
+    lo, hi = quantile(rets, 1.0 - level), quantile(rets, level)
+    left = [r for r in rets if r <= lo]
+    right = [r for r in rets if r >= hi]
+    if not left or not right:
+        return float("nan")
+    dl = -fmean(left)
+    return fmean(right) / dl if dl != 0 else float("nan")
+
+
+def downside_potential(rets):
+    """First lower partial moment, target 0: mean(max(-r, 0))."""
+    if not rets or _has_nan(rets):
+        return float("nan")
+    return math.fsum(max(-r, 0.0) for r in rets) / len(rets)
+
+
+def upside_potential(rets):
+    """First upper partial moment, target 0: mean(max(r, 0))."""
+    if not rets or _has_nan(rets):
+        return float("nan")
+    return math.fsum(max(r, 0.0) for r in rets) / len(rets)
+
+
+def omega_sharpe_ratio(rets, threshold):
+    """Sharpe-Omega: (mean(r) - threshold) / LPM1(threshold)."""
+    if not rets or _has_nan(rets):
+        return float("nan")
+    lpm1 = math.fsum(max(threshold - r, 0.0) for r in rets) / len(rets)
+    return (fmean(rets) - threshold) / lpm1 if lpm1 > 0 else float("nan")

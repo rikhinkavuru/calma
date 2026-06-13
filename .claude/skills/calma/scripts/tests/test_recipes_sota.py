@@ -300,6 +300,17 @@ KINDS = {
     "compression_ratio": lambda a: N.compression_ratio(a["original"], a["compressed"]),
     "availability": lambda a: N.availability(a["uptime"], a["downtime"]),
     "mtbf": lambda a: N.mtbf(a["flags"]),
+    # pack QR2 - quant performance depth
+    "pain_ratio": lambda a: N.pain_ratio(a["rets"], a["periods"]),
+    "sterling_ratio": lambda a: N.sterling_ratio(a["rets"], a["periods"]),
+    "burke_ratio": lambda a: N.burke_ratio(a["rets"], a["periods"]),
+    "m2_measure": lambda a: N.m2_measure(a["rets"], a["bench"]),
+    "appraisal_ratio": lambda a: N.appraisal_ratio(a["rets"], a["bench"]),
+    "common_sense_ratio": lambda a: N.common_sense_ratio(a["rets"]),
+    "rachev_ratio": lambda a: N.rachev_ratio(a["rets"], a["level"]),
+    "downside_potential": lambda a: N.downside_potential(a["rets"]),
+    "upside_potential": lambda a: N.upside_potential(a["rets"]),
+    "omega_sharpe_ratio": lambda a: N.omega_sharpe_ratio(a["rets"], a["threshold"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -390,10 +401,14 @@ EXPECTED = {
     # pack ENG - performance / SRE depth (10)
     "latency_p75", "latency_p999", "tail_latency_ratio", "latency_stddev", "jitter",
     "slo_attainment", "error_budget_burn", "compression_ratio", "availability", "mtbf",
+    # pack QR2 - quant performance depth (10)
+    "pain_ratio", "sterling_ratio", "burke_ratio", "m2_measure", "appraisal_ratio",
+    "common_sense_ratio", "rachev_ratio", "downside_potential", "upside_potential",
+    "omega_sharpe_ratio",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 239 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 249 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

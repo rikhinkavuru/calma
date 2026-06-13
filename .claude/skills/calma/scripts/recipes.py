@@ -1689,3 +1689,59 @@ def availability(cols, binding, convention=None):
 def mtbf(cols, binding, convention=None):
     flags = cols[binding["flag"]]
     return _result(N.mtbf(flags), {"n": len(flags)})
+
+
+# ======================================================================================
+# Pack QR2 - quant performance depth (documented conventions).
+# ======================================================================================
+
+def _ret_p(fn, path):
+    def recipe(cols, binding, convention=None):
+        rets = cols[binding["return"]]
+        p = _periods(convention, binding)
+        return _result(fn(rets, p), {"n": len(rets), "periods": p}, path_dependent=path)
+    return recipe
+
+
+for _mid, _path in (("pain_ratio", True), ("sterling_ratio", True), ("burke_ratio", True)):
+    register(_mid, family="quant", required_tags=["return"], periodicity_param="periods",
+             set_maturity="reviewed", accepted_conventions=["252", "365", "52"])(_ret_p(getattr(N, _mid), _path))
+
+
+def _ret_only(fn):
+    def recipe(cols, binding, convention=None):
+        rets = cols[binding["return"]]
+        return _result(fn(rets), {"n": len(rets)})
+    return recipe
+
+
+for _mid in ("common_sense_ratio", "downside_potential", "upside_potential"):
+    register(_mid, family="quant", required_tags=["return"], set_maturity="reviewed")(_ret_only(getattr(N, _mid)))
+
+
+@register("m2_measure", family="quant", required_tags=["return", "benchmark"], set_maturity="reviewed")
+def m2_measure(cols, binding, convention=None):
+    return _result(N.m2_measure(cols[binding["return"]], cols[binding["benchmark"]]),
+                   {"n": len(cols[binding["return"]])})
+
+
+@register("appraisal_ratio", family="quant", required_tags=["return", "benchmark"], set_maturity="reviewed")
+def appraisal_ratio(cols, binding, convention=None):
+    return _result(N.appraisal_ratio(cols[binding["return"]], cols[binding["benchmark"]]),
+                   {"n": len(cols[binding["return"]])})
+
+
+@register("rachev_ratio", family="quant", required_tags=["return"], set_maturity="reviewed",
+          accepted_conventions=["p95", "p99"])
+def rachev_ratio(cols, binding, convention=None):
+    rets = cols[binding["return"]]
+    level = _conv_q(convention) if convention else 0.95
+    return _result(N.rachev_ratio(rets, level), {"n": len(rets), "level": level})
+
+
+@register("omega_sharpe_ratio", family="quant", required_tags=["return"], set_maturity="reviewed",
+          accepted_conventions=["threshold=<frac>"])
+def omega_sharpe_ratio(cols, binding, convention=None):
+    rets = cols[binding["return"]]
+    thr = _conv_float(convention, "threshold", 0.0)
+    return _result(N.omega_sharpe_ratio(rets, thr), {"n": len(rets), "threshold": thr})

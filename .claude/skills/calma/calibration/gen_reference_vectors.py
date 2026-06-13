@@ -1185,6 +1185,31 @@ case("availability", "availability", {"uptime": av_up, "downtime": av_dn},
 mt_flags = [1.0 if u < 0.1 else 0.0 for u in uniforms(120, 300)]
 case("mtbf", "mtbf", {"flags": mt_flags}, len(mt_flags) / sum(mt_flags), atol=1e-12)
 
+# ============================ Pack QR2 - quant performance depth ============================
+
+_annq = float(np.prod(1.0 + qr)) ** (qp / len(qr)) - 1.0
+case("pain_ratio", "pain_ratio", {"rets": rets, "periods": qp}, _annq / float(np.mean(-ddq)), atol=1e-10)
+case("sterling_ratio", "sterling_ratio", {"rets": rets, "periods": qp},
+     _annq / (abs(float(np.min(ddq))) + 0.10), atol=1e-10)
+case("burke_ratio", "burke_ratio", {"rets": rets, "periods": qp},
+     _annq / float(np.sqrt(np.sum(ddq ** 2))), atol=1e-10)
+case("m2_measure", "m2_measure", {"rets": rets, "bench": bench_list},
+     float((np.mean(qr) / np.std(qr, ddof=1)) * np.std(qbench, ddof=1)), atol=1e-10)
+_beta2 = float(np.cov(qr, qbench, ddof=1)[0, 1] / np.var(qbench, ddof=1))
+_alpha2 = float(np.mean(qr) - _beta2 * np.mean(qbench))
+_resid = qr - (_alpha2 + _beta2 * qbench)
+case("appraisal_ratio", "appraisal_ratio", {"rets": rets, "bench": bench_list},
+     float(_alpha2 / np.std(_resid, ddof=1)), atol=1e-10)
+_csr = float(abs(np.quantile(qr, 0.95)) / abs(np.quantile(qr, 0.05))) * float(np.sum(qr[qr > 0]) / -np.sum(qr[qr < 0]))
+case("common_sense_ratio", "common_sense_ratio", {"rets": rets}, _csr, atol=1e-10)
+_rlo, _rhi = np.quantile(qr, 0.05), np.quantile(qr, 0.95)
+case("rachev_ratio", "rachev_ratio", {"rets": rets, "level": 0.95},
+     float(np.mean(qr[qr >= _rhi]) / -np.mean(qr[qr <= _rlo])), atol=1e-10)
+case("downside_potential", "downside_potential", {"rets": rets}, float(np.mean(np.maximum(-qr, 0.0))), atol=1e-11)
+case("upside_potential", "upside_potential", {"rets": rets}, float(np.mean(np.maximum(qr, 0.0))), atol=1e-11)
+case("omega_sharpe_ratio", "omega_sharpe_ratio", {"rets": rets, "threshold": 0.0},
+     float(np.mean(qr) / np.mean(np.maximum(-qr, 0.0))), atol=1e-11)
+
 # ============================ write ============================
 
 doc = {
