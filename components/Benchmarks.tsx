@@ -35,7 +35,7 @@ const CATCH: BarView = {
   max: 100,
   bars: [
     { label: "Calma", value: 100, tone: "amber" },
-    { label: "LLM judge", value: 82, tone: "mid" },
+    { label: "Claude as judge", value: 82, tone: "mid" },
     { label: "Trust the number", value: 0, tone: "dim" },
   ],
 };
@@ -49,7 +49,7 @@ const WRONG: BarView = {
   max: 77,
   bars: [
     { label: "Calma", value: 0, tone: "amber" },
-    { label: "LLM judge", value: 26, tone: "mid" },
+    { label: "Claude as judge", value: 26, tone: "mid" },
     { label: "Trust the number", value: 77, tone: "dim" },
   ],
 };
@@ -58,7 +58,7 @@ const HARD: GroupView = {
   key: "hard",
   title: "The hard cases",
   desc: "Obvious lies are easy. The gap shows on subtle shading — a few points, the way numbers actually get fudged — and on real-world cases like a published leakage study and a +14,698% backtest.",
-  note: "catch rate by difficulty · calma vs llm judge",
+  note: "catch rate by difficulty · calma vs claude-as-judge",
   groups: [
     { label: "Obvious", calma: 100, judge: 97 },
     { label: "Subtle", calma: 100, judge: 68 },
@@ -108,9 +108,9 @@ export function Benchmarks() {
               <span className="kicker">Benchmarks</span>
               <h2 className="h2 bench__h2">Catches what reviewers miss.</h2>
               <p className="lead bench__lead">
-                117 labeled results — honest and tampered — across machine learning, trading,
-                analytics, and engineering metrics. Calma versus the two ways teams check numbers
-                today.
+                117 labeled results — honest and tampered — built on UCI benchmark datasets,
+                scikit-learn ground truth, and published real-world cases. Calma versus trusting
+                the report, and versus asking Claude to judge the same data.
               </p>
 
               <div className="bench__tabs" role="tablist" aria-label="Benchmark views">
@@ -202,7 +202,7 @@ export function Benchmarks() {
                       <i className="bench__dot bench__bar--amber" /> Calma
                     </span>
                     <span>
-                      <i className="bench__dot bench__bar--mid" /> LLM judge
+                      <i className="bench__dot bench__bar--mid" /> Claude as judge
                     </span>
                   </div>
                 </div>

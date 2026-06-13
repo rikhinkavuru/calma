@@ -191,7 +191,7 @@ img, svg, canvas { display: block; max-width: 100%; }
 .nav__cta {
   font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
   background: transparent; color: var(--cream);
-  border: 1px solid var(--cream-55); padding: 5px 10px;
+  border: 1px solid var(--cream-55); padding: 3px 8px; font-size: 9px;
   transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
 }
 .nav__cta:hover { border-color: var(--cream); background: var(--cream); color: var(--void); }
@@ -319,22 +319,22 @@ img, svg, canvas { display: block; max-width: 100%; }
 .hero__inner--center {
   display: flex; flex-direction: column; align-items: center; text-align: center;
   min-height: 100vh; min-height: 100svh;
-  padding-top: clamp(78px, 9.5vh, 102px); padding-bottom: clamp(14px, 2.5vh, 26px);
+  padding-top: clamp(96px, 12vh, 136px); padding-bottom: clamp(30px, 4.5vh, 52px);
 }
 .hero__inner--center .h1 { max-width: 15em; font-size: clamp(32px, 4.2vw, 48px); }
 .hero__inner--center .hero__lead {
-  margin-inline: auto; margin-top: 16px;
+  margin-inline: auto; margin-top: 20px;
   font-size: clamp(15px, 1.3vw, 17px); max-width: 40em;
 }
 .hero__inner--center .hero__fill { width: 100%; }
-.hero__inner--center .hero__demo { margin-top: clamp(16px, 2.8vh, 26px); width: 100%; }
+.hero__inner--center .hero__demo { margin-top: clamp(26px, 4.2vh, 46px); width: 100%; }
 
 /* the recording, deliberately a notch smaller than full-bleed and a touch wider
    than its native ratio (16:10 vs 1.48:1) — reads as a cinematic inset, and the
    hero keeps air around it instead of wall-to-wall video */
 .hero__movie {
   margin: 0 auto; border-radius: 14px; overflow: hidden;
-  height: clamp(300px, calc(100vh - 330px), 640px);
+  height: clamp(280px, calc(100vh - 430px), 600px);
   aspect-ratio: 16 / 10;
   max-width: min(1080px, 92vw);
   box-shadow:
