@@ -270,6 +270,15 @@ KINDS = {
     "relative_squared_error": lambda a: N.relative_squared_error(a["pred"], a["actual"]),
     "mean_percentage_error": lambda a: N.mean_percentage_error(a["pred"], a["actual"]),
     "median_absolute_percentage_error": lambda a: N.median_absolute_percentage_error(a["pred"], a["actual"]),
+    # pack FAIR - fairness / bias
+    "demographic_parity_difference": lambda a: N.demographic_parity_difference(a["pred"], a["label"], a["group"]),
+    "demographic_parity_ratio": lambda a: N.demographic_parity_ratio(a["pred"], a["label"], a["group"]),
+    "equalized_odds_difference": lambda a: N.equalized_odds_difference(a["pred"], a["label"], a["group"]),
+    "equalized_odds_ratio": lambda a: N.equalized_odds_ratio(a["pred"], a["label"], a["group"]),
+    "equal_opportunity_difference": lambda a: N.equal_opportunity_difference(a["pred"], a["label"], a["group"]),
+    "predictive_parity_difference": lambda a: N.predictive_parity_difference(a["pred"], a["label"], a["group"]),
+    "fpr_parity_difference": lambda a: N.fpr_parity_difference(a["pred"], a["label"], a["group"]),
+    "accuracy_parity_difference": lambda a: N.accuracy_parity_difference(a["pred"], a["label"], a["group"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -349,10 +358,14 @@ EXPECTED = {
     "theil_u1", "theil_u2", "rmsse", "tracking_signal", "mean_directional_accuracy",
     "relative_absolute_error", "relative_squared_error", "mean_percentage_error",
     "median_absolute_percentage_error",
+    # pack FAIR - fairness / bias (8)
+    "demographic_parity_difference", "demographic_parity_ratio", "equalized_odds_difference",
+    "equalized_odds_ratio", "equal_opportunity_difference", "predictive_parity_difference",
+    "fpr_parity_difference", "accuracy_parity_difference",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 212 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 220 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

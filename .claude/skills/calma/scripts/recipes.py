@@ -1596,3 +1596,21 @@ for _mid in ("theil_u1", "theil_u2", "rmsse", "tracking_signal", "mean_direction
              "median_absolute_percentage_error"):
     register(_mid, family="forecasting", required_tags=["prediction", "target"],
              set_maturity="reviewed")(_pt(getattr(N, _mid)))
+
+
+# ======================================================================================
+# Pack FAIR - fairness / bias across a sensitive group (validated vs fairlearn).
+# ======================================================================================
+
+def _plg(fn):
+    def recipe(cols, binding, convention=None):
+        p, lab, g = cols[binding["prediction"]], cols[binding["label"]], cols[binding["group"]]
+        return _result(fn(p, lab, g), {"n": len(lab)})
+    return recipe
+
+
+for _mid in ("demographic_parity_difference", "demographic_parity_ratio", "equalized_odds_difference",
+             "equalized_odds_ratio", "equal_opportunity_difference", "predictive_parity_difference",
+             "fpr_parity_difference", "accuracy_parity_difference"):
+    register(_mid, family="classification", required_tags=["prediction", "label", "group"],
+             string_tags=["group"], set_maturity="reviewed")(_plg(getattr(N, _mid)))

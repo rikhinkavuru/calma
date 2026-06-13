@@ -1103,6 +1103,38 @@ case("mean_percentage_error", "mean_percentage_error", {"pred": ts_pred, "actual
 case("median_absolute_percentage_error", "median_absolute_percentage_error",
      {"pred": ts_pred, "actual": ts_actual}, float(np.median(np.abs(_tp - _ta) / np.abs(_ta))), atol=1e-11)
 
+# ============================ Pack FAIR - fairness / bias ============================
+
+import fairlearn.metrics as fm  # noqa: E402
+
+fa_group = [["a", "b"][int(u * 2)] for u in uniforms(105, 320)]
+fa_label = [1 if u < 0.5 else 0 for u in uniforms(106, 320)]
+fa_pred = [1 if u < (0.72 if (y == 1 and g == "a") else 0.5 if y == 1 else 0.3 if g == "a" else 0.15) else 0
+           for y, g, u in zip(fa_label, fa_group, uniforms(107, 320))]
+_fp_pred = [float(x) for x in fa_pred]
+_fp_lab = [float(x) for x in fa_label]
+_fargs = {"pred": _fp_pred, "label": _fp_lab, "group": fa_group}
+case("demographic_parity_difference", "demographic_parity_difference", _fargs,
+     float(fm.demographic_parity_difference(fa_label, fa_pred, sensitive_features=fa_group)), atol=1e-12)
+case("demographic_parity_ratio", "demographic_parity_ratio", _fargs,
+     float(fm.demographic_parity_ratio(fa_label, fa_pred, sensitive_features=fa_group)), atol=1e-12)
+case("equalized_odds_difference", "equalized_odds_difference", _fargs,
+     float(fm.equalized_odds_difference(fa_label, fa_pred, sensitive_features=fa_group)), atol=1e-12)
+case("equalized_odds_ratio", "equalized_odds_ratio", _fargs,
+     float(fm.equalized_odds_ratio(fa_label, fa_pred, sensitive_features=fa_group)), atol=1e-12)
+_gr = {}
+for _p, _y, _s in zip(fa_pred, fa_label, fa_group):
+    _d = _gr.setdefault(_s, [0, 0, 0, 0])
+    _d[0 if (_p == 1 and _y == 1) else 1 if (_p == 1 and _y == 0) else 2 if (_p == 0 and _y == 1) else 3] += 1
+_tprs = [tp / (tp + fn) for tp, fp, fn, tn in _gr.values() if tp + fn]
+_ppvs = [tp / (tp + fp) for tp, fp, fn, tn in _gr.values() if tp + fp]
+_fprs = [fp / (fp + tn) for tp, fp, fn, tn in _gr.values() if fp + tn]
+_accs = [(tp + tn) / (tp + fp + fn + tn) for tp, fp, fn, tn in _gr.values()]
+case("equal_opportunity_difference", "equal_opportunity_difference", _fargs, max(_tprs) - min(_tprs), atol=1e-12)
+case("predictive_parity_difference", "predictive_parity_difference", _fargs, max(_ppvs) - min(_ppvs), atol=1e-12)
+case("fpr_parity_difference", "fpr_parity_difference", _fargs, max(_fprs) - min(_fprs), atol=1e-12)
+case("accuracy_parity_difference", "accuracy_parity_difference", _fargs, max(_accs) - min(_accs), atol=1e-12)
+
 # ============================ write ============================
 
 doc = {

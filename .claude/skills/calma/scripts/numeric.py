@@ -3094,3 +3094,108 @@ def median_absolute_percentage_error(pred, actual):
     if not actual or len(pred) != len(actual) or _has_nan(pred) or _has_nan(actual) or any(a == 0 for a in actual):
         return float("nan")
     return quantile([abs(p - a) / abs(a) for p, a in zip(pred, actual)], 0.5)
+
+
+# ======================================================================================
+# Pack FAIR - fairness / bias across a sensitive group (validated vs fairlearn).
+# Binding `prediction, label, group`; binary predictions & labels.
+# ======================================================================================
+
+def _grp_rates(pred, label, group):
+    g = {}
+    for p, y, s in zip(pred, label, group):
+        d = g.setdefault(s.strip(), [0, 0, 0, 0])
+        if p == 1 and y == 1:
+            d[0] += 1
+        elif p == 1 and y == 0:
+            d[1] += 1
+        elif p == 0 and y == 1:
+            d[2] += 1
+        else:
+            d[3] += 1
+    out = {}
+    for s, (tp, fp, fn, tn) in g.items():
+        tot = tp + fp + fn + tn
+        out[s] = {
+            "sel": (tp + fp) / tot if tot else None,
+            "tpr": tp / (tp + fn) if (tp + fn) else None,
+            "fpr": fp / (fp + tn) if (fp + tn) else None,
+            "ppv": tp / (tp + fp) if (tp + fp) else None,
+            "acc": (tp + tn) / tot if tot else None,
+        }
+    return out
+
+
+def _frange(vals):
+    v = [x for x in vals if x is not None]
+    return (max(v) - min(v)) if v else float("nan")
+
+
+def _fratio(vals):
+    v = [x for x in vals if x is not None]
+    if not v or max(v) == 0:
+        return float("nan")
+    return min(v) / max(v)
+
+
+def _fok(pred, label, group):
+    return (len(pred) == len(label) == len(group) and bool(pred)
+            and not _has_nan(pred) and not _has_nan(label))
+
+
+def demographic_parity_difference(pred, label, group):
+    """max - min selection rate across groups (fairlearn)."""
+    if not _fok(pred, label, group):
+        return float("nan")
+    return _frange([v["sel"] for v in _grp_rates(pred, label, group).values()])
+
+
+def demographic_parity_ratio(pred, label, group):
+    """min / max selection rate across groups (fairlearn)."""
+    if not _fok(pred, label, group):
+        return float("nan")
+    return _fratio([v["sel"] for v in _grp_rates(pred, label, group).values()])
+
+
+def equalized_odds_difference(pred, label, group):
+    """max(TPR range, FPR range) across groups (fairlearn)."""
+    if not _fok(pred, label, group):
+        return float("nan")
+    r = _grp_rates(pred, label, group)
+    return max(_frange([v["tpr"] for v in r.values()]), _frange([v["fpr"] for v in r.values()]))
+
+
+def equalized_odds_ratio(pred, label, group):
+    """min(TPR ratio, FPR ratio) across groups (fairlearn)."""
+    if not _fok(pred, label, group):
+        return float("nan")
+    r = _grp_rates(pred, label, group)
+    return min(_fratio([v["tpr"] for v in r.values()]), _fratio([v["fpr"] for v in r.values()]))
+
+
+def equal_opportunity_difference(pred, label, group):
+    """max - min TPR across groups."""
+    if not _fok(pred, label, group):
+        return float("nan")
+    return _frange([v["tpr"] for v in _grp_rates(pred, label, group).values()])
+
+
+def predictive_parity_difference(pred, label, group):
+    """max - min PPV (precision) across groups."""
+    if not _fok(pred, label, group):
+        return float("nan")
+    return _frange([v["ppv"] for v in _grp_rates(pred, label, group).values()])
+
+
+def fpr_parity_difference(pred, label, group):
+    """max - min FPR across groups."""
+    if not _fok(pred, label, group):
+        return float("nan")
+    return _frange([v["fpr"] for v in _grp_rates(pred, label, group).values()])
+
+
+def accuracy_parity_difference(pred, label, group):
+    """max - min accuracy across groups."""
+    if not _fok(pred, label, group):
+        return float("nan")
+    return _frange([v["acc"] for v in _grp_rates(pred, label, group).values()])
