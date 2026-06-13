@@ -336,7 +336,262 @@ def _child_env(contract=None):
     return env
 
 
-def run(contract_path, base=None, timeout=120, trust_override=None):
+# ---------------------------------------------------------------------------
+# Container backend (WS1): a real Linux-isolated tier for untrusted counterparty code.
+# colima/Docker gives us, TODAY: network-egress denial, a read-only overlay FS (only the run
+# output subtree is writable), non-root, cap-drop-ALL, the default seccomp filter, and
+# pid/memory/cpu limits. It does NOT give kernel-escape isolation - containers share the colima
+# VM's Linux kernel, so a kernel/namespace 0-day escapes into that VM. That stronger boundary
+# needs a microVM tier (Firecracker), which is NOT built yet. Every stamp below says so honestly.
+# The backend is selected behind a tiny (available, doctor, exec) protocol so a microVM backend
+# can drop in later without touching the verdict layer (verdict.py already treats tier=="container"
+# + container_present as a verified tier).
+# ---------------------------------------------------------------------------
+
+# Pinned by digest (a tag can drift). Override with CALMA_DOCKER_IMAGE. --network=none forbids a
+# run-time pull, so the image MUST be pre-pulled; _docker_available() fails loud if it is absent.
+_DOCKER_IMAGE = os.environ.get(
+    "CALMA_DOCKER_IMAGE",
+    "python:3.11-slim@sha256:f9fa7f851e38bfb19c9de3afbc4b86ae7176ea7aaf94535c31df5458d5849457")
+_DOCKER_RUN_SEQ = [0]
+
+
+def _docker_bin():
+    return shutil.which("docker")
+
+
+def _docker_available(image=None):
+    """(usable, reason). Distinguishes CLI-missing / daemon-down / image-not-present so a required
+    container tier can FAIL LOUD with an actionable message - never a silent fallback to the host."""
+    image = image or _DOCKER_IMAGE
+    docker = _docker_bin()
+    if not docker:
+        return False, "docker CLI not found on PATH"
+    try:
+        p = subprocess.run([docker, "info"], stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+                           timeout=20)
+    except (OSError, subprocess.SubprocessError) as e:
+        return False, "docker daemon not reachable (is colima started? run: colima start) [%s]" % e
+    if p.returncode != 0:
+        return False, "docker daemon not reachable (is colima started? run: colima start)"
+    try:
+        pi = subprocess.run([docker, "image", "inspect", image], stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL, timeout=20)
+    except (OSError, subprocess.SubprocessError) as e:
+        return False, "cannot inspect docker image %s [%s]" % (image, e)
+    if pi.returncode != 0:
+        return False, ("container image %s not present; pre-pull it (network is denied at run time): "
+                       "docker pull %s" % (image, image.split("@")[0]))
+    return True, ""
+
+
+def _docker_user():
+    """Run as the host uid:gid - non-root, AND it makes writes on the writable runs/ overlay land
+    with correct host ownership under colima's mount. root-in-container is never used."""
+    try:
+        uid, gid = os.getuid(), os.getgid()
+    except AttributeError:
+        return "65534:65534"            # non-POSIX host fallback: nobody
+    return "65534:65534" if uid == 0 else ("%d:%d" % (uid, gid))
+
+
+def _docker_hardening():
+    """Every flag deliberate. The container is disposable, network-denied, read-only-root, non-root,
+    capability-stripped, seccomp-filtered, and resource-bounded."""
+    return [
+        "--rm",                                       # removed on exit - no leftover writable state
+        "--network=none",                             # egress DENIED (no DNS/IP/curl) - the core wall
+        "--read-only",                                # root FS immutable
+        "--tmpfs", "/tmp:rw,noexec,nosuid,size=64m",  # scratch without a writable root; no exec
+        "--cap-drop=ALL",                             # no Linux capabilities
+        "--security-opt", "no-new-privileges",        # setuid binaries can't escalate
+        "--pids-limit=512",                           # fork-bomb containment
+        "--memory=2g", "--memory-swap=2g",            # OOM bound (swap==mem disables swap)
+        "--cpus=2",                                   # CPU bound
+        "--ipc=none",                                 # no shared IPC namespace
+        # the default seccomp profile stays ON - we NEVER pass seccomp=unconfined.
+    ]
+
+
+def _docker_env(contract=None):
+    """Container env WHITELIST: only PYTHON*/LANG/LC_* + contract env.passthrough survive. Host
+    PATH/HOME/TMPDIR are dropped (they are host paths, meaningless in-container), and every parent
+    secret is stripped - the env is a second exfil surface, closed by default (same discipline as
+    _child_env, minus the host-path vars the container provides itself)."""
+    declared = set()
+    if isinstance(contract, dict):
+        pt = (contract.get("env") or {}).get("passthrough") or []
+        if isinstance(pt, list):
+            declared = {str(x) for x in pt}
+    env = {}
+    for k, v in os.environ.items():
+        if k.startswith("PYTHON") or k.startswith("LC_") or k == "LANG" or k in declared:
+            env[k] = v
+    env.update({"PYTHONHASHSEED": "0", "PYTHONDONTWRITEBYTECODE": "1",
+                "LC_ALL": "C.UTF-8", "LANG": "C.UTF-8", "TZ": "UTC"})
+    return env
+
+
+def _docker_argv(base, inner_argv, env, image, out_dir, probe=False):
+    """Build the full `docker run` argv. base is mounted READ-ONLY at /work; the ONLY writable host
+    surface is the run-output subtree (out_dir -> /work/runs) so outputs reach the host for recompute
+    while the engagement source (incl. .calma) can never be tampered with. The probe omits the
+    writable mount (it proves the floor: even with nothing writable, egress + host-secret read fail)."""
+    name = "calma_%d_%d" % (os.getpid(), _docker_next())
+    argv = [_docker_bin(), "run", "--name", name] + _docker_hardening()
+    argv += ["--user", _docker_user(), "-w", "/work", "-v", "%s:/work:ro" % base]
+    if not probe and out_dir:
+        argv += ["-v", "%s:/work/runs:rw" % out_dir]
+    for k, v in (env or {}).items():
+        argv += ["-e", "%s=%s" % (k, v)]
+    argv += [image] + list(inner_argv)
+    return name, argv
+
+
+def _docker_next():
+    _DOCKER_RUN_SEQ[0] += 1
+    return _DOCKER_RUN_SEQ[0]
+
+
+def _docker_kill(name):
+    docker = _docker_bin()
+    if not docker:
+        return
+    for sub in (["kill", name], ["rm", "-f", name]):
+        try:
+            subprocess.run([docker] + sub, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                           timeout=20)
+        except (OSError, subprocess.SubprocessError):
+            pass
+
+
+def _run_docker(name, argv, cwd, timeout):
+    """Run the container in its own process group; on timeout kill + remove it (no leftover). The
+    `--rm` flag removes it after a normal exit; the finally is belt-and-suspenders cleanup."""
+    try:
+        p = subprocess.Popen(argv, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                             text=True, start_new_session=True)
+        try:
+            out, err = p.communicate(timeout=timeout)
+            return p.returncode, out, err, False
+        except subprocess.TimeoutExpired:
+            _docker_kill(name)
+            p.communicate()
+            return -9, "", "timeout", True
+    finally:
+        _docker_kill(name)
+
+
+def docker_doctor(base, image=None):
+    """In-container positive-control: under the hardened, network-denied container, a BATTERY of
+    egress attempts (raw IP, DNS hostname, curl subprocess) AND host-secret reads must ALL fail. The
+    secret is planted on the HOST - its path is unreachable because nothing outside `base` is mounted -
+    so a clean pass also proves no stray mount exposes host state. Any leak (or a probe that never ran)
+    -> host-not-isolated, never a silent container stamp."""
+    image = image or _DOCKER_IMAGE
+    base = os.path.realpath(base)
+    avail, why = _docker_available(image)
+    info = {"backend": "docker", "image": image, "docker_available": avail}
+    if not avail:
+        info.update(tier="host-not-isolated", secret_read_blocked=False, egress_blocked=False,
+                    note=why)
+        return info
+    secret = os.path.join(os.path.realpath(os.path.expanduser("~")), ".calma_doctor_secret")
+    out = ""
+    try:
+        with open(secret, "w") as fh:
+            fh.write("TOPSECRET-CALMA-DOCTOR")
+        name, argv = _docker_argv(base, ["python", "-c", _PROBE.format(secret=secret)],
+                                  {"PYTHONHASHSEED": "0"}, image, None, probe=True)
+        _rc, out, _err, _killed = _run_docker(name, argv, base, 60)
+    finally:
+        if os.path.exists(secret):
+            os.unlink(secret)
+    produced = "LEAKS=" in (out or "")
+    leaks = ""
+    for line in (out or "").splitlines():
+        if line.startswith("LEAKS="):
+            leaks = line[len("LEAKS="):].strip()
+    leak_list = [x for x in leaks.split(",") if x]
+    secret_blocked = not any(x.startswith("read:") for x in leak_list)
+    egress_blocked = not any(x.startswith("egress:") for x in leak_list)
+    # tier is `container` ONLY when the probe ran AND leaked nothing. A probe that never produced a
+    # LEAKS line (image/python failed to start) is NOT a verified container.
+    tier = "container" if (produced and not leak_list) else "host-not-isolated"
+    info.update(tier=tier, secret_read_blocked=secret_blocked, egress_blocked=egress_blocked,
+                leaks=leak_list, probe_ran=produced,
+                note=("container backend (colima/Linux): verified = egress denied + no host-secret "
+                      "read under namespace isolation; shares the colima VM kernel; NOT escape-"
+                      "isolated to microVM strength (Firecracker tier not built yet)."))
+    return info
+
+
+def _select_backend(isolation, trust):
+    """Backend selection. Explicit `isolation` wins (and FAILS LOUD if unavailable - never falls back).
+    Otherwise untrusted third-party code auto-escalates to the container tier; everything else stays on
+    the host Seatbelt tier (today's default, byte-identical for own-code on macOS)."""
+    if isolation in ("seatbelt", "docker", "firecracker"):
+        return isolation
+    if trust == "untrusted-third-party":
+        return "docker"
+    return "seatbelt"
+
+
+def _run_docker_backend(contract, base, entry, entry_path, trust, timeout, image=None):
+    """The container tier of run(). Same return-dict contract as the Seatbelt path; only the
+    tier-derived stamps differ (isolation_tier='container', hermeticity='container-readonly-overlay')."""
+    image = image or _DOCKER_IMAGE
+    avail, why = _docker_available(image)
+    if not avail:
+        # FAIL LOUD - an explicitly-requested or required container tier never degrades to the host.
+        return {"phase": "refused", "exit_code": 3, "isolation_tier": "host-not-isolated",
+                "container_present": False, "killed": False,
+                "reason": "container isolation requested but unavailable: %s" % why}
+    # in-container interpreter: WS1 covers python + shell; other languages stamp honestly and refuse
+    # (the image has no R/julia/node/cc toolchain, and --network=none forbids installing one).
+    ext = os.path.splitext(entry_path)[1].lower()
+    rel = os.path.relpath(entry_path, base)
+    inner = {".py": ["python", "/work/" + rel], ".sh": ["sh", "/work/" + rel]}.get(ext)
+    lang = {".py": "python", ".sh": "shell"}.get(ext, ext.lstrip("."))
+    if inner is None:
+        return {"phase": "refused", "exit_code": 3, "isolation_tier": "container",
+                "container_present": True, "killed": False, "language": lang,
+                "reason": "the container backend (WS1) runs python/shell only; .%s needs the "
+                          "seatbelt tier (own-code) or the microVM tier (untrusted)" % lang}
+    doc = docker_doctor(base, image)
+    isolation_tier = doc["tier"]
+    # a leaking container is NOT a verified container: untrusted code is refused outright.
+    if trust == "untrusted-third-party" and isolation_tier != "container":
+        return {"phase": "refused", "exit_code": 3, "isolation_tier": isolation_tier,
+                "container_present": False, "killed": False, "doctor": doc,
+                "reason": "untrusted third-party code requires a VERIFIED container tier; the "
+                          "in-container self-test did not hold (%s)"
+                          % (",".join(doc.get("leaks") or []) or "probe did not run")}
+    if lang == "python":
+        det_mode, det_note = _detect_determinism(entry_path, base)
+    else:
+        det_mode, det_note = "uncontrolled", "shell: bit-determinism not statically provable"
+    out_dir = os.path.join(base, "runs")
+    os.makedirs(out_dir, exist_ok=True)
+    env = _docker_env(contract)
+    name, argv = _docker_argv(base, inner, env, image, out_dir, probe=False)
+    rc, out, err, killed = _run_docker(name, argv, base, timeout)
+    tier_verified = isolation_tier == "container"
+    exit_code = 4 if killed else (0 if rc == 0 else 1)
+    return {
+        "phase": "run", "entrypoint": entry, "exit_code": exit_code, "killed": killed,
+        "language": lang, "run_exit_status": rc,
+        "isolation_tier": isolation_tier, "container_present": tier_verified,
+        "interpreter": "container:%s" % image.split("@")[0],
+        "determinism_mode": det_mode, "determinism_note": det_note,
+        "install_network": "off", "run_network": "off",
+        "hermeticity": "container-readonly-overlay" if tier_verified else "unverified",
+        "stdout_tail": (out or "")[-500:], "stderr_tail": (err or "")[-500:],
+        "doctor": doc,
+    }
+
+
+def run(contract_path, base=None, timeout=120, trust_override=None, isolation=None):
     import draft_contract as _DC
     contract = _DC.load_contract(contract_path)
     base = os.path.realpath(base or os.path.dirname(os.path.abspath(contract_path)))
@@ -349,6 +604,16 @@ def run(contract_path, base=None, timeout=120, trust_override=None):
         return {"phase": "refused", "exit_code": 2, "isolation_tier": "n/a",
                 "container_present": False, "killed": False,
                 "reason": "entrypoint escapes the contract base: %r" % entry}
+    # backend selection (WS1): explicit --isolation wins (fail loud, no fallback); else untrusted
+    # third-party code auto-escalates to the container tier; else the host Seatbelt tier (default).
+    backend = _select_backend(isolation, trust)
+    if backend == "firecracker":
+        return {"phase": "refused", "exit_code": 3, "isolation_tier": "none",
+                "container_present": False, "killed": False,
+                "reason": "the firecracker/microVM backend is not built yet (funded tier); "
+                          "use --isolation docker (container) or seatbelt (host)"}
+    if backend == "docker":
+        return _run_docker_backend(contract, base, entry, entry_path, trust, timeout)
     doc = doctor(base)
     isolation_tier = doc["tier"]
 
@@ -415,14 +680,17 @@ def main():
     ap.add_argument("--contract")
     ap.add_argument("--base")
     ap.add_argument("--out")
+    ap.add_argument("--isolation", choices=["auto", "seatbelt", "docker", "firecracker"],
+                    default="auto")
     a = ap.parse_args()
+    iso = None if a.isolation == "auto" else a.isolation
     if a.cmd == "doctor":
-        res = doctor(a.base or os.getcwd())
+        res = docker_doctor(a.base or os.getcwd()) if iso == "docker" else doctor(a.base or os.getcwd())
     else:
         if not a.contract:
             print("run needs --contract", file=sys.stderr)
             return 2
-        res = run(a.contract, a.base)
+        res = run(a.contract, a.base, isolation=iso)
     text = json.dumps(res, indent=2)
     if a.out:
         open(a.out, "w").write(text)

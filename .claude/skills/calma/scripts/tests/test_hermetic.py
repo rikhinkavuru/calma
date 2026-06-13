@@ -4,6 +4,7 @@ asserted honestly). Pure stdlib. Run: python3 test_hermetic.py
 """
 import json
 import os
+import subprocess
 import sys
 import tempfile
 
@@ -111,15 +112,28 @@ truth("SECRET=None" in out5 and "leak-me" not in out5,
 truth("DECLARED='declared-ok'" in out5, "contract env.passthrough vars ARE forwarded")
 truth("HAS_PATH=True" in out5, "the whitelist keeps PATH (toolchains still resolve)")
 
-# untrusted third-party code with no container/VM tier -> refused (exit 3)
-du = tempfile.mkdtemp()
+# untrusted third-party code: with a live container tier it RUNS in the container (auto-escalation);
+# with NO container tier it is REFUSED (exit 3). Either branch must be honest - never host-executed.
+# NOTE: tempdirs under /tmp are not mounted into the colima VM, so the container run needs a base
+# under $HOME; we put it under the repo (which is mounted).
+dk_ok, dk_why = H._docker_available()
+du = os.path.join(SCR, "..", "assets", ".hermtest_untrusted")
+os.makedirs(du, exist_ok=True)
 with open(os.path.join(du, "x.py"), "w") as fh:
     fh.write("print('hi')\n")
 with open(os.path.join(du, "verify.yaml"), "w") as fh:
     json.dump({"run": {"entrypoint": "x.py"}, "env": {"trust": "untrusted-third-party"},
                "artifacts": [], "metrics": []}, fh)
-r3 = H.run(os.path.join(du, "verify.yaml"), base=du)
-truth(r3["exit_code"] == 3 and r3["phase"] == "refused", "untrusted + no container -> refused exit 3")
+r3 = H.run(os.path.join(du, "verify.yaml"), base=du, timeout=120)
+if dk_ok:
+    truth(r3.get("phase") == "run" and r3.get("isolation_tier") == "container"
+          and r3.get("exit_code") == 0,
+          "untrusted + live container -> runs in container (exit %s, tier %s)"
+          % (r3.get("exit_code"), r3.get("isolation_tier")))
+    truth("hi" in (r3.get("stdout_tail") or ""), "container captured the entrypoint output")
+else:
+    truth(r3["exit_code"] == 3 and r3["phase"] == "refused",
+          "untrusted + no container -> refused exit 3")
 
 # isolation profile: metadata-only ancestor reads (lets node etc. realpath-resolve the entrypoint
 # without opening directory listing / content reads under /Users). Structural guards so a future edit
@@ -153,6 +167,109 @@ vbin = os.path.join(du, ".calma_venv", "bin")
 os.makedirs(vbin, exist_ok=True)
 open(os.path.join(vbin, "python"), "w").close()
 truth(H._venv_python(du) == os.path.join(vbin, "python"), "restored .calma_venv -> its interpreter is used")
+
+import shutil as _sh
+_sh.rmtree(du, ignore_errors=True)
+
+# === WS1: container backend ============================================================
+# (a) backend selection is pure - testable with no docker.
+truth(H._select_backend(None, "own-code") == "seatbelt", "auto + own-code -> seatbelt")
+truth(H._select_backend(None, "untrusted-third-party") == "docker", "auto + untrusted -> docker")
+truth(H._select_backend("seatbelt", "untrusted-third-party") == "seatbelt", "explicit seatbelt wins")
+truth(H._select_backend("docker", "own-code") == "docker", "explicit docker wins")
+truth(H._select_backend("firecracker", "own-code") == "firecracker", "explicit firecracker wins")
+
+# (b) the hardening flag-set is structurally locked (a future edit can't silently drop a wall).
+_hard = H._docker_hardening()
+for _flag in ("--network=none", "--read-only", "--cap-drop=ALL", "--pids-limit=512",
+              "--security-opt", "no-new-privileges", "--rm", "--ipc=none"):
+    truth(_flag in _hard, "docker hardening includes %s" % _flag)
+truth("65534:65534" == H._docker_user() or ":" in H._docker_user(), "docker user is non-root uid:gid")
+truth(H._docker_user() != "0:0", "docker never runs as root")
+# the writable overlay is ONLY runs/; the probe argv has no writable mount at all.
+_pn, _pargv = H._docker_argv("/X", ["python", "-c", "x"], {}, "img", None, probe=True)
+truth(":/work:ro" in " ".join(_pargv) and ":/work/runs:rw" not in " ".join(_pargv),
+      "probe argv mounts base read-only and has NO writable overlay")
+_rn, _rargv = H._docker_argv("/X", ["python", "/work/m.py"], {}, "img", "/X/runs", probe=False)
+truth("/X/runs:/work/runs:rw" in " ".join(_rargv), "run argv mounts runs/ as the only writable surface")
+
+# (c) FAIL LOUD: an explicitly-required container tier with a missing image refuses (exit 3),
+# never falls back to the host. Works whether or not the daemon is up.
+fl = os.path.join(SCR, "..", "assets", ".hermtest_faill")
+os.makedirs(fl, exist_ok=True)
+open(os.path.join(fl, "m.py"), "w").write("print('x')\n")
+json.dump({"run": {"entrypoint": "m.py"}, "env": {"trust": "own-code"}, "artifacts": [], "metrics": []},
+          open(os.path.join(fl, "verify.yaml"), "w"))
+_img_save = H._DOCKER_IMAGE
+H._DOCKER_IMAGE = "calma/definitely-not-present:nope"
+rfl = H.run(os.path.join(fl, "verify.yaml"), base=fl, timeout=60, isolation="docker")
+H._DOCKER_IMAGE = _img_save
+truth(rfl["exit_code"] == 3 and rfl["phase"] == "refused", "missing image -> refused exit 3 (fail loud)")
+truth("host" not in rfl.get("isolation_tier", "") or rfl["isolation_tier"] == "host-not-isolated",
+      "fail-loud never stamps a host-executed tier")
+truth(rfl.get("container_present") is False, "fail-loud: container_present is False")
+# firecracker stub fails loud too
+rfc = H.run(os.path.join(fl, "verify.yaml"), base=fl, timeout=60, isolation="firecracker")
+truth(rfc["exit_code"] == 3 and "not built" in rfc.get("reason", ""), "firecracker stub -> refused, 'not built'")
+_sh.rmtree(fl, ignore_errors=True)
+
+# (d) MARQUEE: a deliberately hostile repo is fully contained (egress, host-secret read, writes
+# outside runs/, all denied), the run is stamped `container`, and no container is left behind.
+# Skipped (honestly) when no container tier is live; the dispatch + fail-loud walls above still run.
+if dk_ok:
+    cdoc = H.docker_doctor(SCR)  # SCR is under $HOME -> colima-mounted
+    truth(cdoc["tier"] == "container", "docker doctor: tier container")
+    truth(cdoc["egress_blocked"] and cdoc["secret_read_blocked"], "docker doctor: egress + secret-read both blocked")
+
+    hostile = os.path.join(SCR, "..", "assets", ".hermtest_hostile")
+    _sh.rmtree(hostile, ignore_errors=True)
+    os.makedirs(os.path.join(hostile, ".calma"), exist_ok=True)
+    open(os.path.join(hostile, ".calma", "cache.json"), "w").write('{"planted": false}')
+    host_secret = os.path.join(os.path.realpath(os.path.expanduser("~")), ".calma_hostile_secret")
+    open(host_secret, "w").write("HOST-SECRET")
+    _evil = (
+        "import socket, subprocess, os\n"
+        "res = []\n"
+        "for tag, h in [('ip', ('1.1.1.1', 80)), ('dns', ('example.com', 80))]:\n"
+        "    try: socket.create_connection(h, timeout=3); res.append('EGRESS_' + tag)\n"
+        "    except Exception: pass\n"
+        "try:\n"
+        "    r = subprocess.run(['curl', '-s', '-m', '3', 'http://1.1.1.1'], capture_output=True)\n"
+        "    if r.returncode == 0 and r.stdout: res.append('EGRESS_curl')\n"
+        "except Exception: pass\n"
+        "for p in [%r, '/work/.calma_hostile_secret', '/work/../.calma_hostile_secret']:\n"
+        "    try: open(p).read(); res.append('READ_SECRET')\n"
+        "    except Exception: pass\n"
+        "try: open('/work/evil.txt', 'w').write('x'); res.append('WROTE_BASE')\n"
+        "except Exception: pass\n"
+        "try: open('/work/.calma/cache.json', 'w').write('{\"planted\": true}'); res.append('WROTE_CALMA')\n"
+        "except Exception: pass\n"
+        "try: os.makedirs('/work/runs', exist_ok=True); open('/work/runs/out.csv', 'w').write('ok'); res.append('RUNS_OK')\n"
+        "except Exception: pass\n"
+        "print('HOSTILE=' + (','.join(res) if res else 'CONTAINED'))\n"
+    ) % host_secret
+    open(os.path.join(hostile, "evil.py"), "w").write(_evil)
+    json.dump({"run": {"entrypoint": "evil.py"}, "env": {"trust": "untrusted-third-party"},
+               "artifacts": [], "metrics": []}, open(os.path.join(hostile, "verify.yaml"), "w"))
+    rh = H.run(os.path.join(hostile, "verify.yaml"), base=hostile, timeout=120)
+    try:
+        os.unlink(host_secret)
+    except OSError:
+        pass
+    out_h = rh.get("stdout_tail", "")
+    truth(rh.get("isolation_tier") == "container" and rh.get("exit_code") == 0,
+          "hostile repo runs in the container (tier %s, exit %s)" % (rh.get("isolation_tier"), rh.get("exit_code")))
+    truth("EGRESS" not in out_h, "hostile: ALL network egress blocked (ip/dns/curl)")
+    truth("READ_SECRET" not in out_h, "hostile: planted host secret is UNREADABLE")
+    truth("WROTE_BASE" not in out_h, "hostile: cannot write the read-only engagement base")
+    truth("WROTE_CALMA" not in out_h, "hostile: cannot write/plant .calma verdict state")
+    truth(open(os.path.join(hostile, ".calma", "cache.json")).read() == '{"planted": false}',
+          "hostile: pre-existing .calma bytes untouched")
+    truth("RUNS_OK" in out_h, "hostile: only the runs/ overlay is writable (outputs land for recompute)")
+    leftover = subprocess.run(["docker", "ps", "-a", "--filter", "name=calma_", "--format", "{{.Names}}"],
+                              capture_output=True, text=True)
+    truth("calma_" not in leftover.stdout, "hostile: no container left behind (--rm + cleanup)")
+    _sh.rmtree(hostile, ignore_errors=True)
 
 print("run_hermetic: %d checks, %d failures" % (_n, _fail))
 sys.exit(1 if _fail else 0)

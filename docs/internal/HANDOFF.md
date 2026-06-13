@@ -1,4 +1,4 @@
-# Calma — session handoff (2026-06-11)
+# Calma — session handoff (2026-06-13)
 
 Onboarding for a fresh Claude Code session. Read this, then `.claude/skills/calma/SKILL.md`
 (what the skill is) and `.claude/skills/calma/BUILD-NOTES.md` (build log, newest entries last).
@@ -84,7 +84,7 @@ Onboarding for a fresh Claude Code session. Read this, then `.claude/skills/calm
   tier. Attestation URIs migrated to github.com/rikhinkavuru/calma/* (legacy calma.dev bundles
   stay valid). SECURITY.md + CHANGELOG.md added. Suite: 18 suites green (~1,540 checks).
 
-- **Served-fraction 9/9 + zero-touch/UX/perf pass (2026-06-12, calma 0.7.0 — current)**: the
+- **Served-fraction 9/9 + zero-touch/UX/perf pass (2026-06-12, calma 0.7.0)**: the
   real-repo + cross-language served-fraction corpus reached **9/9** (`served_fraction = 1.0`) via
   three general engine fixes (isolation metadata-ancestor reads so node serves; restore→run venv
   consistency; whole-program determinism) and two newly-vendored real MIT repos under
@@ -94,10 +94,51 @@ Onboarding for a fresh Claude Code session. Read this, then `.claude/skills/calm
   CSV; broader entrypoint list; host-level sandbox-tier cache so the 30s probe runs once per machine).
   UX/perf: bad-metric error points to `calma recipes`, CONFIRMED output de-jargoned, NA-policy lookup
   memoized, shim forwards headers/params + patches requests.Session/ccxt. All versions reconciled to
-  0.7.0 (plugin/marketplace/calma.py/site). See CALIBRATION.md + CHANGELOG.md. **Open follow-ups
-  (proposed, not done):** AUC/DeLong O(n²)→O(n log n) kernel rewrite (needs reference-vector bit
-  validation), sniffer recall on backticked metrics, site Next 15/React 19 bump + `engines.node`,
-  a real `pip install` / `calma` on PATH installer. Suite: 18 suites green on py3.13 + py3.14.
+  0.7.0 (plugin/marketplace/calma.py/site). See CALIBRATION.md + CHANGELOG.md. Suite: 18 suites
+  green on py3.13 + py3.14. (Its open follow-ups around the site bump + on-PATH installer were
+  closed in 0.8.0 — see below.)
+
+- **Value-family REFUTE + batch/multi-metric + packaging pass (2026-06-12, calma 0.8.0 — current)**:
+  a pinned/named generic-numeric metric (column_sum, mean, median, percentile, rmse, mae, r2, mape,
+  correlation, npv, irr, cagr, latency_p*, …) now **REFUTES** a material misreport instead of degrading
+  to INCONCLUSIVE — gated to stay safe: the binding upgrades to `independently-bound` only when the
+  metric is **forced** (named/`--metric`) AND its column is the **unique** clean-finite candidate;
+  bare-number / auto-picked / ambiguous (multi-column) stays conservative → INCONCLUSIVE (the verdict
+  gate is unchanged; the zero-false-refute FP-guard holds). **Committed multi-metric contracts** no
+  longer swallow a fabricated SECONDARY metric — each declared metric is re-graded from the emitted
+  data and confirmed as a target, so a broken secondary makes the repo **MIXED**; the report + `--json`
+  now show EVERY metric (per-metric ✓/✗ table; `--json` gains a `metrics: […]` array). **Batch**:
+  `calma batch <dir>… | --manifest <TSV>` verifies many targets in one run → ONE summary table (target
+  | metric | claimed | recomputed | verdict) with a roll-up exit (1 if any fails); `--json` emits a
+  per-target array. **UX/packaging**: a live while-running spinner (`⠹ re-executing <entrypoint> (Ns)`)
+  on interactive stderr (no-op in pipes/CI/`--json`); an on-PATH installer (`./install.sh` / `make
+  install` symlink `bin/calma`, pure stdlib, no pip; `CALMA_INVOKED_AS` so echoed hints read `calma
+  replay …`); site Next 14→15, React 18→19, framer-motion 12, `engines.node >=20` (build clean).
+  **Benchmark v2** (`benchmark/`): 117 labeled cases across 3 tracks (synthetic 84 / external 29 on
+  UCI + Diabetes via 5-fold OOF / real-world 4), 30 metrics, 8 families, oracles cross-validated
+  **28/28 exact** against scikit-learn/SciPy/NumPy → **Calma 100% catch (77/77), 0 false-confirms, 0
+  false-alarms** vs LLM-as-judge 82% (63/77) with **26 wrong verdicts** (14 false-confirms + 12
+  false-alarms) vs trust-the-number 0% (the v2 numbers from `benchmark/results/summary.json` —
+  they supersede the 71%/7+3 figure in the 0.8.0 CHANGELOG, which predated the v2 rebuild). All
+  versions reconciled to 0.8.0. Suite: 18 suites, **1,588 checks** green on py3.13 + py3.14. See
+  CHANGELOG.md. **Open follow-ups (proposed, not done):** AUC/DeLong O(n²)→O(n log n) kernel rewrite
+  (needs reference-vector bit validation), sniffer recall on backticked metrics, a real `pip install`
+  to PyPI (the on-PATH symlink installer shipped; PyPI distribution did not), embed the recorded demo
+  GIF into README (README still shows the "coming soon" placeholder).
+
+- **Pilot-hardening WS1 (2026-06-13, calma 0.9.0 — branch `pilot-hardening`)**: a real **container
+  isolation tier** for untrusted counterparty code lands in `run_hermetic.py` behind a backend
+  abstraction (`_select_backend` → seatbelt | docker | firecracker-stub), exposed as `calma verify
+  --isolation auto|seatbelt|docker|firecracker`. Docker (via colima on this host) runs the code
+  network-denied (`--network=none`), read-only-root with a single writable `runs/` overlay (engagement
+  source + `.calma` immutable), non-root, cap-drop-ALL, seccomp, pid/mem/cpu-bounded, `--rm` + kill-on-
+  timeout. `docker_doctor()` runs the egress+secret-read self-test INSIDE the container and stamps
+  `container` only if every wall holds. Explicit `--isolation` fails loud when unavailable (never a host
+  fallback); `--trust third-party` auto-escalates to the container tier; firecracker is a fail-loud stub.
+  Honest stamp: shares the colima VM kernel, NOT escape-isolated (microVM = funded tier, stubbed).
+  `test_hermetic.py` 25→57 checks incl. a hostile-repo containment battery (egress / planted-secret /
+  out-of-`runs` writes all contained, container removed). **WS2–WS6 + dress rehearsals in-flight on the
+  same branch** — plan at `~/.claude/plans/mighty-dancing-hammock.md`. Suite: 18 suites green.
 
 ## Key invariants (machine-enforced — do not violate)
 
@@ -169,13 +210,16 @@ additive, entries already hash-addressed), more compiled-recipe drafts through t
 **Demo & strategy assets:** the worked demo project lives at `~/calma-demo/btc-momentum/`
 (real 10y BTC-USD data; a genuine walk-forward bug, verified REFUTED→fix→CONFIRMED
 end-to-end). All strategy, outreach, and application material lives in `~/calma-strategy/`
-— NOT in this repo. Served-fraction experiment RAN: 6/9 (66.7%) across 5 languages
-(`assets/served_fraction.json`; target was 70–80% — state it honestly).
+— NOT in this repo. Served-fraction experiment RAN and reached **9/9 (served_fraction = 1.0)**
+across 6 languages (`assets/served_fraction.json`; cleared the 70–80% target — see the 0.7.0
+bullet above).
 **Known issues:** site is live at calma1.vercel.app (auto-deploys from GitHub; /registry
-renders the genesis entry) but `calma.dev` — used in predicate URIs and across docs — is
-OWNED BY SOMEONE ELSE; buy a domain we control and migrate the predicate type (schema bump)
-BEFORE real engagements. README line 17 still has the demo-GIF placeholder (fill from the
-video's 10s cut).
+renders the genesis entry). The `calma.dev` predicate-URI problem is RESOLVED — the 0.6.1 pass
+migrated active predicate/subject URIs to `github.com/rikhinkavuru/calma/*` (legacy `calma.dev`
+bundles stay valid and `attest.py` still accepts them), so no schema bump is owed before real
+engagements. Still open: README has a demo-GIF placeholder (`*(Demo recording coming soon.)*`,
+~line 19) — the demo was recorded (see `~/calma-strategy/DEMO-VIDEO.md`) but the cut has not been
+embedded yet; fill from the video's 10s cut.
 
 ## Gotchas
 

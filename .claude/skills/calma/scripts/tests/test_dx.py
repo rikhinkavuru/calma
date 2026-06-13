@@ -489,11 +489,14 @@ json.dump(cache, open(os.path.join(aba, ".calma", "cache.json"), "w"))
 truth(C._cached_result(aba, fp) is None,
       "ABA: a cached verdict that disagrees with the ledger on disk is rejected")
 
-# --- P1-2 trust posture: --trust third-party refuses without a container/VM tier ---
+# --- P1-2 trust posture: --trust third-party on the HOST seatbelt tier refuses (exit 3) ---
+# We pin --isolation seatbelt so this asserts the host-tier refusal regardless of whether a
+# container tier (colima) happens to be live; the container-execution path is covered in
+# test_hermetic.py (untrusted + live container -> runs in the container).
 tp = os.path.join(tmp, "trustp")
 os.makedirs(tp)
 shutil.copy(os.path.join(stable, "main.py"), os.path.join(tp, "main.py"))
-res_t = C.verify(tp, claim="sum 45", trust="third-party")
+res_t = C.verify(tp, claim="sum 45", trust="third-party", isolation="seatbelt")
 truth(res_t["repo_verdict"] == V.INCONCLUSIVE and res_t.get("refused") is True,
       "trust: third-party without container/VM is refused (got %s)" % res_t["repo_verdict"])
 truth("third-party" in res_t["report"] and "fix:" in res_t["report"],
@@ -509,7 +512,8 @@ except ValueError:
 drafted = json.load(open(os.path.join(res_t["run_dir"], "verify.yaml")))
 truth(drafted.get("env", {}).get("trust") == "own-code",
       "trust: the drafted contract on disk keeps trust: own-code (runtime-only override)")
-r = subprocess.run([sys.executable, CAL, "verify", tp, "sum 45", "--trust", "third-party"],
+r = subprocess.run([sys.executable, CAL, "verify", tp, "sum 45", "--trust", "third-party",
+                    "--isolation", "seatbelt"],
                    capture_output=True, text=True)
 truth(r.returncode == 3, "trust: CLI exit 3 (refused), got %d" % r.returncode)
 

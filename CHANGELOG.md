@@ -2,6 +2,35 @@
 
 All notable changes to the calma skill/CLI. Dates are UTC.
 
+## 0.9.0 — 2026-06-13
+
+### WS1 — Hardened, disposable, network-denied execution (pilot tier)
+
+- New **container isolation backend** in `run_hermetic.py`, selectable via `calma verify --isolation
+  auto|seatbelt|docker|firecracker`. A real Linux tier (Docker via colima) for running an **untrusted
+  counterparty's** code, with every wall deliberate: `--network=none` (egress denied — no DNS/IP/curl),
+  `--read-only` root + a single writable `runs/` overlay (the engagement source and `.calma` are
+  immutable), non-root `--user`, `--cap-drop=ALL`, default seccomp, `--security-opt no-new-privileges`,
+  `--pids-limit`, `--memory`/`--cpus` bounds, `--ipc=none`, and `--rm` + explicit kill-on-timeout so the
+  container is gone after the run.
+- **The self-proving check now runs INSIDE the container and gates the verdict.** `docker_doctor()`
+  plants a host secret and, under the hardened container, attempts egress (raw IP, DNS, curl) and
+  host-secret reads — the tier is stamped `container` **only if all attempts fail**; any leak (or a probe
+  that never ran) → `host-not-isolated`. Untrusted code on a leaking container is refused.
+- **Backend selection:** explicit `--isolation` wins and **fails loud** if that backend is unavailable
+  (CLI missing / daemon down — names `colima start` / image not pre-pulled) — it **never** silently
+  falls back to the host. `--trust third-party` (own-code default unchanged) now **auto-escalates** to the
+  container tier instead of refusing outright; a `firecracker`/microVM backend is a registered stub that
+  fails loud ("not built yet").
+- **Honest stamps:** the container note says it shares the colima VM kernel and is **NOT** escape-isolated
+  to microVM strength — kernel-escape isolation is the funded Firecracker tier, explicitly not claimed.
+  WS1 covers Python + shell in-container; other languages stamp honestly and refuse under `--isolation
+  docker` (use the seatbelt tier for own-code).
+- Tests: `test_hermetic.py` grows from 25 → 57 checks — backend dispatch + structural hardening locks
+  (docker-free), a fail-loud path (missing image / firecracker stub), and a **marquee hostile-repo
+  containment battery** (egress, planted-secret read, writes outside `runs/`, `.calma` tamper — all
+  contained; container removed) behind a skip-if-no-docker gate so docker-less CI stays green.
+
 ## 0.8.0 — 2026-06-12
 
 ### Coverage — value-family metrics can now REFUTE a clear lie
@@ -39,9 +68,11 @@ All notable changes to the calma skill/CLI. Dates are UTC.
 
 ### Benchmark
 
-- `benchmark/` "catch a wrong number" (Calma vs LLM-as-judge vs trust-the-number). After the value-family
-  fix: **Calma 100% catch, 0 false-confirms, 0 false-alarms** vs LLM-judge 71% with 7 false-confirms +
-  3 false-alarms, and trust-the-number 0%.
+- `benchmark/` "catch a wrong number" (Calma vs LLM-as-judge vs trust-the-number), rebuilt to **v2: 117
+  labeled cases** (77 flawed + 40 honest) across 3 tracks (synthetic / external-UCI / real-world), 30
+  metrics, 8 families, oracles cross-validated 28/28 exact against scikit-learn/SciPy/NumPy. After the
+  value-family fix: **Calma 100% catch (77/77), 0 false-confirms, 0 false-alarms** vs LLM-as-judge 82%
+  (63/77) with **26 wrong verdicts** (14 false-confirms + 12 false-alarms), and trust-the-number 0%.
 
 ## 0.7.0 — 2026-06-12
 

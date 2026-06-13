@@ -28,7 +28,7 @@ import report as REP
 import run_hermetic as H
 import verdict as V
 
-__version__ = "0.8.0"
+__version__ = "0.9.0"
 
 QUANT_METRICS = {"total_return", "sharpe", "max_drawdown"}
 DEFAULT_TIMEOUT_S = 120
@@ -481,10 +481,12 @@ def _resolve_timeout(cli_timeout, contract):
 
 
 def verify(target, claim=None, metric=None, run_id="run", force=False, check_determinism=False,
-           trust="own-code", timeout=None):
+           trust="own-code", timeout=None, isolation=None):
     target = os.path.realpath(target)
     if trust not in ("own-code", "third-party"):
         raise ValueError("--trust must be own-code or third-party (got %r)" % trust)
+    if isolation not in (None, "auto", "seatbelt", "docker", "firecracker"):
+        raise ValueError("--isolation must be auto/seatbelt/docker/firecracker (got %r)" % isolation)
     if metric and RCP.get(metric) is None:
         import difflib
         close = difflib.get_close_matches(metric, RCP.ids(), n=3, cutoff=0.4)
@@ -580,7 +582,8 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
         with _Spinner("re-executing %s" % contract.get("run", {}).get("entrypoint")):
             run_res = H.run(contract_path, base=target, timeout=eff_timeout,
                             trust_override=("untrusted-third-party" if trust == "third-party"
-                                            else None))
+                                            else None),
+                            isolation=(None if isolation in (None, "auto") else isolation))
         run_res["run_dir"] = run_dir
         for _tail in ("stdout_tail", "stderr_tail"):
             if run_res.get(_tail):
@@ -973,8 +976,14 @@ def main():
                    help="process exit policy: not-clean (default; INCONCLUSIVE also fails) or refuted")
     v.add_argument("--trust", choices=["own-code", "third-party"], default="own-code",
                    help="trust posture for the code being re-executed: own-code (default) runs "
-                        "under the verified sandbox; third-party REFUSES to execute (exit 3) "
-                        "unless a verified container/VM tier is live")
+                        "under the verified sandbox; third-party auto-escalates to the container "
+                        "tier and REFUSES (exit 3) if no verified container/VM tier is live")
+    v.add_argument("--isolation", choices=["auto", "seatbelt", "docker", "firecracker"],
+                   default="auto",
+                   help="isolation backend: auto (default - seatbelt for own-code, container for "
+                        "third-party), seatbelt (host macOS sandbox), docker (network-denied Linux "
+                        "container), or firecracker (microVM, not built yet). Explicit choices fail "
+                        "loud if the backend is unavailable - never a silent host fallback")
     v.add_argument("--timeout", type=int, default=None, metavar="SECONDS",
                    help="re-execution wall-clock budget (default 120, or run.timeout in "
                         "verify.yaml); on overrun the run is killed (exit 4)")
@@ -1087,7 +1096,7 @@ def main():
         if a.cmd == "verify":
             res = verify(a.target, a.claim_text or a.claim, a.metric, a.run_id,
                          force=a.force, check_determinism=a.check_determinism,
-                         trust=a.trust, timeout=a.timeout)
+                         trust=a.trust, timeout=a.timeout, isolation=a.isolation)
             if a.fail_on == "refuted":
                 exit_code = 1 if res["repo_verdict"] in ("REFUTED", "MIXED") else 0
             else:
