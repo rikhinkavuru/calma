@@ -40,13 +40,6 @@ const FEATURES: {
   },
 ];
 
-const RECIPES = [
-  "Sharpe", "Sortino", "Calmar", "max drawdown", "CAGR", "AUC", "F1", "macro-F1",
-  "log-loss", "Brier", "MCC", "ECE", "RMSE", "MAE", "R²", "p95 latency", "throughput",
-  "peak memory", "pass@k", "recall@k", "NDCG@10", "MRR", "exact-match", "p-value",
-  "Mann-Whitney", "chi-square", "Cohen's d", "VaR", "CVaR", "IRR", "churn", "MAPE", "WAPE",
-];
-
 export function Features() {
   return (
     <section className="sec sec--alt" id="features">
@@ -83,17 +76,7 @@ export function Features() {
           ))}
         </div>
 
-        <Reveal delay={120}>
-          <div className="rmarq" aria-hidden="true">
-            <div className="rmarq__track">
-              {[...RECIPES, ...RECIPES].map((r, i) => (
-                <span className="rmarq__item" key={i}>{r}</span>
-              ))}
-            </div>
-          </div>
-        </Reveal>
-
-        <Reveal delay={150} style={{ marginTop: "clamp(32px, 4vw, 52px)" }}>
+        <Reveal delay={150} style={{ marginTop: "clamp(40px, 5vw, 68px)" }}>
           <div className="rband">
             <div className="rband__n">
               <span className="rband__num">100+</span>

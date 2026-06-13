@@ -23,29 +23,35 @@ export function CardArt({ kind }: { kind: Kind }) {
         {/* two short code lines, top half */}
         <line x1="92" y1="106" x2="240" y2="106" className="dim" />
         <line x1="92" y1="126" x2="284" y2="126" className="dim" />
-        {/* a clean re-run / refresh glyph in the clear lower half */}
-        <path d="M200 150 a23 23 0 1 1 -17 7" className="amber" />
-        <path d="M200 150 l-11 -3 m11 3 l-4 11" className="amber" />
+        {/* a clean re-run / refresh glyph (feather refresh-cw) centered below */}
+        <g
+          className="amber"
+          transform="translate(179.6 147.6) scale(1.7)"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <polyline points="23 4 23 10 17 10" />
+          <polyline points="1 20 1 14 7 14" />
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+        </g>
         <text x="200" y="228" textAnchor="middle">re-run, sealed</text>
       </svg>
     );
   if (kind === "verdict")
     return (
       <svg className="cart" viewBox="0 0 400 250" aria-hidden="true">
-        {/* two results compared, then a verdict stamped by deterministic code */}
-        <circle cx="60" cy="96" r="3" className="dim" />
-        <line x1="64" y1="96" x2="196" y2="96" className="dim" />
-        <circle cx="196" cy="96" r="4" className="amber" />
-        <circle cx="60" cy="130" r="3" className="dim" />
-        <line x1="64" y1="130" x2="138" y2="130" className="dim" />
-        <circle cx="138" cy="130" r="4" className="amber" />
-        {/* the gap the two endpoints don't share */}
-        <line x1="138" y1="100" x2="196" y2="100" className="dim" strokeDasharray="3 4" />
-        {/* a deterministic seal — concentric rings + a struck mark */}
-        <circle cx="298" cy="140" r="44" className="amber" />
-        <circle cx="298" cy="140" r="33" className="amber" />
-        <path d="M283 140 l10 11 l21 -24" className="amber" />
-        <text x="200" y="232" textAnchor="middle">decided by code</text>
+        {/* claimed vs rebuilt as bars (length = magnitude, no numbers); they
+            don't match, so code stamps a verdict */}
+        <text x="56" y="76" className="dim">claimed</text>
+        <rect x="56" y="84" width="232" height="14" className="dim-fill" />
+        <text x="56" y="128" className="dim">rebuilt</text>
+        <rect x="56" y="136" width="150" height="14" className="amber-fill" />
+        {/* the shortfall, marked */}
+        <line x1="206" y1="132" x2="288" y2="132" className="amber" strokeDasharray="3 4" />
+        {/* the verdict, stamped by code */}
+        <rect x="56" y="178" width="150" height="38" className="amber" />
+        <text x="131" y="203" textAnchor="middle" className="amber">REFUTED</text>
+        <text x="232" y="203" className="dim">decided by code</text>
       </svg>
     );
   if (kind === "claim")
