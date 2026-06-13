@@ -2,36 +2,36 @@
 
 import { useRef } from "react";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { CardArt } from "./CardArt";
+import { FeatureAscii, type AsciiVariant } from "./FeatureAscii";
 
-/* Pinned horizontal scroll: each feature fills the screen; scrolling slides the
-   current one out to the left and the next one in. The section is tall, so it
-   takes deliberate scrolling to advance — it can't flip on a touch. Falls back
-   to a vertical stack on small screens / reduced motion (handled in CSS). */
-const FEATURES: { k: string; art: "rerun" | "verdict" | "claim" | "signed"; h: string; p: string }[] = [
+/* Pinned horizontal scroll: each feature fills the screen — text on the left
+   half, a live ASCII field on the right half. Scrolling slides the current
+   feature out to the left and the next in. Deliberate (a screen of scroll per
+   feature); vertical-stack fallback on small screens / reduced motion (CSS). */
+const FEATURES: { idx: string; name: string; art: AsciiVariant; p: string }[] = [
   {
-    k: "Re-execution",
+    idx: "01",
+    name: "Re-execution",
     art: "rerun",
-    h: "Nothing is taken on the AI’s word.",
-    p: "Calma re-executes your code from scratch in a sandbox that proves its own isolation first: it plants a fake secret, tries to leak it and reach the network, and only calls the machine sealed once every attempt fails. The number is then rebuilt on bit-stable kernels — same inputs, same answer, on any machine. Python, R, Julia, C++, Rust and Node all run as a sealed black box, no SDK to add. Nothing is ever uploaded.",
+    p: "Calma re-executes your code from scratch in a sandbox that proves its own isolation first — it plants a fake secret, tries to leak it and reach the network, and only calls the machine sealed once every attempt fails. The number is rebuilt on bit-stable kernels: same inputs, same answer, on any machine. Python, R, Julia, C++, Rust and Node all run as a sealed black box. Nothing is ever uploaded.",
   },
   {
-    k: "Deterministic verdict",
+    idx: "02",
+    name: "Deterministic verdict",
     art: "verdict",
-    h: "A pass no model can argue its way into.",
-    p: "Every number and the verdict itself come from code, so a persuasive model — or a motivated author — can’t charm its way to a pass. A claim is refuted only when the gap clears a calibrated tolerance budget drawn from the claim’s own stated precision and the metric’s noise floor; when an input is ambiguous it degrades to can’t-confirm with the exact fix. A caveat over a false alarm, every time.",
+    p: "Every number and the verdict itself come from code, so a persuasive model — or a motivated author — can’t charm its way to a pass. A claim is refuted only when the gap clears a calibrated tolerance budget; when an input is ambiguous it degrades to can’t-confirm with the exact fix. A caveat over a false alarm, every time.",
   },
   {
-    k: "Plain-English claims",
+    idx: "03",
+    name: "Plain-English claims",
     art: "claim",
-    h: "Say the claim like you’d say it out loud.",
-    p: "Write it the way you’d say it — “p95 latency 120 ms,” “pass@5 0.62,” “monthly CAGR 23.9%.” Calma parses the number, the metric, and even the convention, then scans your output files to find the column that holds it and independently double-checks that guess before it’s allowed to matter. Pin everything explicitly with one small config when you’d rather not leave it to inference.",
+    p: "Write the claim the way you’d say it — “p95 latency 120 ms,” “pass@5 0.62,” “monthly CAGR 23.9%.” Calma parses the number, the metric, and the convention, scans your output files for the column that holds it, and independently double-checks that guess before it’s allowed to matter. Pin it with one small config when you’d rather not infer.",
   },
   {
-    k: "Signed & portable",
+    idx: "04",
+    name: "Signed & portable",
     art: "signed",
-    h: "Proof your counterparty can check alone.",
-    p: "Every run emits a signed report the other side checks with tools already on their machine — stock OpenSSH, fully offline — plus an optional trusted timestamp that proves the date years later. It drops into agent loops and CI, cached by content hash so unchanged work answers instantly and gating only when a claim truly breaks, and each verification appends to a track record that can’t be retconned. (DSSE/in-toto, Sigstore-compatible, RFC 3161.)",
+    p: "Every run emits a signed report the other side checks with tools already on their machine — stock OpenSSH, fully offline — plus an optional trusted timestamp. It drops into agent loops and CI, cached by content hash, gating only when a claim truly breaks, and each verification appends to a track record that can’t be retconned. (DSSE/in-toto, Sigstore-compatible, RFC 3161.)",
   },
 ];
 
@@ -43,31 +43,24 @@ export function Features() {
   return (
     <section ref={ref} className="fscroll" id="features" style={{ height: `${FEATURES.length * 100}vh` }}>
       <div className="fscroll__pin">
-        <div className="fscroll__label">
-          <span className="kicker">Features</span>
-          <span className="fscroll__tag">Simple to use. Hard to fool.</span>
-        </div>
-
         <motion.div className="fscroll__track" style={{ x }}>
-          {FEATURES.map((f, i) => (
-            <article className="fpanel" key={f.k}>
-              <div className="fpanel__inner">
-                <div className="fpanel__art">
-                  <CardArt kind={f.art} />
-                </div>
-                <div className="fpanel__text">
-                  <span className="fpanel__idx">
-                    {String(i + 1).padStart(2, "0")} / {String(FEATURES.length).padStart(2, "0")}
-                  </span>
-                  <span className="frow__k">{f.k}</span>
-                  <h3>{f.h}</h3>
-                  <p>{f.p}</p>
-                </div>
+          {FEATURES.map((f) => (
+            <article className="fpanel" key={f.name}>
+              <div className="fpanel__text">
+                <span className="fpanel__idx">
+                  {f.idx} / 0{FEATURES.length}
+                </span>
+                <h3 className="fpanel__title">
+                  <span className="fpanel__arrow">→</span> {f.name}
+                </h3>
+                <p>{f.p}</p>
+              </div>
+              <div className="fpanel__ascii">
+                <FeatureAscii variant={f.art} />
               </div>
             </article>
           ))}
         </motion.div>
-
         <motion.div className="fscroll__bar" style={{ scaleX: scrollYProgress }} />
       </div>
     </section>

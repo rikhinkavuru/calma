@@ -386,30 +386,41 @@ img, svg, canvas { display: block; max-width: 100%; }
   .faqlay__aside { order: -1; }
 }
 
-/* ---------------- pinned horizontal feature scroll ---------------- */
+/* ---------------- pinned horizontal feature scroll (ASCII panels) ---------------- */
 .fscroll { position: relative; }
-.fscroll__pin { position: sticky; top: 0; height: 100vh; overflow: hidden; display: flex; align-items: center; }
+.fscroll__pin { position: sticky; top: 0; height: 100vh; overflow: hidden; }
 .fscroll__track { display: flex; height: 100%; width: max-content; will-change: transform; }
-.fpanel { width: 100vw; height: 100vh; flex: none; display: grid; place-items: center; padding: clamp(96px, 13vh, 150px) clamp(24px, 8vw, 130px) clamp(70px, 9vh, 110px); }
-.fpanel__inner { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(40px, 6vw, 92px); align-items: center; width: 100%; max-width: var(--maxw); }
-.fpanel__art { border: 1px solid var(--hairline); background: rgba(17, 15, 11, 0.72); aspect-ratio: 16 / 10; display: grid; place-items: center; overflow: hidden; }
-.fpanel__art svg { width: 82%; height: auto; }
-.fpanel__text { display: flex; flex-direction: column; gap: 16px; }
-.fpanel__idx { font-family: var(--mono); font-size: 12px; letter-spacing: 0.22em; color: var(--amber); }
-.fpanel__text h3 { font-size: clamp(28px, 3.6vw, 46px); font-weight: 500; line-height: 1.12; letter-spacing: -0.015em; }
-.fpanel__text p { font-size: clamp(15.5px, 1.4vw, 18px); line-height: 1.7; color: var(--cream-55); max-width: 46ch; }
-.fscroll__label { position: absolute; top: clamp(84px, 11vh, 120px); left: clamp(24px, 8vw, 130px); z-index: 3; display: flex; flex-direction: column; gap: 8px; }
-.fscroll__tag { font-size: clamp(18px, 2vw, 24px); font-weight: 500; color: var(--cream); letter-spacing: -0.01em; }
+.fpanel {
+  width: 100vw; height: 100vh; flex: none;
+  display: grid; grid-template-columns: minmax(0, 45%) minmax(0, 55%); align-items: stretch;
+  padding: clamp(78px, 10vh, 116px) 0 clamp(40px, 6vh, 70px);
+}
+.fpanel__text {
+  display: flex; flex-direction: column; justify-content: center; gap: 22px;
+  padding: 0 clamp(28px, 4vw, 60px) 0 clamp(24px, 8vw, 128px); max-width: 640px;
+}
+.fpanel__idx { font-family: var(--mono); font-size: 13px; letter-spacing: 0.24em; color: var(--amber); }
+.fpanel__title {
+  font-family: var(--mono); font-weight: 400; text-transform: uppercase;
+  font-size: clamp(30px, 4vw, 54px); line-height: 1.04; letter-spacing: 0.005em; color: var(--cream);
+}
+.fpanel__arrow { color: var(--amber); }
+.fpanel__text p { font-size: clamp(15px, 1.35vw, 17.5px); line-height: 1.72; color: var(--cream-55); max-width: 44ch; }
+.fpanel__ascii {
+  position: relative; height: 100%; width: 100%;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 100%);
+  mask-image: linear-gradient(90deg, transparent, #000 12%, #000 100%);
+}
+.fascii { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .fscroll__bar { position: absolute; left: 0; bottom: 0; height: 2px; width: 100%; background: var(--amber); transform-origin: left center; z-index: 3; }
 
 @media (max-width: 900px), (prefers-reduced-motion: reduce) {
   .fscroll { height: auto !important; }
-  .fscroll__pin { position: static; height: auto; overflow: visible; display: block; }
+  .fscroll__pin { position: static; height: auto; overflow: visible; }
   .fscroll__track { flex-direction: column; width: auto; transform: none !important; }
-  .fpanel { width: 100%; height: auto; padding: clamp(48px, 11vw, 84px) 0; }
-  .fpanel__inner { grid-template-columns: 1fr; gap: 22px; max-width: none; }
-  .fpanel__art { order: -1; }
-  .fscroll__label { position: static; margin-bottom: 8px; }
+  .fpanel { width: 100%; height: auto; grid-template-columns: 1fr; gap: 26px; padding: clamp(44px, 11vw, 76px) 0; }
+  .fpanel__text { padding: 0; max-width: none; }
+  .fpanel__ascii { height: 52vh; mask-image: none; -webkit-mask-image: none; }
   .fscroll__bar { display: none; }
 }
 
