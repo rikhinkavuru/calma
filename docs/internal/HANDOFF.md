@@ -28,7 +28,7 @@ Onboarding for a fresh Claude Code session. Read this, then `.claude/skills/calm
 - **Every recipe is validated against its published reference implementation** (scikit-learn,
   SciPy, NumPy, numpy-financial, statsmodels, jiwer, HumanEval estimator, SQuAD normalizer, Guo
   ECE) via **385 byte-reproducible reference vectors** in `assets/reference_vectors.json`.
-- **Test suite: 18 suites, ~1488 checks, pure stdlib** — `python3 .claude/skills/calma/scripts/tests/run_all.py`.
+- **Test suite: 18 suites, ~1,620 checks, pure stdlib** — `python3 .claude/skills/calma/scripts/tests/run_all.py`.
   The big one is `test_recipes_sota.py` (reference vectors + conventions + degenerate paths +
   e2e + claim-parser regressions + registry↔site sync); also `test_registry.py` (chain tamper
   matrix), `test_compiler.py` (DSL + gate + frozen-asset tamper + compiled-recipe e2e),
@@ -98,7 +98,7 @@ Onboarding for a fresh Claude Code session. Read this, then `.claude/skills/calm
   green on py3.13 + py3.14. (Its open follow-ups around the site bump + on-PATH installer were
   closed in 0.8.0 — see below.)
 
-- **Value-family REFUTE + batch/multi-metric + packaging pass (2026-06-12, calma 0.8.0 — current)**:
+- **Value-family REFUTE + batch/multi-metric + packaging pass (2026-06-12, calma 0.8.0 — last release on main)**:
   a pinned/named generic-numeric metric (column_sum, mean, median, percentile, rmse, mae, r2, mape,
   correlation, npv, irr, cagr, latency_p*, …) now **REFUTES** a material misreport instead of degrading
   to INCONCLUSIVE — gated to stay safe: the binding upgrades to `independently-bound` only when the
@@ -118,9 +118,10 @@ Onboarding for a fresh Claude Code session. Read this, then `.claude/skills/calm
   UCI + Diabetes via 5-fold OOF / real-world 4), 30 metrics, 8 families, oracles cross-validated
   **28/28 exact** against scikit-learn/SciPy/NumPy → **Calma 100% catch (77/77), 0 false-confirms, 0
   false-alarms** vs LLM-as-judge 82% (63/77) with **26 wrong verdicts** (14 false-confirms + 12
-  false-alarms) vs trust-the-number 0% (the v2 numbers from `benchmark/results/summary.json` —
-  they supersede the 71%/7+3 figure in the 0.8.0 CHANGELOG, which predated the v2 rebuild). All
-  versions reconciled to 0.8.0. Suite: 18 suites, **1,588 checks** green on py3.13 + py3.14. See
+  false-alarms) vs trust-the-number 0% (the authoritative v2 numbers from
+  `benchmark/results/summary.json`; an earlier pre-v2 generation had reported 71%/7+3, now corrected
+  everywhere). All versions reconciled to 0.8.0. Suite: 18 suites, **1,588 checks** green on py3.13 +
+  py3.14 (1,620 on the 0.9.0 branch). See
   CHANGELOG.md. **Open follow-ups (proposed, not done):** AUC/DeLong O(n²)→O(n log n) kernel rewrite
   (needs reference-vector bit validation), sniffer recall on backticked metrics, a real `pip install`
   to PyPI (the on-PATH symlink installer shipped; PyPI distribution did not), embed the recorded demo
@@ -203,9 +204,11 @@ first real engagement is signed, while the chain is short.
 - Lab tier when needed: `pip install sigstore` and `calma attest sigstore <bundle>` on the
   FIRST REAL ENGAGEMENT only — the OIDC identity in Rekor is permanent and public.
 
-**Next build candidates (in rough order):** Linux isolation tier (top roadmap item per README
-limitations), registry v2 (tlog-tiles Merkle tree + C2SP checkpoints + public witness cosigs —
-additive, entries already hash-addressed), more compiled-recipe drafts through the gate.
+**Next build candidates (in rough order):** ~~Linux isolation tier~~ — landed as **WS1 (0.9.0,
+branch `pilot-hardening`)**: Docker/colima container tier for untrusted code (microVM/Firecracker
+still a fail-loud stub); see the 0.9.0 bullet above. Remaining: the rest of the pilot-hardening
+workstreams (WS2–WS6, in-flight), registry v2 (tlog-tiles Merkle tree + C2SP checkpoints + public
+witness cosigs — additive, entries already hash-addressed), more compiled-recipe drafts through the gate.
 
 **Demo & strategy assets:** the worked demo project lives at `~/calma-demo/btc-momentum/`
 (real 10y BTC-USD data; a genuine walk-forward bug, verified REFUTED→fix→CONFIRMED

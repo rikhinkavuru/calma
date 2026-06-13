@@ -6,6 +6,11 @@ ledger ('show full breakdown').
 Verdict vocabulary (one enum, one display): CONFIRMED / CONFIRMED-WITH-CAVEATS / REFUTED /
 CAN'T-CONFIRM (the display name of INCONCLUSIVE) / MIXED (multi-claim, at least one REFUTED).
 """
+import hashlib
+import os
+import shutil
+import subprocess
+
 import verdict as V
 
 _TOPLINE = {
@@ -276,3 +281,348 @@ def teardown_card(led, diff=None):
     lines.append("  verified by RE-EXECUTION, not opinion  -  isolation: %s | determinism: %s"
                  % (sc.get("isolation_tier", "?"), sc.get("determinism_mode", "?")))
     return "\n".join(lines)
+
+
+# ===========================================================================================
+# WS2: the deliverable - a branded, self-contained HTML report (prints to a clean PDF) plus a
+# one-command offline replay bundle that re-derives the verdict byte-for-byte. The report states
+# the claim, the verdict, the measured gap, an EXPLICIT scope-of-verification ("verified X; did
+# NOT assess Y"), the limits, the isolation/determinism stamps, and the content hashes. Nothing in
+# here computes a verdict - it renders what the deterministic pipeline already decided.
+# ===========================================================================================
+
+# Calma palette: warm-black ink, cream paper, amber accent. Inline so the file is self-contained
+# (no external assets) and prints cleanly from any browser (Cmd/Ctrl-P -> Save as PDF).
+_HTML_CSS = """
+:root { --ink:#0A0A0B; --ink2:#26262B; --mut:#71717A; --mut2:#A1A1AA; --paper:#FAFAF7;
+        --line:#E4E1D8; --amber:#B8821B; --green:#2F7D43; --red:#B23A33; }
+* { box-sizing:border-box; }
+html { -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+body { margin:0; background:var(--paper); color:var(--ink);
+       font:15px/1.55 ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; }
+.page { max-width:760px; margin:0 auto; padding:48px 40px 64px; }
+.mono { font-family:ui-monospace,Menlo,"SF Mono",Consolas,monospace; }
+.brandrow { display:flex; justify-content:space-between; align-items:baseline;
+            border-bottom:2px solid var(--ink); padding-bottom:10px; margin-bottom:4px; }
+.brand { font-family:ui-monospace,Menlo,monospace; font-weight:700; letter-spacing:3px; font-size:15px; }
+.brand .dot { color:var(--amber); }
+.tag { font-family:ui-monospace,Menlo,monospace; font-size:11px; letter-spacing:2px; color:var(--mut); }
+h1 { font-size:13px; letter-spacing:2px; text-transform:uppercase; color:var(--mut);
+     margin:34px 0 8px; font-weight:600; }
+.verdict { display:flex; align-items:center; gap:14px; margin:18px 0 6px; }
+.vbadge { font-family:ui-monospace,Menlo,monospace; font-weight:700; font-size:22px;
+          padding:8px 16px; border-radius:8px; border:2px solid; }
+.v-CONFIRMED, .v-CONFIRMED-WITH-CAVEATS { color:var(--green); border-color:var(--green); background:#EAF3EC; }
+.v-REFUTED, .v-MIXED { color:var(--red); border-color:var(--red); background:#F6E9E8; }
+.v-CANT-CONFIRM { color:var(--amber); border-color:var(--amber); background:#F6EFDD; }
+.conf { font-family:ui-monospace,Menlo,monospace; color:var(--mut); font-size:14px; }
+.gloss { color:var(--ink2); margin:2px 0 0; }
+.claimbox { background:#fff; border:1px solid var(--line); border-radius:10px; padding:18px 20px;
+            margin:14px 0; }
+.gap { display:flex; gap:40px; flex-wrap:wrap; margin-top:6px; }
+.gap .lab { font-size:11px; letter-spacing:1.5px; color:var(--mut); text-transform:uppercase; }
+.gap .num { font-family:ui-monospace,Menlo,monospace; font-size:26px; font-weight:700; margin-top:3px; }
+.gap .claimed .num { color:var(--ink); }
+.gap .recomp .num { color:var(--red); }
+.gap.clean .recomp .num { color:var(--green); }
+table.kv { width:100%; border-collapse:collapse; margin:6px 0 4px; }
+table.kv td { padding:7px 0; border-bottom:1px solid var(--line); vertical-align:top; font-size:14px; }
+table.kv td.k { color:var(--mut); width:40%; }
+table.kv td.v { font-family:ui-monospace,Menlo,monospace; word-break:break-all; }
+ul.scope { margin:6px 0; padding-left:20px; }
+ul.scope li { margin:4px 0; }
+.did-not { color:var(--ink2); }
+.note { background:#F6EFDD; border-left:3px solid var(--amber); padding:10px 14px; border-radius:0 6px 6px 0;
+        margin:10px 0; font-size:14px; }
+.foot { margin-top:36px; padding-top:14px; border-top:1px solid var(--line); color:var(--mut);
+        font-size:12px; font-family:ui-monospace,Menlo,monospace; line-height:1.7; }
+.hashes td.v { font-size:12px; color:var(--ink2); }
+@media print { body { background:#fff; } .page { padding:0; max-width:none; }
+               @page { margin:18mm 16mm; } a { color:inherit; text-decoration:none; } }
+"""
+
+_LIMITS = ("Calma verifies a result by RE-EXECUTING it in the stated isolation tier and RECOMPUTING "
+           "the headline number from the raw machine-readable outputs on deterministic kernels - every "
+           "statistic and the verdict come from unit-tested scripts, never a model. A CONFIRMED is a "
+           "reproduction-and-recompute result for the claimed metric under the stated scope; it is NOT "
+           "an audit of economic soundness, data provenance, or anything listed under \"did NOT assess\" "
+           "below.")
+
+
+def _html_verdict_class(rv):
+    return {V.CONFIRMED: "CONFIRMED", V.CAVEATS: "CONFIRMED-WITH-CAVEATS", V.REFUTED: "REFUTED",
+            "MIXED": "MIXED", V.INCONCLUSIVE: "CANT-CONFIRM"}.get(rv, "CANT-CONFIRM")
+
+
+def _sha256_file(path):
+    try:
+        h = hashlib.sha256()
+        with open(path, "rb") as fh:
+            for chunk in iter(lambda: fh.read(65536), b""):
+                h.update(chunk)
+        return h.hexdigest()
+    except OSError:
+        return None
+
+
+def _report_hashes(run_dir, bundle=None):
+    """Content hashes for the report footer. Computed from the run-dir files; when a signed bundle
+    is present its authoritative values (subject digest, policy contract hash, signing keyid,
+    timeVerified) are preferred so the report's hashes match what a counterparty verifies."""
+    h = {"ledger_sha256": _sha256_file(os.path.join(run_dir, "ledger.json")),
+         "manifest_sha256": _sha256_file(os.path.join(run_dir, "manifest.json")),
+         "contract_sha256": _sha256_file(os.path.join(run_dir, "verify.yaml")),
+         "keyid": None, "time_verified": None}
+    if bundle:
+        stmt = bundle.get("statement", {}) or {}
+        pred = stmt.get("predicate", {}) or {}
+        pol = pred.get("policy", {}) or {}
+        if pol.get("contract_sha256"):
+            h["contract_sha256"] = pol["contract_sha256"]
+        subj = (stmt.get("subject") or [{}])[0].get("digest", {}) or {}
+        if subj.get("sha256"):
+            h["manifest_sha256"] = subj["sha256"]
+        sigs = (bundle.get("envelope", {}) or {}).get("signatures") or [{}]
+        h["keyid"] = sigs[0].get("keyid")
+        h["time_verified"] = pred.get("timeVerified")
+    return h
+
+
+def render_html(led, diff=None, bundle=None, run_dir=None):
+    """A self-contained, branded HTML report for a verification run. Deterministic (the only time
+    value is the bundle's timeVerified, which is itself fixed at signing). Prints to a clean PDF."""
+    rv = led.get("repo_verdict", V.INCONCLUSIVE)
+    word = display(rv)
+    vclass = _html_verdict_class(rv)
+    claims = [c for c in led.get("claims", []) if c.get("metric")]
+    c0 = claims[0] if claims else (led.get("claims") or [{}])[0]
+    conf = c0.get("headline_confidence") or 0.0
+    sc = led.get("scope", {}) or {}
+    target = _esc(led.get("target", "result"))
+    gloss = _TOPLINE.get(rv, _TOPLINE[V.INCONCLUSIVE])[1]
+
+    P = []
+    P.append("<!doctype html><html lang=en><head><meta charset=utf-8>")
+    P.append("<meta name=viewport content='width=device-width,initial-scale=1'>")
+    P.append("<title>Calma verification - %s</title><style>%s</style></head><body><div class=page>" %
+             (target, _HTML_CSS))
+    P.append("<div class=brandrow><div class=brand>CALMA<span class=dot>.</span></div>"
+             "<div class=tag>INDEPENDENT VERIFICATION REPORT</div></div>")
+    P.append("<div class=tag style='margin-top:6px'>target: %s</div>" % target)
+
+    # verdict
+    P.append("<h1>Verdict</h1><div class=verdict><span class='vbadge v-%s'>%s</span>" % (vclass, _esc(word)))
+    if conf > 0:
+        P.append("<span class=conf>confidence %d / 100</span>" % int(round(conf * 100)))
+    P.append("</div><p class=gloss>%s</p>" % _esc(gloss))
+
+    # claim under test + measured gap
+    mid = c0.get("metric")
+    cv, rvv = c0.get("claimed_value"), c0.get("recomputed_value")
+    P.append("<h1>Claim under test</h1><div class=claimbox>")
+    if mid:
+        P.append("<div class=mono style='font-size:15px'>metric: <b>%s</b></div>" % _esc(mid))
+    clean = rv in (V.CONFIRMED, V.CAVEATS)
+    if cv is not None:
+        P.append("<div class='gap%s'>" % (" clean" if clean else ""))
+        P.append("<div class=claimed><div class=lab>claimed</div><div class=num>%s</div></div>" %
+                 _esc(fmt_value(cv, mid)))
+        if rvv is not None:
+            P.append("<div class=recomp><div class=lab>recomputed by re-execution</div>"
+                     "<div class=num>%s</div></div>" % _esc(fmt_value(rvv, mid)))
+        P.append("</div>")
+    elif rvv is not None:
+        P.append("<div class=mono>no claim given (reproduction mode) - recomputed %s = <b>%s</b></div>" %
+                 (_esc(mid), _esc(fmt_value(rvv, mid))))
+    P.append("</div>")
+
+    # multi-metric table
+    if len(claims) > 1:
+        P.append("<table class=kv>")
+        for c in claims:
+            m = c.get("metric")
+            cc, rc = c.get("claimed_value"), c.get("recomputed_value")
+            num = ("claimed %s &rarr; recomputed %s" % (_esc(fmt_value(cc, m)), _esc(fmt_value(rc, m)))
+                   if cc is not None else "recomputed %s" % _esc(fmt_value(rc, m)))
+            P.append("<tr><td class=k>%s</td><td class=v>%s &nbsp;[%s]</td></tr>" %
+                     (_esc(m), num, _esc(display(c.get("verdict")))))
+        P.append("</table>")
+
+    # why it breaks / limiter
+    blockers = [f for f in led.get("findings", []) if f.get("severity") in ("blocker", "major")]
+    if blockers:
+        P.append("<h1>Findings</h1><table class=kv>")
+        for f in blockers[:6]:
+            P.append("<tr><td class=k>%s</td><td class=v>%s</td></tr>" %
+                     (_esc(f.get("dimension", "")), _esc(f.get("locator", ""))))
+            if f.get("unblock"):
+                P.append("<tr><td class=k>&nbsp;&nbsp;fix</td><td class=v>%s</td></tr>" % _esc(f["unblock"]))
+        P.append("</table>")
+    fixln = _fix_line(led, diff)
+    if rv in (V.INCONCLUSIVE, V.CAVEATS) and fixln:
+        P.append("<div class=note><b>fix:</b> %s</div>" % _esc(fixln))
+
+    # scope of verification - the explicit "verified X; did NOT assess Y"
+    P.append("<h1>Scope of verification</h1>")
+    fams = sc.get("families", {}) or {}
+    checked = [k for k, v in fams.items() if str(v).startswith("checked")]
+    P.append("<ul class=scope>")
+    P.append("<li><b>Verified</b> by re-execution: reproduced the run and recomputed <span class=mono>%s</span>"
+             " from raw outputs%s.</li>" %
+             (_esc(mid or "the headline metric"),
+              (" (" + _esc(", ".join(checked)) + ")") if checked else ""))
+    if sc.get("binding_note"):
+        P.append("<li><b>Bound</b>: %s</li>" % _esc(sc["binding_note"]))
+    nv = sc.get("not_verified") or []
+    if nv:
+        P.append("<li class=did-not><b>Did NOT assess</b>: %s.</li>" % _esc("; ".join(nv)))
+    P.append("</ul>")
+
+    # isolation + determinism stamps
+    P.append("<h1>Execution scope</h1><table class=kv>")
+    P.append("<tr><td class=k>isolation tier</td><td class=v>%s</td></tr>" % _esc(sc.get("isolation_tier", "?")))
+    P.append("<tr><td class=k>determinism</td><td class=v>%s</td></tr>" % _esc(_det(sc.get("determinism_mode"))))
+    if sc.get("run_network"):
+        P.append("<tr><td class=k>network</td><td class=v>%s</td></tr>" % _esc(sc.get("run_network")))
+    if sc.get("determinism_recheck"):
+        P.append("<tr><td class=k>determinism recheck</td><td class=v>%s</td></tr>" %
+                 _esc(sc.get("determinism_recheck")))
+    P.append("</table>")
+
+    # limits
+    P.append("<h1>Limits</h1><p class=gloss>%s</p>" % _esc(_LIMITS))
+
+    # hashes
+    if run_dir:
+        h = _report_hashes(run_dir, bundle)
+        P.append("<h1>Integrity</h1><table class='kv hashes'>")
+        for lab, key in (("ledger sha256", "ledger_sha256"), ("manifest sha256", "manifest_sha256"),
+                         ("contract sha256", "contract_sha256"), ("signing keyid", "keyid"),
+                         ("time verified", "time_verified")):
+            if h.get(key):
+                P.append("<tr><td class=k>%s</td><td class=v>%s</td></tr>" % (lab, _esc(h[key])))
+        P.append("</table>")
+        if bundle:
+            P.append("<p class=gloss style='font-size:13px'>This report is backed by a DSSE/in-toto "
+                     "signed attestation (Ed25519, OpenSSH-verifiable) and a self-contained replay "
+                     "bundle that re-derives the verdict offline, byte-for-byte.</p>")
+
+    P.append("<div class=foot>verified by RE-EXECUTION, not opinion &middot; the verdict is computed "
+             "by deterministic scripts, never a model<br>github.com/rikhinkavuru/calma &middot; "
+             "calma %s</div>" % _esc((bundle or {}).get("statement", {}).get("predicate", {})
+                                     .get("verifier", {}).get("version", "")))
+    P.append("</div></body></html>")
+    return "".join(P)
+
+
+# files copied verbatim into a replay bundle so `attest verify` re-derives the verdict offline with
+# zero installs (all pure stdlib). This is the dependency closure of attest.verify_bundle().
+_REPLAY_SCRIPTS = ["attest.py", "ledger.py", "verdict.py", "ed25519.py", "sshsig.py", "rfc3161.py"]
+# run artifacts the bundle carries so a counterparty can also RE-EXECUTE (optional, env-dependent).
+_REPLAY_ARTIFACTS = ["attestation.bundle.json", "attestation.payload.json", "attestation.sig.sshsig",
+                     "attestation.allowed_signers", "ledger.json", "manifest.json", "verify.yaml",
+                     "recompute.json", "diff.json", "run.json", "VERIFY-THIS.txt", "report.html"]
+
+_REPLAY_DRIVER = '''#!/usr/bin/env python3
+"""Offline replay: re-derive the verdict byte-for-byte from the signed bundle and check the
+signatures. No network, no calma install - pure stdlib. Exit 0 iff the verdict re-derives and the
+signature verifies."""
+import json, os, sys
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "calma"))
+import attest  # noqa: E402
+bundle = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                     "attestation.bundle.json")))
+ok, checks = attest.verify_bundle(bundle)
+print(attest.render_verify(bundle, ok, checks))
+sys.exit(0 if ok else 1)
+'''
+
+_REPLAY_SH = '''#!/bin/sh
+# One command, fully offline: re-derive the verdict byte-for-byte and verify the signatures.
+set -e
+cd "$(dirname "$0")"
+python3 replay_verify.py
+'''
+
+_REPLAY_README = '''CALMA REPLAY BUNDLE
+===================
+This bundle re-derives the verification verdict OFFLINE, byte-for-byte, on a fresh machine.
+Nothing here needs the network or a calma install (everything is pure Python stdlib).
+
+ONE COMMAND (re-derive the verdict + check signatures):
+    sh replay.sh
+  -> exit 0 means: the embedded ledger re-derives to the same verdict (verdict.verdict() is re-run
+     over the stored inputs) AND the DSSE + SSHSIG signatures verify against the signing key.
+
+ZERO-INSTALL SIGNATURE CHECK (stock OpenSSH, no Python):
+    see VERIFY-THIS.txt for the exact `ssh-keygen -Y verify` command.
+
+WHAT IS HERE:
+    replay.sh / replay_verify.py  - the offline re-derivation driver
+    calma/                        - the pure-stdlib scripts it imports (verdict, ledger, attest, ...)
+    attestation.bundle.json (+ sidecars) - the signed DSSE/in-toto attestation
+    ledger.json / manifest.json / verify.yaml / recompute.json / diff.json / run.json - run artifacts
+    report.html                   - the human-readable report (open in a browser; print to PDF)
+
+The verdict is computed by deterministic scripts, never a model. Verified by RE-EXECUTION, not opinion.
+'''
+
+
+def write_replay_bundle(run_dir, scripts_dir, out_dir=None):
+    """Assemble a self-contained, offline replay bundle under <run_dir>/replay (or out_dir). Copies
+    the run artifacts + the pure-stdlib dependency closure of attest.verify_bundle() + a one-command
+    driver. Returns the bundle dir path. Idempotent (rebuilds clean)."""
+    run_dir = os.path.realpath(run_dir)
+    out_dir = os.path.realpath(out_dir or os.path.join(run_dir, "replay"))
+    if os.path.isdir(out_dir):
+        shutil.rmtree(out_dir)
+    os.makedirs(os.path.join(out_dir, "calma"))
+    for name in _REPLAY_SCRIPTS:
+        src = os.path.join(scripts_dir, name)
+        if os.path.exists(src):
+            shutil.copy2(src, os.path.join(out_dir, "calma", name))
+    for name in _REPLAY_ARTIFACTS:
+        src = os.path.join(run_dir, name)
+        if os.path.exists(src):
+            shutil.copy2(src, os.path.join(out_dir, name))
+    with open(os.path.join(out_dir, "replay_verify.py"), "w") as fh:
+        fh.write(_REPLAY_DRIVER)
+    with open(os.path.join(out_dir, "replay.sh"), "w") as fh:
+        fh.write(_REPLAY_SH)
+    with open(os.path.join(out_dir, "README.txt"), "w") as fh:
+        fh.write(_REPLAY_README)
+    for f in ("replay.sh", "replay_verify.py"):
+        try:
+            os.chmod(os.path.join(out_dir, f), 0o755)
+        except OSError:
+            pass
+    return out_dir
+
+
+def to_pdf(html_path, pdf_path=None):
+    """Best-effort HTML->PDF via a headless browser if one is present. Returns the pdf path on
+    success, else None (the HTML always prints to PDF from any browser - that is the fallback)."""
+    pdf_path = pdf_path or os.path.splitext(html_path)[0] + ".pdf"
+    candidates = [
+        shutil.which("wkhtmltopdf"),
+        shutil.which("chromium"), shutil.which("chromium-browser"), shutil.which("google-chrome"),
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        "/Applications/Chromium.app/Contents/MacOS/Chromium",
+        "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+    ]
+    for bin_ in candidates:
+        if not bin_ or not os.path.exists(bin_):
+            continue
+        try:
+            if bin_.endswith("wkhtmltopdf"):
+                cmd = [bin_, "-q", html_path, pdf_path]
+            else:
+                cmd = [bin_, "--headless", "--disable-gpu", "--no-sandbox",
+                       "--print-to-pdf=" + pdf_path, "--print-to-pdf-no-header",
+                       "file://" + os.path.realpath(html_path)]
+            r = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60)
+            if r.returncode == 0 and os.path.exists(pdf_path) and os.path.getsize(pdf_path) > 0:
+                return pdf_path
+        except (OSError, subprocess.SubprocessError):
+            continue
+    return None

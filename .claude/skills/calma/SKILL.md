@@ -45,11 +45,15 @@ calma verify <target>               # no claim: checks the result reproduces (CO
 calma verify <target> "<claim>" --json                # machine-readable verdict (agents: use this)
 calma verify <target> "<claim>" --check-determinism   # re-execute twice; FLAKY outputs -> INCONCLUSIVE
 calma verify <target> "<claim>" --timeout 300         # raise the re-execution budget (default 120s)
-calma verify <target> "<claim>" --trust third-party   # counterparty code: refuse (exit 3) unless a
-                                                      # verified container/VM tier is live
+calma verify <target> "<claim>" --trust third-party   # counterparty code: auto-escalates to the
+                                                      # container tier (refuses exit 3 if none is live)
+calma verify <target> "<claim>" --isolation docker    # run in a network-denied Linux container
+                                                      # (auto|seatbelt|docker|firecracker; fails loud if unavailable)
+calma batch <dir>... | --manifest m.tsv   # verify MANY results in one run -> one summary table + roll-up exit
 calma recipes                       # all 120 metric ids, grouped by family (for --metric)
 calma teardown <target> "<claim>" [--svg card.svg]    # shareable "claimed X -> really Y" card on a break
 calma replay <run_dir>              # re-run a saved verification; exit 0 iff the verdict reproduces
+calma report <run_dir> [--out f.html] [--no-pdf]   # branded HTML report (prints to PDF) + an offline replay bundle
 calma stats <target>                # verification history: counts + recent catches
 calma seal <run_dir> [--publish REGISTRY_DIR --note "..."]   # ONE command: sign + RFC 3161 timestamp
                                     # + VERIFY-THIS.txt counterparty instructions (+ optional publish)

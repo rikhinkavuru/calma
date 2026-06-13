@@ -795,6 +795,52 @@ def replay(run_dir):
     return ok, "\n".join(lines)
 
 
+def report(run_dir, out=None, pdf=True, sign=True):
+    """WS2 deliverable: render a branded HTML report (prints to PDF) and build a self-contained,
+    offline replay bundle that re-derives the verdict byte-for-byte. If a signing key exists the run
+    is signed first (idempotent) so the report carries authoritative integrity hashes and the bundle
+    is signature-verifiable. Returns {html, pdf, replay_dir, signed, repo_verdict}."""
+    run_dir = os.path.realpath(run_dir)
+    led_path = os.path.join(run_dir, "ledger.json")
+    if not os.path.exists(led_path):
+        raise ValueError("no ledger.json under %s - run `calma verify` first, then point `calma "
+                         "report` at the .calma/<run-id> dir it printed" % run_dir)
+    led = json.load(open(led_path))
+    diff = None
+    dpath = os.path.join(run_dir, "diff.json")
+    if os.path.exists(dpath):
+        try:
+            diff = json.load(open(dpath))
+        except (OSError, ValueError):
+            diff = None
+    bundle = None
+    bpath = os.path.join(run_dir, attest.BUNDLE_NAME)
+    if sign and not os.path.exists(bpath) and attest.load_signing_key() is not None:
+        try:
+            bundle, _ = attest.sign_run(run_dir)
+        except (OSError, ValueError):
+            bundle = None
+    if os.path.exists(bpath):
+        try:
+            bundle = json.load(open(bpath))
+        except (OSError, ValueError):
+            bundle = None
+    html = REP.render_html(led, diff, bundle, run_dir)
+    rd_report = os.path.join(run_dir, "report.html")
+    with open(rd_report, "w") as fh:
+        fh.write(html)
+    out = out or rd_report
+    if os.path.realpath(out) != os.path.realpath(rd_report):
+        with open(out, "w") as fh:
+            fh.write(html)
+    # the replay bundle reads run_dir/report.html (written above), so build it after the report.
+    scripts_dir = os.path.dirname(os.path.abspath(__file__))
+    replay_dir = REP.write_replay_bundle(run_dir, scripts_dir)
+    pdf_path = REP.to_pdf(out) if pdf else None
+    return {"html": out, "pdf": pdf_path, "replay_dir": replay_dir,
+            "signed": bundle is not None, "repo_verdict": led.get("repo_verdict")}
+
+
 def stats(target):
     """Summarize the append-only verification history for a target. Returns (data, rendered)."""
     target = os.path.realpath(target)
@@ -1018,6 +1064,15 @@ def main():
     t.add_argument("--svg", help="also write the share card as a dark SVG image to this path")
     r = sub.add_parser("replay", help="re-run a saved verification and check it reproduces")
     r.add_argument("run_dir", help="the .calma/<run-id> dir printed on the original verdict")
+    rpt = sub.add_parser("report", help="render a branded HTML report (prints to PDF) + a self-"
+                                        "contained offline replay bundle")
+    rpt.add_argument("run_dir", help="a .calma/<run-id> dir from a previous verify")
+    rpt.add_argument("--out", help="HTML output path (default <run_dir>/report.html)")
+    rpt.add_argument("--no-pdf", action="store_true",
+                     help="skip the headless-browser PDF attempt (HTML still prints to PDF from a browser)")
+    rpt.add_argument("--no-sign", action="store_true",
+                     help="do not sign the run (the report's integrity hashes then come from files, "
+                          "not a verifiable bundle)")
     s = sub.add_parser("stats", help="summarize this target's verification history")
     s.add_argument("target", help="folder whose .calma verification history to summarize")
     s.add_argument("--json", action="store_true", dest="as_json",
@@ -1193,6 +1248,20 @@ def main():
             ok, text = replay(a.run_dir)
             print(text)
             return 0 if ok else 1
+        if a.cmd == "report":
+            res = report(a.run_dir, out=a.out, pdf=not a.no_pdf, sign=not a.no_sign)
+            print("report   %s" % res["html"])
+            if res["pdf"]:
+                print("pdf      %s" % res["pdf"])
+            elif not a.no_pdf:
+                print("pdf      open report.html in a browser -> Print -> Save as PDF "
+                      "(no headless renderer found on this host)")
+            print("replay   %s/" % res["replay_dir"])
+            print("         one command, fully offline: sh %s/replay.sh" % res["replay_dir"])
+            print("signed   %s" % ("DSSE + SSHSIG (integrity hashes embedded in the report)"
+                                   if res["signed"] else
+                                   "no signing key - run `calma attest keygen` for a signed bundle"))
+            return 0
         if a.cmd == "stats":
             data, rendered = stats(a.target)
             print(json.dumps(data, indent=2) if a.as_json else rendered)

@@ -4,6 +4,25 @@ All notable changes to the calma skill/CLI. Dates are UTC.
 
 ## 0.9.0 — 2026-06-13
 
+### WS2 — The deliverable: signed report + offline replay bundle
+
+- New `calma report <run_dir>`: renders a **branded, self-contained HTML report** (Calma warm-black /
+  cream / amber, inline CSS, `@media print` so it saves to a clean PDF from any browser) stating the
+  claim under test, the verdict + confidence, the **measured gap** (claimed → recomputed), an
+  **explicit scope-of-verification** ("verified X by re-execution; did NOT assess Y"), the limits
+  statement, the isolation + determinism stamps, and the content hashes (ledger / manifest / contract
+  sha256 + signing keyid). Best-effort headless-browser PDF when one is present; the HTML is the
+  always-works fallback.
+- The same command writes a **self-contained replay bundle** (`<run_dir>/replay/`): the signed
+  attestation + sidecars, the run artifacts, the report, the pure-stdlib dependency closure of
+  `attest.verify_bundle`, and a one-command `replay.sh`. On a fresh machine, **offline, with no calma
+  install**, it re-derives every verdict label byte-for-byte (`verdict.verdict()` re-run over the
+  stored inputs) and verifies the DSSE + SSHSIG signatures. A forged-verdict bundle fails the replay.
+  Stock-OpenSSH `ssh-keygen -Y verify` remains the zero-install signature check (VERIFY-THIS.txt).
+- New `test_report.py` (33 checks): the report's content contract, the bundle structure, the
+  **offline re-derivation acceptance test** (run out-of-repo with a scrubbed env), and the tamper
+  rejection.
+
 ### WS1 — Hardened, disposable, network-denied execution (pilot tier)
 
 - New **container isolation backend** in `run_hermetic.py`, selectable via `calma verify --isolation
