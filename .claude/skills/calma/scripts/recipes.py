@@ -1638,3 +1638,54 @@ for _mid in ("mutual_info_score", "normalized_mutual_info", "homogeneity_score",
              "v_measure_score", "rand_index", "adjusted_rand_index", "fowlkes_mallows_clustering"):
     register(_mid, family="classification", required_tags=["labels_true", "labels_pred"],
              set_maturity="reviewed")(_ll(getattr(N, _mid)))
+
+
+# ======================================================================================
+# Pack ENG - performance / SRE depth (validated vs numpy / definitions).
+# ======================================================================================
+
+def _dur(fn):
+    def recipe(cols, binding, convention=None):
+        d = cols[binding["duration"]]
+        return _result(fn(d), {"n": len(d)})
+    return recipe
+
+
+for _mid in ("latency_p75", "latency_p999", "tail_latency_ratio", "latency_stddev", "jitter"):
+    register(_mid, family="engineering", required_tags=["duration"],
+             set_maturity="reviewed")(_dur(getattr(N, _mid)))
+
+
+@register("slo_attainment", family="engineering", required_tags=["duration"], set_maturity="reviewed",
+          accepted_conventions=["threshold=<v>"])
+def slo_attainment(cols, binding, convention=None):
+    d = cols[binding["duration"]]
+    thr = _conv_float(convention, "threshold", 0.0)
+    return _result(N.slo_attainment(d, thr), {"n": len(d), "threshold": thr})
+
+
+@register("error_budget_burn", family="engineering", required_tags=["flag"], set_maturity="reviewed",
+          accepted_conventions=["target=<frac>"])
+def error_budget_burn(cols, binding, convention=None):
+    flags = cols[binding["flag"]]
+    target = _conv_float(convention, "target", 0.01)
+    return _result(N.error_budget_burn(flags, target), {"n": len(flags), "target": target})
+
+
+@register("compression_ratio", family="engineering", required_tags=["original", "compressed"],
+          set_maturity="reviewed")
+def compression_ratio(cols, binding, convention=None):
+    o, c = cols[binding["original"]], cols[binding["compressed"]]
+    return _result(N.compression_ratio(o, c), {"n": len(o)})
+
+
+@register("availability", family="engineering", required_tags=["uptime", "downtime"], set_maturity="reviewed")
+def availability(cols, binding, convention=None):
+    u, d = cols[binding["uptime"]], cols[binding["downtime"]]
+    return _result(N.availability(u, d), {"n": len(u)})
+
+
+@register("mtbf", family="engineering", required_tags=["flag"], set_maturity="reviewed")
+def mtbf(cols, binding, convention=None):
+    flags = cols[binding["flag"]]
+    return _result(N.mtbf(flags), {"n": len(flags)})

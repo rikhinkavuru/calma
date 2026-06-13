@@ -3353,3 +3353,74 @@ def fowlkes_mallows_clustering(a, b):
     if sa == 0 or sb == 0:
         return 0.0
     return sij / math.sqrt(sa * sb)
+
+
+# ======================================================================================
+# Pack ENG - performance / SRE depth (validated vs numpy / definitions).
+# ======================================================================================
+
+def latency_p75(durations):
+    return quantile(durations, 0.75) if durations and not _has_nan(durations) else float("nan")
+
+
+def latency_p999(durations):
+    return quantile(durations, 0.999) if durations and not _has_nan(durations) else float("nan")
+
+
+def tail_latency_ratio(durations):
+    """p99 / p50 latency."""
+    if not durations or _has_nan(durations):
+        return float("nan")
+    p50 = quantile(durations, 0.5)
+    return quantile(durations, 0.99) / p50 if p50 != 0 else float("nan")
+
+
+def latency_stddev(durations):
+    return fstd(durations, 1) if len(durations) > 1 and not _has_nan(durations) else float("nan")
+
+
+def jitter(durations):
+    """Mean absolute consecutive difference of the duration series."""
+    n = len(durations)
+    if n < 2 or _has_nan(durations):
+        return float("nan")
+    return math.fsum(abs(durations[t] - durations[t - 1]) for t in range(1, n)) / (n - 1)
+
+
+def slo_attainment(durations, threshold):
+    """Fraction of requests meeting the latency SLO threshold."""
+    if not durations or _has_nan(durations):
+        return float("nan")
+    return sum(1 for d in durations if d <= threshold) / len(durations)
+
+
+def error_budget_burn(flags, target):
+    """Observed error rate / target error rate (>1 = budget overspent)."""
+    if not flags or _has_nan(flags) or not (target > 0):
+        return float("nan")
+    return (sum(1 for f in flags if f != 0) / len(flags)) / target
+
+
+def compression_ratio(original, compressed):
+    """sum(original) / sum(compressed)."""
+    if len(original) != len(compressed) or not original or _has_nan(original) or _has_nan(compressed):
+        return float("nan")
+    c = math.fsum(compressed)
+    return math.fsum(original) / c if c > 0 else float("nan")
+
+
+def availability(uptime, downtime):
+    """uptime / (uptime + downtime)."""
+    if len(uptime) != len(downtime) or not uptime or _has_nan(uptime) or _has_nan(downtime):
+        return float("nan")
+    up = math.fsum(uptime)
+    tot = up + math.fsum(downtime)
+    return up / tot if tot > 0 else float("nan")
+
+
+def mtbf(flags):
+    """Mean periods between failures: n / number_of_failures (flag 1 = failure)."""
+    if not flags or _has_nan(flags):
+        return float("nan")
+    f = sum(1 for x in flags if x != 0)
+    return len(flags) / f if f > 0 else float("nan")

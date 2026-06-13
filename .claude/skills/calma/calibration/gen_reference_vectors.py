@@ -1159,6 +1159,32 @@ case("adjusted_rand_index", "adjusted_rand_index", _cargs, float(skm.adjusted_ra
 case("fowlkes_mallows_clustering", "fowlkes_mallows_clustering", _cargs,
      float(skm.fowlkes_mallows_score(cl_a, cl_b)), atol=1e-12)
 
+# ============================ Pack ENG - performance / SRE depth ============================
+
+eng_dur = uniforms(114, 500, 1.0, 900.0)
+_ed = np.array(eng_dur)
+case("latency_p75", "latency_p75", {"durations": eng_dur}, float(np.quantile(_ed, 0.75)), atol=1e-10)
+case("latency_p999", "latency_p999", {"durations": eng_dur}, float(np.quantile(_ed, 0.999)), atol=1e-10)
+case("tail_latency_ratio", "tail_latency_ratio", {"durations": eng_dur},
+     float(np.quantile(_ed, 0.99) / np.quantile(_ed, 0.5)), atol=1e-10)
+case("latency_stddev", "latency_stddev", {"durations": eng_dur}, float(np.std(_ed, ddof=1)), atol=1e-9)
+case("jitter", "jitter", {"durations": eng_dur}, float(np.mean(np.abs(np.diff(_ed)))), atol=1e-10)
+case("slo_attainment", "slo_attainment", {"durations": eng_dur, "threshold": 500.0},
+     float(np.mean(_ed <= 500.0)), atol=1e-12)
+eb_flags = [1.0 if u < 0.03 else 0.0 for u in uniforms(115, 400)]
+case("error_budget_burn", "error_budget_burn", {"flags": eb_flags, "target": 0.01},
+     (sum(eb_flags) / len(eb_flags)) / 0.01, atol=1e-11)
+cr_orig = uniforms(116, 60, 100.0, 1000.0)
+cr_comp = uniforms(117, 60, 10.0, 300.0)
+case("compression_ratio", "compression_ratio", {"original": cr_orig, "compressed": cr_comp},
+     float(np.sum(cr_orig) / np.sum(cr_comp)), atol=1e-10)
+av_up = uniforms(118, 40, 90.0, 100.0)
+av_dn = uniforms(119, 40, 0.0, 10.0)
+case("availability", "availability", {"uptime": av_up, "downtime": av_dn},
+     float(np.sum(av_up) / (np.sum(av_up) + np.sum(av_dn))), atol=1e-12)
+mt_flags = [1.0 if u < 0.1 else 0.0 for u in uniforms(120, 300)]
+case("mtbf", "mtbf", {"flags": mt_flags}, len(mt_flags) / sum(mt_flags), atol=1e-12)
+
 # ============================ write ============================
 
 doc = {

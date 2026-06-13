@@ -289,6 +289,17 @@ KINDS = {
     "rand_index": lambda a: N.rand_index(a["a"], a["b"]),
     "adjusted_rand_index": lambda a: N.adjusted_rand_index(a["a"], a["b"]),
     "fowlkes_mallows_clustering": lambda a: N.fowlkes_mallows_clustering(a["a"], a["b"]),
+    # pack ENG - performance / SRE depth
+    "latency_p75": lambda a: N.latency_p75(a["durations"]),
+    "latency_p999": lambda a: N.latency_p999(a["durations"]),
+    "tail_latency_ratio": lambda a: N.tail_latency_ratio(a["durations"]),
+    "latency_stddev": lambda a: N.latency_stddev(a["durations"]),
+    "jitter": lambda a: N.jitter(a["durations"]),
+    "slo_attainment": lambda a: N.slo_attainment(a["durations"], a["threshold"]),
+    "error_budget_burn": lambda a: N.error_budget_burn(a["flags"], a["target"]),
+    "compression_ratio": lambda a: N.compression_ratio(a["original"], a["compressed"]),
+    "availability": lambda a: N.availability(a["uptime"], a["downtime"]),
+    "mtbf": lambda a: N.mtbf(a["flags"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -376,10 +387,13 @@ EXPECTED = {
     "concordance_index", "mutual_info_score", "normalized_mutual_info", "homogeneity_score",
     "completeness_score", "v_measure_score", "rand_index", "adjusted_rand_index",
     "fowlkes_mallows_clustering",
+    # pack ENG - performance / SRE depth (10)
+    "latency_p75", "latency_p999", "tail_latency_ratio", "latency_stddev", "jitter",
+    "slo_attainment", "error_budget_burn", "compression_ratio", "availability", "mtbf",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 229 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 239 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402
