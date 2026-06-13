@@ -4,6 +4,23 @@ All notable changes to the calma skill/CLI. Dates are UTC.
 
 ## 0.9.0 — 2026-06-13
 
+### WS5 — Graceful handling of THEIR non-determinism
+
+- The determinism recheck (re-execute, diff the artifact bytes) now **fires automatically** when it
+  matters — not just under `--check-determinism`: on untrusted counterparty code (`--trust
+  third-party`), and whenever bit-determinism could NOT be proven statically (measured-band /
+  uncontrolled) AND a claim is being judged. This closes a real false-confirm hole: an **unseeded
+  flaky repo whose output happened to land near the claim previously CONFIRMED-WITH-CAVEATS**; it now
+  degrades to CAN'T-CONFIRM. Provably bit-deterministic runs skip the second execution (no wasted cost),
+  and a stable-but-measured-band run (e.g. seeded RNG) still CONFIRMS — no false-refute.
+- The FLAKY message reads as a **measurement, not a failure**: it names which artifacts drifted and
+  **quantifies the swing on the headline metric** ("total_return moved -0.10% → +10.2% across two runs,
+  Δ 10.3%"), and the unblock names the **likely source + the exact knob to pin** (random.seed /
+  np.random.seed / torch deterministic + CUBLAS_WORKSPACE_CONFIG / OMP_NUM_THREADS=1 / drop timestamps),
+  inferred from the static determinism note. Still degrades to INCONCLUSIVE, never a false REFUTED.
+- Tests: `test_dx.py` extended — the flaky repo auto-degrades to CAN'T-CONFIRM without
+  `--check-determinism`, and the fix names the precise source.
+
 ### WS4 — Backtest checks that catch the common inflated-deck failures
 
 - New `backtest_checks.py`, run additively in the verify pipeline, each catch stating the assumption

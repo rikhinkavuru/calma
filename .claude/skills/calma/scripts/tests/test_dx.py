@@ -273,7 +273,15 @@ with open(os.path.join(flaky, "main.py"), "w") as fh:
              "[w.writerow([random.random()]) for _ in range(50)]\n")
 res = C.verify(flaky, claim="sum 25", metric="column_sum", check_determinism=True)
 truth(res["repo_verdict"] == V.INCONCLUSIVE, "FLAKY outputs -> INCONCLUSIVE (got %s)" % res["repo_verdict"])
-truth("FLAKY" in res["report"] and "fix:" in res["report"], "FLAKY report names the problem and the fix")
+truth("does not reproduce run-to-run" in res["report"] and "fix:" in res["report"],
+      "FLAKY report names the problem and the fix")
+truth("random.seed" in res["report"], "FLAKY fix names the precise source (random.seed)")
+# WS5: the same flaky repo auto-degrades to CAN'T-CONFIRM even WITHOUT --check-determinism
+# (uncontrolled determinism + a claim -> the recheck fires automatically; never a false-confirm)
+res_auto = C.verify(flaky, claim="sum 25", metric="column_sum", force=True)
+truth(res_auto["repo_verdict"] == V.INCONCLUSIVE,
+      "WS5: flaky repo auto-degrades to CAN'T-CONFIRM without --check-determinism (got %s)"
+      % res_auto["repo_verdict"])
 stable = os.path.join(tmp, "stable")
 os.makedirs(stable)
 with open(os.path.join(stable, "main.py"), "w") as fh:

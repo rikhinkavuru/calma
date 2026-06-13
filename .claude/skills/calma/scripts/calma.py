@@ -251,16 +251,29 @@ def _assemble_ledger(contract, diff, run_res):
                              "expected": "recomputed within budget of claimed"},
             })
         claims.append(claim)
-    # FLAKY: two identical re-executions disagreed -> blocking finding with the seed fix
+    # FLAKY: two identical re-executions disagreed -> blocking finding. The message reads as a
+    # measurement (which artifacts drifted, and by how much on the headline metric) and the unblock
+    # names the LIKELY source + the exact knob to pin - rigor, not a generic failure.
     recheck = run_res.get("determinism_recheck")
     if recheck and not recheck.get("stable", True):
+        var = recheck.get("variance")
+        locator = ("the counterparty's code does not reproduce run-to-run (identical inputs, "
+                   "different outputs): %s" % ", ".join(recheck.get("differing_artifacts", [])[:4]))
+        if var:
+            locator += ("; %s moved %s -> %s across two runs (Δ %s)"
+                        % (var["metric_id"], REP.fmt_value(var["v1"], var["metric_id"]),
+                           REP.fmt_value(var["v2"], var["metric_id"]),
+                           REP.fmt_value(var["spread"], var["metric_id"])))
+        hint = _nondeterminism_hint(run_res.get("determinism_note"))
+        unblock = ("make the run reproducible, then re-verify: set a fixed seed, pin thread counts "
+                   "(OMP_NUM_THREADS=1), and write outputs without timestamps")
+        if hint:
+            unblock = "likely source: %s. Then re-run calma verify." % hint
         findings.append({
             "id": "f-flaky", "claim_id": claims[0]["id"] if claims else None,
             "dimension": "reproducibility", "severity": "blocker", "status": "open",
             "confidence": "deterministic", "fixable_by": "author",
-            "locator": "outputs differ across identical re-runs (FLAKY): %s"
-                       % ", ".join(recheck.get("differing_artifacts", [])[:4]),
-            "unblock": "set a fixed seed (and write outputs deterministically), then re-run calma verify",
+            "locator": locator, "unblock": unblock,
             "reverify": {"kind": "requires-reexecution", "source": "run",
                          "expected": "identical artifacts across re-runs"},
         })
@@ -428,6 +441,41 @@ def _store_cache(target, fingerprint, run_id, repo_verdict):
     with open(tmp, "w") as fh:
         json.dump(cache, fh, indent=2)
     os.replace(tmp, cache_path)
+
+
+def _metric_variance(rec1, rec2):
+    """The swing on the first finite headline metric between two re-runs: {metric_id, v1, v2, spread}.
+    Quantifies HOW non-reproducible the result is, so the FLAKY message reads as a measurement."""
+    by2 = {m["metric_id"]: m for m in (rec2.get("metrics") or [])}
+    for m in rec1.get("metrics") or []:
+        v1 = m.get("value")
+        v2 = (by2.get(m["metric_id"]) or {}).get("value")
+        if isinstance(v1, float) and isinstance(v2, float) and v1 == v1 and v2 == v2 and v1 != v2:
+            return {"metric_id": m["metric_id"], "v1": v1, "v2": v2, "spread": abs(v1 - v2)}
+    return None
+
+
+# map the static determinism note to a concrete, human cause + the specific knob to pin.
+_NONDET_HINTS = [
+    ("torch", "a GPU/ML framework (torch) - set torch.manual_seed and torch.use_deterministic_algorithms(True), and pin CUBLAS_WORKSPACE_CONFIG"),
+    ("tensorflow", "a GPU/ML framework (tensorflow) - set tf.random.set_seed and enable deterministic ops"),
+    ("random", "Python's random module - call random.seed(<n>) before use"),
+    ("numpy", "numpy RNG / BLAS - set np.random.seed(<n>) and pin OMP_NUM_THREADS=1 / MKL_NUM_THREADS=1"),
+    ("uuid", "uuid generation - derive ids deterministically instead of uuid4()"),
+    ("time", "wall-clock time - stop writing timestamps into the output (or pin them)"),
+    ("datetime", "datetime.now() - pin the date or read it from declared input data"),
+    ("threading", "thread scheduling - pin the worker/thread count and avoid order-dependent reductions"),
+    ("multiprocessing", "process scheduling - fix the pool size and the reduction order"),
+]
+
+
+def _nondeterminism_hint(det_note):
+    """The likely source of run-to-run drift, from the static determinism note (best-effort)."""
+    note = (det_note or "").lower()
+    for needle, hint in _NONDET_HINTS:
+        if needle in note:
+            return hint
+    return None
 
 
 def _artifact_hashes(target, contract):
@@ -652,21 +700,41 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
                 if redrafted.get("metrics"):
                     contract = redrafted
                     json.dump(contract, open(contract_path, "w"), indent=2)
-            # optional FLAKY check: re-execute a second time and diff the artifact bytes. Identical
-            # inputs producing different outputs is itself a verdict-blocking finding (G1c).
+            # FLAKY check (WS5): re-execute once more and diff the artifact bytes. Identical inputs
+            # that produce different outputs is a verdict-BLOCKING finding (G1c) -> CAN'T-CONFIRM,
+            # never a false-confirm of a number that won't reproduce. We pay for the 2nd run exactly
+            # when it matters: the caller asked (--check-determinism), it's untrusted counterparty
+            # code (third-party), OR bit-determinism could NOT be proven statically (measured-band/
+            # uncontrolled) AND a claim is being judged. A controlled-to-bit run is provably stable.
+            det_mode = run_res.get("determinism_mode", "uncontrolled")
+            any_claim_value = any(m.get("claimed_value") is not None
+                                  for m in contract.get("metrics", []))
+            do_recheck = run_res.get("exit_code") == 0 and (
+                check_determinism or trust == "third-party"
+                or (det_mode != "controlled-to-bit" and any_claim_value))
             outputs_unstable = False
-            if check_determinism and run_res.get("exit_code") == 0:
+            if do_recheck:
                 h1 = _artifact_hashes(target, contract)
-                run2 = H.run(contract_path, base=target, timeout=eff_timeout)
+                rec1 = RC.recompute_contract(contract_path, base=target)  # run-1 metric values
+                run2 = H.run(contract_path, base=target, timeout=eff_timeout,
+                             trust_override=("untrusted-third-party" if trust == "third-party"
+                                             else None),
+                             isolation=(None if isolation in (None, "auto") else isolation))
+                variance = None
                 if run2.get("exit_code") == 0:
                     h2 = _artifact_hashes(target, contract)
                     unstable_paths = sorted(p for p in set(h1) | set(h2) if h1.get(p) != h2.get(p))
+                    if unstable_paths:  # quantify the swing on the headline metric (reads as rigor)
+                        variance = _metric_variance(rec1, RC.recompute_contract(contract_path, base=target))
                 else:
                     unstable_paths = ["<second run exited %s>" % run2.get("exit_code")]
                 outputs_unstable = bool(unstable_paths)
                 run_res["determinism_recheck"] = {
                     "reruns": 2, "stable": not outputs_unstable,
-                    "differing_artifacts": unstable_paths,
+                    "differing_artifacts": unstable_paths, "variance": variance,
+                    "trigger": ("--check-determinism" if check_determinism else
+                                "third-party-auto" if trust == "third-party" else
+                                "static-nondeterminism-auto"),
                 }
             rec = RC.recompute_contract(contract_path, base=target)
             json.dump(rec, open(os.path.join(run_dir, "recompute.json"), "w"), indent=2)
