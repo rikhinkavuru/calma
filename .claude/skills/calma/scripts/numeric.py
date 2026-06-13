@@ -1865,3 +1865,314 @@ def wer(preds, refs, char_level=False):
         total_edits += _edit_distance(rt, pt)
         total_ref += len(rt)
     return total_edits / total_ref if total_ref else float("nan")
+
+
+# ======================================================================================
+# Pack QR - quant-risk depth (deterministic functions of a return series / benchmark).
+# References: canonical literature formulas computed in numpy/scipy in the generator;
+# moments use scipy defaults (biased skew g1, biased excess kurtosis g2).
+# ======================================================================================
+
+def _drawdown_series(rets):
+    """Per-period drawdown dd_t = equity_t / running_peak_t - 1 (<= 0)."""
+    dd = []
+    eq = 1.0
+    peak = 1.0
+    for r in rets:
+        eq *= (1.0 + r)
+        if eq > peak:
+            peak = eq
+        dd.append(eq / peak - 1.0)
+    return dd
+
+
+def z_ppf(p):
+    """One-sided inverse standard-normal CDF: z with Phi(z) = p (normal_sf decreasing)."""
+    if not (0.0 < p < 1.0):
+        return float("nan")
+    return _bisect_inv(normal_sf, 1.0 - p, -40.0, 40.0)
+
+
+def _norm_pdf(z):
+    return dexp(-0.5 * z * z) / math.sqrt(2.0 * math.pi)
+
+
+def ulcer_index(rets):
+    """Martin & McCann Ulcer Index: sqrt(mean(dd_t^2)) over the drawdown series (fraction)."""
+    if not rets or _has_nan(rets):
+        return float("nan")
+    dd = _drawdown_series(rets)
+    return math.sqrt(math.fsum(d * d for d in dd) / len(dd))
+
+
+def pain_index(rets):
+    """Average drawdown depth: mean(|dd_t|)."""
+    if not rets or _has_nan(rets):
+        return float("nan")
+    dd = _drawdown_series(rets)
+    return math.fsum(-d for d in dd) / len(dd)
+
+
+def martin_ratio(rets, periods):
+    """Ulcer Performance Index: annualized (CAGR-style) return / Ulcer Index (rf=0)."""
+    if len(rets) < 2 or _has_nan(rets):
+        return float("nan")
+    growth = pairwise_prod([1.0 + r for r in rets])
+    if growth <= 0:
+        return float("nan")
+    ann = dpow(growth, periods / len(rets)) - 1.0
+    ui = ulcer_index(rets)
+    if not (ui > 0):
+        return float("nan")
+    return ann / ui
+
+
+def recovery_factor(rets):
+    """Total return / |max drawdown|."""
+    if not rets or _has_nan(rets):
+        return float("nan")
+    mdd = max_drawdown(rets)
+    if not (mdd < 0):
+        return float("nan")
+    return total_return(rets) / abs(mdd)
+
+
+def gain_to_pain_ratio(rets):
+    """Schwager Gain-to-Pain: sum(r) / |sum(r<0)|."""
+    if not rets or _has_nan(rets):
+        return float("nan")
+    pain = math.fsum(-r for r in rets if r < 0)
+    if not (pain > 0):
+        return float("nan")
+    return math.fsum(rets) / pain
+
+
+def tail_ratio(rets):
+    """|95th pct| / |5th pct| of returns (numpy linear quantile)."""
+    if not rets or _has_nan(rets):
+        return float("nan")
+    lo = quantile(rets, 0.05)
+    if not (abs(lo) > 0):
+        return float("nan")
+    return abs(quantile(rets, 0.95)) / abs(lo)
+
+
+def gain_loss_ratio(rets):
+    """mean(positive returns) / |mean(negative returns)|."""
+    if not rets or _has_nan(rets):
+        return float("nan")
+    wins = [r for r in rets if r > 0]
+    losses = [r for r in rets if r < 0]
+    if not wins or not losses:
+        return float("nan")
+    ml = abs(fmean(losses))
+    if not (ml > 0):
+        return float("nan")
+    return fmean(wins) / ml
+
+
+def win_loss_ratio(rets):
+    """count(r>0) / count(r<0)."""
+    if not rets or _has_nan(rets):
+        return float("nan")
+    nl = sum(1 for r in rets if r < 0)
+    if nl == 0:
+        return float("nan")
+    return sum(1 for r in rets if r > 0) / nl
+
+
+def kelly_criterion(rets):
+    """Kelly fraction: W - (1-W)/R; W = wins/(wins+losses), R = avg win / |avg loss|."""
+    if not rets or _has_nan(rets):
+        return float("nan")
+    wins = [r for r in rets if r > 0]
+    losses = [r for r in rets if r < 0]
+    if not wins or not losses:
+        return float("nan")
+    payoff = fmean(wins) / abs(fmean(losses))
+    if not (payoff > 0):
+        return float("nan")
+    w = len(wins) / (len(wins) + len(losses))
+    return w - (1.0 - w) / payoff
+
+
+def upside_deviation(rets, periods):
+    """Annualized upside deviation, target 0: sqrt(mean(max(r,0)^2)) * sqrt(periods)."""
+    if not rets or _has_nan(rets):
+        return float("nan")
+    u2 = math.fsum(max(r, 0.0) ** 2 for r in rets) / len(rets)
+    return math.sqrt(u2) * math.sqrt(periods)
+
+
+def upside_potential_ratio(rets):
+    """Sortino-van der Meer-Plantinga UPR, target 0: mean(max(r,0)) / sqrt(mean(min(r,0)^2))."""
+    if not rets or _has_nan(rets):
+        return float("nan")
+    up = math.fsum(max(r, 0.0) for r in rets) / len(rets)
+    dd2 = math.fsum(min(r, 0.0) ** 2 for r in rets) / len(rets)
+    if not (dd2 > 0):
+        return float("nan")
+    return up / math.sqrt(dd2)
+
+
+def kappa_three(rets):
+    """Kaplan-Knowles Kappa-3, target 0: mean(r) / (mean(max(-r,0)^3))^(1/3)."""
+    if not rets or _has_nan(rets):
+        return float("nan")
+    lpm3 = math.fsum(max(-r, 0.0) ** 3 for r in rets) / len(rets)
+    if not (lpm3 > 0):
+        return float("nan")
+    return fmean(rets) / dpow(lpm3, 1.0 / 3.0)
+
+
+def cdar(rets, level):
+    """Conditional Drawdown at Risk at `level` (Chekhlov-Uryasev): mean of drawdowns at or
+    beyond the (1-level) drawdown quantile, reported as a positive fraction."""
+    if not rets or _has_nan(rets) or not (0.5 < level < 1.0):
+        return float("nan")
+    dd = _drawdown_series(rets)
+    cut = quantile(dd, 1.0 - level)
+    tail = [d for d in dd if d <= cut]
+    return -fmean(tail) if tail else float("nan")
+
+
+def max_drawdown_duration(rets):
+    """Longest run of consecutive periods the equity curve spends below a prior peak."""
+    if not rets or _has_nan(rets):
+        return float("nan")
+    eq = 1.0
+    peak = 1.0
+    cur = 0
+    longest = 0
+    for r in rets:
+        eq *= (1.0 + r)
+        if eq >= peak:
+            peak = eq
+            cur = 0
+        else:
+            cur += 1
+            if cur > longest:
+                longest = cur
+    return float(longest)
+
+
+def parametric_var(rets, level):
+    """Gaussian (variance-covariance) VaR: -(mu + Phi^{-1}(1-level)*sigma); positive loss."""
+    if len(rets) < 2 or _has_nan(rets) or not (0.5 < level < 1.0):
+        return float("nan")
+    mu = fmean(rets)
+    sd = fstd(rets, 1)
+    return -(mu + z_ppf(1.0 - level) * sd)
+
+
+def parametric_es(rets, level):
+    """Gaussian expected shortfall: -(mu - sigma*phi(z_a)/(1-level)), z_a = Phi^{-1}(1-level)."""
+    if len(rets) < 2 or _has_nan(rets) or not (0.5 < level < 1.0):
+        return float("nan")
+    mu = fmean(rets)
+    sd = fstd(rets, 1)
+    a = 1.0 - level
+    return -(mu - sd * _norm_pdf(z_ppf(a)) / a)
+
+
+def cornish_fisher_var(rets, level):
+    """Modified (Cornish-Fisher) VaR: Gaussian VaR with the z-quantile expanded for skewness
+    S and excess kurtosis K (Zangari); positive loss."""
+    if len(rets) < 4 or _has_nan(rets) or not (0.5 < level < 1.0):
+        return float("nan")
+    mu = fmean(rets)
+    sd = fstd(rets, 1)
+    s = skewness(rets)
+    k = kurtosis_excess(rets)
+    z = z_ppf(1.0 - level)
+    zcf = (z + (z * z - 1.0) * s / 6.0 + (z * z * z - 3.0 * z) * k / 24.0
+           - (2.0 * z * z * z - 5.0 * z) * s * s / 36.0)
+    return -(mu + zcf * sd)
+
+
+def adjusted_sharpe_ratio(rets):
+    """Pezier-White Adjusted Sharpe (per-period): SR*(1 + (S/6)SR - (Kx/24)SR^2)."""
+    if len(rets) < 4 or _has_nan(rets):
+        return float("nan")
+    sd = fstd(rets, 1)
+    if not (sd > 0):
+        return float("nan")
+    sr = fmean(rets) / sd
+    s = skewness(rets)
+    kx = kurtosis_excess(rets)
+    return sr * (1.0 + (s / 6.0) * sr - (kx / 24.0) * sr * sr)
+
+
+def probabilistic_sharpe_ratio(rets, benchmark_sr=0.0):
+    """Bailey & Lopez de Prado PSR: Phi((SR - SR*)*sqrt(T-1)/sqrt(1 - g3*SR + ((g4-1)/4)*SR^2)).
+    SR, SR* per-period; g3 biased skew, g4 non-excess kurtosis."""
+    if len(rets) < 3 or _has_nan(rets):
+        return float("nan")
+    t = len(rets)
+    sd = fstd(rets, 1)
+    if not (sd > 0):
+        return float("nan")
+    sr = fmean(rets) / sd
+    g3 = skewness(rets)
+    g4 = kurtosis_excess(rets) + 3.0
+    denom = 1.0 - g3 * sr + ((g4 - 1.0) / 4.0) * sr * sr
+    if not (denom > 0):
+        return float("nan")
+    stat = (sr - benchmark_sr) * math.sqrt(t - 1.0) / math.sqrt(denom)
+    return 1.0 - normal_sf(stat)
+
+
+def up_capture_ratio(rets, bench):
+    """mean(strategy | bench>0) / mean(bench | bench>0)."""
+    if len(rets) != len(bench) or not rets or _has_nan(rets) or _has_nan(bench):
+        return float("nan")
+    rs = [r for r, b in zip(rets, bench) if b > 0]
+    bs = [b for b in bench if b > 0]
+    if not bs or fmean(bs) == 0:
+        return float("nan")
+    return fmean(rs) / fmean(bs)
+
+
+def down_capture_ratio(rets, bench):
+    """mean(strategy | bench<0) / mean(bench | bench<0)."""
+    if len(rets) != len(bench) or not rets or _has_nan(rets) or _has_nan(bench):
+        return float("nan")
+    rs = [r for r, b in zip(rets, bench) if b < 0]
+    bs = [b for b in bench if b < 0]
+    if not bs or fmean(bs) == 0:
+        return float("nan")
+    return fmean(rs) / fmean(bs)
+
+
+def capture_ratio(rets, bench):
+    """Up-capture / down-capture."""
+    up = up_capture_ratio(rets, bench)
+    dn = down_capture_ratio(rets, bench)
+    if not (up == up) or not (dn == dn) or dn == 0:
+        return float("nan")
+    return up / dn
+
+
+def treynor_ratio(rets, bench, periods):
+    """Annualized excess return / beta (rf=0): mean(r)*periods / beta."""
+    if len(rets) < 2 or len(rets) != len(bench) or _has_nan(rets) or _has_nan(bench):
+        return float("nan")
+    b = beta(rets, bench)
+    if not (b == b) or b == 0:
+        return float("nan")
+    return (fmean(rets) * periods) / b
+
+
+def r_squared(rets, bench):
+    """Coefficient of determination vs a benchmark: pearson(r, b)^2."""
+    if len(rets) < 2 or len(rets) != len(bench) or _has_nan(rets) or _has_nan(bench):
+        return float("nan")
+    rho = pearson_r(rets, bench)
+    return rho * rho if rho == rho else float("nan")
+
+
+def active_return(rets, bench, periods):
+    """Annualized active return: mean(r - b) * periods."""
+    if len(rets) != len(bench) or not rets or _has_nan(rets) or _has_nan(bench):
+        return float("nan")
+    return fmean([r - b for r, b in zip(rets, bench)]) * periods

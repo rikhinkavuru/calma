@@ -169,6 +169,32 @@ KINDS = {
     "chi2_sf": lambda a: N.chi2_sf(a["x"], a["df"]),
     "t_ppf2": lambda a: N.t_ppf_two_sided(a["alpha"], a["df"]),
     "z_ppf2": lambda a: N.z_ppf_two_sided(a["alpha"]),
+    # pack QR - quant-risk depth
+    "ulcer_index": lambda a: N.ulcer_index(a["rets"]),
+    "pain_index": lambda a: N.pain_index(a["rets"]),
+    "martin_ratio": lambda a: N.martin_ratio(a["rets"], a["periods"]),
+    "recovery_factor": lambda a: N.recovery_factor(a["rets"]),
+    "gain_to_pain_ratio": lambda a: N.gain_to_pain_ratio(a["rets"]),
+    "tail_ratio": lambda a: N.tail_ratio(a["rets"]),
+    "gain_loss_ratio": lambda a: N.gain_loss_ratio(a["rets"]),
+    "win_loss_ratio": lambda a: N.win_loss_ratio(a["rets"]),
+    "kelly_criterion": lambda a: N.kelly_criterion(a["rets"]),
+    "upside_deviation": lambda a: N.upside_deviation(a["rets"], a["periods"]),
+    "upside_potential_ratio": lambda a: N.upside_potential_ratio(a["rets"]),
+    "kappa_three": lambda a: N.kappa_three(a["rets"]),
+    "cdar": lambda a: N.cdar(a["rets"], a["level"]),
+    "max_drawdown_duration": lambda a: N.max_drawdown_duration(a["rets"]),
+    "parametric_var": lambda a: N.parametric_var(a["rets"], a["level"]),
+    "parametric_es": lambda a: N.parametric_es(a["rets"], a["level"]),
+    "cornish_fisher_var": lambda a: N.cornish_fisher_var(a["rets"], a["level"]),
+    "adjusted_sharpe_ratio": lambda a: N.adjusted_sharpe_ratio(a["rets"]),
+    "probabilistic_sharpe_ratio": lambda a: N.probabilistic_sharpe_ratio(a["rets"], a["benchmark_sr"]),
+    "up_capture_ratio": lambda a: N.up_capture_ratio(a["rets"], a["bench"]),
+    "down_capture_ratio": lambda a: N.down_capture_ratio(a["rets"], a["bench"]),
+    "capture_ratio": lambda a: N.capture_ratio(a["rets"], a["bench"]),
+    "treynor_ratio": lambda a: N.treynor_ratio(a["rets"], a["bench"], a["periods"]),
+    "r_squared": lambda a: N.r_squared(a["rets"], a["bench"]),
+    "active_return": lambda a: N.active_return(a["rets"], a["bench"], a["periods"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -218,10 +244,17 @@ EXPECTED = {
     "relative_risk", "cramers_v", "skewness", "kurtosis", "jarque_bera", "autocorrelation",
     # pack 11 - retrieval / LLM evals II
     "precision_at_k", "map_at_k", "perplexity", "wer",
+    # pack QR - quant-risk depth (25)
+    "ulcer_index", "pain_index", "martin_ratio", "recovery_factor", "gain_to_pain_ratio",
+    "tail_ratio", "gain_loss_ratio", "win_loss_ratio", "kelly_criterion", "upside_deviation",
+    "upside_potential_ratio", "kappa_three", "cdar", "max_drawdown_duration", "parametric_var",
+    "parametric_es", "cornish_fisher_var", "adjusted_sharpe_ratio", "probabilistic_sharpe_ratio",
+    "up_capture_ratio", "down_capture_ratio", "capture_ratio", "treynor_ratio", "r_squared",
+    "active_return",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 118 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 143 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

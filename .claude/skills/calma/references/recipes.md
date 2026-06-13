@@ -1,4 +1,4 @@
-# Recipe catalog (120 recipes, all SOTA-validated)
+# Recipe catalog (145 recipes, all SOTA-validated)
 
 Every recipe recomputes its number ONLY from raw machine-readable artifacts via the
 reference-deterministic kernels in `numeric.py` (fsum / pairwise product / sqrt, plus the
@@ -198,3 +198,34 @@ pure-stdlib in `tests/test_compiler.py`).
 - **coefficient_of_variation** - relative dispersion: `fstd(value, ddof=1) / fmean(value)`.
   Reference: `scipy.stats.variation(ddof=1)`. Binding: one numeric `value` column. Metamorphics:
   permutation-invariant, SCALE-invariant, >= 0 on positive data.
+
+## Quant-risk depth (Pack QR, 25)
+
+Binding `return` (relative-performance metrics also bind `benchmark`). Drawdown metrics use the
+engine convention: equity peak floored at initial capital 1.0 (matching `max_drawdown`). Moments
+use scipy defaults (biased skew g1, biased excess kurtosis g2). Validated by
+`tests/test_recipes_sota.py` against NumPy/SciPy reference values.
+
+| metric_id | binding | convention | definition |
+|---|---|---|---|
+| ulcer_index / pain_index | return | - | √(mean(ddₜ²)) ; mean(\|ddₜ\|) over the drawdown series |
+| martin_ratio | return | periods | annualized return / ulcer index (Ulcer Performance Index) |
+| recovery_factor | return | - | total return / \|max drawdown\| |
+| gain_to_pain_ratio | return | - | sum(r) / \|sum(r<0)\| (Schwager) |
+| tail_ratio | return | - | \|p95\| / \|p05\| of returns |
+| gain_loss_ratio / win_loss_ratio | return | - | mean(r>0)/\|mean(r<0)\| ; count(r>0)/count(r<0) |
+| kelly_criterion | return | - | W − (1−W)/R ; W=wins/(wins+losses), R=avg win/\|avg loss\| |
+| upside_deviation | return | periods | √(mean(max(r,0)²)) × √periods |
+| upside_potential_ratio | return | - | mean(max(r,0)) / √(mean(min(r,0)²)) (target 0) |
+| kappa_three | return | - | mean(r) / (mean(max(−r,0)³))^(1/3) (Kaplan-Knowles) |
+| cdar | return | p95/p99 | mean of drawdowns at/beyond the (1−level) drawdown quantile (Chekhlov-Uryasev) |
+| max_drawdown_duration | return | - | longest consecutive run below the running peak (periods) |
+| parametric_var / parametric_es | return | p95/p99 | Gaussian VaR −(μ+Φ⁻¹(1−α)σ) ; ES −(μ−σφ(z)/α) |
+| cornish_fisher_var | return | p95/p99 | Gaussian VaR with the Cornish-Fisher skew/kurtosis z-expansion |
+| adjusted_sharpe_ratio | return | - | SR·(1+(S/6)SR−(K/24)SR²) per-period (Pézier-White) |
+| probabilistic_sharpe_ratio | return | - | Φ((SR−SR*)√(T−1)/√(1−g₃SR+((g₄−1)/4)SR²)) (Bailey-LdP) |
+| up_capture_ratio / down_capture_ratio | return, benchmark | - | mean(r\|b>0)/mean(b\|b>0) ; mean(r\|b<0)/mean(b\|b<0) |
+| capture_ratio | return, benchmark | - | up-capture / down-capture |
+| treynor_ratio | return, benchmark | periods | annualized mean return / β (rf=0) |
+| r_squared | return, benchmark | - | pearson(r,b)² |
+| active_return | return, benchmark | periods | mean(r−b) × periods |

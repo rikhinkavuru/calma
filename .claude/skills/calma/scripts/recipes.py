@@ -1087,3 +1087,183 @@ def _load_compiled():
 
 
 _load_compiled()
+
+
+# ======================================================================================
+# Pack QR - quant-risk depth (25 recipes). Return series via tag `return`; relative-
+# performance metrics also bind `benchmark`. Annualized metrics take periods 252/365/52.
+# ======================================================================================
+
+@register("ulcer_index", family="quant", required_tags=["return"], set_maturity="reviewed")
+def ulcer_index(cols, binding, convention=None):
+    rets = cols[binding["return"]]
+    return _result(N.ulcer_index(rets), {"n": len(rets)}, path_dependent=True)
+
+
+@register("pain_index", family="quant", required_tags=["return"], set_maturity="reviewed")
+def pain_index(cols, binding, convention=None):
+    rets = cols[binding["return"]]
+    return _result(N.pain_index(rets), {"n": len(rets)}, path_dependent=True)
+
+
+@register("martin_ratio", family="quant", required_tags=["return"], periodicity_param="periods",
+          set_maturity="reviewed", accepted_conventions=["252", "365", "52"])
+def martin_ratio(cols, binding, convention=None):
+    rets = cols[binding["return"]]
+    p = _periods(convention, binding)
+    return _result(N.martin_ratio(rets, p), {"n": len(rets), "periods": p}, path_dependent=True)
+
+
+@register("recovery_factor", family="quant", required_tags=["return"], set_maturity="reviewed")
+def recovery_factor(cols, binding, convention=None):
+    rets = cols[binding["return"]]
+    return _result(N.recovery_factor(rets), {"n": len(rets)}, path_dependent=True)
+
+
+@register("gain_to_pain_ratio", family="quant", required_tags=["return"], set_maturity="reviewed")
+def gain_to_pain_ratio(cols, binding, convention=None):
+    rets = cols[binding["return"]]
+    return _result(N.gain_to_pain_ratio(rets), {"n": len(rets)})
+
+
+@register("tail_ratio", family="quant", required_tags=["return"], set_maturity="reviewed")
+def tail_ratio(cols, binding, convention=None):
+    rets = cols[binding["return"]]
+    return _result(N.tail_ratio(rets), {"n": len(rets)})
+
+
+@register("gain_loss_ratio", family="quant", required_tags=["return"], set_maturity="reviewed")
+def gain_loss_ratio(cols, binding, convention=None):
+    rets = cols[binding["return"]]
+    return _result(N.gain_loss_ratio(rets), {"n": len(rets)})
+
+
+@register("win_loss_ratio", family="quant", required_tags=["return"], set_maturity="reviewed")
+def win_loss_ratio(cols, binding, convention=None):
+    rets = cols[binding["return"]]
+    return _result(N.win_loss_ratio(rets), {"n": len(rets)})
+
+
+@register("kelly_criterion", family="quant", required_tags=["return"], set_maturity="reviewed")
+def kelly_criterion(cols, binding, convention=None):
+    rets = cols[binding["return"]]
+    return _result(N.kelly_criterion(rets), {"n": len(rets)})
+
+
+@register("upside_deviation", family="quant", required_tags=["return"], periodicity_param="periods",
+          set_maturity="reviewed", accepted_conventions=["252", "365", "52"])
+def upside_deviation(cols, binding, convention=None):
+    rets = cols[binding["return"]]
+    p = _periods(convention, binding)
+    return _result(N.upside_deviation(rets, p), {"n": len(rets), "periods": p, "target": 0.0})
+
+
+@register("upside_potential_ratio", family="quant", required_tags=["return"], set_maturity="reviewed")
+def upside_potential_ratio(cols, binding, convention=None):
+    rets = cols[binding["return"]]
+    return _result(N.upside_potential_ratio(rets), {"n": len(rets), "target": 0.0})
+
+
+@register("kappa_three", family="quant", required_tags=["return"], set_maturity="reviewed")
+def kappa_three(cols, binding, convention=None):
+    rets = cols[binding["return"]]
+    return _result(N.kappa_three(rets), {"n": len(rets), "target": 0.0, "order": 3})
+
+
+@register("cdar", family="quant", required_tags=["return"], set_maturity="reviewed",
+          accepted_conventions=["p95", "p99"])
+def cdar(cols, binding, convention=None):
+    rets = cols[binding["return"]]
+    level = _conv_q(convention) if convention else 0.95
+    return _result(N.cdar(rets, level), {"n": len(rets), "level": level, "sign": "loss-positive"},
+                   path_dependent=True)
+
+
+@register("max_drawdown_duration", family="quant", required_tags=["return"], set_maturity="reviewed")
+def max_drawdown_duration(cols, binding, convention=None):
+    rets = cols[binding["return"]]
+    return _result(N.max_drawdown_duration(rets), {"n": len(rets), "unit": "periods"},
+                   path_dependent=True)
+
+
+@register("parametric_var", family="quant", required_tags=["return"], set_maturity="reviewed",
+          accepted_conventions=["p95", "p99"])
+def parametric_var(cols, binding, convention=None):
+    rets = cols[binding["return"]]
+    level = _conv_q(convention) if convention else 0.95
+    return _result(N.parametric_var(rets, level), {"n": len(rets), "level": level, "sign": "loss-positive"})
+
+
+@register("parametric_es", family="quant", required_tags=["return"], set_maturity="reviewed",
+          accepted_conventions=["p95", "p99"])
+def parametric_es(cols, binding, convention=None):
+    rets = cols[binding["return"]]
+    level = _conv_q(convention) if convention else 0.95
+    return _result(N.parametric_es(rets, level), {"n": len(rets), "level": level, "sign": "loss-positive"})
+
+
+@register("cornish_fisher_var", family="quant", required_tags=["return"], set_maturity="reviewed",
+          accepted_conventions=["p95", "p99"])
+def cornish_fisher_var(cols, binding, convention=None):
+    rets = cols[binding["return"]]
+    level = _conv_q(convention) if convention else 0.95
+    return _result(N.cornish_fisher_var(rets, level), {"n": len(rets), "level": level, "sign": "loss-positive"})
+
+
+@register("adjusted_sharpe_ratio", family="quant", required_tags=["return"], set_maturity="reviewed")
+def adjusted_sharpe_ratio(cols, binding, convention=None):
+    rets = cols[binding["return"]]
+    return _result(N.adjusted_sharpe_ratio(rets), {"n": len(rets), "basis": "per-period"})
+
+
+@register("probabilistic_sharpe_ratio", family="quant", required_tags=["return"], set_maturity="reviewed")
+def probabilistic_sharpe_ratio(cols, binding, convention=None):
+    rets = cols[binding["return"]]
+    bsr = float(convention or binding.get("benchmark_sr") or 0.0)
+    return _result(N.probabilistic_sharpe_ratio(rets, bsr), {"n": len(rets), "benchmark_sr": bsr})
+
+
+@register("up_capture_ratio", family="quant", required_tags=["return", "benchmark"], set_maturity="reviewed")
+def up_capture_ratio(cols, binding, convention=None):
+    rets = cols[binding["return"]]
+    bench = cols[binding["benchmark"]]
+    return _result(N.up_capture_ratio(rets, bench), {"n": len(rets)})
+
+
+@register("down_capture_ratio", family="quant", required_tags=["return", "benchmark"], set_maturity="reviewed")
+def down_capture_ratio(cols, binding, convention=None):
+    rets = cols[binding["return"]]
+    bench = cols[binding["benchmark"]]
+    return _result(N.down_capture_ratio(rets, bench), {"n": len(rets)})
+
+
+@register("capture_ratio", family="quant", required_tags=["return", "benchmark"], set_maturity="reviewed")
+def capture_ratio(cols, binding, convention=None):
+    rets = cols[binding["return"]]
+    bench = cols[binding["benchmark"]]
+    return _result(N.capture_ratio(rets, bench), {"n": len(rets)})
+
+
+@register("treynor_ratio", family="quant", required_tags=["return", "benchmark"], periodicity_param="periods",
+          set_maturity="reviewed", accepted_conventions=["252", "365", "52"])
+def treynor_ratio(cols, binding, convention=None):
+    rets = cols[binding["return"]]
+    bench = cols[binding["benchmark"]]
+    p = _periods(convention, binding)
+    return _result(N.treynor_ratio(rets, bench, p), {"n": len(rets), "periods": p})
+
+
+@register("r_squared", family="quant", required_tags=["return", "benchmark"], set_maturity="reviewed")
+def r_squared(cols, binding, convention=None):
+    rets = cols[binding["return"]]
+    bench = cols[binding["benchmark"]]
+    return _result(N.r_squared(rets, bench), {"n": len(rets)})
+
+
+@register("active_return", family="quant", required_tags=["return", "benchmark"], periodicity_param="periods",
+          set_maturity="reviewed", accepted_conventions=["252", "365", "52"])
+def active_return(cols, binding, convention=None):
+    rets = cols[binding["return"]]
+    bench = cols[binding["benchmark"]]
+    p = _periods(convention, binding)
+    return _result(N.active_return(rets, bench, p), {"n": len(rets), "periods": p})

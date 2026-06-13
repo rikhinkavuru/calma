@@ -699,6 +699,96 @@ for alpha in (0.1, 0.05, 0.01):
     case("zppf2_%g" % alpha, "z_ppf2", {"alpha": alpha},
          stats.norm.ppf(1 - alpha / 2), atol=1e-12, rtol=1e-12)
 
+# ============================ Pack QR - quant-risk depth ============================
+
+qr = np.array(rets)
+qbench = np.array(uniforms(40, 252, -0.025, 0.03))
+bench_list = [float(x) for x in qbench]
+qp = 252
+
+eqc = np.cumprod(1.0 + qr)
+pk = np.maximum(np.maximum.accumulate(eqc), 1.0)  # peak floored at initial capital 1.0 (engine convention)
+ddq = eqc / pk - 1.0
+ui = float(np.sqrt(np.mean(ddq ** 2)))
+case("ulcer_index", "ulcer_index", {"rets": rets}, ui, atol=1e-12)
+case("pain_index", "pain_index", {"rets": rets}, float(np.mean(-ddq)), atol=1e-12)
+ann_q = float(np.prod(1.0 + qr)) ** (qp / len(qr)) - 1.0
+case("martin_ratio", "martin_ratio", {"rets": rets, "periods": qp}, ann_q / ui, atol=1e-10)
+mdd_q = float(np.min(eqc / pk - 1.0))
+case("recovery_factor", "recovery_factor", {"rets": rets},
+     float(np.prod(1.0 + qr) - 1.0) / abs(mdd_q), atol=1e-11)
+case("gain_to_pain_ratio", "gain_to_pain_ratio", {"rets": rets},
+     float(np.sum(qr) / np.sum(-qr[qr < 0])), atol=1e-11)
+case("tail_ratio", "tail_ratio", {"rets": rets},
+     float(abs(np.quantile(qr, 0.95)) / abs(np.quantile(qr, 0.05))), atol=1e-11)
+case("gain_loss_ratio", "gain_loss_ratio", {"rets": rets},
+     float(np.mean(qr[qr > 0]) / abs(np.mean(qr[qr < 0]))), atol=1e-11)
+case("win_loss_ratio", "win_loss_ratio", {"rets": rets},
+     float(np.sum(qr > 0) / np.sum(qr < 0)), atol=1e-12)
+qwins, qloss = qr[qr > 0], qr[qr < 0]
+qpayoff = float(np.mean(qwins) / abs(np.mean(qloss)))
+qW = len(qwins) / (len(qwins) + len(qloss))
+case("kelly_criterion", "kelly_criterion", {"rets": rets}, qW - (1.0 - qW) / qpayoff, atol=1e-12)
+case("upside_deviation", "upside_deviation", {"rets": rets, "periods": qp},
+     float(np.sqrt(np.mean(np.maximum(qr, 0.0) ** 2)) * np.sqrt(qp)), atol=1e-11)
+case("upside_potential_ratio", "upside_potential_ratio", {"rets": rets},
+     float(np.mean(np.maximum(qr, 0.0)) / np.sqrt(np.mean(np.minimum(qr, 0.0) ** 2))), atol=1e-11)
+case("kappa_three", "kappa_three", {"rets": rets},
+     float(np.mean(qr) / np.mean(np.maximum(-qr, 0.0) ** 3) ** (1.0 / 3.0)), atol=1e-11)
+cut_q = np.quantile(ddq, 0.05)
+case("cdar", "cdar", {"rets": rets, "level": 0.95},
+     float(-np.mean(ddq[ddq <= cut_q])), atol=1e-11)
+
+
+def _mdd_dur(r):
+    e, p, cur, longest = 1.0, 1.0, 0, 0
+    for x in r:
+        e *= (1.0 + x)
+        if e >= p:
+            p, cur = e, 0
+        else:
+            cur += 1
+            longest = max(longest, cur)
+    return float(longest)
+
+
+case("max_drawdown_duration", "max_drawdown_duration", {"rets": rets}, _mdd_dur(rets), atol=0.0, rtol=0.0)
+qmu, qsd = float(np.mean(qr)), float(np.std(qr, ddof=1))
+qS = float(stats.skew(qr, bias=True))
+qKx = float(stats.kurtosis(qr, fisher=True, bias=True))
+for lv in (0.95, 0.99):
+    zq = stats.norm.ppf(1.0 - lv)
+    case("parametric_var_%g" % lv, "parametric_var", {"rets": rets, "level": lv},
+         float(-(qmu + zq * qsd)), atol=1e-9)
+    aq = 1.0 - lv
+    za = stats.norm.ppf(aq)
+    case("parametric_es_%g" % lv, "parametric_es", {"rets": rets, "level": lv},
+         float(-(qmu - qsd * stats.norm.pdf(za) / aq)), atol=1e-9)
+    zcf = (zq + (zq * zq - 1) * qS / 6 + (zq ** 3 - 3 * zq) * qKx / 24
+           - (2 * zq ** 3 - 5 * zq) * qS * qS / 36)
+    case("cornish_fisher_var_%g" % lv, "cornish_fisher_var", {"rets": rets, "level": lv},
+         float(-(qmu + zcf * qsd)), atol=1e-9)
+qsr = qmu / qsd
+case("adjusted_sharpe_ratio", "adjusted_sharpe_ratio", {"rets": rets},
+     float(qsr * (1 + (qS / 6) * qsr - (qKx / 24) * qsr * qsr)), atol=1e-11)
+qg4 = float(stats.kurtosis(qr, fisher=False, bias=True))
+qdenom = 1 - qS * qsr + ((qg4 - 1) / 4) * qsr * qsr
+qstat = qsr * np.sqrt(len(qr) - 1) / np.sqrt(qdenom)
+case("probabilistic_sharpe_ratio", "probabilistic_sharpe_ratio",
+     {"rets": rets, "benchmark_sr": 0.0}, float(stats.norm.cdf(qstat)), atol=1e-9)
+upc = float(np.mean(qr[qbench > 0]) / np.mean(qbench[qbench > 0]))
+dnc = float(np.mean(qr[qbench < 0]) / np.mean(qbench[qbench < 0]))
+case("up_capture_ratio", "up_capture_ratio", {"rets": rets, "bench": bench_list}, upc, atol=1e-11)
+case("down_capture_ratio", "down_capture_ratio", {"rets": rets, "bench": bench_list}, dnc, atol=1e-11)
+case("capture_ratio", "capture_ratio", {"rets": rets, "bench": bench_list}, upc / dnc, atol=1e-11)
+qbeta = float(np.cov(qr, qbench, ddof=1)[0, 1] / np.var(qbench, ddof=1))
+case("treynor_ratio", "treynor_ratio", {"rets": rets, "bench": bench_list, "periods": qp},
+     float(qmu * qp / qbeta), atol=1e-10)
+qrho = float(np.corrcoef(qr, qbench)[0, 1])
+case("r_squared", "r_squared", {"rets": rets, "bench": bench_list}, qrho * qrho, atol=1e-11)
+case("active_return", "active_return", {"rets": rets, "bench": bench_list, "periods": qp},
+     float(np.mean(qr - qbench) * qp), atol=1e-11)
+
 # ============================ write ============================
 
 doc = {
