@@ -60,16 +60,61 @@ def _ancestors(path):
     return out
 
 
-def _profile(base):
+def _symlink_chain_dirs(path):
+    """Every directory touched while resolving `path` symlink-by-symlink. execvp readlink()s each
+    intermediate link (e.g. a venv's python -> ~/.local/bin/python3.12 -> the uv install), and EACH
+    of those dirs must be readable or exec fails EPERM under a /Users read-deny."""
+    dirs, seen, cur = set(), set(), os.path.abspath(path)
+    for _ in range(40):
+        dirs.add(os.path.dirname(cur))
+        if cur in seen:
+            break
+        seen.add(cur)
+        try:
+            if os.path.islink(cur):
+                tgt = os.readlink(cur)
+                cur = os.path.normpath(tgt if os.path.isabs(tgt)
+                                       else os.path.join(os.path.dirname(cur), tgt))
+                continue
+        except OSError:
+            pass
+        break
+    return dirs
+
+
+def _interp_reads(*paths):
+    """The interpreter subpaths that must stay readable under the profile. A RESTORED venv's base
+    interpreter often lives under $HOME (uv: ~/.local/share/uv/python/..., pyenv: ~/.pyenv/...,
+    conda: ~/miniconda3/...), reached through a chain of $HOME symlinks. The profile denies /Users
+    reads, so without re-allowing the resolved interpreter's install prefix AND every symlink-chain
+    directory on the way to it, the venv python cannot be exec'd (execvp EPERM). We re-allow ONLY
+    those specific dirs (the interpreter's stdlib/shared libs + the link chain), never a broad home
+    subtree, and only under /Users (system paths like /opt, /usr are not denied)."""
+    out = set()
+    for p in paths:
+        if not p:
+            continue
+        out |= _symlink_chain_dirs(p)
+        try:
+            rp = os.path.realpath(p)
+        except OSError:
+            continue
+        out.add(os.path.dirname(rp))                       # .../bin
+        out.add(os.path.dirname(os.path.dirname(rp)))      # the install prefix (bin/.. -> lib/include)
+    return sorted(d for d in out if d and d.startswith("/Users") and d != "/Users")
+
+
+def _profile(base, interp_reads=()):
     """allow-default for the system paths the interpreter needs, then DENY the things we verify and
     claim: network egress, and reads of ALL user homes (/Users) + known system-secret dirs. The base is
     re-allowed for read (it lives under /Users). Writes are confined to the run area + temp. last-match-
     wins, so order matters: the FINAL deny on <base>/.calma overrides the base-wide write allow - code
     under test must never be able to plant verdict state (cache.json, ledgers, hook state) in calma's
     own bookkeeping dir. The verifier itself only writes .calma from the PARENT process after the
-    sandboxed child exits, so it loses nothing. NOTE (stamped honestly): Seatbelt shares the host
-    kernel and is NOT escape-isolated - untrusted third-party code requires a container/VM tier
-    (refused otherwise)."""
+    sandboxed child exits, so it loses nothing. `interp_reads` re-allows a RESTORED venv's base
+    interpreter install prefix when it lives under $HOME (see _interp_reads). NOTE (stamped honestly):
+    Seatbelt shares the host kernel and is NOT escape-isolated - untrusted third-party code requires a
+    container/VM tier (refused otherwise)."""
     home = os.path.realpath(os.path.expanduser("~"))
     base = os.path.realpath(base)
     # metadata-only (lstat/stat/readlink) on the EXACT ancestor chain of the run base. A runtime that
@@ -79,6 +124,16 @@ def _profile(base):
     # directory listing and file-content reads stay denied across /Users - so secrets cannot be read
     # and the tree cannot be enumerated (the doctor positive-control still proves zero leaks).
     anc = " ".join('(literal "%s")' % a for a in _ancestors(base))
+    # language-runtime / interpreter depots under $HOME (package caches + interpreter installs, NOT
+    # secrets). A RESTORED venv's base python frequently lives in one of these (uv/pyenv/conda/rye),
+    # reached through nested $HOME symlinks that Seatbelt's exact-path matching can't follow - so we
+    # re-allow the depot ROOTS (broad but safe: never ~/.ssh, ~/.aws, keychains). Same intent as the
+    # existing Julia/Cargo/Node re-allows.
+    _DEPOTS = (".julia", ".cargo", ".rustup", ".npm", ".nvm", ".node-gyp",
+               ".pyenv", ".conda", "miniconda3", "anaconda3", "miniforge3", ".rye",
+               ".local/share/uv", ".local/bin", "Library/Application Support/uv")
+    depots = " ".join('(subpath "%s/%s")' % (home, d) for d in _DEPOTS)
+    interp = "".join('\n(allow file-read* (subpath "%s"))' % p for p in interp_reads)
     return '''(version 1)
 (allow default)
 (deny network*)
@@ -86,21 +141,19 @@ def _profile(base):
   (subpath "/Users") (subpath "/etc/ssh") (subpath "/private/etc/ssh")
   (subpath "/var/root") (subpath "/private/var/root")
   (subpath "/Library/Keychains") (subpath "/private/var/db/dslocal"))
-;; re-allow language-runtime/toolchain depots under $HOME (package caches, NOT secrets) so R/Julia/
-;; Rust/Node can read their libs; the actual secret dirs (~/.ssh, ~/.aws, keychains) stay denied.
-(allow file-read*
-  (subpath "%s/.julia") (subpath "%s/.cargo") (subpath "%s/.rustup")
-  (subpath "%s/.npm") (subpath "%s/.nvm") (subpath "%s/.node-gyp"))
+;; re-allow language-runtime/interpreter depots under $HOME (package caches + interpreter installs,
+;; NOT secrets) so R/Julia/Rust/Node/Python(venv) can read their libs; ~/.ssh, ~/.aws, keychains stay denied.
+(allow file-read* %s)
 ;; metadata-only on the base's ancestor directories (entrypoint realpath resolution) - data reads
 ;; and directory listings under /Users remain denied; this only re-allows lstat/stat/readlink.
 (allow file-read-metadata %s)
-(allow file-read* (subpath "%s"))
+(allow file-read* (subpath "%s"))%s
 (deny file-write* (subpath "/Users"))
 (allow file-write* (subpath "%s") (subpath "/tmp") (subpath "/private/tmp") (subpath "/private/var/folders") (literal "/dev/null") (literal "/dev/tty"))
 ;; AFTER the allow (Seatbelt is last-match-wins): the code under test can never write calma's
 ;; own verdict state - no planted cache.json, no forged ledgers, no hook-state tampering.
 (deny file-write* (subpath "%s/.calma"))
-''' % (home, home, home, home, home, home, anc, base, base, base)
+''' % (depots, anc, base, interp, base, base)
 
 
 def _run_sandboxed(profile_text, argv, cwd, timeout=120, env=None):
@@ -639,7 +692,9 @@ def run(contract_path, base=None, timeout=120, trust_override=None, isolation=No
     else:
         det_mode, det_note = "uncontrolled", "%s: bit-determinism not statically provable (non-Python)" % lang
     out_dir = os.path.join(base, "runs")
-    prof = _profile(base)
+    # re-allow the (possibly $HOME-resident) interpreter the run will exec - a restored venv's base
+    # python (uv/pyenv/conda) lives under /Users, which the profile otherwise denies reading.
+    prof = _profile(base, _interp_reads(run_argv[0], venv_py))
     env = _child_env(contract)
     # determinism hardening for the re-execution: pinned hash seed (stable set/dict iteration order),
     # no bytecode writes into the target, pinned locale. Free reproducibility, no behavior loss.

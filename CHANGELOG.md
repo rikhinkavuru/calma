@@ -4,6 +4,25 @@ All notable changes to the calma skill/CLI. Dates are UTC.
 
 ## 0.9.0 — 2026-06-13
 
+### WS3 — Robust intake for the quant wedge
+
+- New `intake.py` + `calma verify --restore`: detect the interpreter, **restore + PIN** the repo's
+  declared dependencies into `<target>/.calma_venv` (requirements.txt / pyproject PEP 621 / setup /
+  conda for Python; renv.lock / DESCRIPTION for R), capture the resolved environment, and **bind the
+  claimed input data by content hash** — all written to `<run_dir>/intake.json`. The restore step is
+  the ONE phase that may touch the network; it runs BEFORE the verified, network-denied re-execution,
+  so the run's hermeticity stamp is unaffected. Fail-soft: an incomplete restore degrades to
+  can't-confirm with the missing-dependency reason, never a false CONFIRM.
+- Isolation fix uncovered by intake: a **restored venv's base interpreter** (uv / pyenv / conda)
+  lives under `$HOME`, reached through nested `$HOME` symlinks that the Seatbelt profile denied —
+  so the venv python could not be exec'd (`execvp EPERM`). The profile now re-allows the interpreter
+  DEPOT roots (`~/.local/share/uv`, `~/.pyenv`, `~/.conda`, `~/miniconda3`, …) — broad but safe,
+  the same pattern as the existing `~/.julia` / `~/.cargo` re-allows; `~/.ssh` / `~/.aws` / keychains
+  stay denied. Verified on 3 messy public-style repos (pandas/numpy, backtrader, R) restoring + running
+  unattended to a recompute.
+- Tests: `test_intake.py` (16 checks: detection, PEP 621 parse, source precedence, data-binding hash,
+  fail-soft restore) + `test_hermetic.py` depot/symlink-chain structural locks.
+
 ### WS2 — The deliverable: signed report + offline replay bundle
 
 - New `calma report <run_dir>`: renders a **branded, self-contained HTML report** (Calma warm-black /

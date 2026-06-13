@@ -49,6 +49,8 @@ calma verify <target> "<claim>" --trust third-party   # counterparty code: auto-
                                                       # container tier (refuses exit 3 if none is live)
 calma verify <target> "<claim>" --isolation docker    # run in a network-denied Linux container
                                                       # (auto|seatbelt|docker|firecracker; fails loud if unavailable)
+calma verify <target> "<claim>" --restore             # restore + PIN the repo's declared deps into
+                                                      # .calma_venv before the run (network used in this phase only)
 calma batch <dir>... | --manifest m.tsv   # verify MANY results in one run -> one summary table + roll-up exit
 calma recipes                       # all 120 metric ids, grouped by family (for --metric)
 calma teardown <target> "<claim>" [--svg card.svg]    # shareable "claimed X -> really Y" card on a break

@@ -21,6 +21,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import attest
 import compare as CMP
 import draft_contract as DC
+import intake as INTAKE
 import ledger as LED
 import recipes as RCP
 import recompute as RC
@@ -481,7 +482,7 @@ def _resolve_timeout(cli_timeout, contract):
 
 
 def verify(target, claim=None, metric=None, run_id="run", force=False, check_determinism=False,
-           trust="own-code", timeout=None, isolation=None):
+           trust="own-code", timeout=None, isolation=None, restore=False):
     target = os.path.realpath(target)
     if trust not in ("own-code", "third-party"):
         raise ValueError("--trust must be own-code or third-party (got %r)" % trust)
@@ -576,6 +577,21 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
         run_res["run_dir"] = run_dir
     else:
         import time as _time
+        # intake/restore (WS3): this is the ONE phase that may use the network - it runs BEFORE the
+        # verified, network-denied re-execution. --restore pins the repo's declared deps into
+        # <target>/.calma_venv (run_hermetic then runs under that interpreter); always capture the
+        # interpreter, declared sources, and data bindings (by content hash) into intake.json.
+        intake_report = None
+        try:
+            intake_report = INTAKE.intake(target, contract, do_restore=restore, timeout=eff_timeout)
+            json.dump(intake_report, open(os.path.join(run_dir, "intake.json"), "w"), indent=2)
+            if restore:
+                rr = intake_report.get("restore") or {}
+                _trace("intake", "restore %s (%s; %d pinned)"
+                       % ("ok" if intake_report.get("restored") else "incomplete",
+                          rr.get("method") or "no declared deps", rr.get("installed_count", 0)))
+        except (OSError, ValueError) as _e:
+            _trace("intake", "intake skipped: %s" % _e)
         _trace("re-run", "executing %s in the sandbox (network off)..."
                % contract.get("run", {}).get("entrypoint"))
         _t0 = _time.time()
@@ -1035,6 +1051,9 @@ def main():
                         "verify.yaml); on overrun the run is killed (exit 4)")
     v.add_argument("--force", action="store_true",
                    help="re-execute even if code, data, and claim are unchanged since the last verification")
+    v.add_argument("--restore", action="store_true",
+                   help="restore + PIN the repo's declared deps into <target>/.calma_venv before the "
+                        "run (uses the network in this phase only; the run itself stays network-denied)")
     v.add_argument("--check-determinism", action="store_true",
                    help="re-execute TWICE and require identical artifacts (catches FLAKY results)")
     v.add_argument("--json", action="store_true", dest="as_json",
@@ -1151,7 +1170,7 @@ def main():
         if a.cmd == "verify":
             res = verify(a.target, a.claim_text or a.claim, a.metric, a.run_id,
                          force=a.force, check_determinism=a.check_determinism,
-                         trust=a.trust, timeout=a.timeout, isolation=a.isolation)
+                         trust=a.trust, timeout=a.timeout, isolation=a.isolation, restore=a.restore)
             if a.fail_on == "refuted":
                 exit_code = 1 if res["repo_verdict"] in ("REFUTED", "MIXED") else 0
             else:

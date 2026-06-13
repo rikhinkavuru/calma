@@ -145,6 +145,24 @@ truth(all(('(literal "%s")' % a) in prof for a in ancs), "every base ancestor is
 truth("(deny file-read*\n  (subpath \"/Users\")" in prof, "directory listing / content reads under /Users still denied")
 truth("/Users" in ancs and os.path.dirname(os.path.realpath(BTC)) in ancs, "_ancestors spans /Users down to the parent")
 
+# WS3: a RESTORED venv's base interpreter (uv/pyenv/conda) lives under $HOME; the profile re-allows
+# the interpreter DEPOT roots (broad but safe - never secret dirs) so the venv python can be exec'd.
+_home = os.path.realpath(os.path.expanduser("~"))
+truth(('(subpath "%s/.local/share/uv")' % _home) in prof, "profile re-allows the uv interpreter depot")
+truth(('(subpath "%s/.pyenv")' % _home) in prof, "profile re-allows the pyenv depot")
+truth(('(subpath "%s/.ssh")' % _home) not in prof and ('(subpath "%s/.aws")' % _home) not in prof,
+      "profile never re-allows ~/.ssh or ~/.aws (secrets stay denied)")
+# _symlink_chain_dirs follows a real symlink chain (the mechanism behind restored-venv exec)
+_lkdir = tempfile.mkdtemp()
+os.makedirs(os.path.join(_lkdir, "real", "bin"))
+open(os.path.join(_lkdir, "real", "bin", "python"), "w").close()
+os.symlink(os.path.join(_lkdir, "real", "bin", "python"), os.path.join(_lkdir, "link"))
+_chain = H._symlink_chain_dirs(os.path.join(_lkdir, "link"))
+truth(os.path.join(_lkdir, "real", "bin") in _chain and _lkdir in _chain,
+      "_symlink_chain_dirs collects every dir on the resolution chain")
+import shutil as _sh2
+_sh2.rmtree(_lkdir, ignore_errors=True)
+
 # on a sandbox host, the metadata grant must NOT open directory listing or secret reads (the boundary)
 if doc["sandbox_exec"]:
     sec = os.path.join(os.path.realpath(os.path.expanduser("~")), ".calma_hermtest_secret")
