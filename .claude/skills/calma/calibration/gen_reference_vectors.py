@@ -1071,6 +1071,38 @@ ts = uniforms(102, 120, -1.0, 1.0)
 _lb = acorr_ljungbox(np.array(ts), lags=[10], return_df=True)
 case("ljung_box", "ljung_box", {"xs": ts, "lags": 10}, float(_lb["lb_pvalue"].iloc[0]), atol=1e-9)
 
+# ============================ Pack TS - forecasting / time-series accuracy ============================
+
+ts_actual = uniforms(103, 100, 10.0, 60.0)
+ts_pred = [a + e for a, e in zip(ts_actual, uniforms(104, 100, -5.0, 5.0))]
+_ta, _tp = np.array(ts_actual), np.array(ts_pred)
+_n = len(_ta)
+_rmse = float(np.sqrt(np.mean((_tp - _ta) ** 2)))
+_u1 = _rmse / (float(np.sqrt(np.mean(_tp ** 2))) + float(np.sqrt(np.mean(_ta ** 2))))
+case("theil_u1", "theil_u1", {"pred": ts_pred, "actual": ts_actual}, _u1, atol=1e-10)
+_num = float(np.sum(((_tp[1:] - _ta[1:]) / _ta[:-1]) ** 2))
+_den = float(np.sum(((_ta[1:] - _ta[:-1]) / _ta[:-1]) ** 2))
+case("theil_u2", "theil_u2", {"pred": ts_pred, "actual": ts_actual},
+     float(np.sqrt(_num) / np.sqrt(_den)), atol=1e-10)
+_mse = float(np.mean((_ta - _tp) ** 2))
+_denom = float(np.sum((_ta[1:] - _ta[:-1]) ** 2) / (_n - 1))
+case("rmsse", "rmsse", {"pred": ts_pred, "actual": ts_actual}, float(np.sqrt(_mse / _denom)), atol=1e-10)
+case("tracking_signal", "tracking_signal", {"pred": ts_pred, "actual": ts_actual},
+     float(np.sum(_tp - _ta) / np.mean(np.abs(_tp - _ta))), atol=1e-10)
+_hits = sum(1 for t in range(1, _n)
+            if (np.sign(_ta[t] - _ta[t - 1]) == np.sign(_tp[t] - _ta[t - 1])))
+case("mean_directional_accuracy", "mean_directional_accuracy", {"pred": ts_pred, "actual": ts_actual},
+     _hits / (_n - 1), atol=1e-12)
+_mam = float(np.mean(_ta))
+case("relative_absolute_error", "relative_absolute_error", {"pred": ts_pred, "actual": ts_actual},
+     float(np.sum(np.abs(_tp - _ta)) / np.sum(np.abs(_ta - _mam))), atol=1e-11)
+case("relative_squared_error", "relative_squared_error", {"pred": ts_pred, "actual": ts_actual},
+     float(np.sum((_tp - _ta) ** 2) / np.sum((_ta - _mam) ** 2)), atol=1e-11)
+case("mean_percentage_error", "mean_percentage_error", {"pred": ts_pred, "actual": ts_actual},
+     float(np.mean((_ta - _tp) / _ta)), atol=1e-11)
+case("median_absolute_percentage_error", "median_absolute_percentage_error",
+     {"pred": ts_pred, "actual": ts_actual}, float(np.median(np.abs(_tp - _ta) / np.abs(_ta))), atol=1e-11)
+
 # ============================ write ============================
 
 doc = {

@@ -1578,3 +1578,21 @@ def ljung_box(cols, binding, convention=None):
     v = cols[binding["value"]]
     lags = _conv_int(convention, "lags", 10)
     return _result(N.ljung_box(v, lags), {"n": len(v), "lags": lags})
+
+
+# ======================================================================================
+# Pack TS - forecasting / time-series accuracy (documented forecasting definitions).
+# ======================================================================================
+
+def _pt(fn):
+    def recipe(cols, binding, convention=None):
+        p, t = cols[binding["prediction"]], cols[binding["target"]]
+        return _result(fn(p, t), {"n": len(t)})
+    return recipe
+
+
+for _mid in ("theil_u1", "theil_u2", "rmsse", "tracking_signal", "mean_directional_accuracy",
+             "relative_absolute_error", "relative_squared_error", "mean_percentage_error",
+             "median_absolute_percentage_error"):
+    register(_mid, family="forecasting", required_tags=["prediction", "target"],
+             set_maturity="reviewed")(_pt(getattr(N, _mid)))

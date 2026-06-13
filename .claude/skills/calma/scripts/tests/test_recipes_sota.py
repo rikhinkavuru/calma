@@ -260,6 +260,16 @@ KINDS = {
     "index_of_dispersion": lambda a: N.index_of_dispersion(a["xs"]),
     "uniqueness_ratio": lambda a: N.uniqueness_ratio(a["raw"]),
     "ljung_box": lambda a: N.ljung_box(a["xs"], a["lags"]),
+    # pack TS - forecasting / time-series accuracy
+    "theil_u1": lambda a: N.theil_u1(a["pred"], a["actual"]),
+    "theil_u2": lambda a: N.theil_u2(a["pred"], a["actual"]),
+    "rmsse": lambda a: N.rmsse(a["pred"], a["actual"]),
+    "tracking_signal": lambda a: N.tracking_signal(a["pred"], a["actual"]),
+    "mean_directional_accuracy": lambda a: N.mean_directional_accuracy(a["pred"], a["actual"]),
+    "relative_absolute_error": lambda a: N.relative_absolute_error(a["pred"], a["actual"]),
+    "relative_squared_error": lambda a: N.relative_squared_error(a["pred"], a["actual"]),
+    "mean_percentage_error": lambda a: N.mean_percentage_error(a["pred"], a["actual"]),
+    "median_absolute_percentage_error": lambda a: N.median_absolute_percentage_error(a["pred"], a["actual"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -335,10 +345,14 @@ EXPECTED = {
     "geometric_mean", "harmonic_mean", "weighted_mean", "covariance", "theil_index",
     "atkinson_index", "quartile_coefficient_dispersion", "index_of_dispersion", "uniqueness_ratio",
     "ljung_box",
+    # pack TS - forecasting / time-series accuracy (9)
+    "theil_u1", "theil_u2", "rmsse", "tracking_signal", "mean_directional_accuracy",
+    "relative_absolute_error", "relative_squared_error", "mean_percentage_error",
+    "median_absolute_percentage_error",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 203 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 212 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

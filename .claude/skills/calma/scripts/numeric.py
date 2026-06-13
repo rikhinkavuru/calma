@@ -2994,3 +2994,103 @@ def ljung_box(xs, lags):
         q += rho * rho / (n - k)
     q *= n * (n + 2)
     return chi2_sf(q, lags)
+
+
+# ======================================================================================
+# Pack TS - forecasting / time-series accuracy (documented forecasting definitions).
+# Binding `prediction, target`; sequence-order metrics use the row order.
+# ======================================================================================
+
+def theil_u1(pred, actual):
+    """Theil's U1 inequality coefficient: RMSE / (rms(pred) + rms(actual))."""
+    n = len(pred)
+    if n < 1 or len(actual) != n or _has_nan(pred) or _has_nan(actual):
+        return float("nan")
+    rmse = math.sqrt(math.fsum((p - a) ** 2 for p, a in zip(pred, actual)) / n)
+    den = math.sqrt(math.fsum(p * p for p in pred) / n) + math.sqrt(math.fsum(a * a for a in actual) / n)
+    return rmse / den if den > 0 else float("nan")
+
+
+def theil_u2(pred, actual):
+    """Theil's U2 forecast-accuracy coefficient: sqrt(sum(((p-a)/a_prev)^2)) /
+    sqrt(sum(((a-a_prev)/a_prev)^2)) over t>=2; a_prev != 0."""
+    n = len(pred)
+    if n < 2 or len(actual) != n or _has_nan(pred) or _has_nan(actual):
+        return float("nan")
+    num = den = 0.0
+    for t in range(n - 1):
+        if actual[t] == 0:
+            return float("nan")
+        num += ((pred[t + 1] - actual[t + 1]) / actual[t]) ** 2
+        den += ((actual[t + 1] - actual[t]) / actual[t]) ** 2
+    if den <= 0:
+        return float("nan")
+    return math.sqrt(num) / math.sqrt(den)
+
+
+def rmsse(pred, actual):
+    """Root mean squared scaled error (M5): sqrt(mean((a-p)^2) / mean_{t>=2}((a_t - a_{t-1})^2))."""
+    n = len(pred)
+    if n < 2 or len(actual) != n or _has_nan(pred) or _has_nan(actual):
+        return float("nan")
+    mse = math.fsum((a - p) ** 2 for p, a in zip(pred, actual)) / n
+    denom = math.fsum((actual[t] - actual[t - 1]) ** 2 for t in range(1, n)) / (n - 1)
+    return math.sqrt(mse / denom) if denom > 0 else float("nan")
+
+
+def tracking_signal(pred, actual):
+    """Cumulative forecast error / mean absolute deviation: sum(p-a) / mean(|p-a|)."""
+    n = len(pred)
+    if n < 1 or len(actual) != n or _has_nan(pred) or _has_nan(actual):
+        return float("nan")
+    mad = math.fsum(abs(p - a) for p, a in zip(pred, actual)) / n
+    return math.fsum(p - a for p, a in zip(pred, actual)) / mad if mad > 0 else float("nan")
+
+
+def mean_directional_accuracy(pred, actual):
+    """Fraction of periods whose predicted direction matches the actual direction
+    (sign(a_t - a_{t-1}) vs sign(p_t - a_{t-1}))."""
+    n = len(pred)
+    if n < 2 or len(actual) != n or _has_nan(pred) or _has_nan(actual):
+        return float("nan")
+    hits = 0
+    for t in range(1, n):
+        da, dp = actual[t] - actual[t - 1], pred[t] - actual[t - 1]
+        if (da > 0 and dp > 0) or (da < 0 and dp < 0) or (da == 0 and dp == 0):
+            hits += 1
+    return hits / (n - 1)
+
+
+def relative_absolute_error(pred, actual):
+    """RAE: sum|p-a| / sum|a - mean(a)| (error vs the mean-forecast baseline)."""
+    n = len(actual)
+    if n < 1 or len(pred) != n or _has_nan(pred) or _has_nan(actual):
+        return float("nan")
+    ma = fmean(actual)
+    den = math.fsum(abs(a - ma) for a in actual)
+    return math.fsum(abs(p - a) for p, a in zip(pred, actual)) / den if den > 0 else float("nan")
+
+
+def relative_squared_error(pred, actual):
+    """RSE: sum((p-a)^2) / sum((a - mean(a))^2) (= 1 - R^2)."""
+    n = len(actual)
+    if n < 1 or len(pred) != n or _has_nan(pred) or _has_nan(actual):
+        return float("nan")
+    ma = fmean(actual)
+    den = math.fsum((a - ma) ** 2 for a in actual)
+    return math.fsum((p - a) ** 2 for p, a in zip(pred, actual)) / den if den > 0 else float("nan")
+
+
+def mean_percentage_error(pred, actual):
+    """Mean percentage error (signed bias): mean((a - p) / a); a != 0."""
+    n = len(actual)
+    if n < 1 or len(pred) != n or _has_nan(pred) or _has_nan(actual) or any(a == 0 for a in actual):
+        return float("nan")
+    return math.fsum((a - p) / a for p, a in zip(pred, actual)) / n
+
+
+def median_absolute_percentage_error(pred, actual):
+    """Median absolute percentage error: median(|p-a| / |a|); a != 0."""
+    if not actual or len(pred) != len(actual) or _has_nan(pred) or _has_nan(actual) or any(a == 0 for a in actual):
+        return float("nan")
+    return quantile([abs(p - a) / abs(a) for p, a in zip(pred, actual)], 0.5)
