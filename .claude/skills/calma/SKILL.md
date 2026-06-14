@@ -5,7 +5,7 @@ description: >-
   headline number from raw outputs - then prove or break the claim. Use to check what an AI agent just
   produced (a metric, a backtest, a cleaned dataset, a "tests pass"), or as an inline guardrail an agent
   calls while it works. Recompute-and-diff against the claim + trivial-baseline edge, across domains and languages:
-  500 SOTA-validated recipes - trading (Sharpe/return/drawdown), classification (accuracy/AUC/F1/macro-micro-F1/
+  622 SOTA-validated recipes - trading (Sharpe/return/drawdown), classification (accuracy/AUC/F1/macro-micro-F1/
   PR-AUC/log-loss/MCC/ECE/Brier), regression (RMSE/MAE/R2), analytics (sum/mean/median/percentile/groupby/
   distinct/nulls/duplicates/growth/share/join-loss), engineering ("2.3x faster"/latency p50-p99/throughput/
   peak-memory/coverage/error-rate), retrieval+LLM evals (recall@k/NDCG/MRR/top-k/exact-match/pass@k),
@@ -56,7 +56,7 @@ calma verify <target> "<claim>" --isolation docker    # run in a network-denied 
 calma verify <target> "<claim>" --restore             # restore + PIN the repo's declared deps into
                                                       # .calma_venv before the run (network used in this phase only)
 calma batch <dir>... | --manifest m.tsv   # verify MANY results in one run -> one summary table + roll-up exit
-calma recipes                       # all 500 metric ids, grouped by family (for --metric)
+calma recipes                       # all 622 metric ids, grouped by family (for --metric)
 calma suggest "<free-text ask>"     # unclear what to verify? rank the likely recipes (suggestion only)
 calma teardown <target> "<claim>" [--svg card.svg]    # shareable "claimed X -> really Y" card on a break
 calma replay <run_dir>              # re-run a saved verification; exit 0 iff the verdict reproduces
@@ -176,7 +176,7 @@ committed claim and says so in the report and `--json` (`note`).
    `assets/compiled_recipes.json` with `set_maturity: compiled-validated`; the loader re-validates the
    hash so a tampered asset fails closed. Verify-time NEVER consults a model: compiled, validated,
    frozen - never improvised.
-   **Adding recipes (this compiler path OR hand-registering a pack in `recipes.py`, how the 500
+   **Adding recipes (this compiler path OR hand-registering a pack in `recipes.py`, how the 622
    shipped): follow the "Definition of done for a NEW recipe" checklist at the top of
    `references/recipes.md`** - it is not done at "computes the right number." Every recipe also
    needs a `assets/recipe_descriptions.json` entry (a description + >=2 aliases, INCLUDING plain
@@ -203,6 +203,6 @@ committed claim and says so in the report and `--json` (`note`).
 
 Build status + what is real vs deferred: `BUILD-NOTES.md`. Script I/O contract:
 `references/script-interfaces.md`. The recipe-catalog reference (binding tags, conventions, data
-layouts, reference implementations - representative families; `calma recipes` lists all 500 ids):
+layouts, reference implementations - representative families; `calma recipes` lists all 622 ids):
 `references/recipes.md`. Full spec
 (repo checkout only, not shipped with the skill folder): `docs/internal/calma-skill-blueprint.md`.

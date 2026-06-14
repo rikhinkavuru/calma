@@ -3,6 +3,12 @@
 Onboarding for a fresh Claude Code session. Read this, then `.claude/skills/calma/SKILL.md`
 (what the skill is) and `.claude/skills/calma/BUILD-NOTES.md` (build log, newest entries last).
 
+> **FRESHNESS (2026-06-14):** the recipe library is now **622** (620 reviewed + 2 compiled),
+> not the "120 recipes / 11 packs" snapshot below — that paragraph is the 0.5.0-era state kept
+> for history. For the current recipe inventory, the per-pack log, and the quality bar for adding
+> more, see `docs/internal/RECIPE-GOAL-HANDOFF.md`. The site's recipe count is derived live from
+> `app/recipes/data.ts` (`RECIPE_COUNT`), so it reflects 622 automatically.
+
 ## What Calma is (two layers — don't conflate them)
 
 1. **The OSS skill/CLI** (this repo): verifies a computational result by re-executing it in a

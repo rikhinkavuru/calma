@@ -1,7 +1,7 @@
 "use client";
 
 import { Reveal } from "./chrome";
-import { FAMILIES } from "@/app/recipes/data";
+import { FAMILIES, RECIPE_COUNT } from "@/app/recipes/data";
 
 /* The recipe coverage band: a heading, a kinetic strip of every family, and a
    browse CTA. Each segment carries a category glyph + tone; each metric is a
@@ -127,7 +127,7 @@ export function RecipeTicker() {
         </Reveal>
         <Reveal delay={120}>
           <h2 className="h2 recsec__h2">
-            <span className="recsec__num">500+</span> validated recipes
+            <span className="recsec__num">{RECIPE_COUNT}</span> validated recipes
           </h2>
         </Reveal>
         <Reveal delay={200}>
