@@ -2875,6 +2875,25 @@ def berger_parker(cols, binding, convention=None):
     return _result(N.berger_parker(xs), {"n": len(xs)})
 
 
+# ======================================================================================
+# Pack CN - concentration-ratio depth. A non-negative amounts column; CRk takes a k.
+# ======================================================================================
+
+@register("concentration_ratio", family="analytics", required_tags=["value"],
+          set_maturity="reviewed", accepted_conventions=["k=<int>"])
+def concentration_ratio(cols, binding, convention=None):
+    xs = cols[binding["value"]]
+    k = _conv_int(convention, "k", 4)
+    return _result(N.concentration_ratio(xs, k), {"n": len(xs), "k": k})
+
+
+for _mid in ("normalized_hhi", "rosenbluth_index", "comprehensive_concentration_index"):
+    @register(_mid, family="analytics", required_tags=["value"], set_maturity="reviewed")
+    def _cn(cols, binding, convention=None, _fn=getattr(N, _mid)):
+        xs = cols[binding["value"]]
+        return _result(_fn(xs), {"n": len(xs)})
+
+
 @register("hill_number", family="analytics", required_tags=["value"],
           set_maturity="reviewed", accepted_conventions=["q=<float>"])
 def hill_number(cols, binding, convention=None):

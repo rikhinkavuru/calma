@@ -1686,6 +1686,20 @@ case("hinge_loss", "hinge_loss", ml2_args, ml2_hinge, atol=1e-12)
 case("squared_hinge_loss", "squared_hinge_loss", ml2_args, ml2_sq, atol=1e-12)
 case("exponential_loss", "exponential_loss", ml2_args, ml2_exp, atol=1e-11)
 
+# Pack CN - concentration-ratio depth (numpy recompute)
+cn_x = list(uniforms(3701, 40, 0.0, 100.0))
+cn_k = 4
+_cnp = np.sort(np.array(cn_x) / np.sum(cn_x))[::-1]
+_cnn = len(_cnp)
+cn_cr = float(np.sum(_cnp[:cn_k]))
+cn_nhhi = float((np.sum(_cnp ** 2) - 1.0 / _cnn) / (1.0 - 1.0 / _cnn))
+cn_rb = float(1.0 / (2.0 * np.sum([(i + 1) * p for i, p in enumerate(_cnp)]) - 1.0))
+cn_cci = float(_cnp[0] + np.sum([p * p * (2.0 - p) for p in _cnp[1:]]))
+case("concentration_ratio", "concentration_ratio", {"xs": cn_x, "k": cn_k}, cn_cr, atol=1e-12)
+case("normalized_hhi", "normalized_hhi", {"xs": cn_x}, cn_nhhi, atol=1e-12)
+case("rosenbluth_index", "rosenbluth_index", {"xs": cn_x}, cn_rb, atol=1e-12)
+case("comprehensive_concentration_index", "comprehensive_concentration_index", {"xs": cn_x}, cn_cci, atol=1e-12)
+
 # ============================ Pack PA - portfolio construction & attribution ============================
 # Independent reference: vectorized numpy recompute of Brinson-Hood-Beebower attribution
 # and the weight-based metrics over a deterministic 6-segment book.

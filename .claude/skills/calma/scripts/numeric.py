@@ -6311,6 +6311,59 @@ def berger_parker(xs):
 
 
 # ======================================================================================
+# Pack CN - concentration-ratio depth. A non-negative amounts column gives the k-firm
+# concentration ratio, the normalized Herfindahl, the Rosenbluth/Hall-Tideman index and the
+# Horvath comprehensive concentration index. Validated against numpy.
+# ======================================================================================
+
+def _cn_shares_desc(xs):
+    if not xs or _has_nan(xs) or any(v < 0 for v in xs):
+        return None
+    s = math.fsum(xs)
+    if s <= 0:
+        return None
+    return sorted([v / s for v in xs], reverse=True)
+
+
+def concentration_ratio(xs, k=4):
+    """k-firm concentration ratio CRk: sum of the largest k shares."""
+    p = _cn_shares_desc(xs)
+    if p is None or k < 1:
+        return float("nan")
+    return math.fsum(p[:k])
+
+
+def normalized_hhi(xs):
+    """Normalized Herfindahl: (HHI - 1/n)/(1 - 1/n), in [0, 1]."""
+    p = _cn_shares_desc(xs)
+    if p is None or len(p) < 2:
+        return float("nan")
+    n = len(p)
+    hhi = math.fsum(pi * pi for pi in p)
+    return (hhi - 1.0 / n) / (1.0 - 1.0 / n)
+
+
+def rosenbluth_index(xs):
+    """Rosenbluth / Hall-Tideman index: 1 / (2*sum(rank_i * p_(i)) - 1), p sorted descending."""
+    p = _cn_shares_desc(xs)
+    if p is None:
+        return float("nan")
+    s = math.fsum((i + 1) * pi for i, pi in enumerate(p))
+    den = 2.0 * s - 1.0
+    if den <= 0:
+        return float("nan")
+    return 1.0 / den
+
+
+def comprehensive_concentration_index(xs):
+    """Horvath comprehensive concentration index: p1 + sum_{i>=2} p_i^2 (2 - p_i)."""
+    p = _cn_shares_desc(xs)
+    if p is None:
+        return float("nan")
+    return p[0] + math.fsum(pi * pi * (2.0 - pi) for pi in p[1:])
+
+
+# ======================================================================================
 # Pack WIN - winsorized / trimmed robust statistics. A value column with a symmetric trim
 # fraction gives the winsorized mean and std (extremes clamped) and the trimmed std
 # (extremes dropped). Matches scipy.stats.mstats winsorize / trimmed_std (floor counts).
