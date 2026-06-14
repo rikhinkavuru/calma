@@ -1615,6 +1615,18 @@
       ],
       "description": "Leverage comparing total debt to shareholder equity."
     },
+    "defect_density": {
+      "aliases": [
+        "defect density",
+        "bugs per kloc",
+        "defects per unit",
+        "fault density",
+        "how buggy per line of code",
+        "defects per thousand lines",
+        "quality density"
+      ],
+      "description": "Defects per unit of size, such as defects per KLOC."
+    },
     "demographic_parity_difference": {
       "aliases": [
         "demographic parity difference",
@@ -1745,6 +1757,18 @@
         "distributed paid in"
       ],
       "description": "Cash returned to investors per dollar of contributed capital."
+    },
+    "dpmo": {
+      "aliases": [
+        "dpmo",
+        "defects per million opportunities",
+        "six sigma defect rate",
+        "ppm defects",
+        "quality in parts per million",
+        "defect rate per million chances",
+        "sigma defect level"
+      ],
+      "description": "Defects per million opportunities, the Six Sigma quality measure."
     },
     "drawdown_at_risk": {
       "aliases": [
@@ -2117,6 +2141,18 @@
       ],
       "description": "Harmonic mean of precision and recall over the top-k retrieved results."
     },
+    "failure_rate": {
+      "aliases": [
+        "failure rate",
+        "hazard rate",
+        "failures per hour",
+        "lambda failure rate",
+        "how often it breaks per unit time",
+        "rate of failures",
+        "fault rate"
+      ],
+      "description": "Failures per unit of operating time (hazard rate)."
+    },
     "fallout_at_k": {
       "aliases": [
         "fallout",
@@ -2170,6 +2206,18 @@
         "beta-weighted f1"
       ],
       "description": "Weighted harmonic mean of precision and recall tunable by beta."
+    },
+    "first_pass_yield": {
+      "aliases": [
+        "first pass yield",
+        "fpy",
+        "right first time rate",
+        "units passing without rework",
+        "first time quality",
+        "how many pass on the first try",
+        "yield without rework"
+      ],
+      "description": "Fraction of units passing the first time without rework."
     },
     "fisher_exact": {
       "aliases": [
@@ -3723,6 +3771,29 @@
       ],
       "description": "Average of squared differences between predictions and targets."
     },
+    "mean_time_to_failure": {
+      "aliases": [
+        "mttf",
+        "mean time to failure",
+        "average uptime before failure",
+        "how long it runs before breaking",
+        "expected life before failure",
+        "time to failure"
+      ],
+      "description": "Average operating time before a failure occurs (MTTF)."
+    },
+    "mean_time_to_repair": {
+      "aliases": [
+        "mttr",
+        "mean time to repair",
+        "average repair time",
+        "how long to fix on average",
+        "downtime per incident",
+        "recovery time",
+        "time to restore"
+      ],
+      "description": "Average downtime per repair event (MTTR)."
+    },
     "mean_tweedie_deviance": {
       "aliases": [
         "mean tweedie deviance",
@@ -5100,6 +5171,18 @@
         "effective spread estimator"
       ],
       "description": "Implied bid-ask spread estimated from the autocovariance of price changes."
+    },
+    "rolled_throughput_yield": {
+      "aliases": [
+        "rolled throughput yield",
+        "rty",
+        "end-to-end yield",
+        "product of step yields",
+        "chance of passing all steps clean",
+        "overall first-pass probability",
+        "cumulative process yield"
+      ],
+      "description": "Probability a unit passes every step with no rework (product of step yields)."
     },
     "root_mean_square": {
       "aliases": [

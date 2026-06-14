@@ -7724,3 +7724,56 @@ def mean_absolute_change(xs):
     if n < 2 or _has_nan(xs):
         return float("nan")
     return math.fsum(abs(xs[i] - xs[i - 1]) for i in range(1, n)) / (n - 1)
+
+
+# ======================================================================================
+# Pack REL - reliability & operations engineering. Two-column reliability / quality ratios
+# (failure rate, MTTR, MTTF, defect density, DPMO, first-pass yield) and the rolled
+# throughput yield (product of per-step yields). Validated against the numpy reference.
+# ======================================================================================
+
+def _rel_ratio(num, den, mult=1.0):
+    if not num or len(num) != len(den) or _has_nan(num) or _has_nan(den):
+        return float("nan")
+    s = math.fsum(den)
+    if s == 0:
+        return float("nan")
+    return math.fsum(num) / s * mult
+
+
+def failure_rate(failures, operating_time):
+    """Failure rate (hazard): sum(failures) / sum(operating time) - failures per unit time."""
+    return _rel_ratio(failures, operating_time)
+
+
+def mean_time_to_repair(downtime, repairs):
+    """Mean time to repair (MTTR): sum(downtime) / sum(number of repairs)."""
+    return _rel_ratio(downtime, repairs)
+
+
+def mean_time_to_failure(uptime, failures):
+    """Mean time to failure (MTTF): sum(operating uptime) / sum(failures)."""
+    return _rel_ratio(uptime, failures)
+
+
+def defect_density(defects, size):
+    """Defect density: sum(defects) / sum(size) (e.g. defects per KLOC or per unit)."""
+    return _rel_ratio(defects, size)
+
+
+def dpmo(defects, opportunities):
+    """Defects per million opportunities (Six Sigma): sum(defects)/sum(opportunities) * 1e6."""
+    return _rel_ratio(defects, opportunities, 1e6)
+
+
+def first_pass_yield(passed, total):
+    """First-pass yield: sum(units passing first time) / sum(units started)."""
+    return _rel_ratio(passed, total)
+
+
+def rolled_throughput_yield(yields):
+    """Rolled throughput yield: product of the per-step yields (probability a unit passes
+    every step with no rework). Bit-stable pairwise product."""
+    if not yields or _has_nan(yields):
+        return float("nan")
+    return pairwise_prod(yields)

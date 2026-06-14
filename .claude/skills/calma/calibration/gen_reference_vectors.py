@@ -3009,6 +3009,37 @@ case("rms_successive_differences", "rms_successive_differences", tsf_args,
      float(np.sqrt(np.mean(_td ** 2))), atol=1e-12)
 case("mean_absolute_change", "mean_absolute_change", tsf_args, float(np.mean(np.abs(_td))), atol=1e-12)
 
+# ============================ Pack REL - reliability & operations engineering ============================
+# Independent reference: numpy sums for the reliability / quality ratios and numpy.prod for the
+# rolled throughput yield.
+
+rel_n = 10
+rel_fail = list(uniforms(9301, rel_n, 1, 8))
+rel_optime = list(uniforms(9302, rel_n, 50, 500))
+rel_down = list(uniforms(9303, rel_n, 2, 20))
+rel_rep = list(uniforms(9304, rel_n, 1, 6))
+rel_up = list(uniforms(9305, rel_n, 100, 1000))
+rel_def = list(uniforms(9306, rel_n, 1, 15))
+rel_size = list(uniforms(9307, rel_n, 2, 40))
+rel_opp = list(uniforms(9308, rel_n, 1000, 5000))
+rel_yield = list(uniforms(9309, 6, 0.9, 0.999))
+rel_pass = list(uniforms(9310, rel_n, 80, 100))
+rel_total = list(uniforms(9311, rel_n, 100, 120))
+case("failure_rate", "failure_rate", {"fail": rel_fail, "optime": rel_optime},
+     float(np.sum(rel_fail) / np.sum(rel_optime)), atol=1e-12)
+case("mean_time_to_repair", "mean_time_to_repair", {"down": rel_down, "rep": rel_rep},
+     float(np.sum(rel_down) / np.sum(rel_rep)), atol=1e-12)
+case("mean_time_to_failure", "mean_time_to_failure", {"up": rel_up, "fail": rel_fail},
+     float(np.sum(rel_up) / np.sum(rel_fail)), atol=1e-12)
+case("defect_density", "defect_density", {"def": rel_def, "size": rel_size},
+     float(np.sum(rel_def) / np.sum(rel_size)), atol=1e-12)
+case("dpmo", "dpmo", {"def": rel_def, "opp": rel_opp},
+     float(np.sum(rel_def) / np.sum(rel_opp) * 1e6), atol=1e-9, rtol=1e-12)
+case("first_pass_yield", "first_pass_yield", {"passed": rel_pass, "total": rel_total},
+     float(np.sum(rel_pass) / np.sum(rel_total)), atol=1e-12)
+case("rolled_throughput_yield", "rolled_throughput_yield", {"ys": rel_yield},
+     float(np.prod(rel_yield)), atol=1e-12)
+
 # ============================ write ============================
 
 doc = {

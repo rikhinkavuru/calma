@@ -3398,3 +3398,29 @@ for _mid in ("zero_crossing_rate", "hjorth_mobility", "hjorth_complexity",
              "turning_point_rate", "rms_successive_differences", "mean_absolute_change"):
     register(_mid, family="stats", required_tags=["value"],
              set_maturity="reviewed")(_mom_recipe(getattr(N, _mid)))
+
+
+# ======================================================================================
+# Pack REL - reliability & operations engineering. Two-column reliability / quality ratios;
+# rolled throughput yield is a product over a single per-step yield column.
+# ======================================================================================
+
+_REL_BIND = {
+    "failure_rate": ["failures", "operating_time"],
+    "mean_time_to_repair": ["downtime", "repairs"],
+    "mean_time_to_failure": ["uptime", "failures"],
+    "defect_density": ["defects", "size"],
+    "dpmo": ["defects", "opportunities"],
+    "first_pass_yield": ["passed", "total"],
+}
+
+for _mid, _tags in _REL_BIND.items():
+    register(_mid, family="engineering", required_tags=list(_tags),
+             set_maturity="reviewed")(_biz_recipe(getattr(N, _mid), _tags))
+
+
+@register("rolled_throughput_yield", family="engineering", required_tags=["yield_step"],
+          set_maturity="reviewed")
+def rolled_throughput_yield(cols, binding, convention=None):
+    ys = cols[binding["yield_step"]]
+    return _result(N.rolled_throughput_yield(ys), {"n": len(ys)})

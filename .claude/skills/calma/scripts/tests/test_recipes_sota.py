@@ -671,6 +671,14 @@ KINDS = {
     "turning_point_rate": lambda a: N.turning_point_rate(a["xs"]),
     "rms_successive_differences": lambda a: N.rms_successive_differences(a["xs"]),
     "mean_absolute_change": lambda a: N.mean_absolute_change(a["xs"]),
+    # pack REL - reliability & operations engineering
+    "failure_rate": lambda a: N.failure_rate(a["fail"], a["optime"]),
+    "mean_time_to_repair": lambda a: N.mean_time_to_repair(a["down"], a["rep"]),
+    "mean_time_to_failure": lambda a: N.mean_time_to_failure(a["up"], a["fail"]),
+    "defect_density": lambda a: N.defect_density(a["def"], a["size"]),
+    "dpmo": lambda a: N.dpmo(a["def"], a["opp"]),
+    "first_pass_yield": lambda a: N.first_pass_yield(a["passed"], a["total"]),
+    "rolled_throughput_yield": lambda a: N.rolled_throughput_yield(a["ys"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -931,10 +939,13 @@ EXPECTED = {
     # pack TSF - time-series / signal-shape features (6)
     "zero_crossing_rate", "hjorth_mobility", "hjorth_complexity",
     "turning_point_rate", "rms_successive_differences", "mean_absolute_change",
+    # pack REL - reliability & operations engineering (7)
+    "failure_rate", "mean_time_to_repair", "mean_time_to_failure", "defect_density",
+    "dpmo", "first_pass_yield", "rolled_throughput_yield",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 561 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 568 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402
