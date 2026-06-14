@@ -2766,6 +2766,58 @@ export const FAMILIES: Family[] = [
     ],
   },
   {
+    key: "execution",
+    title: "Execution & transaction cost",
+    blurb:
+      "Transaction-cost analysis the way an execution desk measures it: implementation shortfall, arrival and VWAP slippage, realized spread cost and participation rate — rebuilt in basis points from the raw fills, benchmarks and quantities.",
+    recipes: [
+      {
+        id: "implementation_shortfall",
+        name: "Implementation shortfall",
+        claim: "“IS 5.0 bps”",
+        what: "All-in execution cost versus the price when the trade decision was made.",
+        how: "side·Σq(exec − decision) / Σ(q·decision) · 1e4; side = +1 buy, −1 sell.",
+        ref: "Perold (1988) implementation shortfall",
+        conv: "side=buy | side=sell",
+      },
+      {
+        id: "arrival_slippage",
+        name: "Arrival slippage",
+        claim: "“arrival slippage 3.2 bps”",
+        what: "Slippage versus the mid at order arrival — the standard TCA benchmark.",
+        how: "side·Σq(exec − arrival) / Σ(q·arrival) · 1e4.",
+        ref: "definitional (TCA)",
+        conv: "side=buy | side=sell",
+      },
+      {
+        id: "vwap_slippage",
+        name: "VWAP slippage",
+        claim: "“+1.1 bps vs VWAP”",
+        what: "Execution quality versus the interval volume-weighted average price.",
+        how: "side·Σq(exec − VWAP) / Σ(q·VWAP) · 1e4.",
+        ref: "definitional (TCA)",
+        conv: "side=buy | side=sell",
+      },
+      {
+        id: "effective_spread_bps",
+        name: "Effective spread",
+        claim: "“effective spread 8 bps”",
+        what: "Realized half-spread cost paid versus the prevailing mid.",
+        how: "2·side·Σq(exec − mid) / Σ(q·mid) · 1e4.",
+        ref: "definitional (microstructure)",
+        conv: "side=buy | side=sell",
+      },
+      {
+        id: "participation_rate",
+        name: "Participation rate",
+        claim: "“2.0% of volume”",
+        what: "How much of market volume the order represented — a footprint / impact proxy.",
+        how: "Σ order volume / Σ market volume.",
+        ref: "definitional",
+      },
+    ],
+  },
+  {
     key: "exposure",
     title: "Exposure & operational risk",
     blurb:

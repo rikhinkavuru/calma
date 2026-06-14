@@ -1904,6 +1904,43 @@ case("nelson_aalen_cumhaz", "nelson_aalen_cumhaz", {"dur": sv_dur, "ev": sv_ev, 
 case("restricted_mean_survival_time", "restricted_mean_survival_time",
      {"dur": sv_dur, "ev": sv_ev, "horizon": sv_h}, float(_rmst_util(_kmf, t=sv_h)), atol=1e-9)
 
+# ============================ Pack TX - transaction-cost analysis ============================
+# Independent reference: numpy recompute of the signed bps cost vs each benchmark and the
+# participation rate over a deterministic set of fills.
+
+tx_exec = [100.05, 100.12, 99.98, 100.20, 100.08]
+tx_dec = [100.00, 100.00, 100.00, 100.00, 100.00]
+tx_arr = [100.02, 100.06, 100.01, 100.10, 100.04]
+tx_vwap = [100.03, 100.09, 99.99, 100.14, 100.06]
+tx_mid = [100.04, 100.10, 100.00, 100.16, 100.07]
+tx_qty = [1000.0, 500.0, 800.0, 1200.0, 600.0]
+tx_side = 1.0  # buy
+tx_ovol = [1000.0, 500.0, 800.0, 1200.0, 600.0]
+tx_mvol = [50000.0, 40000.0, 60000.0, 45000.0, 55000.0]
+
+
+def _tx_cost_ref(exec_px, bench, qty, side, mult=1.0):
+    num = float(np.sum([q * (e - b) for e, b, q in zip(exec_px, bench, qty)]))
+    den = float(np.sum([q * b for q, b in zip(qty, bench)]))
+    return side * mult * num / den * 1e4
+
+
+case("implementation_shortfall", "implementation_shortfall",
+     {"exec": tx_exec, "bench": tx_dec, "qty": tx_qty, "side": tx_side},
+     _tx_cost_ref(tx_exec, tx_dec, tx_qty, tx_side), atol=1e-9)
+case("arrival_slippage", "arrival_slippage",
+     {"exec": tx_exec, "bench": tx_arr, "qty": tx_qty, "side": tx_side},
+     _tx_cost_ref(tx_exec, tx_arr, tx_qty, tx_side), atol=1e-9)
+case("vwap_slippage", "vwap_slippage",
+     {"exec": tx_exec, "bench": tx_vwap, "qty": tx_qty, "side": tx_side},
+     _tx_cost_ref(tx_exec, tx_vwap, tx_qty, tx_side), atol=1e-9)
+case("effective_spread_bps", "effective_spread_bps",
+     {"exec": tx_exec, "bench": tx_mid, "qty": tx_qty, "side": tx_side},
+     _tx_cost_ref(tx_exec, tx_mid, tx_qty, tx_side, 2.0), atol=1e-9)
+case("participation_rate", "participation_rate",
+     {"order": tx_ovol, "market": tx_mvol},
+     float(np.sum(tx_ovol) / np.sum(tx_mvol)), atol=1e-12)
+
 # ============================ write ============================
 
 doc = {

@@ -5121,3 +5121,54 @@ def restricted_mean_survival_time(duration, event, horizon):
     if prev_t < horizon:
         area += prev_s * (horizon - prev_t)
     return area
+
+
+# ======================================================================================
+# Pack TX - transaction-cost analysis (execution quality). Fill price, benchmark price and
+# quantity columns give the signed cost in basis points vs a decision / arrival / VWAP / mid
+# benchmark; order and market volume give the participation rate. side = +1 buy, -1 sell.
+# ======================================================================================
+
+def _tca_ok(*cols):
+    n = len(cols[0])
+    return n > 0 and all(len(c) == n for c in cols) and not any(_has_nan(c) for c in cols)
+
+
+def _signed_cost_bps(exec_px, bench, qty, side, mult=1.0):
+    if not _tca_ok(exec_px, bench, qty):
+        return float("nan")
+    den = math.fsum(q * b for q, b in zip(qty, bench))
+    if den == 0:
+        return float("nan")
+    num = math.fsum(q * (e - b) for e, b, q in zip(exec_px, bench, qty))
+    return side * mult * num / den * 1e4
+
+
+def implementation_shortfall(exec_px, decision_px, qty, side):
+    """Implementation shortfall in bps vs the decision price: side*sum(q(exec-dec))/sum(q*dec)*1e4."""
+    return _signed_cost_bps(exec_px, decision_px, qty, side)
+
+
+def arrival_slippage(exec_px, arrival_px, qty, side):
+    """Arrival-price slippage in bps: side*sum(q(exec-arrival))/sum(q*arrival)*1e4."""
+    return _signed_cost_bps(exec_px, arrival_px, qty, side)
+
+
+def vwap_slippage(exec_px, vwap_px, qty, side):
+    """Slippage vs the interval VWAP in bps: side*sum(q(exec-vwap))/sum(q*vwap)*1e4."""
+    return _signed_cost_bps(exec_px, vwap_px, qty, side)
+
+
+def effective_spread_bps(exec_px, mid_px, qty, side):
+    """Effective (realized) spread cost in bps: 2*side*sum(q(exec-mid))/sum(q*mid)*1e4."""
+    return _signed_cost_bps(exec_px, mid_px, qty, side, mult=2.0)
+
+
+def participation_rate(order_volume, market_volume):
+    """Participation rate: sum(order_volume) / sum(market_volume)."""
+    if not _tca_ok(order_volume, market_volume):
+        return float("nan")
+    den = math.fsum(market_volume)
+    if den <= 0:
+        return float("nan")
+    return math.fsum(order_volume) / den

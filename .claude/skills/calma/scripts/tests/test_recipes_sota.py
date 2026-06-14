@@ -445,6 +445,12 @@ KINDS = {
     "km_survival_at": lambda a: N.km_survival_at(a["dur"], a["ev"], a["t"]),
     "nelson_aalen_cumhaz": lambda a: N.nelson_aalen_cumhaz(a["dur"], a["ev"], a["t"]),
     "restricted_mean_survival_time": lambda a: N.restricted_mean_survival_time(a["dur"], a["ev"], a["horizon"]),
+    # pack TX - transaction-cost analysis
+    "implementation_shortfall": lambda a: N.implementation_shortfall(a["exec"], a["bench"], a["qty"], a["side"]),
+    "arrival_slippage": lambda a: N.arrival_slippage(a["exec"], a["bench"], a["qty"], a["side"]),
+    "vwap_slippage": lambda a: N.vwap_slippage(a["exec"], a["bench"], a["qty"], a["side"]),
+    "effective_spread_bps": lambda a: N.effective_spread_bps(a["exec"], a["bench"], a["qty"], a["side"]),
+    "participation_rate": lambda a: N.participation_rate(a["order"], a["market"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -592,10 +598,13 @@ EXPECTED = {
     # pack SV - survival / time-to-event (4)
     "km_median_survival", "km_survival_at", "nelson_aalen_cumhaz",
     "restricted_mean_survival_time",
+    # pack TX - transaction-cost analysis (5)
+    "implementation_shortfall", "arrival_slippage", "vwap_slippage",
+    "effective_spread_bps", "participation_rate",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 365 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 370 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

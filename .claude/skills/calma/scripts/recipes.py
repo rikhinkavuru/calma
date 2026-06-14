@@ -2391,3 +2391,44 @@ def restricted_mean_survival_time(cols, binding, convention=None):
     horizon = _conv_float(convention, "horizon", 1.0)
     return _result(N.restricted_mean_survival_time(d, e, horizon),
                    {"n": len(d), "horizon": horizon}, path_dependent=True)
+
+
+# ======================================================================================
+# Pack TX - transaction-cost analysis. Fill price, benchmark price and quantity columns;
+# the side convention (buy / sell) signs the cost. Participation needs only volumes.
+# ======================================================================================
+
+def _tca_side(convention):
+    s = _conv_str(convention)
+    if "=" in s:
+        s = s.partition("=")[2].strip()
+    return -1.0 if s == "sell" else 1.0
+
+
+_TX_BENCH = {
+    "implementation_shortfall": ("decision_price", N.implementation_shortfall),
+    "arrival_slippage": ("arrival_price", N.arrival_slippage),
+    "vwap_slippage": ("vwap_price", N.vwap_slippage),
+    "effective_spread_bps": ("mid_price", N.effective_spread_bps),
+}
+
+
+def _tx_cost(bench_tag, fn):
+    def recipe(cols, binding, convention=None):
+        e, b, q = cols[binding["exec_price"]], cols[binding[bench_tag]], cols[binding["quantity"]]
+        side = _tca_side(convention)
+        return _result(fn(e, b, q, side), {"n": len(e), "side": "sell" if side < 0 else "buy"})
+    return recipe
+
+
+for _mid, (_bench, _fn) in _TX_BENCH.items():
+    register(_mid, family="execution",
+             required_tags=["exec_price", _bench, "quantity"],
+             set_maturity="reviewed", accepted_conventions=["side=buy", "side=sell"])(_tx_cost(_bench, _fn))
+
+
+@register("participation_rate", family="execution",
+          required_tags=["order_volume", "market_volume"], set_maturity="reviewed")
+def participation_rate(cols, binding, convention=None):
+    o, m = cols[binding["order_volume"]], cols[binding["market_volume"]]
+    return _result(N.participation_rate(o, m), {"n": len(o)})
