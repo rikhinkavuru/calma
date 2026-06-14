@@ -19,6 +19,5 @@
   ],
   "skills": [
     "./.claude/skills/calma"
-  ],
-  "hooks": "./hooks/hooks.json"
+  ]
 }
