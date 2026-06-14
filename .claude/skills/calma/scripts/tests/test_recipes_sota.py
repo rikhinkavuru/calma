@@ -337,6 +337,16 @@ KINDS = {
     "dv01": lambda a: N.dv01(a["cashflow"], a["time"], a["ytm"]),
     "weighted_average_life": lambda a: N.weighted_average_life(a["cashflow"], a["time"]),
     "yield_to_maturity": lambda a: N.yield_to_maturity(a["cashflow"], a["time"], a["price"]),
+    # pack OPT - Black-Scholes options & Greeks
+    "bs_value": lambda a: N.bs_value(a["S"], a["K"], a["T"], a["sigma"], a["r"], a["qty"], a["is_call"]),
+    "bs_delta": lambda a: N.bs_delta(a["S"], a["K"], a["T"], a["sigma"], a["r"], a["qty"], a["is_call"]),
+    "bs_gamma": lambda a: N.bs_gamma(a["S"], a["K"], a["T"], a["sigma"], a["r"], a["qty"], a["is_call"]),
+    "bs_vega": lambda a: N.bs_vega(a["S"], a["K"], a["T"], a["sigma"], a["r"], a["qty"], a["is_call"]),
+    "bs_theta": lambda a: N.bs_theta(a["S"], a["K"], a["T"], a["sigma"], a["r"], a["qty"], a["is_call"]),
+    "bs_rho": lambda a: N.bs_rho(a["S"], a["K"], a["T"], a["sigma"], a["r"], a["qty"], a["is_call"]),
+    "bs_vanna": lambda a: N.bs_vanna(a["S"], a["K"], a["T"], a["sigma"], a["r"], a["qty"], a["is_call"]),
+    "bs_volga": lambda a: N.bs_volga(a["S"], a["K"], a["T"], a["sigma"], a["r"], a["qty"], a["is_call"]),
+    "bs_implied_vol": lambda a: N.bs_implied_vol(a["S"], a["K"], a["T"], a["r"], a["price"], a["is_call"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -441,10 +451,13 @@ EXPECTED = {
     # pack FI - fixed income (7)
     "bond_price", "macaulay_duration", "modified_duration", "convexity", "dv01",
     "weighted_average_life", "yield_to_maturity",
+    # pack OPT - Black-Scholes options & Greeks (9)
+    "bs_value", "bs_delta", "bs_gamma", "bs_vega", "bs_theta",
+    "bs_rho", "bs_vanna", "bs_volga", "bs_implied_vol",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 272 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 281 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

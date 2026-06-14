@@ -3841,3 +3841,173 @@ def yield_to_maturity(cashflows, times, price):
         else:
             lo, flo = mid, fm
     return 0.5 * (lo + hi)
+
+
+# ======================================================================================
+# Pack OPT - Black-Scholes option pricing & Greeks (analytic, non-dividend; q=0).
+# Per-position columns S (spot), K (strike), T (years), sigma (vol), r (rate) and a
+# signed quantity; each recipe returns the portfolio aggregate book value / book Greek
+# = sum_i qty_i * f_i. Calls vs puts via an explicit flag. Greeks are raw (vega per
+# 1.00 vol, rho per 1.00 rate, theta per year). Validated against a scipy.stats.norm
+# closed-form Black-Scholes and scipy.optimize.brentq for implied vol.
+# ======================================================================================
+
+_SQRT2PI = 2.5066282746310002
+
+
+def _norm_cdf(x):
+    """Standard normal CDF P(Z<=x) via the deterministic erfc."""
+    return normal_sf(-x)
+
+
+def _norm_pdf(x):
+    """Standard normal density via the deterministic exp."""
+    return dexp(-0.5 * x * x) / _SQRT2PI
+
+
+def _bs_ok(*cols):
+    n = len(cols[0])
+    return n > 0 and all(len(c) == n for c in cols) and not any(_has_nan(c) for c in cols)
+
+
+def _bs_d1d2(s, k, t, v, r):
+    rt = v * math.sqrt(t)
+    d1 = (dlog(s / k) + (r + 0.5 * v * v) * t) / rt
+    return d1, d1 - rt
+
+
+def _bs_px(s, k, t, v, r, is_call):
+    d1, d2 = _bs_d1d2(s, k, t, v, r)
+    disc = dexp(-r * t)
+    if is_call:
+        return s * _norm_cdf(d1) - k * disc * _norm_cdf(d2)
+    return k * disc * _norm_cdf(-d2) - s * _norm_cdf(-d1)
+
+
+def _bs_delta_pos(s, k, t, v, r, is_call):
+    d1, _ = _bs_d1d2(s, k, t, v, r)
+    return _norm_cdf(d1) if is_call else _norm_cdf(d1) - 1.0
+
+
+def _bs_gamma_pos(s, k, t, v, r, is_call):
+    d1, _ = _bs_d1d2(s, k, t, v, r)
+    return _norm_pdf(d1) / (s * v * math.sqrt(t))
+
+
+def _bs_vega_pos(s, k, t, v, r, is_call):
+    d1, _ = _bs_d1d2(s, k, t, v, r)
+    return s * _norm_pdf(d1) * math.sqrt(t)
+
+
+def _bs_theta_pos(s, k, t, v, r, is_call):
+    d1, d2 = _bs_d1d2(s, k, t, v, r)
+    disc = dexp(-r * t)
+    decay = -s * _norm_pdf(d1) * v / (2.0 * math.sqrt(t))
+    if is_call:
+        return decay - r * k * disc * _norm_cdf(d2)
+    return decay + r * k * disc * _norm_cdf(-d2)
+
+
+def _bs_rho_pos(s, k, t, v, r, is_call):
+    d1, d2 = _bs_d1d2(s, k, t, v, r)
+    disc = dexp(-r * t)
+    if is_call:
+        return k * t * disc * _norm_cdf(d2)
+    return -k * t * disc * _norm_cdf(-d2)
+
+
+def _bs_vanna_pos(s, k, t, v, r, is_call):
+    d1, d2 = _bs_d1d2(s, k, t, v, r)
+    return -_norm_pdf(d1) * d2 / v
+
+
+def _bs_volga_pos(s, k, t, v, r, is_call):
+    d1, d2 = _bs_d1d2(s, k, t, v, r)
+    return s * _norm_pdf(d1) * math.sqrt(t) * d1 * d2 / v
+
+
+def _bs_book(S, K, T, sig, r, qty, is_call, fn):
+    if not _bs_ok(S, K, T, sig, r, qty):
+        return float("nan")
+    parts = []
+    for s, k, t, v, rr, q in zip(S, K, T, sig, r, qty):
+        if s <= 0 or k <= 0 or t <= 0 or v <= 0:
+            return float("nan")
+        parts.append(q * fn(s, k, t, v, rr, is_call))
+    return math.fsum(parts)
+
+
+def bs_value(S, K, T, sig, r, qty, is_call):
+    """Book value sum_i qty_i * Black-Scholes price_i."""
+    return _bs_book(S, K, T, sig, r, qty, is_call, _bs_px)
+
+
+def bs_delta(S, K, T, sig, r, qty, is_call):
+    """Book delta sum_i qty_i * dPrice/dS_i."""
+    return _bs_book(S, K, T, sig, r, qty, is_call, _bs_delta_pos)
+
+
+def bs_gamma(S, K, T, sig, r, qty, is_call):
+    """Book gamma sum_i qty_i * d2Price/dS2_i (call=put)."""
+    return _bs_book(S, K, T, sig, r, qty, is_call, _bs_gamma_pos)
+
+
+def bs_vega(S, K, T, sig, r, qty, is_call):
+    """Book vega sum_i qty_i * dPrice/dsigma_i, raw per 1.00 vol (call=put)."""
+    return _bs_book(S, K, T, sig, r, qty, is_call, _bs_vega_pos)
+
+
+def bs_theta(S, K, T, sig, r, qty, is_call):
+    """Book theta sum_i qty_i * dPrice/dt_i, per calendar year."""
+    return _bs_book(S, K, T, sig, r, qty, is_call, _bs_theta_pos)
+
+
+def bs_rho(S, K, T, sig, r, qty, is_call):
+    """Book rho sum_i qty_i * dPrice/dr_i, raw per 1.00 rate."""
+    return _bs_book(S, K, T, sig, r, qty, is_call, _bs_rho_pos)
+
+
+def bs_vanna(S, K, T, sig, r, qty, is_call):
+    """Book vanna sum_i qty_i * d2Price/dSdsigma_i (call=put)."""
+    return _bs_book(S, K, T, sig, r, qty, is_call, _bs_vanna_pos)
+
+
+def bs_volga(S, K, T, sig, r, qty, is_call):
+    """Book volga / vomma sum_i qty_i * d2Price/dsigma2_i (call=put)."""
+    return _bs_book(S, K, T, sig, r, qty, is_call, _bs_volga_pos)
+
+
+def _bs_implied_one(s, k, t, r, price, is_call):
+    """Implied vol of a single option by bisection on the monotone price(sigma)."""
+    def f(v):
+        return _bs_px(s, k, t, v, r, is_call) - price
+
+    lo, hi = 1e-6, 10.0
+    flo, fhi = f(lo), f(hi)
+    if flo != flo or fhi != fhi or flo * fhi > 0:
+        return float("nan")
+    for _ in range(200):
+        mid = 0.5 * (lo + hi)
+        fm = f(mid)
+        if fm == 0.0:
+            return mid
+        if flo * fm < 0:
+            hi = mid
+        else:
+            lo, flo = mid, fm
+    return 0.5 * (lo + hi)
+
+
+def bs_implied_vol(S, K, T, r, price, is_call):
+    """Mean Black-Scholes implied vol across the option rows (each solved independently)."""
+    if not _bs_ok(S, K, T, r, price):
+        return float("nan")
+    ivs = []
+    for s, k, t, rr, p in zip(S, K, T, r, price):
+        if s <= 0 or k <= 0 or t <= 0 or p <= 0:
+            return float("nan")
+        iv = _bs_implied_one(s, k, t, rr, p, is_call)
+        if iv != iv:
+            return float("nan")
+        ivs.append(iv)
+    return fmean(ivs)

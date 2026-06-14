@@ -1390,6 +1390,110 @@ fi_ytm = brentq(lambda y: sum(cf / (1 + y) ** t for cf, t in zip(fi_cf, fi_t)) -
 case("yield_to_maturity", "yield_to_maturity",
      {"cashflow": fi_cf, "time": fi_t, "price": fi_target}, fi_ytm, atol=1e-9)
 
+# ============================ Pack OPT - Black-Scholes options & Greeks ============================
+# Independent reference: a closed-form Black-Scholes (no dividend, q=0) on scipy.stats.norm,
+# aggregated to a signed-quantity book; implied vol recovered with scipy.optimize.brentq.
+
+from scipy.stats import norm as _spn  # noqa: E402
+import math as _opt_m  # noqa: E402
+
+opt_S = [100.0, 95.0, 110.0]
+opt_K = [100.0, 90.0, 105.0]
+opt_T = [0.5, 1.0, 0.25]
+opt_sig = [0.20, 0.35, 0.15]
+opt_r = [0.03, 0.03, 0.03]
+opt_qty = [10.0, -5.0, 8.0]
+
+
+def _opt_d1d2(s, k, t, v, r):
+    rt = v * _opt_m.sqrt(t)
+    d1 = (_opt_m.log(s / k) + (r + 0.5 * v * v) * t) / rt
+    return d1, d1 - rt
+
+
+def _opt_px(s, k, t, v, r, c):
+    d1, d2 = _opt_d1d2(s, k, t, v, r)
+    disc = _opt_m.exp(-r * t)
+    if c:
+        return s * _spn.cdf(d1) - k * disc * _spn.cdf(d2)
+    return k * disc * _spn.cdf(-d2) - s * _spn.cdf(-d1)
+
+
+def _opt_delta(s, k, t, v, r, c):
+    d1, _ = _opt_d1d2(s, k, t, v, r)
+    return _spn.cdf(d1) if c else _spn.cdf(d1) - 1.0
+
+
+def _opt_gamma(s, k, t, v, r, c):
+    d1, _ = _opt_d1d2(s, k, t, v, r)
+    return _spn.pdf(d1) / (s * v * _opt_m.sqrt(t))
+
+
+def _opt_vega(s, k, t, v, r, c):
+    d1, _ = _opt_d1d2(s, k, t, v, r)
+    return s * _spn.pdf(d1) * _opt_m.sqrt(t)
+
+
+def _opt_theta(s, k, t, v, r, c):
+    d1, d2 = _opt_d1d2(s, k, t, v, r)
+    disc = _opt_m.exp(-r * t)
+    decay = -s * _spn.pdf(d1) * v / (2.0 * _opt_m.sqrt(t))
+    if c:
+        return decay - r * k * disc * _spn.cdf(d2)
+    return decay + r * k * disc * _spn.cdf(-d2)
+
+
+def _opt_rho(s, k, t, v, r, c):
+    d1, d2 = _opt_d1d2(s, k, t, v, r)
+    disc = _opt_m.exp(-r * t)
+    if c:
+        return k * t * disc * _spn.cdf(d2)
+    return -k * t * disc * _spn.cdf(-d2)
+
+
+def _opt_vanna(s, k, t, v, r, c):
+    d1, d2 = _opt_d1d2(s, k, t, v, r)
+    return -_spn.pdf(d1) * d2 / v
+
+
+def _opt_volga(s, k, t, v, r, c):
+    d1, d2 = _opt_d1d2(s, k, t, v, r)
+    return s * _spn.pdf(d1) * _opt_m.sqrt(t) * d1 * d2 / v
+
+
+def _opt_book(fn, c):
+    return float(sum(qq * fn(s, k, t, v, r, c)
+                     for s, k, t, v, r, qq in zip(opt_S, opt_K, opt_T, opt_sig, opt_r, opt_qty)))
+
+
+def _opt_args(c):
+    return {"S": opt_S, "K": opt_K, "T": opt_T, "sigma": opt_sig, "r": opt_r, "qty": opt_qty, "is_call": c}
+
+
+case("bs_value_call", "bs_value", _opt_args(True), _opt_book(_opt_px, True), atol=1e-9)
+case("bs_value_put", "bs_value", _opt_args(False), _opt_book(_opt_px, False), atol=1e-9)
+case("bs_delta_call", "bs_delta", _opt_args(True), _opt_book(_opt_delta, True), atol=1e-10)
+case("bs_delta_put", "bs_delta", _opt_args(False), _opt_book(_opt_delta, False), atol=1e-10)
+case("bs_gamma", "bs_gamma", _opt_args(True), _opt_book(_opt_gamma, True), atol=1e-12)
+case("bs_vega", "bs_vega", _opt_args(True), _opt_book(_opt_vega, True), atol=1e-9)
+case("bs_theta_call", "bs_theta", _opt_args(True), _opt_book(_opt_theta, True), atol=1e-9)
+case("bs_theta_put", "bs_theta", _opt_args(False), _opt_book(_opt_theta, False), atol=1e-9)
+case("bs_rho_call", "bs_rho", _opt_args(True), _opt_book(_opt_rho, True), atol=1e-9)
+case("bs_rho_put", "bs_rho", _opt_args(False), _opt_book(_opt_rho, False), atol=1e-9)
+case("bs_vanna", "bs_vanna", _opt_args(True), _opt_book(_opt_vanna, True), atol=1e-10)
+case("bs_volga", "bs_volga", _opt_args(True), _opt_book(_opt_volga, True), atol=1e-9)
+
+# implied vol: price each call at a known sigma, recover it with brentq, average across rows
+iv_price = [_opt_px(s, k, t, v, r, True)
+            for s, k, t, v, r in zip(opt_S, opt_K, opt_T, opt_sig, opt_r)]
+iv_rec = [brentq(lambda v, s=s, k=k, t=t, r=r, p=p: _opt_px(s, k, t, v, r, True) - p,
+                 1e-6, 10.0, xtol=1e-13)
+          for s, k, t, r, p in zip(opt_S, opt_K, opt_T, opt_r, iv_price)]
+iv_mean = float(sum(iv_rec) / len(iv_rec))
+case("bs_implied_vol", "bs_implied_vol",
+     {"S": opt_S, "K": opt_K, "T": opt_T, "r": opt_r, "price": iv_price, "is_call": True},
+     iv_mean, atol=1e-8)
+
 # ============================ write ============================
 
 doc = {

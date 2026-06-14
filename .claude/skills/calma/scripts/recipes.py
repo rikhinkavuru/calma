@@ -1855,3 +1855,45 @@ def yield_to_maturity(cols, binding, convention=None):
     cf, t = cols[binding["cashflow"]], cols[binding["time"]]
     price = _conv_float(convention, "price", 100.0)
     return _result(N.yield_to_maturity(cf, t, price), {"n": len(cf), "price": price})
+
+
+# ======================================================================================
+# Pack OPT - Black-Scholes option pricing & Greeks. Bind per-position spot/strike/time/
+# vol/rate + signed quantity columns; recipes return the portfolio book aggregate. The
+# call-vs-put convention picks the wing (default call).
+# ======================================================================================
+
+def _opt_is_call(convention):
+    s = _conv_str(convention)
+    if "=" in s:
+        s = s.partition("=")[2].strip()
+    return s != "put"
+
+
+def _opt_book(fn):
+    def recipe(cols, binding, convention=None):
+        S, K, T = cols[binding["spot"]], cols[binding["strike"]], cols[binding["time"]]
+        sig, r, qty = cols[binding["vol"]], cols[binding["rate"]], cols[binding["quantity"]]
+        ic = _opt_is_call(convention)
+        return _result(fn(S, K, T, sig, r, qty, ic),
+                       {"n": len(S), "type": "call" if ic else "put"})
+    return recipe
+
+
+for _mid in ("bs_value", "bs_delta", "bs_gamma", "bs_vega", "bs_theta",
+             "bs_rho", "bs_vanna", "bs_volga"):
+    register(_mid, family="derivatives",
+             required_tags=["spot", "strike", "time", "vol", "rate", "quantity"],
+             set_maturity="reviewed",
+             accepted_conventions=["type=call", "type=put"])(_opt_book(getattr(N, _mid)))
+
+
+@register("bs_implied_vol", family="derivatives",
+          required_tags=["spot", "strike", "time", "rate", "price"],
+          set_maturity="reviewed", accepted_conventions=["type=call", "type=put"])
+def bs_implied_vol(cols, binding, convention=None):
+    S, K, T = cols[binding["spot"]], cols[binding["strike"]], cols[binding["time"]]
+    r, px = cols[binding["rate"]], cols[binding["price"]]
+    ic = _opt_is_call(convention)
+    return _result(N.bs_implied_vol(S, K, T, r, px, ic),
+                   {"n": len(S), "type": "call" if ic else "put"})
