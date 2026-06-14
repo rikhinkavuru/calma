@@ -1578,6 +1578,34 @@ mt_args = {"v": mt_v, "d": mt_d, "mu": mt_mu, "sigma": mt_sig, "t": mt_t}
 case("merton_distance_to_default", "merton_distance_to_default", mt_args, cr_dd, atol=1e-12)
 case("merton_pd", "merton_pd", mt_args, cr_mpd, atol=1e-12)
 
+# ============================ Pack PA - portfolio construction & attribution ============================
+# Independent reference: vectorized numpy recompute of Brinson-Hood-Beebower attribution
+# and the weight-based metrics over a deterministic 6-segment book.
+
+pa_wp = [0.30, 0.20, 0.25, 0.10, 0.10, 0.05]
+pa_wb = [0.25, 0.25, 0.20, 0.15, 0.10, 0.05]
+pa_rp = [0.08, 0.03, -0.02, 0.05, 0.10, 0.01]
+pa_rb = [0.06, 0.04, -0.01, 0.04, 0.09, 0.02]
+pa_wprev = [0.20, 0.20, 0.20, 0.20, 0.10, 0.10]
+pa_wcurr = pa_wp
+_pwp, _pwb = np.array(pa_wp), np.array(pa_wb)
+_prp, _prb = np.array(pa_rp), np.array(pa_rb)
+pa_alloc = float(((_pwp - _pwb) * _prb).sum())
+pa_sel = float((_pwb * (_prp - _prb)).sum())
+pa_inter = float(((_pwp - _pwb) * (_prp - _prb)).sum())
+pa_total = float((_pwp * _prp).sum() - (_pwb * _prb).sum())
+pa_active_share = float(0.5 * np.abs(_pwp - _pwb).sum())
+pa_turn = float(0.5 * np.abs(np.array(pa_wcurr) - np.array(pa_wprev)).sum())
+pa_enb = float(np.array(pa_wp).sum() ** 2 / (np.array(pa_wp) ** 2).sum())
+pa4 = {"wp": pa_wp, "wb": pa_wb, "rp": pa_rp, "rb": pa_rb}
+case("brinson_allocation", "brinson_allocation", {"wp": pa_wp, "wb": pa_wb, "rb": pa_rb}, pa_alloc, atol=1e-12)
+case("brinson_selection", "brinson_selection", {"wb": pa_wb, "rp": pa_rp, "rb": pa_rb}, pa_sel, atol=1e-12)
+case("brinson_interaction", "brinson_interaction", pa4, pa_inter, atol=1e-12)
+case("brinson_total_active", "brinson_total_active", pa4, pa_total, atol=1e-12)
+case("active_share", "active_share", {"wp": pa_wp, "wb": pa_wb}, pa_active_share, atol=1e-12)
+case("portfolio_turnover", "portfolio_turnover", {"wprev": pa_wprev, "wcurr": pa_wcurr}, pa_turn, atol=1e-12)
+case("effective_number_of_bets", "effective_number_of_bets", {"weight": pa_wp}, pa_enb, atol=1e-12)
+
 # ============================ write ============================
 
 doc = {

@@ -1986,3 +1986,57 @@ for _mid in ("merton_distance_to_default", "merton_pd"):
     register(_mid, family="credit",
              required_tags=["asset_value", "debt", "drift", "vol", "time"],
              set_maturity="reviewed")(_cr_merton(getattr(N, _mid)))
+
+
+# ======================================================================================
+# Pack PA - portfolio construction & attribution. Per-segment portfolio/benchmark weight
+# and return columns drive Brinson attribution; weight vectors drive active share,
+# turnover and the effective number of bets.
+# ======================================================================================
+
+@register("brinson_allocation", family="portfolio",
+          required_tags=["port_weight", "bench_weight", "bench_return"], set_maturity="reviewed")
+def brinson_allocation(cols, binding, convention=None):
+    wp, wb, rb = cols[binding["port_weight"]], cols[binding["bench_weight"]], cols[binding["bench_return"]]
+    return _result(N.brinson_allocation(wp, wb, rb), {"n": len(wp)})
+
+
+@register("brinson_selection", family="portfolio",
+          required_tags=["bench_weight", "port_return", "bench_return"], set_maturity="reviewed")
+def brinson_selection(cols, binding, convention=None):
+    wb, rp, rb = cols[binding["bench_weight"]], cols[binding["port_return"]], cols[binding["bench_return"]]
+    return _result(N.brinson_selection(wb, rp, rb), {"n": len(wb)})
+
+
+def _pa_brinson4(fn):
+    def recipe(cols, binding, convention=None):
+        a = [cols[binding[k]] for k in ("port_weight", "bench_weight", "port_return", "bench_return")]
+        return _result(fn(*a), {"n": len(a[0])})
+    return recipe
+
+
+for _mid in ("brinson_interaction", "brinson_total_active"):
+    register(_mid, family="portfolio",
+             required_tags=["port_weight", "bench_weight", "port_return", "bench_return"],
+             set_maturity="reviewed")(_pa_brinson4(getattr(N, _mid)))
+
+
+@register("active_share", family="portfolio",
+          required_tags=["port_weight", "bench_weight"], set_maturity="reviewed")
+def active_share(cols, binding, convention=None):
+    wp, wb = cols[binding["port_weight"]], cols[binding["bench_weight"]]
+    return _result(N.active_share(wp, wb), {"n": len(wp)})
+
+
+@register("portfolio_turnover", family="portfolio",
+          required_tags=["prev_weight", "curr_weight"], set_maturity="reviewed")
+def portfolio_turnover(cols, binding, convention=None):
+    wp, wc = cols[binding["prev_weight"]], cols[binding["curr_weight"]]
+    return _result(N.portfolio_turnover(wp, wc), {"n": len(wp)})
+
+
+@register("effective_number_of_bets", family="portfolio",
+          required_tags=["weight"], set_maturity="reviewed")
+def effective_number_of_bets(cols, binding, convention=None):
+    w = cols[binding["weight"]]
+    return _result(N.effective_number_of_bets(w), {"n": len(w)})

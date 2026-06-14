@@ -4206,3 +4206,67 @@ def merton_pd(asset_value, debt, drift, vol, time):
             return float("nan")
         pds.append(_norm_cdf(-_merton_dd(v, d, mu, s, t)))
     return fmean(pds)
+
+
+# ======================================================================================
+# Pack PA - portfolio construction & attribution. Per-segment portfolio/benchmark weight
+# and return columns drive Brinson-Hood-Beebower attribution; weight vectors drive active
+# share, turnover and the effective number of bets. All definitional weighted sums.
+# ======================================================================================
+
+def _pa_ok(*cols):
+    n = len(cols[0])
+    return n > 0 and all(len(c) == n for c in cols) and not any(_has_nan(c) for c in cols)
+
+
+def brinson_allocation(wp, wb, rb):
+    """Brinson-Hood-Beebower allocation effect: sum_i (wp_i - wb_i) * rb_i."""
+    if not _pa_ok(wp, wb, rb):
+        return float("nan")
+    return math.fsum((p - b) * r for p, b, r in zip(wp, wb, rb))
+
+
+def brinson_selection(wb, rp, rb):
+    """BHB selection effect: sum_i wb_i * (rp_i - rb_i)."""
+    if not _pa_ok(wb, rp, rb):
+        return float("nan")
+    return math.fsum(b * (p - r) for b, p, r in zip(wb, rp, rb))
+
+
+def brinson_interaction(wp, wb, rp, rb):
+    """BHB interaction effect: sum_i (wp_i - wb_i)(rp_i - rb_i)."""
+    if not _pa_ok(wp, wb, rp, rb):
+        return float("nan")
+    return math.fsum((a - b) * (c - d) for a, b, c, d in zip(wp, wb, rp, rb))
+
+
+def brinson_total_active(wp, wb, rp, rb):
+    """Total active return sum_i wp_i rp_i - sum_i wb_i rb_i (= allocation+selection+interaction)."""
+    if not _pa_ok(wp, wb, rp, rb):
+        return float("nan")
+    return math.fsum(p * r for p, r in zip(wp, rp)) - math.fsum(b * r for b, r in zip(wb, rb))
+
+
+def active_share(wp, wb):
+    """Active share vs the benchmark: 0.5 * sum_i |wp_i - wb_i|."""
+    if not _pa_ok(wp, wb):
+        return float("nan")
+    return 0.5 * math.fsum(abs(p - b) for p, b in zip(wp, wb))
+
+
+def portfolio_turnover(w_prev, w_curr):
+    """One-sided turnover between two weight vectors: 0.5 * sum_i |w_curr_i - w_prev_i|."""
+    if not _pa_ok(w_prev, w_curr):
+        return float("nan")
+    return 0.5 * math.fsum(abs(c - p) for p, c in zip(w_prev, w_curr))
+
+
+def effective_number_of_bets(weight):
+    """Naive effective number of positions (inverse Herfindahl): (sum w)^2 / sum w^2."""
+    if not _pa_ok(weight):
+        return float("nan")
+    s = math.fsum(weight)
+    s2 = math.fsum(w * w for w in weight)
+    if s2 == 0:
+        return float("nan")
+    return s * s / s2
