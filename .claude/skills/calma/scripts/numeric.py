@@ -5903,3 +5903,32 @@ def asset_turnover(revenue, assets):
 def days_sales_outstanding(receivables, revenue):
     """Days sales outstanding: sum(receivables) / sum(revenue) * 365."""
     return _biz_ratio(receivables, revenue, 365.0)
+
+
+# ======================================================================================
+# Pack DD - drawdown / path-risk depth. A return column drives the time-underwater fraction,
+# the drawdown-at-risk quantile and the drawdown deviation (std of the drawdown series).
+# Reuses _drawdown_series (running peak floored at the initial capital 1.0).
+# ======================================================================================
+
+def time_underwater(rets):
+    """Fraction of periods spent below a prior equity peak (drawdown < 0)."""
+    if not rets or _has_nan(rets):
+        return float("nan")
+    dd = _drawdown_series(rets)
+    return sum(1 for x in dd if x < 0) / len(dd)
+
+
+def drawdown_at_risk(rets, level):
+    """Drawdown at risk at `level`: the (1-level) quantile of the drawdown series, reported
+    positive (the non-conditional counterpart of CDaR)."""
+    if not rets or _has_nan(rets) or not (0.5 < level < 1.0):
+        return float("nan")
+    return -quantile(_drawdown_series(rets), 1.0 - level)
+
+
+def drawdown_deviation(rets):
+    """Drawdown deviation: standard deviation (ddof=1) of the drawdown series."""
+    if not rets or _has_nan(rets) or len(rets) < 2:
+        return float("nan")
+    return fstd(_drawdown_series(rets), 1)

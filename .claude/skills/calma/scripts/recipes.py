@@ -2729,3 +2729,28 @@ def _biz_recipe(fn, tags):
 for _mid, _tags in _BIZ_BIND.items():
     register(_mid, family="finance", required_tags=list(_tags),
              set_maturity="reviewed")(_biz_recipe(getattr(N, _mid), _tags))
+
+
+# ======================================================================================
+# Pack DD - drawdown / path-risk depth. A return column; drawdown-at-risk takes a level.
+# ======================================================================================
+
+@register("time_underwater", family="quant", required_tags=["return"], set_maturity="reviewed")
+def time_underwater(cols, binding, convention=None):
+    r = cols[binding["return"]]
+    return _result(N.time_underwater(r), {"n": len(r)}, path_dependent=True)
+
+
+@register("drawdown_deviation", family="quant", required_tags=["return"], set_maturity="reviewed")
+def drawdown_deviation(cols, binding, convention=None):
+    r = cols[binding["return"]]
+    return _result(N.drawdown_deviation(r), {"n": len(r)}, path_dependent=True)
+
+
+@register("drawdown_at_risk", family="quant", required_tags=["return"],
+          set_maturity="reviewed", accepted_conventions=["p95", "p99"])
+def drawdown_at_risk(cols, binding, convention=None):
+    r = cols[binding["return"]]
+    q = _conv_q(convention)
+    level = q if (q == q and 0.5 < q < 1.0) else 0.95
+    return _result(N.drawdown_at_risk(r, level), {"n": len(r), "level": level}, path_dependent=True)

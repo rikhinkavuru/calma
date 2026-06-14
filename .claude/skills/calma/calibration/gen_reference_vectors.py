@@ -2286,6 +2286,22 @@ case("asset_turnover", "asset_turnover", {"rev": biz_rev, "assets": biz_assets},
 case("days_sales_outstanding", "days_sales_outstanding", {"recv": biz_recv, "rev": biz_rev},
      float(np.sum(biz_recv) / np.sum(biz_rev) * 365.0), atol=1e-11)
 
+# ============================ Pack DD - drawdown / path-risk depth ============================
+# Independent reference: numpy drawdown series with the running peak floored at the initial
+# capital 1.0 (matching the engine), then time-underwater, the DaR quantile and the std.
+
+dd_rets = list(uniforms(2901, 220, -0.04, 0.038))
+_ddeq = np.cumprod(1.0 + np.array(dd_rets))
+_ddpeak = np.maximum(np.maximum.accumulate(_ddeq), 1.0)
+_dds = _ddeq / _ddpeak - 1.0
+dd_level = 0.95
+dd_tuw = float(np.mean(_dds < 0))
+dd_dar = float(-np.quantile(_dds, 1.0 - dd_level))
+dd_dev = float(np.std(_dds, ddof=1))
+case("time_underwater", "time_underwater", {"rets": dd_rets}, dd_tuw, atol=1e-12)
+case("drawdown_deviation", "drawdown_deviation", {"rets": dd_rets}, dd_dev, atol=1e-12)
+case("drawdown_at_risk", "drawdown_at_risk", {"rets": dd_rets, "level": dd_level}, dd_dar, atol=1e-12)
+
 # ============================ write ============================
 
 doc = {

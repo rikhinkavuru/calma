@@ -514,6 +514,10 @@ KINDS = {
     "return_on_invested_capital": lambda a: N.return_on_invested_capital(a["nopat"], a["ic"]),
     "asset_turnover": lambda a: N.asset_turnover(a["rev"], a["assets"]),
     "days_sales_outstanding": lambda a: N.days_sales_outstanding(a["recv"], a["rev"]),
+    # pack DD - drawdown / path-risk depth
+    "time_underwater": lambda a: N.time_underwater(a["rets"]),
+    "drawdown_deviation": lambda a: N.drawdown_deviation(a["rets"]),
+    "drawdown_at_risk": lambda a: N.drawdown_at_risk(a["rets"], a["level"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -692,10 +696,12 @@ EXPECTED = {
     # pack BIZ - return-on-capital & efficiency ratios (5)
     "return_on_equity", "return_on_assets", "return_on_invested_capital",
     "asset_turnover", "days_sales_outstanding",
+    # pack DD - drawdown / path-risk depth (3)
+    "time_underwater", "drawdown_deviation", "drawdown_at_risk",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 420 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 423 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402
