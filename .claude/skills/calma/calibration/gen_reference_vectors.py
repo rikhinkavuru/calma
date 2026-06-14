@@ -3147,6 +3147,58 @@ _tpr, _tnr = _tp / (_tp + _fn), _tn / (_tn + _fp)
 case("prevalence_threshold", "prevalence_threshold", {"preds": cal_pred, "labels": cal_y},
      float((np.sqrt(_tpr * (1 - _tnr)) + _tnr - 1) / (_tpr + _tnr - 1)), atol=1e-12)
 
+# ============================ Pack FAIR2 - group-fairness depth ============================
+# Independent reference: numpy per-group confusion -> sign-free max-min disparities, plus the
+# generalized-entropy index of the benefit vector b = pred - label + 1 (AIF360, alpha=2).
+
+fair_n = 150
+fair_gs = ["A", "B", "C"]
+fair_g = [fair_gs[int(u * 3) % 3] for u in uniforms(5001, fair_n, 0, 1)]
+fair_y = [1.0 if u < 0.5 else 0.0 for u in uniforms(5002, fair_n, 0, 1)]
+fair_p = [1.0 if u < 0.5 else 0.0 for u in uniforms(5003, fair_n, 0, 1)]
+
+
+def _fair_conf(g0):
+    tp = fp = fn = tn = 0
+    for pi, yi, gi in zip(fair_p, fair_y, fair_g):
+        if gi != g0:
+            continue
+        if pi == 1 and yi == 1:
+            tp += 1
+        elif pi == 1 and yi == 0:
+            fp += 1
+        elif pi == 0 and yi == 1:
+            fn += 1
+        else:
+            tn += 1
+    return tp, fp, fn, tn
+
+
+def _fair_rng(vals):
+    v = [x for x in vals if x is not None]
+    return (max(v) - min(v)) if v else float("nan")
+
+
+_fair_groups = sorted(set(fair_g))
+_fc = [_fair_conf(g0) for g0 in _fair_groups]
+_fdr = _fair_rng([fp / (fp + tp) if (fp + tp) else None for tp, fp, fn, tn in _fc])
+_for = _fair_rng([fn / (fn + tn) if (fn + tn) else None for tp, fp, fn, tn in _fc])
+_tpr_r = _fair_rng([tp / (tp + fn) if (tp + fn) else None for tp, fp, fn, tn in _fc])
+_fpr_r = _fair_rng([fp / (fp + tn) if (fp + tn) else None for tp, fp, fn, tn in _fc])
+_treat = _fair_rng([fn / fp if fp else None for tp, fp, fn, tn in _fc])
+_bacc = _fair_rng([0.5 * (tp / (tp + fn) + tn / (fp + tn)) if (tp + fn) and (fp + tn) else None
+                   for tp, fp, fn, tn in _fc])
+_fair_args = {"preds": fair_p, "labels": fair_y, "groups": fair_g}
+case("fdr_parity_difference", "fdr_parity_difference", _fair_args, _fdr, atol=1e-12)
+case("for_parity_difference", "for_parity_difference", _fair_args, _for, atol=1e-12)
+case("average_abs_odds_difference", "average_abs_odds_difference", _fair_args, 0.5 * (_tpr_r + _fpr_r), atol=1e-12)
+case("treatment_equality_difference", "treatment_equality_difference", _fair_args, _treat, atol=1e-12)
+case("balanced_accuracy_parity_difference", "balanced_accuracy_parity_difference", _fair_args, _bacc, atol=1e-12)
+_fair_b = np.array(fair_p) - np.array(fair_y) + 1.0
+_fair_mu = _fair_b.mean()
+case("generalized_entropy_error", "generalized_entropy_error", {"preds": fair_p, "labels": fair_y, "alpha": 2.0},
+     float(np.sum((_fair_b / _fair_mu) ** 2.0 - 1.0) / (fair_n * 2.0 * 1.0)), atol=1e-9, rtol=1e-9)
+
 # ============================ write ============================
 
 doc = {

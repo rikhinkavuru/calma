@@ -3500,3 +3500,22 @@ def net_benefit(cols, binding, convention=None):
 for _mid in ("pabak", "prevalence_threshold"):
     register(_mid, family="classification", required_tags=["prediction", "label"],
              set_maturity="reviewed")(_pl_recipe(getattr(N, _mid)))
+
+
+# ======================================================================================
+# Pack FAIR2 - group-fairness depth. The parity disparities bind (prediction, label, group);
+# the generalized-entropy individual-fairness index binds (prediction, label) with an alpha.
+# ======================================================================================
+
+for _mid in ("fdr_parity_difference", "for_parity_difference", "average_abs_odds_difference",
+             "treatment_equality_difference", "balanced_accuracy_parity_difference"):
+    register(_mid, family="classification", required_tags=["prediction", "label", "group"],
+             string_tags=["group"], set_maturity="reviewed")(_plg(getattr(N, _mid)))
+
+
+@register("generalized_entropy_error", family="classification", required_tags=["prediction", "label"],
+          set_maturity="reviewed", accepted_conventions=["alpha=<float>"])
+def generalized_entropy_error(cols, binding, convention=None):
+    p, l = cols[binding["prediction"]], cols[binding["label"]]
+    alpha = _conv_float(convention, "alpha", 2.0)
+    return _result(N.generalized_entropy_error(p, l, alpha), {"n": len(l), "alpha": alpha})

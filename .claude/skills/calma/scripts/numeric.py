@@ -8116,3 +8116,87 @@ def prevalence_threshold(pred, label):
     if den == 0:
         return float("nan")
     return (math.sqrt(tpr * (1.0 - tnr)) + tnr - 1.0) / den
+
+
+# ======================================================================================
+# Pack FAIR2 - group-fairness depth. Sign-free max-min ("range") disparities across protected
+# groups (FDR / FOR parity, average absolute odds, treatment equality, balanced-accuracy
+# parity) plus Speicher's generalized-entropy individual-fairness index. Validated vs numpy.
+# ======================================================================================
+
+def _grp_confusion(pred, label, group):
+    g = {}
+    for p, y, s in zip(pred, label, group):
+        d = g.setdefault(s.strip(), [0, 0, 0, 0])
+        if p == 1 and y == 1:
+            d[0] += 1
+        elif p == 1 and y == 0:
+            d[1] += 1
+        elif p == 0 and y == 1:
+            d[2] += 1
+        else:
+            d[3] += 1
+    return g
+
+
+def fdr_parity_difference(pred, label, group):
+    """Max - min false-discovery rate (FP/(FP+TP)) across protected groups."""
+    if not _fok(pred, label, group):
+        return float("nan")
+    vals = [fp / (fp + tp) if (fp + tp) else None for tp, fp, fn, tn in _grp_confusion(pred, label, group).values()]
+    return _frange(vals)
+
+
+def for_parity_difference(pred, label, group):
+    """Max - min false-omission rate (FN/(FN+TN)) across protected groups."""
+    if not _fok(pred, label, group):
+        return float("nan")
+    vals = [fn / (fn + tn) if (fn + tn) else None for tp, fp, fn, tn in _grp_confusion(pred, label, group).values()]
+    return _frange(vals)
+
+
+def average_abs_odds_difference(pred, label, group):
+    """Average absolute odds difference: 0.5*(FPR range + TPR range) across groups (AIF360)."""
+    if not _fok(pred, label, group):
+        return float("nan")
+    c = _grp_confusion(pred, label, group).values()
+    tpr = [tp / (tp + fn) if (tp + fn) else None for tp, fp, fn, tn in c]
+    fpr = [fp / (fp + tn) if (fp + tn) else None for tp, fp, fn, tn in c]
+    rt, rf = _frange(tpr), _frange(fpr)
+    if rt != rt or rf != rf:
+        return float("nan")
+    return 0.5 * (rt + rf)
+
+
+def treatment_equality_difference(pred, label, group):
+    """Max - min treatment ratio (FN/FP) across protected groups (Berk 2018)."""
+    if not _fok(pred, label, group):
+        return float("nan")
+    vals = [fn / fp if fp else None for tp, fp, fn, tn in _grp_confusion(pred, label, group).values()]
+    return _frange(vals)
+
+
+def balanced_accuracy_parity_difference(pred, label, group):
+    """Max - min balanced accuracy ((TPR + TNR)/2) across protected groups."""
+    if not _fok(pred, label, group):
+        return float("nan")
+    vals = []
+    for tp, fp, fn, tn in _grp_confusion(pred, label, group).values():
+        if (tp + fn) and (fp + tn):
+            vals.append(0.5 * (tp / (tp + fn) + tn / (fp + tn)))
+        else:
+            vals.append(None)
+    return _frange(vals)
+
+
+def generalized_entropy_error(pred, label, alpha=2.0):
+    """Speicher et al. (2018) generalized-entropy index of the benefit vector b_i = pred_i -
+    label_i + 1 (AIF360 generalized_entropy_index, alpha=2): an individual-fairness measure."""
+    n = len(pred)
+    if n == 0 or len(label) != n or _has_nan(pred) or _has_nan(label) or alpha in (0.0, 1.0):
+        return float("nan")
+    b = [p - y + 1.0 for p, y in zip(pred, label)]
+    mu = fmean(b)
+    if mu == 0:
+        return float("nan")
+    return math.fsum(dpow(bi / mu, alpha) - 1.0 for bi in b) / (n * alpha * (alpha - 1.0))

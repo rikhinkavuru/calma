@@ -709,6 +709,13 @@ KINDS = {
     "net_benefit": lambda a: N.net_benefit(a["probs"], a["labels"], a["pt"]),
     "pabak": lambda a: N.pabak(a["preds"], a["labels"]),
     "prevalence_threshold": lambda a: N.prevalence_threshold(a["preds"], a["labels"]),
+    # pack FAIR2 - group-fairness depth
+    "fdr_parity_difference": lambda a: N.fdr_parity_difference(a["preds"], a["labels"], a["groups"]),
+    "for_parity_difference": lambda a: N.for_parity_difference(a["preds"], a["labels"], a["groups"]),
+    "average_abs_odds_difference": lambda a: N.average_abs_odds_difference(a["preds"], a["labels"], a["groups"]),
+    "treatment_equality_difference": lambda a: N.treatment_equality_difference(a["preds"], a["labels"], a["groups"]),
+    "balanced_accuracy_parity_difference": lambda a: N.balanced_accuracy_parity_difference(a["preds"], a["labels"], a["groups"]),
+    "generalized_entropy_error": lambda a: N.generalized_entropy_error(a["preds"], a["labels"], a["alpha"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -986,10 +993,14 @@ EXPECTED = {
     # pack CAL2 - probability calibration & decision-curve depth (5)
     "rms_calibration_error", "adaptive_calibration_error", "net_benefit",
     "pabak", "prevalence_threshold",
+    # pack FAIR2 - group-fairness depth (6)
+    "fdr_parity_difference", "for_parity_difference", "average_abs_odds_difference",
+    "treatment_equality_difference", "balanced_accuracy_parity_difference",
+    "generalized_entropy_error",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 594 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 600 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

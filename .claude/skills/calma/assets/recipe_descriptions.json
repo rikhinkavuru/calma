@@ -383,6 +383,17 @@
       ],
       "description": "Fraction of time a system was up versus total time."
     },
+    "average_abs_odds_difference": {
+      "aliases": [
+        "average absolute odds difference",
+        "average odds difference",
+        "mean of tpr and fpr gaps",
+        "equalized odds disparity",
+        "combined error-rate fairness gap",
+        "aif360 average odds"
+      ],
+      "description": "Average of the TPR and FPR disparities across groups."
+    },
     "average_treatment_effect": {
       "aliases": [
         "ate",
@@ -416,6 +427,17 @@
         "adjusted recall average"
       ],
       "description": "Balanced accuracy rescaled so chance performance equals zero."
+    },
+    "balanced_accuracy_parity_difference": {
+      "aliases": [
+        "balanced accuracy parity",
+        "balanced accuracy gap across groups",
+        "equal balanced accuracy",
+        "does the model work equally well per group",
+        "class-balanced accuracy disparity",
+        "balanced accuracy fairness"
+      ],
+      "description": "Gap in balanced accuracy across protected groups."
     },
     "bartlett": {
       "aliases": [
@@ -2334,6 +2356,17 @@
       ],
       "description": "Weighted harmonic mean of precision and recall tunable by beta."
     },
+    "fdr_parity_difference": {
+      "aliases": [
+        "false discovery rate parity",
+        "fdr parity difference",
+        "fdr gap across groups",
+        "false alarm rate disparity",
+        "do groups get the same false-positive-among-flagged rate",
+        "fdr fairness gap"
+      ],
+      "description": "Gap in false-discovery rate across protected groups."
+    },
     "first_pass_yield": {
       "aliases": [
         "first pass yield",
@@ -2379,6 +2412,17 @@
         "variance homogeneity"
       ],
       "description": "Robust nonparametric test for equality of variances across groups."
+    },
+    "for_parity_difference": {
+      "aliases": [
+        "false omission rate parity",
+        "for parity difference",
+        "for gap across groups",
+        "missed-positive rate disparity",
+        "do groups get the same missed-among-cleared rate",
+        "for fairness gap"
+      ],
+      "description": "Gap in false-omission rate across protected groups."
     },
     "forecast_bias": {
       "aliases": [
@@ -2542,6 +2586,18 @@
         "gaussian-transformed rank correlation"
       ],
       "description": "Robust correlation from normal scores of the ranks."
+    },
+    "generalized_entropy_error": {
+      "aliases": [
+        "generalized entropy index fairness",
+        "ge index of benefits",
+        "speicher generalized entropy",
+        "individual fairness index",
+        "inequality of per-person errors",
+        "benefit inequality measure",
+        "ge error"
+      ],
+      "description": "Generalized-entropy index of per-individual benefits (individual fairness)."
     },
     "generalized_entropy_index": {
       "aliases": [
@@ -6082,6 +6138,17 @@
         "bias signal"
       ],
       "description": "Cumulative error divided by mean absolute deviation to detect drift."
+    },
+    "treatment_equality_difference": {
+      "aliases": [
+        "treatment equality",
+        "treatment equality difference",
+        "fn over fp ratio gap",
+        "error-type balance across groups",
+        "do groups get the same miss-to-false-alarm ratio",
+        "berk treatment equality"
+      ],
+      "description": "Gap in the false-negative to false-positive ratio across groups."
     },
     "treynor_ratio": {
       "aliases": [
