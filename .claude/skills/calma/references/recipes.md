@@ -1,4 +1,4 @@
-# Recipe catalog (388 recipes, all SOTA-validated)
+# Recipe catalog (392 recipes, all SOTA-validated)
 
 Every recipe recomputes its number ONLY from raw machine-readable artifacts via the
 reference-deterministic kernels in `numeric.py` (fsum / pairwise product / sqrt, plus the

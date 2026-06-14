@@ -471,6 +471,11 @@ KINDS = {
     "hedges_g": lambda a: N.hedges_g(a["a"], a["b"]),
     "common_language_effect_size": lambda a: N.common_language_effect_size(a["a"], a["b"]),
     "cohens_h": lambda a: N.cohens_h(a["a"], a["b"]),
+    # pack VOL - range-based volatility estimators
+    "parkinson_volatility": lambda a: N.parkinson_volatility(a["high"], a["low"]),
+    "garman_klass_volatility": lambda a: N.garman_klass_volatility(a["open"], a["high"], a["low"], a["close"]),
+    "rogers_satchell_volatility": lambda a: N.rogers_satchell_volatility(a["open"], a["high"], a["low"], a["close"]),
+    "yang_zhang_volatility": lambda a: N.yang_zhang_volatility(a["open"], a["high"], a["low"], a["close"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -629,10 +634,13 @@ EXPECTED = {
     "hoover_index", "mean_log_deviation", "generalized_entropy_index", "percentile_ratio",
     # pack EF - effect-size depth (4)
     "glass_delta", "hedges_g", "common_language_effect_size", "cohens_h",
+    # pack VOL - range-based volatility estimators (4)
+    "parkinson_volatility", "garman_klass_volatility",
+    "rogers_satchell_volatility", "yang_zhang_volatility",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 386 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 390 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

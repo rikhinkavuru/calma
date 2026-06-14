@@ -2028,6 +2028,38 @@ case("common_language_effect_size", "common_language_effect_size",
      {"a": ef_a, "b": ef_b}, ef_cles, atol=1e-12)
 case("cohens_h", "cohens_h", {"a": ef_la, "b": ef_lb}, ef_h, atol=1e-12)
 
+# ============================ Pack VOL - range-based volatility estimators ============================
+# Independent reference: numpy recompute of the Parkinson / Garman-Klass / Rogers-Satchell /
+# Yang-Zhang OHLC volatility closed forms over a deterministic bar series.
+
+_vn = 60
+_vclose = [50.0]
+for _u in uniforms(2201, _vn, -0.02, 0.02):
+    _vclose.append(_vclose[-1] * (1.0 + _u))
+vol_close = _vclose[1:]
+vol_open = [c * (1.0 + u) for c, u in zip(_vclose[:-1], uniforms(2202, _vn, -0.01, 0.01))]
+vol_high = [max(o, c) * (1.0 + abs(u)) for o, c, u in zip(vol_open, vol_close, uniforms(2203, _vn, 0.0, 0.015))]
+vol_low = [min(o, c) * (1.0 - abs(u)) for o, c, u in zip(vol_open, vol_close, uniforms(2204, _vn, 0.0, 0.015))]
+_vo, _vh, _vl, _vc = np.array(vol_open), np.array(vol_high), np.array(vol_low), np.array(vol_close)
+_n = len(_vo)
+vol_park = float(np.sqrt(np.sum(np.log(_vh / _vl) ** 2) / (4.0 * np.log(2.0) * _n)))
+vol_gk = float(np.sqrt(np.mean(0.5 * np.log(_vh / _vl) ** 2
+                               - (2.0 * np.log(2.0) - 1.0) * np.log(_vc / _vo) ** 2)))
+vol_rs = float(np.sqrt(np.mean(np.log(_vh / _vc) * np.log(_vh / _vo)
+                               + np.log(_vl / _vc) * np.log(_vl / _vo))))
+_ovn = np.log(_vo[1:] / _vc[:-1])
+_ocl = np.log(_vc[1:] / _vo[1:])
+_rsi = (np.log(_vh[1:] / _vc[1:]) * np.log(_vh[1:] / _vo[1:])
+        + np.log(_vl[1:] / _vc[1:]) * np.log(_vl[1:] / _vo[1:]))
+_m = _n - 1
+_k = 0.34 / (1.34 + (_m + 1.0) / (_m - 1.0))
+vol_yz = float(np.sqrt(np.var(_ovn, ddof=1) + _k * np.var(_ocl, ddof=1) + (1.0 - _k) * np.mean(_rsi)))
+vol_ohlc = {"open": vol_open, "high": vol_high, "low": vol_low, "close": vol_close}
+case("parkinson_volatility", "parkinson_volatility", {"high": vol_high, "low": vol_low}, vol_park, atol=1e-12)
+case("garman_klass_volatility", "garman_klass_volatility", vol_ohlc, vol_gk, atol=1e-12)
+case("rogers_satchell_volatility", "rogers_satchell_volatility", vol_ohlc, vol_rs, atol=1e-12)
+case("yang_zhang_volatility", "yang_zhang_volatility", vol_ohlc, vol_yz, atol=1e-12)
+
 # ============================ write ============================
 
 doc = {

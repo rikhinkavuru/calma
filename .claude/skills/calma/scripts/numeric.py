@@ -5397,3 +5397,70 @@ def cohens_h(a, b):
     if not (0.0 <= p1 <= 1.0 and 0.0 <= p2 <= 1.0):
         return float("nan")
     return 2.0 * math.asin(math.sqrt(p1)) - 2.0 * math.asin(math.sqrt(p2))
+
+
+# ======================================================================================
+# Pack VOL - range-based (OHLC) volatility estimators. Open/high/low/close columns give the
+# Parkinson, Garman-Klass, Rogers-Satchell and Yang-Zhang per-period volatility estimators -
+# more efficient than close-to-close. Documented closed forms validated against numpy.
+# ======================================================================================
+
+_LN2C = 0.6931471805599453  # ln(2)
+
+
+def _vol_ok(*cols):
+    n = len(cols[0])
+    return (n > 0 and all(len(c) == n for c in cols) and not any(_has_nan(c) for c in cols)
+            and all(all(x > 0 for x in c) for c in cols))
+
+
+def parkinson_volatility(high, low):
+    """Parkinson (1980) range volatility: sqrt( (1/(4 ln2 n)) sum ln(H/L)^2 )."""
+    if not _vol_ok(high, low):
+        return float("nan")
+    n = len(high)
+    s = math.fsum(dlog(h / l) ** 2 for h, l in zip(high, low))
+    return math.sqrt(s / (4.0 * _LN2C * n))
+
+
+def garman_klass_volatility(open_, high, low, close):
+    """Garman-Klass (1980): sqrt( (1/n) sum [0.5 ln(H/L)^2 - (2ln2-1) ln(C/O)^2] )."""
+    if not _vol_ok(open_, high, low, close):
+        return float("nan")
+    n = len(open_)
+    s = math.fsum(0.5 * dlog(h / l) ** 2 - (2.0 * _LN2C - 1.0) * dlog(c / o) ** 2
+                  for o, h, l, c in zip(open_, high, low, close))
+    v = s / n
+    return math.sqrt(v) if v >= 0 else float("nan")
+
+
+def rogers_satchell_volatility(open_, high, low, close):
+    """Rogers-Satchell (1991), drift-independent: sqrt( (1/n) sum [ln(H/C)ln(H/O)+ln(L/C)ln(L/O)] )."""
+    if not _vol_ok(open_, high, low, close):
+        return float("nan")
+    n = len(open_)
+    s = math.fsum(dlog(h / c) * dlog(h / o) + dlog(l / c) * dlog(l / o)
+                  for o, h, l, c in zip(open_, high, low, close))
+    v = s / n
+    return math.sqrt(v) if v >= 0 else float("nan")
+
+
+def yang_zhang_volatility(open_, high, low, close):
+    """Yang-Zhang (2000): sqrt( var_overnight + k var_openclose + (1-k) var_RS ) over the n-1
+    days with a prior close; k = 0.34/(1.34 + (m+1)/(m-1)), m = n-1."""
+    if not _vol_ok(open_, high, low, close) or len(open_) < 3:
+        return float("nan")
+    n = len(open_)
+    overnight = [dlog(open_[i] / close[i - 1]) for i in range(1, n)]
+    openclose = [dlog(close[i] / open_[i]) for i in range(1, n)]
+    rs = [dlog(high[i] / close[i]) * dlog(high[i] / open_[i])
+          + dlog(low[i] / close[i]) * dlog(low[i] / open_[i]) for i in range(1, n)]
+    m = n - 1
+    if m < 2:
+        return float("nan")
+    vo = fvar(overnight, 1)
+    vc = fvar(openclose, 1)
+    vrs = fmean(rs)
+    k = 0.34 / (1.34 + (m + 1.0) / (m - 1.0))
+    v = vo + k * vc + (1.0 - k) * vrs
+    return math.sqrt(v) if v >= 0 else float("nan")

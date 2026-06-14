@@ -2522,3 +2522,28 @@ def _ef_ab(fn):
 for _mid in ("glass_delta", "hedges_g", "common_language_effect_size", "cohens_h"):
     register(_mid, family="stats", required_tags=["sample_a", "sample_b"],
              set_maturity="reviewed")(_ef_ab(getattr(N, _mid)))
+
+
+# ======================================================================================
+# Pack VOL - range-based (OHLC) volatility estimators. Parkinson needs high/low; the others
+# need the full open/high/low/close bars.
+# ======================================================================================
+
+@register("parkinson_volatility", family="quant", required_tags=["high", "low"],
+          set_maturity="reviewed")
+def parkinson_volatility(cols, binding, convention=None):
+    h, l = cols[binding["high"]], cols[binding["low"]]
+    return _result(N.parkinson_volatility(h, l), {"n": len(h)})
+
+
+def _vol_ohlc(fn):
+    def recipe(cols, binding, convention=None):
+        o, h, l, c = (cols[binding["open"]], cols[binding["high"]],
+                      cols[binding["low"]], cols[binding["close"]])
+        return _result(fn(o, h, l, c), {"n": len(o)})
+    return recipe
+
+
+for _mid in ("garman_klass_volatility", "rogers_satchell_volatility", "yang_zhang_volatility"):
+    register(_mid, family="quant", required_tags=["open", "high", "low", "close"],
+             set_maturity="reviewed")(_vol_ohlc(getattr(N, _mid)))
