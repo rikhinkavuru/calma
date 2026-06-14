@@ -15,11 +15,16 @@ Implementation is deterministic, pure-stdlib, offline: an exact lexical ranker
 At 500 short, jargon-dense recipes this is exact and instant - no embeddings, no
 server, no network. The public surface is a single function:
 
-    suggest(text, k=5) -> [ {metric_id, family, score, why, required_tags}, ... ]
+    suggest(text, k=5, available_tags=None)
+        -> [ {metric_id, family, score, why, required_tags, description, confidence?}, ... ]
 
-so a heavier backend (a vendored embedding index, or an external graph-vector store)
-could be swapped in behind it later WITHOUT changing callers - if and only if the
-corpus ever grows large and relational enough to justify it. It is not, today.
+`available_tags` lets a caller that knows the data's columns demote recipes whose inputs
+aren't present; `confidence` (on the top result) flags a dominant match vs a tight field.
+A heavier backend (a vendored embedding index, or an external graph-vector store) could be
+swapped in behind this signature later WITHOUT changing callers - if and only if the corpus
+ever grows large and relational enough to justify it. It is not, today; a char-trigram subword
+tier and raw-formula indexing were both tried and measured net-negative (no recall gain, and
+they risked the refuse-when-unsure guarantee), so the ranker stays lexical + alias + idf.
 """
 import math
 import re
@@ -156,6 +161,7 @@ def _build_corpus():
         docs[mid] = {"family": family, "tokens": toks,
                      "name_tokens": set(_tokens(mid.replace("_", " "))),
                      "required_tags": man.get("required_tags", []),
+                     "description": descs.get(mid, {}).get("description", ""),
                      "aliases": sorted(aliases.get(mid, ()), key=len, reverse=True)}
         for t in toks:
             df[t] = df.get(t, 0) + 1
@@ -169,10 +175,19 @@ def _build_corpus():
     return _CORPUS
 
 
-def suggest(text, k=_TOP_DEFAULT):
+TAG_MISS_PENALTY = 0.35      # demote (don't drop) a recipe whose inputs the data can't supply
+
+
+def suggest(text, k=_TOP_DEFAULT, available_tags=None):
     """Rank recipes the free-text ask most likely refers to. Deterministic; ties break
     alphabetically by metric_id. Returns [] when nothing clears MIN_SCORE - the caller
-    must treat that as an honest 'still NOT VERIFIED', not as a match."""
+    must treat that as an honest 'still NOT VERIFIED', not as a match.
+
+    available_tags: when the caller knows which binding tags the data can supply (e.g. verify
+    inferred them from the columns present), recipes whose required_tags are NOT all satisfiable
+    are demoted by TAG_MISS_PENALTY - so an inequality claim over one numeric column ranks
+    `gini`/`atkinson` above `balanced_accuracy` (which needs label+prediction). Demote, never drop:
+    a suggestion the data can't currently feed is still worth surfacing. None = no data context."""
     docs, idf, alias_pairs = _build_corpus()
     norm = _norm(text)
     qtokens = set(_tokens(text))
@@ -192,45 +207,62 @@ def suggest(text, k=_TOP_DEFAULT):
     # tier 2 - idf-weighted token overlap, prefix-aware (catches asks with no full alias phrase)
     for mid, doc in docs.items():
         matched = {t for t in doc["tokens"] if any(_tok_match(q, t) for q in qtokens)}
-        if not matched:
-            continue
-        names = doc["name_tokens"]
-        name_hit = bool(matched & names)
-        scores[mid] = scores.get(mid, 0.0) + sum(
-            idf.get(t, 1.0) * (NAME_BONUS if (t in names and idf.get(t, 1.0) >= NAME_IDF_GATE)
-                               else 1.0) for t in matched)
-        if mid not in why:
-            why[mid] = "matches " + ", ".join(sorted(matched))
-        # confidence gate: a single stray prose word is not a suggestion. Qualify only on an
-        # alias hit, a match against the recipe's OWN name, or >=2 distinct matched tokens.
-        if name_hit or len(matched) >= 2:
-            qualifies.add(mid)
+        if matched:
+            names = doc["name_tokens"]
+            name_hit = bool(matched & names)
+            scores[mid] = scores.get(mid, 0.0) + sum(
+                idf.get(t, 1.0) * (NAME_BONUS if (t in names and idf.get(t, 1.0) >= NAME_IDF_GATE)
+                                   else 1.0) for t in matched)
+            if mid not in why:
+                why[mid] = "matches " + ", ".join(sorted(matched))
+            # confidence gate: a single stray prose word is not a suggestion. Qualify only on an
+            # alias hit, a match against the recipe's OWN name, or >=2 distinct matched tokens.
+            if name_hit or len(matched) >= 2:
+                qualifies.add(mid)
+
+    # data-aware re-rank: demote recipes whose required inputs the data can't supply
+    if available_tags is not None:
+        avail = set(available_tags)
+        for mid in list(scores):
+            need = set(docs[mid].get("required_tags") or [])
+            if need and not need <= avail:
+                scores[mid] *= TAG_MISS_PENALTY
 
     ranked = sorted(((s, mid) for mid, s in scores.items()
                      if mid in qualifies and s >= MIN_SCORE),
                     key=lambda sm: (-sm[0], sm[1]))[:k]
-    return [{"metric_id": mid, "family": docs[mid]["family"], "score": round(s, 3),
-             "why": why.get(mid, ""), "required_tags": docs[mid]["required_tags"]}
-            for s, mid in ranked]
+    out = [{"metric_id": mid, "family": docs[mid]["family"], "score": round(s, 3),
+            "why": why.get(mid, ""), "required_tags": docs[mid]["required_tags"],
+            "description": docs[mid]["description"]} for s, mid in ranked]
+    # confidence: "high" when the top candidate stands clearly apart (a dominant match the caller
+    # can lead with), "low" when the field is a tight cluster (genuinely ambiguous - ask, don't assume)
+    if out:
+        top = out[0]["score"]
+        second = out[1]["score"] if len(out) > 1 else 0.0
+        out[0]["confidence"] = "high" if (second == 0.0 or top >= 1.8 * second) else "low"
+    return out
 
 
 def render(text, results, invocation="calma"):
-    """Plain-text 'did you mean?' block for the CLI. Honest header (still NOT VERIFIED),
-    one runnable command per candidate, never auto-runs anything."""
-    lines = []
+    """Plain-text 'did you mean?' block for the CLI. Numbered, with each recipe's one-line
+    description + required inputs so the user RECOGNIZES the right one, and a confidence-aware
+    header (lead with a dominant match; ask plainly when it's a tight field). Honest (still NOT
+    VERIFIED), one runnable command per candidate, never auto-runs anything."""
     if not results:
-        lines.append("NOT VERIFIED - couldn't tell which metric “%s” refers to."
-                     % (text or "").strip())
-        lines.append("  Browse all 500 recipes:  %s recipes" % invocation)
-        lines.append("  Then pin one:            %s verify <folder> \"<claim>\" --metric <id>"
-                     % invocation)
-        return "\n".join(lines)
-    lines.append("NOT VERIFIED yet - did you mean one of these? (pick one, then re-run)")
-    for r in results:
+        return "\n".join((
+            "NOT VERIFIED - couldn't tell which metric “%s” refers to." % (text or "").strip(),
+            "  Browse all 500 recipes:  %s recipes" % invocation,
+            "  Then pin one:            %s verify <folder> \"<claim>\" --metric <id>" % invocation))
+    if results[0].get("confidence") == "high":
+        lines = ["NOT VERIFIED yet - most likely you mean #1 below; pick another if not:"]
+    else:
+        lines = ["NOT VERIFIED yet - did you mean one of these? (pick one, then re-run)"]
+    for i, r in enumerate(results, 1):
         tags = (" [needs: %s]" % ", ".join(r["required_tags"])) if r["required_tags"] else ""
-        lines.append("\n  %-22s %s%s" % (r["metric_id"], r["family"], tags))
-        lines.append("      %s" % r["why"])
-        lines.append("      %s verify <folder> \"<claim>\" --metric %s"
-                     % (invocation, r["metric_id"]))
+        lines.append("\n  %d. %-22s %s%s" % (i, r["metric_id"], r["family"], tags))
+        if r.get("description"):
+            lines.append("       %s" % r["description"])
+        lines.append("       (%s)   %s verify <folder> \"<claim>\" --metric %s"
+                     % (r["why"], invocation, r["metric_id"]))
     lines.append("\n  Not it?  Full catalog:  %s recipes" % invocation)
     return "\n".join(lines)

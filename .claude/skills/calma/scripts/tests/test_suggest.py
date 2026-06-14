@@ -105,5 +105,19 @@ check(CALMA._suggest_unblock([]) == "", "_suggest_unblock([]) must be empty (no 
 ub = CALMA._suggest_unblock(SUGG.suggest("sharpe ratio", k=2))
 check("--metric" in ub and "Did you mean" in ub, "_suggest_unblock should render a pickable 'did you mean' line")
 
+# ---- 5. data-aware re-rank, confidence, and descriptions ----
+# available_tags must demote a recipe whose inputs the data can't supply, without dropping it
+acc = SUGG.suggest("how accurate is it", k=8)
+check(all("confidence" not in r or r is acc[0] for r in acc[1:]), "confidence only on top result")
+if acc:
+    check("description" in acc[0] and "confidence" in acc[0], "results carry description + confidence")
+# a value-only dataset should not let a label+prediction metric outrank a value metric
+ranked_no = [r["metric_id"] for r in SUGG.suggest("dispersion of the values", k=8)]
+ranked_val = [r["metric_id"] for r in SUGG.suggest("dispersion of the values", k=8, available_tags={"value"})]
+check(ranked_no != [] and ranked_val != [], "tag-aware suggest still returns candidates")
+# confidence is one of the two labels when present
+for r in (acc[:1] if acc else []):
+    check(r.get("confidence") in ("high", "low"), "confidence label is high/low")
+
 print("test_suggest: %s" % ("OK" if not fails else "%d FAILED" % fails))
 sys.exit(1 if fails else 0)

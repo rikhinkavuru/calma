@@ -94,6 +94,11 @@ After running `calma verify`, report in THIS order - the user should never need 
    say which number they computed. Do this automatically - never guess a metric to force a
    verdict, and never make the user invoke `calma suggest` themselves. (In a batch, only the
    genuinely-ambiguous targets reach this branch; clearly-bound ones verify silently as usual.)
+   YOU are the best ranker here: `calma suggest` is a deterministic lexical fallback for headless
+   use, but in this conversation use your OWN understanding of what the user described to map it
+   to the right `metric_id`(s) - treat the `suggestions` list as a recall aid, not the answer, and
+   it's fine to propose a recipe it missed (e.g. "your wealth-inequality number → `gini_coefficient`")
+   as long as you confirm with the user before pinning it. Still never auto-verify against a guess.
 
 Agents: prefer `--json` - it returns `{verdict, clean, confidence, claimed, recomputed, reason, fix,
 cached, run_dir}` so you branch on the verdict without parsing prose.

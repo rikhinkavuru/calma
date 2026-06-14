@@ -42,6 +42,7 @@ def run(dump_misses=False):
         bump("ALL", rank)
         bump("kind:" + r.get("kind", "?"), rank)
         bump("fam:" + fam.get(r["gold"], "other"), rank)
+        bump("rec:" + r["gold"], rank)   # per-recipe, to surface weak recipes for re-enrichment
         if rank is None:
             misses.append((r["gold"], r.get("kind"), r["query"], ranked[:3]))
 
@@ -61,7 +62,15 @@ def run(dump_misses=False):
         if k.startswith("fam:"): print(line(k))
     print("=" * 92)
     print("misses (not in top %d): %d / %d" % (K, len(misses), len(rows)))
+    # weakest recipes: both of a recipe's gold asks missing is a re-enrichment work-item (item 8/9)
+    weak = sorted((k[4:] for k in agg if k.startswith("rec:") and agg[k][3] < agg[k][5]),
+                  key=lambda m: (agg["rec:" + m][3] / agg["rec:" + m][5], m))
+    print("weakest recipes (recall@%d < 100%%): %d" % (K, len(weak)))
+    for m in weak[:20]:
+        a = agg["rec:" + m]
+        print("  %-30s %d/%d  (%s)" % (m, a[3], a[5], fam.get(m, "other")))
     if dump_misses:
+        print("--- all misses ---")
         for g, kind, q, top in misses:
             print("  [%s] %-26s top3=%s\n      %s" % (kind, g, top, q))
     return agg, misses

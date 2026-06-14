@@ -199,18 +199,30 @@ def _metric_suggestions(target, claim, k=4):
     verify can ask 'did you mean...?' instead of bare-refusing. Suggestion-only and fail-open:
     never raises, never affects a verdict, never runs when a metric was determined."""
     try:
+        scan = DC._scan_csvs(target)
+    except Exception:  # noqa: BLE001
+        scan = []
+    # which binding tags can the data actually supply? lets suggest() demote recipes whose
+    # inputs aren't present (an inequality claim over one numeric column isn't balanced_accuracy).
+    avail = set()
+    for a in scan:
+        for col in (a.get("columns") or {}).values():
+            if isinstance(col, dict) and col.get("tag"):
+                avail.add(col["tag"])
+    tags = avail or None
+    try:
         # the claim is the user's stated intent - the strongest, cleanest signal. Use it alone
         # when present; the data's column/file names are noisier (a "balance" column wrongly
         # pulls "balanced_accuracy"), so fall back to them ONLY when there is no claim text.
         if claim and claim.strip():
-            hit = SUGG.suggest(claim, k=k)
+            hit = SUGG.suggest(claim, k=k, available_tags=tags)
             if hit:
                 return hit
         bits = []
-        for a in DC._scan_csvs(target):
+        for a in scan:
             bits.append(os.path.basename(a.get("path", "")).rsplit(".", 1)[0].replace("_", " "))
             bits.extend(str(c).replace("_", " ") for c in (a.get("columns") or {}))
-        return SUGG.suggest(" ".join(b for b in bits if b), k=k) if bits else []
+        return SUGG.suggest(" ".join(b for b in bits if b), k=k, available_tags=tags) if bits else []
     except Exception:  # noqa: BLE001  - suggestion gathering is best-effort, never load-bearing
         return []
 
@@ -1377,6 +1389,17 @@ def main():
                 print(json.dumps({"query": text, "candidates": results}, indent=2))
                 return 0 if results else 1
             print(SUGG.render(text, results, invocation=_invocation()))
+            # interactive numbered pick when a human is at the terminal - print the exact command
+            # to run for the chosen recipe (never auto-runs; non-TTY/agent use just sees the list)
+            if results and sys.stdin.isatty():
+                try:
+                    raw = input("\nPick a number to get its exact command (Enter to skip): ").strip()
+                except (EOFError, KeyboardInterrupt):
+                    raw = ""
+                if raw.isdigit() and 1 <= int(raw) <= len(results):
+                    mid = results[int(raw) - 1]["metric_id"]
+                    print("\n  %s verify <folder> \"<your claim>\" --metric %s"
+                          % (_invocation(), mid))
             return 0 if results else 1
         if a.cmd == "recipes":
             fams = {}
