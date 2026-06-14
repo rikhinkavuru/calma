@@ -2299,3 +2299,40 @@ def _ar_recipe(fn, tags):
 for _mid, _tags in _AR_BIND.items():
     register(_mid, family="credit", required_tags=list(_tags),
              set_maturity="reviewed")(_ar_recipe(getattr(N, _mid), _tags))
+
+
+# ======================================================================================
+# Pack CAL - probability-calibration depth. Predicted-probability + binary-outcome columns;
+# the binned metrics take a bins convention (default 15, matching ECE).
+# ======================================================================================
+
+def _cal_binned(fn):
+    def recipe(cols, binding, convention=None):
+        p, y = cols[binding["probability"]], cols[binding["label"]]
+        bins = _conv_int(convention, "bins", 15)
+        return _result(fn(p, y, bins), {"n": len(p), "bins": bins})
+    return recipe
+
+
+for _mid in ("maximum_calibration_error", "brier_reliability", "brier_resolution"):
+    register(_mid, family="classification", required_tags=["probability", "label"],
+             set_maturity="reviewed", accepted_conventions=["bins=<int>"])(_cal_binned(getattr(N, _mid)))
+
+
+def _cal_pl(fn):
+    def recipe(cols, binding, convention=None):
+        p, y = cols[binding["probability"]], cols[binding["label"]]
+        return _result(fn(p, y), {"n": len(p)})
+    return recipe
+
+
+for _mid in ("brier_skill_score", "calibration_in_the_large", "spiegelhalter_z"):
+    register(_mid, family="classification", required_tags=["probability", "label"],
+             set_maturity="reviewed")(_cal_pl(getattr(N, _mid)))
+
+
+@register("sharpness", family="classification", required_tags=["probability"],
+          set_maturity="reviewed")
+def sharpness(cols, binding, convention=None):
+    p = cols[binding["probability"]]
+    return _result(N.sharpness(p), {"n": len(p)})

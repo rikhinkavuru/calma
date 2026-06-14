@@ -426,6 +426,14 @@ KINDS = {
     "debt_to_ebitda": lambda a: N.debt_to_ebitda(a["debt"], a["ebitda"]),
     "net_debt_to_ebitda": lambda a: N.net_debt_to_ebitda(a["debt"], a["cash"], a["ebitda"]),
     "ebitda_margin": lambda a: N.ebitda_margin(a["ebitda"], a["revenue"]),
+    # pack CAL - probability-calibration depth
+    "maximum_calibration_error": lambda a: N.maximum_calibration_error(a["probs"], a["labels"], a["bins"]),
+    "brier_reliability": lambda a: N.brier_reliability(a["probs"], a["labels"], a["bins"]),
+    "brier_resolution": lambda a: N.brier_resolution(a["probs"], a["labels"], a["bins"]),
+    "brier_skill_score": lambda a: N.brier_skill_score(a["probs"], a["labels"]),
+    "calibration_in_the_large": lambda a: N.calibration_in_the_large(a["probs"], a["labels"]),
+    "spiegelhalter_z": lambda a: N.spiegelhalter_z(a["probs"], a["labels"]),
+    "sharpness": lambda a: N.sharpness(a["probs"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -564,10 +572,13 @@ EXPECTED = {
     # pack AR - credit-quality / covenant ratios (7)
     "current_ratio", "quick_ratio", "interest_coverage", "debt_to_equity",
     "debt_to_ebitda", "net_debt_to_ebitda", "ebitda_margin",
+    # pack CAL - probability-calibration depth (7)
+    "maximum_calibration_error", "brier_reliability", "brier_resolution",
+    "brier_skill_score", "calibration_in_the_large", "spiegelhalter_z", "sharpness",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 349 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 356 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

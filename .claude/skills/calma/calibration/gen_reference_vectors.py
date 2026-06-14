@@ -1822,6 +1822,46 @@ case("net_debt_to_ebitda", "net_debt_to_ebitda", {"debt": ar_debt, "cash": ar_ca
 case("ebitda_margin", "ebitda_margin", {"ebitda": ar_ebitda, "revenue": ar_rev},
      _s(ar_ebitda) / _s(ar_rev), atol=1e-12)
 
+# ============================ Pack CAL - probability-calibration depth ============================
+# Independent reference: numpy recompute of the Murphy/Brier decomposition, Brier skill,
+# maximum calibration error, calibration-in-the-large, Spiegelhalter z and sharpness, using
+# the same ceil(p*bins)-1 binning as the engine's ECE.
+
+cal_probs = list(uniforms(5501, 200, 0.0, 1.0))
+cal_labels = [1 if u < p else 0 for p, u in zip(cal_probs, uniforms(5502, 200, 0.0, 1.0))]
+cal_bins = 10
+_cp = np.array(cal_probs)
+_cy = np.array(cal_labels, dtype=float)
+_cn = len(_cp)
+_idx = np.minimum(np.maximum(np.ceil(_cp * cal_bins).astype(int) - 1, 0), cal_bins - 1)
+_bp = np.zeros(cal_bins)
+_by = np.zeros(cal_bins)
+_bn = np.zeros(cal_bins)
+for _i in range(_cn):
+    _bp[_idx[_i]] += _cp[_i]
+    _by[_idx[_i]] += _cy[_i]
+    _bn[_idx[_i]] += 1
+_nz = _bn > 0
+cal_mce = float(np.max(np.abs(_by[_nz] / _bn[_nz] - _bp[_nz] / _bn[_nz])))
+cal_rel = float(np.sum((_bn[_nz] / _cn) * (_bp[_nz] / _bn[_nz] - _by[_nz] / _bn[_nz]) ** 2))
+_ybar = float(_cy.mean())
+cal_res = float(np.sum((_bn[_nz] / _cn) * (_by[_nz] / _bn[_nz] - _ybar) ** 2))
+cal_bs = float(np.mean((_cp - _cy) ** 2))
+cal_bss = 1.0 - cal_bs / (_ybar * (1.0 - _ybar))
+cal_citl = _ybar - float(_cp.mean())
+cal_spie = float(np.sum((_cy - _cp) * (1.0 - 2.0 * _cp))
+                 / np.sqrt(np.sum((1.0 - 2.0 * _cp) ** 2 * _cp * (1.0 - _cp))))
+cal_sharp = float(np.std(_cp, ddof=1))
+cal_args = {"probs": cal_probs, "labels": cal_labels, "bins": cal_bins}
+cal_pl = {"probs": cal_probs, "labels": cal_labels}
+case("maximum_calibration_error", "maximum_calibration_error", cal_args, cal_mce, atol=1e-12)
+case("brier_reliability", "brier_reliability", cal_args, cal_rel, atol=1e-12)
+case("brier_resolution", "brier_resolution", cal_args, cal_res, atol=1e-12)
+case("brier_skill_score", "brier_skill_score", cal_pl, cal_bss, atol=1e-12)
+case("calibration_in_the_large", "calibration_in_the_large", cal_pl, cal_citl, atol=1e-12)
+case("spiegelhalter_z", "spiegelhalter_z", cal_pl, cal_spie, atol=1e-11)
+case("sharpness", "sharpness", {"probs": cal_probs}, cal_sharp, atol=1e-12)
+
 # ============================ write ============================
 
 doc = {

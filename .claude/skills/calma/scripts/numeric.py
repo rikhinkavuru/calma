@@ -4866,3 +4866,95 @@ def ebitda_margin(ebitda, revenue):
     if not _ar_ok(ebitda, revenue):
         return float("nan")
     return _ar_ratio(math.fsum(ebitda), math.fsum(revenue))
+
+
+# ======================================================================================
+# Pack CAL - probability-calibration depth (scoring / PD-model validation). Predicted
+# probability + binary outcome columns drive the Murphy/Brier decomposition (reliability,
+# resolution), the Brier skill score, maximum calibration error, calibration-in-the-large,
+# the Spiegelhalter z-test and forecast sharpness. Bins match the existing ECE convention.
+# ======================================================================================
+
+def _cal_ok(probs, labels):
+    return bool(probs) and len(probs) == len(labels) and not _has_nan(probs) and not _has_nan(labels)
+
+
+def _cal_bins(probs, labels, bins):
+    sp = [0.0] * bins
+    sy = [0.0] * bins
+    bn = [0] * bins
+    for p, y in zip(probs, labels):
+        idx = min(max(int(math.ceil(p * bins)) - 1, 0), bins - 1)
+        sp[idx] += p
+        sy[idx] += 1.0 if y == 1 else 0.0
+        bn[idx] += 1
+    return sp, sy, bn
+
+
+def maximum_calibration_error(probs, labels, bins=15):
+    """Maximum calibration error: max over equal-width confidence bins of |acc_b - conf_b|."""
+    if not _cal_ok(probs, labels) or bins < 1:
+        return float("nan")
+    sp, sy, bn = _cal_bins(probs, labels, bins)
+    vals = [abs(sy[i] / bn[i] - sp[i] / bn[i]) for i in range(bins) if bn[i]]
+    return max(vals) if vals else float("nan")
+
+
+def brier_reliability(probs, labels, bins=15):
+    """Reliability term of the Murphy Brier decomposition: sum_b (n_b/n)(conf_b - acc_b)^2
+    (lower is better-calibrated)."""
+    if not _cal_ok(probs, labels) or bins < 1:
+        return float("nan")
+    n = len(probs)
+    sp, sy, bn = _cal_bins(probs, labels, bins)
+    return math.fsum((bn[i] / n) * (sp[i] / bn[i] - sy[i] / bn[i]) ** 2 for i in range(bins) if bn[i])
+
+
+def brier_resolution(probs, labels, bins=15):
+    """Resolution term of the Murphy Brier decomposition: sum_b (n_b/n)(acc_b - ybar)^2
+    (higher means the forecasts discriminate outcomes)."""
+    if not _cal_ok(probs, labels) or bins < 1:
+        return float("nan")
+    n = len(probs)
+    ybar = math.fsum(1.0 if y == 1 else 0.0 for y in labels) / n
+    sp, sy, bn = _cal_bins(probs, labels, bins)
+    return math.fsum((bn[i] / n) * (sy[i] / bn[i] - ybar) ** 2 for i in range(bins) if bn[i])
+
+
+def brier_skill_score(probs, labels):
+    """Brier skill score vs the base-rate climatology: 1 - BS / (ybar(1-ybar))."""
+    if not _cal_ok(probs, labels):
+        return float("nan")
+    n = len(probs)
+    ybar = math.fsum(1.0 if y == 1 else 0.0 for y in labels) / n
+    bs = math.fsum((p - (1.0 if y == 1 else 0.0)) ** 2 for p, y in zip(probs, labels)) / n
+    ref = ybar * (1.0 - ybar)
+    if ref == 0:
+        return float("nan")
+    return 1.0 - bs / ref
+
+
+def calibration_in_the_large(probs, labels):
+    """Calibration-in-the-large (overall bias): mean(outcome) - mean(predicted prob)."""
+    if not _cal_ok(probs, labels):
+        return float("nan")
+    n = len(probs)
+    return math.fsum(1.0 if y == 1 else 0.0 for y in labels) / n - math.fsum(probs) / n
+
+
+def spiegelhalter_z(probs, labels):
+    """Spiegelhalter (1986) calibration z-test: sum (y-p)(1-2p) / sqrt(sum (1-2p)^2 p(1-p))."""
+    if not _cal_ok(probs, labels):
+        return float("nan")
+    num = math.fsum(((1.0 if y == 1 else 0.0) - p) * (1.0 - 2.0 * p) for p, y in zip(probs, labels))
+    den = math.fsum(((1.0 - 2.0 * p) ** 2) * p * (1.0 - p) for p in probs)
+    if den <= 0:
+        return float("nan")
+    return num / math.sqrt(den)
+
+
+def sharpness(probs):
+    """Sharpness of the forecasts: standard deviation (ddof=1) of the predicted probabilities."""
+    if not probs or _has_nan(probs) or len(probs) < 2:
+        return float("nan")
+    return fstd(probs, 1)
