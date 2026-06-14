@@ -1,8 +1,0 @@
-{"run": {"entrypoint": "analyze.R", "network": "off", "cwd": "."},
- "env": {"ecosystem": "r", "trust": "own-code"},
- "artifacts": [{"path": "runs/returns.csv", "re_emit": true,
-    "columns": {"daily_return": {"tag": "return", "dtype": "float", "na_policy": "drop"}}}],
- "metrics": [{"metric_id": "total_return", "artifact": "runs/returns.csv",
-    "binding": {"return": "daily_return"}, "convention": "compounded",
-    "claimed_value": null, "headline": false, "binding_status": "independently-bound"}],
- "baselines": []}
