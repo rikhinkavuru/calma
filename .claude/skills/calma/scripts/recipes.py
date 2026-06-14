@@ -2703,3 +2703,29 @@ def max_to_sum_ratio(cols, binding, convention=None):
     xs = cols[binding["value"]]
     p = _conv_float(convention, "p", 2.0)
     return _result(N.max_to_sum_ratio(xs, p), {"n": len(xs), "p": p})
+
+
+# ======================================================================================
+# Pack BIZ - return-on-capital & efficiency ratios. Each recipe binds the two line-item
+# columns it needs (income / capital / revenue), summed across entities.
+# ======================================================================================
+
+_BIZ_BIND = {
+    "return_on_equity": ["net_income", "equity"],
+    "return_on_assets": ["net_income", "assets"],
+    "return_on_invested_capital": ["nopat", "invested_capital"],
+    "asset_turnover": ["revenue", "assets"],
+    "days_sales_outstanding": ["receivables", "revenue"],
+}
+
+
+def _biz_recipe(fn, tags):
+    def recipe(cols, binding, convention=None):
+        a = [cols[binding[t]] for t in tags]
+        return _result(fn(*a), {"n": len(a[0])})
+    return recipe
+
+
+for _mid, _tags in _BIZ_BIND.items():
+    register(_mid, family="finance", required_tags=list(_tags),
+             set_maturity="reviewed")(_biz_recipe(getattr(N, _mid), _tags))

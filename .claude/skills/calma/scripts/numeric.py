@@ -5863,3 +5863,43 @@ def max_to_sum_ratio(xs, p=2.0):
     if s <= 0:
         return float("nan")
     return max(pows) / s
+
+
+# ======================================================================================
+# Pack BIZ - return-on-capital & efficiency ratios (fundamental / credit analysis). Income,
+# capital and revenue columns (summed across the entities / periods) give ROE, ROA, ROIC,
+# asset turnover and days sales outstanding. All definitional ratios.
+# ======================================================================================
+
+def _biz_ratio(num, den, mult=1.0):
+    if not num or len(num) != len(den) or _has_nan(num) or _has_nan(den):
+        return float("nan")
+    d = math.fsum(den)
+    if d == 0:
+        return float("nan")
+    return mult * math.fsum(num) / d
+
+
+def return_on_equity(net_income, equity):
+    """Return on equity: sum(net_income) / sum(equity)."""
+    return _biz_ratio(net_income, equity)
+
+
+def return_on_assets(net_income, assets):
+    """Return on assets: sum(net_income) / sum(assets)."""
+    return _biz_ratio(net_income, assets)
+
+
+def return_on_invested_capital(nopat, invested_capital):
+    """Return on invested capital: sum(NOPAT) / sum(invested_capital)."""
+    return _biz_ratio(nopat, invested_capital)
+
+
+def asset_turnover(revenue, assets):
+    """Asset turnover: sum(revenue) / sum(assets)."""
+    return _biz_ratio(revenue, assets)
+
+
+def days_sales_outstanding(receivables, revenue):
+    """Days sales outstanding: sum(receivables) / sum(revenue) * 365."""
+    return _biz_ratio(receivables, revenue, 365.0)

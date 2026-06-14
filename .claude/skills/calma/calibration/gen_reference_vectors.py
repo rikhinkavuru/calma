@@ -2264,6 +2264,28 @@ case("hill_estimator", "hill_estimator", {"xs": tl_x, "k": tl_k}, tl_hill, atol=
 case("pickands_estimator", "pickands_estimator", {"xs": tl_x, "k": tl_k}, tl_pick, atol=1e-10)
 case("max_to_sum_ratio", "max_to_sum_ratio", {"xs": tl_x, "p": tl_p}, tl_mts, atol=1e-12)
 
+# ============================ Pack BIZ - return-on-capital & efficiency ratios ============================
+# Independent reference: numpy recompute of the return-on-capital / efficiency ratio
+# definitions over a deterministic multi-entity income statement and balance sheet.
+
+biz_ni = [40.0, 25.0, 60.0]
+biz_eq = [300.0, 180.0, 420.0]
+biz_assets = [600.0, 350.0, 900.0]
+biz_nopat = [55.0, 32.0, 70.0]
+biz_ic = [400.0, 250.0, 600.0]
+biz_rev = [500.0, 280.0, 720.0]
+biz_recv = [60.0, 35.0, 90.0]
+case("return_on_equity", "return_on_equity", {"ni": biz_ni, "eq": biz_eq},
+     float(np.sum(biz_ni) / np.sum(biz_eq)), atol=1e-12)
+case("return_on_assets", "return_on_assets", {"ni": biz_ni, "assets": biz_assets},
+     float(np.sum(biz_ni) / np.sum(biz_assets)), atol=1e-12)
+case("return_on_invested_capital", "return_on_invested_capital", {"nopat": biz_nopat, "ic": biz_ic},
+     float(np.sum(biz_nopat) / np.sum(biz_ic)), atol=1e-12)
+case("asset_turnover", "asset_turnover", {"rev": biz_rev, "assets": biz_assets},
+     float(np.sum(biz_rev) / np.sum(biz_assets)), atol=1e-12)
+case("days_sales_outstanding", "days_sales_outstanding", {"recv": biz_recv, "rev": biz_rev},
+     float(np.sum(biz_recv) / np.sum(biz_rev) * 365.0), atol=1e-11)
+
 # ============================ write ============================
 
 doc = {

@@ -508,6 +508,12 @@ KINDS = {
     "hill_estimator": lambda a: N.hill_estimator(a["xs"], a["k"]),
     "pickands_estimator": lambda a: N.pickands_estimator(a["xs"], a["k"]),
     "max_to_sum_ratio": lambda a: N.max_to_sum_ratio(a["xs"], a["p"]),
+    # pack BIZ - return-on-capital & efficiency ratios
+    "return_on_equity": lambda a: N.return_on_equity(a["ni"], a["eq"]),
+    "return_on_assets": lambda a: N.return_on_assets(a["ni"], a["assets"]),
+    "return_on_invested_capital": lambda a: N.return_on_invested_capital(a["nopat"], a["ic"]),
+    "asset_turnover": lambda a: N.asset_turnover(a["rev"], a["assets"]),
+    "days_sales_outstanding": lambda a: N.days_sales_outstanding(a["recv"], a["rev"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -683,10 +689,13 @@ EXPECTED = {
     "bowley_skewness", "moors_kurtosis", "l_skewness", "l_kurtosis",
     # pack TL - tail-risk / extreme-value estimators (3)
     "hill_estimator", "pickands_estimator", "max_to_sum_ratio",
+    # pack BIZ - return-on-capital & efficiency ratios (5)
+    "return_on_equity", "return_on_assets", "return_on_invested_capital",
+    "asset_turnover", "days_sales_outstanding",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 415 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 420 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

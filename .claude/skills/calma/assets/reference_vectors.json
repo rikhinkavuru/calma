@@ -5,7 +5,7 @@
   "scipy": "1.17.1",
   "sklearn": "1.9.0"
  },
- "n_cases": 691,
+ "n_cases": 696,
  "cases": [
   {
    "id": "total_return",
@@ -173003,6 +173003,101 @@
    },
    "expected": 0.056976357702554,
    "atol": 1e-12,
+   "rtol": 1e-12
+  },
+  {
+   "id": "return_on_equity",
+   "kind": "return_on_equity",
+   "args": {
+    "ni": [
+     40.0,
+     25.0,
+     60.0
+    ],
+    "eq": [
+     300.0,
+     180.0,
+     420.0
+    ]
+   },
+   "expected": 0.1388888888888889,
+   "atol": 1e-12,
+   "rtol": 1e-12
+  },
+  {
+   "id": "return_on_assets",
+   "kind": "return_on_assets",
+   "args": {
+    "ni": [
+     40.0,
+     25.0,
+     60.0
+    ],
+    "assets": [
+     600.0,
+     350.0,
+     900.0
+    ]
+   },
+   "expected": 0.06756756756756757,
+   "atol": 1e-12,
+   "rtol": 1e-12
+  },
+  {
+   "id": "return_on_invested_capital",
+   "kind": "return_on_invested_capital",
+   "args": {
+    "nopat": [
+     55.0,
+     32.0,
+     70.0
+    ],
+    "ic": [
+     400.0,
+     250.0,
+     600.0
+    ]
+   },
+   "expected": 0.1256,
+   "atol": 1e-12,
+   "rtol": 1e-12
+  },
+  {
+   "id": "asset_turnover",
+   "kind": "asset_turnover",
+   "args": {
+    "rev": [
+     500.0,
+     280.0,
+     720.0
+    ],
+    "assets": [
+     600.0,
+     350.0,
+     900.0
+    ]
+   },
+   "expected": 0.8108108108108109,
+   "atol": 1e-12,
+   "rtol": 1e-12
+  },
+  {
+   "id": "days_sales_outstanding",
+   "kind": "days_sales_outstanding",
+   "args": {
+    "recv": [
+     60.0,
+     35.0,
+     90.0
+    ],
+    "rev": [
+     500.0,
+     280.0,
+     720.0
+    ]
+   },
+   "expected": 45.016666666666666,
+   "atol": 1e-11,
    "rtol": 1e-12
   }
  ]
