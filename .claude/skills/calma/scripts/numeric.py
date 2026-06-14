@@ -4360,6 +4360,60 @@ def asrf_rwa(pd, lgd, ead, rho, q=0.999):
 
 
 # ======================================================================================
+# Pack CLU - clustering agreement depth (entity resolution / segmentation eval). Predicted
+# cluster + true class label columns give the purity and the B-cubed precision / recall / F1.
+# Definitional closed forms validated against numpy.
+# ======================================================================================
+
+def _clu_ok(pred, label):
+    return bool(pred) and len(pred) == len(label) and not _has_nan(pred) and not _has_nan(label)
+
+
+def purity(pred, label):
+    """Clustering purity: (1/n) sum over predicted clusters of the largest class overlap."""
+    if not _clu_ok(pred, label):
+        return float("nan")
+    clusters = {}
+    for c, l in zip(pred, label):
+        clusters.setdefault(c, {})
+        clusters[c][l] = clusters[c].get(l, 0) + 1
+    return math.fsum(max(d.values()) for d in clusters.values()) / len(pred)
+
+
+def _bcubed(pred, label):
+    csize, lsize, cc = {}, {}, {}
+    for c, l in zip(pred, label):
+        csize[c] = csize.get(c, 0) + 1
+        lsize[l] = lsize.get(l, 0) + 1
+        cc[(c, l)] = cc.get((c, l), 0) + 1
+    precs = [cc[(c, l)] / csize[c] for c, l in zip(pred, label)]
+    recs = [cc[(c, l)] / lsize[l] for c, l in zip(pred, label)]
+    return fmean(precs), fmean(recs)
+
+
+def bcubed_precision(pred, label):
+    """B-cubed precision: mean over items of (same-cluster & same-class) / cluster size."""
+    if not _clu_ok(pred, label):
+        return float("nan")
+    return _bcubed(pred, label)[0]
+
+
+def bcubed_recall(pred, label):
+    """B-cubed recall: mean over items of (same-cluster & same-class) / class size."""
+    if not _clu_ok(pred, label):
+        return float("nan")
+    return _bcubed(pred, label)[1]
+
+
+def bcubed_f1(pred, label):
+    """B-cubed F1: harmonic mean of B-cubed precision and recall."""
+    if not _clu_ok(pred, label):
+        return float("nan")
+    p, r = _bcubed(pred, label)
+    return 2.0 * p * r / (p + r) if (p + r) > 0 else float("nan")
+
+
+# ======================================================================================
 # Pack PA - portfolio construction & attribution. Per-segment portfolio/benchmark weight
 # and return columns drive Brinson-Hood-Beebower attribution; weight vectors drive active
 # share, turnover and the effective number of bets. All definitional weighted sums.

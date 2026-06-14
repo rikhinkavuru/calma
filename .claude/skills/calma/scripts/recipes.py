@@ -2015,6 +2015,22 @@ def vasicek_conditional_pd(cols, binding, convention=None):
 
 
 # ======================================================================================
+# Pack CLU - clustering agreement depth. Predicted cluster + true class label columns.
+# ======================================================================================
+
+def _clu_recipe(fn):
+    def recipe(cols, binding, convention=None):
+        p, l = cols[binding["prediction"]], cols[binding["label"]]
+        return _result(fn(p, l), {"n": len(p)})
+    return recipe
+
+
+for _mid in ("purity", "bcubed_precision", "bcubed_recall", "bcubed_f1"):
+    register(_mid, family="classification", required_tags=["prediction", "label"],
+             string_tags=["prediction", "label"], set_maturity="reviewed")(_clu_recipe(getattr(N, _mid)))
+
+
+# ======================================================================================
 # Pack PA - portfolio construction & attribution. Per-segment portfolio/benchmark weight
 # and return columns drive Brinson attribution; weight vectors drive active share,
 # turnover and the effective number of bets.

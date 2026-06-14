@@ -1628,6 +1628,30 @@ case("asrf_rwa", "asrf_rwa",
 case("vasicek_conditional_pd", "vasicek_conditional_pd",
      {"pd": cr2_pd, "rho": cr2_rho}, cr2_condpd, atol=1e-10)
 
+# Pack CLU - clustering agreement depth (plain-python recompute)
+clu_pred = [int(u * 4) for u in uniforms(7401, 90, 0.0, 0.999)]
+clu_label = [(p if u < 0.75 else int(u2 * 4))
+             for p, u, u2 in zip(clu_pred, uniforms(7402, 90, 0.0, 1.0), uniforms(7403, 90, 0.0, 0.999))]
+_clun = len(clu_pred)
+_cluclusters = {}
+for _c, _l in zip(clu_pred, clu_label):
+    _cluclusters.setdefault(_c, {})
+    _cluclusters[_c][_l] = _cluclusters[_c].get(_l, 0) + 1
+clu_purity = sum(max(d.values()) for d in _cluclusters.values()) / _clun
+_clucs, _cluls, _clucc = {}, {}, {}
+for _c, _l in zip(clu_pred, clu_label):
+    _clucs[_c] = _clucs.get(_c, 0) + 1
+    _cluls[_l] = _cluls.get(_l, 0) + 1
+    _clucc[(_c, _l)] = _clucc.get((_c, _l), 0) + 1
+clu_bp = float(np.mean([_clucc[(c, l)] / _clucs[c] for c, l in zip(clu_pred, clu_label)]))
+clu_br = float(np.mean([_clucc[(c, l)] / _cluls[l] for c, l in zip(clu_pred, clu_label)]))
+clu_bf = 2.0 * clu_bp * clu_br / (clu_bp + clu_br)
+clu_args = {"pred": clu_pred, "label": clu_label}
+case("purity", "purity", clu_args, clu_purity, atol=1e-12)
+case("bcubed_precision", "bcubed_precision", clu_args, clu_bp, atol=1e-12)
+case("bcubed_recall", "bcubed_recall", clu_args, clu_br, atol=1e-12)
+case("bcubed_f1", "bcubed_f1", clu_args, clu_bf, atol=1e-12)
+
 # ============================ Pack PA - portfolio construction & attribution ============================
 # Independent reference: vectorized numpy recompute of Brinson-Hood-Beebower attribution
 # and the weight-based metrics over a deterministic 6-segment book.
