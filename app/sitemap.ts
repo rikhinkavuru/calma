@@ -8,6 +8,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: "/lab", priority: 0.8 },
     { path: "/recipes", priority: 0.8 },
     { path: "/registry", priority: 0.8 },
+    { path: "/install", priority: 0.8 },
   ].map(({ path, priority }) => ({
     url: `${SITE_URL}${path}`,
     lastModified: new Date(),

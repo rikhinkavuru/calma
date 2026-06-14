@@ -91,6 +91,7 @@ const NAV_LINKS: { href: string; label: string }[] = [
   { href: "/#features", label: "Features" },
   { href: "/recipes", label: "Recipes" },
   { href: "/registry", label: "Registry" },
+  { href: "/install", label: "Install" },
   { href: "/lab", label: "The lab" },
 ];
 
@@ -112,7 +113,7 @@ export function Nav() {
       rel="noreferrer"
       onClick={close}
     >
-      Get the free skill
+      Star the repo
     </a>
   );
   return (
