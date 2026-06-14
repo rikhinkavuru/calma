@@ -71,7 +71,13 @@
         "adj r2",
         "adjusted r squared",
         "adjusted r^2",
-        "penalized r2"
+        "penalized r2",
+        "how well the model fits after penalizing for extra inputs",
+        "the goodness of fit that does not reward adding more variables",
+        "fit quality once you account for how many factors you used",
+        "explained variation corrected for model bloat",
+        "how much the data is explained without crediting useless predictors",
+        "fit score that discounts throwing in more columns"
       ],
       "description": "R-squared penalized for the number of predictors in the model."
     },
@@ -482,7 +488,14 @@
         "fdr rejections",
         "false discovery rate correction",
         "number of discoveries",
-        "multiple comparison correction"
+        "multiple comparison correction",
+        "how many findings survive after correcting for testing lots of things at once",
+        "count of results that still hold up once you account for many comparisons",
+        "which of my many tests are real and not just luck from running so many",
+        "filtering out false alarms when you check hundreds of things",
+        "number of true hits after controlling the rate of false discoveries",
+        "how many signals remain once i adjust for fishing across many tests",
+        "weeding out the flukes when running a big batch of tests"
       ],
       "description": "Counts hypotheses rejected by the Benjamini-Hochberg false-discovery-rate procedure."
     },
@@ -533,7 +546,14 @@
         "present value of bond",
         "fixed income price",
         "discounted bond cashflows",
-        "bond pv"
+        "bond pv",
+        "what a loan-like investment is worth today given its future payouts",
+        "the fair value of a debt note based on its interest and payback",
+        "discounting all the coupon payments and the final repayment back to now",
+        "how much you'd pay upfront for a stream of fixed interest plus principal",
+        "present-day worth of a fixed-income holding",
+        "value of an iou after accounting for the going rate of return",
+        "what the market thinks a borrowing certificate is currently worth"
       ],
       "description": "Present value of a bond's cash flows discounted to today."
     },
@@ -610,7 +630,14 @@
         "discrimination term",
         "brier discrimination",
         "forecast resolution",
-        "ability to separate outcomes"
+        "ability to separate outcomes",
+        "how much the predicted chances actually spread the outcomes apart",
+        "do its confidence levels separate the wins from the losses",
+        "how well its guesses tell different cases apart",
+        "the part of the score that rewards telling groups apart",
+        "does it give higher odds when things really do happen more often",
+        "how much its probability calls vary with what actually occurs",
+        "credit for sorting outcomes into meaningfully different buckets"
       ],
       "description": "Discrimination component of the Brier score rewarding outcome-separating forecasts."
     },
@@ -641,7 +668,14 @@
         "bf allocation",
         "fachler allocation",
         "allocation effect bf",
-        "brinson-fachler allocation"
+        "brinson-fachler allocation",
+        "how much of the outperformance came from picking the right sectors to overweight",
+        "the part of beating the index explained by where you put your money, not what you bought",
+        "value added by leaning into the right buckets versus the benchmark",
+        "gain from betting more on areas that did better than the overall market",
+        "how your weighting choices across groups helped beat the yardstick",
+        "the contribution of being heavy or light in segments relative to the index",
+        "credit for choosing winning categories rather than winning individual names"
       ],
       "description": "Allocation effect measured relative to total benchmark return, per Brinson-Fachler."
     },
@@ -650,7 +684,14 @@
         "interaction effect",
         "brinson interaction",
         "interaction term",
-        "combined allocation selection effect"
+        "combined allocation selection effect",
+        "the bonus from both picking good stocks and overweighting them at the same time",
+        "the combined effect of choosing the right group and the right names within it",
+        "leftover performance that comes from selection and weighting working together",
+        "the cross term where good picks and big bets reinforce each other",
+        "extra return when you put more money exactly where your stock picks paid off",
+        "the overlap piece that isn't pure sector tilt or pure name selection",
+        "how weighting and stock choice multiply rather than just add up"
       ],
       "description": "Active return from the combined effect of weighting and selection decisions."
     },
@@ -721,7 +762,14 @@
         "option gamma",
         "delta sensitivity",
         "second order greek",
-        "convexity of option"
+        "convexity of option",
+        "how fast my option's directional sensitivity changes",
+        "rate of change of the hedge ratio as the stock moves",
+        "curvature of the option price versus the underlying",
+        "how quickly my delta shifts when the price moves",
+        "how much my exposure accelerates as the stock moves",
+        "the bend in how option value tracks the underlying",
+        "how unstable my directional bet gets with price moves"
       ],
       "description": "Rate of change of option delta with respect to the underlying spot."
     },
@@ -771,7 +819,14 @@
         "time decay",
         "option theta",
         "daily decay",
-        "time value erosion"
+        "time value erosion",
+        "how much value the option loses each day just from time passing",
+        "the daily bleed on my option from getting closer to expiry",
+        "how fast my option decays as time runs out",
+        "cost of holding the option as another day goes by",
+        "time decay eating into the option's worth",
+        "how much the clock alone drains the option price",
+        "daily erosion of the option value with nothing else changing"
       ],
       "description": "Sensitivity of option price to the passage of time (time decay)."
     },
@@ -1150,7 +1205,14 @@
         "compression ratio",
         "compression",
         "size reduction",
-        "compress factor"
+        "compress factor",
+        "how much smaller the file got after squeezing it",
+        "the shrink factor compared to the original size",
+        "how many times smaller it is now",
+        "space saved when packing the data down",
+        "original size divided by the squeezed size",
+        "how tightly the data was packed",
+        "before size versus after size for storage"
       ],
       "description": "Ratio of original size to compressed size of the data."
     },
@@ -1160,7 +1222,14 @@
         "cr ratio",
         "top firms share",
         "market share top",
-        "concentration ratio"
+        "concentration ratio",
+        "how much the top few control",
+        "share held by the biggest players",
+        "do a handful dominate the market",
+        "slice owned by the largest few combined",
+        "how clustered around the leaders it is",
+        "fraction taken by the top performers",
+        "are the big ones running the whole thing"
       ],
       "description": "Combined market share held by the largest few firms or categories."
     },
@@ -1313,7 +1382,13 @@
         "d2 absolute error",
         "d2 score",
         "d2 mae",
-        "explained absolute error"
+        "explained absolute error",
+        "how much better the model is than just guessing the middle value",
+        "the share of typical error the model wipes out",
+        "fraction of average miss explained away by the predictions",
+        "how much of the spread in errors the model accounts for",
+        "improvement over a naive median guess",
+        "portion of the absolute error the model gets rid of"
       ],
       "description": "Fraction of absolute error explained relative to a median baseline."
     },
@@ -1385,7 +1460,13 @@
         "test discrimination odds",
         "odds ratio of a test",
         "lr ratio",
-        "diagnostic effectiveness"
+        "diagnostic effectiveness",
+        "how much better the odds tilt right when the test fires versus when it doesn't",
+        "one number for how good the whole yes-no test is",
+        "the odds of a real case testing positive versus a clear case testing positive",
+        "overall strength of a flag at separating sick from healthy",
+        "how lopsided the right-versus-wrong calls are between positives and negatives",
+        "a single ratio summing up how trustworthy the test is both ways"
       ],
       "description": "Ratio of positive to negative likelihood ratios summarizing test discrimination."
     },
@@ -1661,7 +1742,14 @@
         "burn rate",
         "budget burn",
         "slo burn rate",
-        "error budget consumption"
+        "error budget consumption",
+        "how fast we are using up our allowed failures",
+        "the rate we are eating into our slack for outages",
+        "how quickly the room for mistakes is running out",
+        "are we spending our downtime allowance too fast",
+        "pace at which we approach the breaking limit",
+        "how much of our wiggle room is gone",
+        "speed of chewing through the failure allowance"
       ],
       "description": "Rate at which an SLO error budget is being consumed."
     },
@@ -1692,7 +1780,14 @@
         "variance explained",
         "proportion of variance",
         "eta-squared",
-        "between-group variance share"
+        "between-group variance share",
+        "how much of the spread is explained by which group something belongs to",
+        "share of the variation that the grouping accounts for",
+        "how strongly the category drives the differences i see",
+        "portion of the ups and downs explained by the group split",
+        "how big a chunk of the variability comes from the groups",
+        "strength of the group effect on the outcome",
+        "what fraction of the differences the labels explain"
       ],
       "description": "Proportion of total variance explained by group membership in ANOVA."
     },
@@ -1702,7 +1797,13 @@
         "exact-match",
         "em",
         "string match",
-        "exact string accuracy"
+        "exact string accuracy",
+        "did the answer come out word for word the same",
+        "how often the response is exactly the expected text",
+        "share of replies that match the gold answer perfectly",
+        "did it nail the answer letter for letter after tidying up spacing",
+        "right only if the whole thing matches, nothing close counts",
+        "how often output equals the reference string outright"
       ],
       "description": "Whether the prediction exactly equals the reference after normalization."
     },
@@ -1932,7 +2033,14 @@
         "cash flow margin",
         "fcf to revenue",
         "cash conversion",
-        "free cash margin"
+        "free cash margin",
+        "the slice of sales that turns into spendable cash after spending on the business",
+        "leftover cash from operations as a share of revenue",
+        "how much real cash each dollar of sales generates once investments are covered",
+        "the portion of top-line money that ends up as truly available cash",
+        "cash a company keeps per dollar earned after running and reinvesting",
+        "what fraction of revenue becomes cash you could actually pocket",
+        "spendable cash generation relative to how much was sold"
       ],
       "description": "Free cash flow as a share of revenue."
     },
@@ -2010,7 +2118,14 @@
         "ge index",
         "generalized entropy",
         "inequality index",
-        "entropy inequality"
+        "entropy inequality",
+        "how uneven the spread is overall",
+        "tunable measure of how lopsided things are",
+        "disparity that you can weight toward the top or bottom",
+        "how mixed up versus concentrated the values are",
+        "single dial for unevenness sensitivity",
+        "how far from an even split it sits",
+        "imbalance that can lean on the rich or the poor end"
       ],
       "description": "Family of inequality measures parameterized by sensitivity to different parts of the distribution."
     },
@@ -2019,7 +2134,14 @@
         "geometric excess return",
         "geometric active return",
         "compounded excess return",
-        "relative geometric return"
+        "relative geometric return",
+        "outperformance computed as a ratio rather than a subtraction",
+        "compounded return above the benchmark",
+        "relative gain over the index, geometrically",
+        "how much you beat the yardstick when returns are chained together",
+        "the multiplicative version of return above the comparison",
+        "growth over the benchmark linked across periods instead of differenced",
+        "the compounded edge you got versus the reference, not the simple gap"
       ],
       "description": "Portfolio return relative to benchmark computed geometrically rather than by subtraction."
     },
@@ -2028,7 +2150,14 @@
         "geometric mean",
         "geomean",
         "compound average",
-        "multiplicative mean"
+        "multiplicative mean",
+        "typical value when things multiply together",
+        "average that works for growth rates",
+        "central number for ratios and percentages",
+        "the multiplicative middle of the numbers",
+        "average that won't be wrecked by one huge value",
+        "the nth-root style average",
+        "compounded typical level over the data"
       ],
       "description": "Nth root of the product of values, the average for rates and ratios."
     },
@@ -2047,7 +2176,14 @@
         "gini",
         "gini index",
         "inequality",
-        "income gini"
+        "income gini",
+        "how unequal the distribution is",
+        "spread of wealth across people",
+        "are a few hogging most of it",
+        "fairness of the split between everyone",
+        "disparity between the haves and have-nots",
+        "how lopsided the pie is sliced",
+        "single number for inequality"
       ],
       "description": "Inequality measure from 0 (perfect equality) to 1 (maximal concentration)."
     },
@@ -2056,7 +2192,14 @@
         "gini mean difference",
         "gmd",
         "mean absolute difference",
-        "pairwise difference"
+        "pairwise difference",
+        "average gap between any two values",
+        "typical difference when you compare pairs",
+        "how far apart two random picks tend to be",
+        "expected distance between members",
+        "mean spread across all pairings",
+        "how much any two entries usually differ",
+        "average pairwise separation"
       ],
       "description": "Average absolute difference between all pairs of values, a spread measure."
     },
@@ -2110,7 +2253,14 @@
         "aggregate by group",
         "grouped sum",
         "grouped mean",
-        "pivot"
+        "pivot",
+        "totals broken out by category",
+        "roll up the numbers per group",
+        "sum or average within each bucket",
+        "the figures split out by segment",
+        "per-category summary of the data",
+        "combine values for each group separately",
+        "subtotals for each kind"
       ],
       "description": "Aggregated value such as sum or mean computed per group."
     },
@@ -2191,7 +2341,14 @@
         "hill number",
         "effective species",
         "diversity order",
-        "true diversity"
+        "true diversity",
+        "how many kinds there effectively are",
+        "richness counting common ones more",
+        "the effective variety in the mix",
+        "diversity of categories present",
+        "how many distinct types really matter",
+        "evenness-adjusted count of groups",
+        "how varied the makeup is"
       ],
       "description": "Effective number of categories at a chosen diversity order parameter."
     },
@@ -2424,7 +2581,14 @@
         "jitter",
         "latency jitter",
         "latency variability",
-        "response time variance"
+        "response time variance",
+        "how much the timing wobbles from one moment to the next",
+        "the shakiness in delivery times",
+        "how uneven the gaps between arrivals are",
+        "variation in how long things take to show up",
+        "the bounciness of the response timing",
+        "how inconsistent the delays are",
+        "spread in the wait times between packets"
       ],
       "description": "Variability in latency, typically the spread of response times."
     },
@@ -2584,7 +2748,14 @@
         "distribution fit test",
         "goodness of fit",
         "ecdf test",
-        "distribution comparison"
+        "distribution comparison",
+        "do these two sets of numbers come from the same shape of distribution",
+        "how different are the overall shapes of two samples",
+        "biggest gap between two cumulative distributions",
+        "checking whether two datasets follow the same pattern",
+        "are these numbers spread out the same way as those",
+        "comparing the full shape of one sample against another",
+        "whether my data matches an expected distribution shape"
       ],
       "description": "Tests whether two samples share the same underlying distribution."
     },
@@ -2684,7 +2855,13 @@
         "p75",
         "p75 latency",
         "75th percentile",
-        "latency p75"
+        "latency p75",
+        "three out of four requests finish faster than this",
+        "the slowest quarter starts above this point",
+        "most requests, but not the worst, came in under this",
+        "where the upper quarter of wait times begins",
+        "how long a typical-to-slow request takes",
+        "only one in four is slower than this"
       ],
       "description": "75th percentile of response times."
     },
@@ -2693,7 +2870,13 @@
         "p90",
         "p90 latency",
         "90th percentile",
-        "latency p90"
+        "latency p90",
+        "nine out of ten requests are quicker than this",
+        "the slowest tenth begins above this number",
+        "how long all but the worst ten percent take",
+        "only one in ten waits longer than this",
+        "the cutoff below which most everything lands",
+        "where the slow tail starts for ten percent"
       ],
       "description": "90th percentile of response times."
     },
@@ -2702,7 +2885,13 @@
         "p95",
         "p95 latency",
         "95th percentile",
-        "tail latency"
+        "tail latency",
+        "the slowest five out of a hundred start above this",
+        "all but the worst five percent come in faster",
+        "ninety five out of a hundred finished quicker than this",
+        "how long most requests take excluding the slow tail",
+        "only one in twenty is slower than this",
+        "tail response time near the top end"
       ],
       "description": "95th percentile of response times."
     },
@@ -2711,7 +2900,13 @@
         "p99",
         "p99 latency",
         "99th percentile",
-        "tail latency"
+        "tail latency",
+        "only one request in a hundred is slower than this",
+        "the worst one percent of waits start here",
+        "how slow it gets for the unluckiest hundredth",
+        "ninety nine out of a hundred finished faster",
+        "the far tail of response times",
+        "almost everything is quicker than this except the rare slow one"
       ],
       "description": "99th percentile of response times."
     },
@@ -2721,7 +2916,13 @@
         "p99.9",
         "p999 latency",
         "99.9th percentile",
-        "extreme tail latency"
+        "extreme tail latency",
+        "only one in a thousand requests is slower than this",
+        "the very worst tenth of a percent starts here",
+        "how slow the rarest unlucky calls get",
+        "nine hundred ninety nine out of a thousand are faster",
+        "the extreme far edge of the slow tail",
+        "almost no request is slower than this except one in a thousand"
       ],
       "description": "99.9th percentile of response times, the extreme tail."
     },
@@ -2741,7 +2942,14 @@
         "homogeneity of variance",
         "variance equality test",
         "robust variance test",
-        "homoscedasticity test"
+        "homoscedasticity test",
+        "do the groups have the same amount of spread",
+        "checking if the wobble is equal across groups",
+        "are the variances roughly the same between sets",
+        "testing whether one group is more scattered than another",
+        "do these batches vary by the same amount",
+        "is the spread consistent across the categories",
+        "whether the noise level is equal in each group"
       ],
       "description": "Robust test for equality of variances across groups."
     },
@@ -2752,7 +2960,14 @@
         "percent change",
         "incremental gain",
         "mean lift",
-        "improvement over baseline"
+        "improvement over baseline",
+        "how much better the new version did versus the old one",
+        "the boost from switching to the treatment",
+        "percent improvement of b over a",
+        "how much the change moved the number",
+        "the bump i got from the new approach",
+        "size of the gain between the two options",
+        "how much higher one group landed compared to the baseline"
       ],
       "description": "Relative or absolute improvement of one group's mean over another."
     },
@@ -2813,7 +3028,14 @@
         "long/short ratio",
         "l/s ratio",
         "long to short",
-        "long vs short"
+        "long vs short",
+        "how big the bets you own are compared to the bets you've sold against",
+        "the balance between holdings you expect to rise and ones you expect to fall",
+        "size of upside positions relative to downside positions",
+        "how much you're betting up versus how much you're betting down",
+        "proportion of buy-side exposure to bet-against exposure",
+        "the tilt between what you're holding and what you've borrowed to sell",
+        "ratio of money positioned for gains to money positioned for declines"
       ],
       "description": "Ratio of long exposure to short exposure in the portfolio."
     },
@@ -3197,7 +3419,14 @@
         "dispersion test",
         "nonparametric scale test",
         "spread comparison",
-        "equal variability test"
+        "equal variability test",
+        "do two groups have the same amount of variability without assuming a bell curve",
+        "checking spread differences without trusting the data is normal",
+        "are these two samples equally scattered, rank-based",
+        "comparing dispersion between groups using ranks",
+        "whether one group swings more than the other, distribution-free",
+        "testing equal spread when the data is messy or skewed",
+        "is the variability the same across two sets without normality"
       ],
       "description": "Nonparametric test comparing the scale or spread of two samples."
     },
@@ -3248,7 +3477,13 @@
         "mi",
         "shared information",
         "information overlap",
-        "label mutual information"
+        "label mutual information",
+        "how much knowing one grouping tells you about the other",
+        "how much two ways of splitting the data agree by sharing information",
+        "do these two labelings move together at all",
+        "how much uncertainty about one set of groups drops once you see the other",
+        "shared information between two different clusterings",
+        "how predictable one partition is from another"
       ],
       "description": "Shared information between two label assignments measured in nats."
     },
@@ -3257,7 +3492,13 @@
         "nse",
         "nash sutcliffe",
         "nash-sutcliffe efficiency",
-        "nash sutcliffe efficiency"
+        "nash sutcliffe efficiency",
+        "how much better the forecast is than just using the long run average",
+        "whether the predictions beat simply guessing the mean every time",
+        "how well the model tracks the ups and downs versus a flat line",
+        "fraction of the natural variation the model captures",
+        "is the model adding value over assuming nothing changes",
+        "how closely predictions follow the real swings compared to the average"
       ],
       "description": "Forecast skill relative to using the observed mean as prediction."
     },
@@ -3278,7 +3519,13 @@
         "nlr",
         "negative lr",
         "likelihood ratio negative",
-        "test rule-out ratio"
+        "test rule-out ratio",
+        "how much a clean result lowers the chance something is really there",
+        "when the test says no, how much does that shift the odds",
+        "how much more often clear cases get a negative than real cases do",
+        "the drop in suspicion you earn from a negative result",
+        "how convincing a no-finding actually is",
+        "by what factor a negative reading rules things out"
       ],
       "description": "Odds of a negative test result in cases versus non-cases."
     },
@@ -3289,7 +3536,13 @@
         "true negatives among predicted negatives",
         "negative precision",
         "rule-out value",
-        "predicted negative correctness"
+        "predicted negative correctness",
+        "of the ones it cleared, how many were truly clear",
+        "when it says no, how often is it right",
+        "trustworthiness of a clean result",
+        "if it comes back negative, what are the odds it's really fine",
+        "share of the all-clear calls that were actually all clear",
+        "how much you can trust a not-flagged verdict"
       ],
       "description": "Fraction of negative predictions that are actually negative."
     },
@@ -3350,7 +3603,13 @@
         "scaled mutual information",
         "normalized mi",
         "clustering nmi",
-        "information-based cluster agreement"
+        "information-based cluster agreement",
+        "how much two groupings agree, on a clean zero-to-one scale",
+        "shared information between two labelings put on a comparable scale",
+        "agreement between two ways of splitting things, rescaled so it's fair to compare",
+        "how aligned two clusterings are regardless of how many groups each has",
+        "do these two partitions match, scored from none to perfect",
+        "overlap of information between groupings adjusted so size doesn't skew it"
       ],
       "description": "Mutual information scaled to a zero-to-one clustering agreement score."
     },
@@ -3451,7 +3710,14 @@
         "significant",
         "pvalue",
         "hypothesis test p",
-        "statistical significance"
+        "statistical significance",
+        "how likely is this result just from random chance",
+        "the odds of seeing this difference if nothing was really going on",
+        "whether the gap between groups is real or could be noise",
+        "chance of a fluke this big under no real effect",
+        "is the difference statistically convincing or could it be luck",
+        "probability the observed effect is just randomness",
+        "how surprising this outcome would be if there were no true difference"
       ],
       "description": "Probability of results this extreme if the null hypothesis holds."
     },
@@ -3558,7 +3824,14 @@
         "skewness",
         "pearson skew",
         "median skewness",
-        "asymmetry"
+        "asymmetry",
+        "which way the data leans",
+        "is it bunched on one side with a long tail",
+        "how lopsided the shape is",
+        "gap between the typical and the middle value",
+        "whether the tail stretches left or right",
+        "tilt of the distribution",
+        "how off-center the bulk sits"
       ],
       "description": "Skewness estimate from the gap between mean and median scaled by deviation."
     },
@@ -3590,7 +3863,14 @@
         "p90 p10",
         "decile ratio",
         "quantile ratio",
-        "p90/p10"
+        "p90/p10",
+        "how the top compares to the bottom",
+        "gap between high and low cutoffs",
+        "the well-off versus the worse-off ratio",
+        "stretch between an upper and lower point",
+        "how many times bigger the high end is",
+        "comparing folks near the top to those near the bottom",
+        "spread between two cut points"
       ],
       "description": "Ratio between two percentiles, summarizing spread between distribution tails."
     },
@@ -3690,7 +3970,13 @@
         "plr",
         "positive lr",
         "likelihood ratio positive",
-        "test rule-in ratio"
+        "test rule-in ratio",
+        "how much a flag raises the chance something is really there",
+        "when the test says yes, how much does that boost the odds",
+        "how much more often real cases get a positive than clear cases do",
+        "the jump in suspicion you earn from a positive result",
+        "how convincing a hit actually is",
+        "by what factor a positive reading points to a real case"
       ],
       "description": "Odds of a positive test result in cases versus non-cases."
     },
@@ -3793,7 +4079,14 @@
         "qcd",
         "quartile dispersion",
         "quartile coefficient",
-        "robust cv"
+        "robust cv",
+        "how spread out the middle chunk is",
+        "scatter of the central half relative to its center",
+        "relative width of the inner band",
+        "how variable things are around the middle",
+        "middle spread as a fraction of the typical",
+        "how loosely the bulk clusters",
+        "normalized spread of the central values"
       ],
       "description": "Quartile spread divided by quartile sum, a robust relative dispersion."
     },
@@ -3823,7 +4116,13 @@
         "r precision",
         "precision at r",
         "rprec",
-        "precision at num relevant"
+        "precision at num relevant",
+        "of the top results that should have been relevant, how many were",
+        "did it put the right number of good hits up top",
+        "hit rate among the leading results when you grab as many as there are answers",
+        "how clean the top slice is when sized to the number of true matches",
+        "share of the front results that were actually on target",
+        "accuracy of the head of the list cut at the count of right answers"
       ],
       "description": "Precision measured at a cutoff equal to the number of relevant items."
     },
@@ -3863,7 +4162,14 @@
         "spread",
         "max minus min",
         "data range",
-        "value range"
+        "value range",
+        "gap between the biggest and smallest",
+        "from lowest to highest",
+        "how far the extremes stretch",
+        "difference between the top and bottom value",
+        "the full span of the numbers",
+        "distance between min and max",
+        "how wide the values reach"
       ],
       "description": "Difference between the maximum and minimum values."
     },
@@ -3874,7 +4180,14 @@
         "mann-whitney effect size",
         "rank-based effect size",
         "ordinal effect size",
-        "u-based effect size"
+        "u-based effect size",
+        "how big the difference between two groups is using ranks",
+        "strength of the gap between groups based on ordering not raw values",
+        "effect size from a rank-based comparison",
+        "how separated the two groups are when you rank everything",
+        "magnitude of the difference without assuming a bell curve",
+        "rank-based measure of how far apart the groups sit",
+        "how meaningful the two-group difference is on a ranked scale"
       ],
       "description": "Effect size for Mann-Whitney based on rank dominance."
     },
@@ -4011,7 +4324,14 @@
         "relative mean difference",
         "rmd",
         "scaled gini difference",
-        "normalized gmd"
+        "normalized gmd",
+        "average pairwise gap sized against the typical",
+        "how big differences are compared to the average",
+        "spread between pairs as a share of the mean",
+        "typical disparity relative to the central level",
+        "how much things differ scaled to their size",
+        "pairwise unevenness normalized by the average",
+        "relative spacing between members"
       ],
       "description": "Gini mean difference scaled by the mean, twice the Gini coefficient."
     },
@@ -4252,7 +4572,14 @@
         "risk adjusted return",
         "return over volatility",
         "reward to variability ratio",
-        "return to risk ratio"
+        "return to risk ratio",
+        "how much return i get for each unit of risk taken",
+        "is the reward worth the bumpiness of the ride",
+        "return earned per amount of volatility",
+        "how good the gains look after accounting for how wild the swings are",
+        "bang for the buck on a risk-adjusted basis",
+        "whether the profit justifies the ups and downs",
+        "reward-to-risk ratio of the strategy"
       ],
       "description": "Excess return per unit of total volatility."
     },
@@ -4438,7 +4765,14 @@
         "studentized range",
         "q statistic",
         "range over std",
-        "tukey range"
+        "tukey range",
+        "spread of the extremes in units of scatter",
+        "how far apart top and bottom are versus the noise",
+        "the high-low gap measured in spread units",
+        "range scaled by typical variation",
+        "extremes compared to the usual wobble",
+        "how stretched the ends are relative to noise",
+        "span normalized by variability"
       ],
       "description": "Range divided by standard deviation, used in range-based outlier tests."
     },
@@ -4457,7 +4791,13 @@
         "tail latency ratio",
         "tail ratio",
         "p99 over p50",
-        "latency tail ratio"
+        "latency tail ratio",
+        "how much slower the worst cases are than the typical one",
+        "the gap between the slow outliers and the middle",
+        "how many times longer the rare slow ones take versus normal",
+        "stretch between the bad tail and the usual speed",
+        "comparing the slowpokes to the average request",
+        "how lopsided the slow end is compared to the median"
       ],
       "description": "Ratio of tail latency to median, measuring response time skew."
     },
@@ -4556,7 +4896,13 @@
         "dice coefficient",
         "dice overlap",
         "token dice score",
-        "dice similarity"
+        "dice similarity",
+        "how much the two answers overlap in the words they share",
+        "degree the predicted and true text use the same pieces",
+        "how alike two strings are by their common words, counted twice for shared ones",
+        "word-overlap closeness between a guess and the gold answer",
+        "how much the wording matches even if not exactly",
+        "shared-word similarity between two pieces of text"
       ],
       "description": "Dice overlap coefficient between predicted and reference token sets."
     },
@@ -4566,7 +4912,13 @@
         "token-level f1",
         "word overlap f1",
         "answer f1",
-        "f1 overlap"
+        "f1 overlap",
+        "how much the guessed wording overlaps with the right wording, balancing extra and missing words",
+        "partial credit for getting some of the right words even if not all",
+        "how well the answer's words line up with the expected words both ways",
+        "blend of how many predicted words were right and how many true words were caught",
+        "word-level closeness between a reply and the gold answer",
+        "score for sharing words without being exactly equal"
       ],
       "description": "F1 score over the overlap of predicted and reference tokens."
     },
@@ -4587,7 +4939,13 @@
         "top-5",
         "hit rate",
         "top-k hit",
-        "accuracy at k"
+        "accuracy at k",
+        "was the right answer somewhere in the first few guesses",
+        "how often the correct one shows up among the top handful",
+        "did the true answer land in the leading picks",
+        "credit if the right choice is anywhere near the top of the list",
+        "how often it gets it right within its best few tries",
+        "chance the correct item appears in the shortlist"
       ],
       "description": "Fraction of queries whose correct item appears within the top-k results."
     },
@@ -4771,7 +5129,13 @@
         "homogeneity completeness harmonic mean",
         "vmeasure",
         "clustering v-score",
-        "entropy-based cluster f1"
+        "entropy-based cluster f1",
+        "how well the groups are both pure and complete at once",
+        "do the clusters each hold one true class and keep each class together",
+        "a balanced grade for whether the grouping is clean and not split up",
+        "single score blending how tidy and how unbroken the clusters are",
+        "are the buckets uncontaminated and is each real group kept in one bucket",
+        "overall quality of a grouping weighing both kinds of mistakes"
       ],
       "description": "Harmonic mean of homogeneity and completeness for clustering quality."
     },
@@ -5021,7 +5385,14 @@
         "winsorized std",
         "capped std",
         "robust std",
-        "clipped standard deviation"
+        "clipped standard deviation",
+        "spread after taming the outliers",
+        "scatter with the extremes pulled in",
+        "how much things vary once the wild ends are capped",
+        "variation measured after clipping the tails",
+        "spread that ignores the most extreme bits",
+        "wobble computed with outliers reined in",
+        "dispersion robust to a few crazy values"
       ],
       "description": "Standard deviation after capping extreme values at chosen percentiles."
     },

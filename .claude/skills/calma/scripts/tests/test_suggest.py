@@ -66,10 +66,10 @@ if os.path.exists(GOLD_PATH):
     rate = {k: (v[0] / v[1] if v[1] else 0.0) for k, v in hit8.items()}
     print("recall@8: ALL %.1f%%  named %.1f%%  paraphrase %.1f%%"
           % (100*rate["ALL"], 100*rate["named"], 100*rate["paraphrase"]))
-    # floors set ~3pts below the measured plateau - catch regressions, tolerate gold edits
-    check(rate["ALL"] >= 0.91, "ALL recall@8 %.3f below floor 0.91" % rate["ALL"])
-    check(rate["named"] >= 0.97, "named recall@8 %.3f below floor 0.97" % rate["named"])
-    check(rate["paraphrase"] >= 0.85, "paraphrase recall@8 %.3f below floor 0.85" % rate["paraphrase"])
+    # floors set a few pts below the measured plateau - catch regressions, tolerate gold edits
+    check(rate["ALL"] >= 0.95, "ALL recall@8 %.3f below floor 0.95" % rate["ALL"])
+    check(rate["named"] >= 0.98, "named recall@8 %.3f below floor 0.98" % rate["named"])
+    check(rate["paraphrase"] >= 0.91, "paraphrase recall@8 %.3f below floor 0.91" % rate["paraphrase"])
 else:
     print("(gold set absent - skipping accuracy floor)")
 
