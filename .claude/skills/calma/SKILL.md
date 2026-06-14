@@ -175,9 +175,14 @@ committed claim and says so in the report and `--json` (`note`).
    failures return counterexamples - CEGIS). Pass -> frozen under a content hash in
    `assets/compiled_recipes.json` with `set_maturity: compiled-validated`; the loader re-validates the
    hash so a tampered asset fails closed. Verify-time NEVER consults a model: compiled, validated,
-   frozen - never improvised. ALSO add a `assets/recipe_descriptions.json` entry (description +
-   >=2 aliases) for every new recipe so `calma suggest` can find it - REQUIRED, enforced by
-   `tests/test_suggest.py`. See references/recipes.md "Suggester enrichment".
+   frozen - never improvised.
+   **Adding recipes (this compiler path OR hand-registering a pack in `recipes.py`, how the 500
+   shipped): follow the "Definition of done for a NEW recipe" checklist at the top of
+   `references/recipes.md`** - it is not done at "computes the right number." Every recipe also
+   needs a `assets/recipe_descriptions.json` entry (a description + >=2 aliases, INCLUDING plain
+   conceptual paraphrases - that is what carries `calma suggest`'s paraphrase recall) and, when it
+   has a common spoken name, a claim-routing hint. `tests/test_suggest.py` fails closed if a
+   registered recipe has no enrichment, so a future pack can't silently ship un-suggestable.
 
 ## Machine-enforced invariants (never violate; encoded in the scripts, not prose)
 

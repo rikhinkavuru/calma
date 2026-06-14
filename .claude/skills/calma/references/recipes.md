@@ -14,7 +14,31 @@ Binding = semantic tag -> column name. A binding value `other.csv::col` reads fr
 artifact. Tags listed as *string* keep raw cell strings (everything else parses to float).
 `convention` is a plain string on the contract metric; defaults in parentheses.
 
-## Suggester enrichment (REQUIRED when adding any recipe)
+## Definition of done for a NEW recipe (hand-registered OR compiled)
+
+A recipe is not finished when it computes the right number. To match how the first 500 were
+built, every new recipe must land ALL of these or it is not done:
+
+1. **Verification** — register it (`recipes.py` `@register`, or compile via
+   `references/recipe-draft.schema.json`) with `family` + `required_tags`, and validate it
+   against a published reference (`assets/reference_vectors.json` via `tests/test_recipes_sota.py`).
+2. **Suggester enrichment** — an `assets/recipe_descriptions.json` entry (see below). REQUIRED.
+3. **Claim routing (when the metric has a common spoken name)** — add `claim_hints` (compiled
+   recipes) or a `draft_contract.CLAIM_METRIC_HINTS` pair (hand-registered) so a written claim
+   like "Sharpe 1.4" auto-routes to it. Enrichment aliases do NOT do this — they feed only the
+   suggester; the hand-curated hint table is what the zero-touch hook reads.
+4. **Green tests** — `python3 tests/test_recipes_sota.py && python3 tests/test_suggest.py`, and
+   eyeball `python3 tests/suggest_bench/bench.py` (don't let recall@8 floors regress).
+5. **Benchmark the new recipes (for a real pack, not a one-off)** — `test_suggest.py`'s coverage
+   guard forces every new recipe to HAVE enrichment, but the blind gold set
+   (`tests/suggest_bench/gold.json`) only measures the recipes already in it, so a fresh pack ships
+   un-measured. To get the same treatment the first 500 got: generate 2 blind user-style asks per
+   new recipe (one "named", one conceptual "paraphrase") via agents who are NOT shown the ranker or
+   the existing aliases, append them to `gold.json`, then re-run `bench.py`. The weak-recipe report
+   is then your re-enrichment work-list. (This is exactly how the 500 reached named 100% /
+   paraphrase 94% recall@8 — coverage alone does not get you there.)
+
+## Suggester enrichment (REQUIRED — step 2 above)
 
 Every recipe MUST carry an entry in `assets/recipe_descriptions.json` so it works with
 `calma suggest` (the "did you mean?" surface for an unclear ask). The `metric_id` alone is
@@ -24,16 +48,24 @@ not enough: a user who doesn't remember the exact name (`how unequal is this dis
 ```json
 "your_metric_id": {
   "description": "one concise plain-language sentence (<=16 words) of what it measures",
-  "aliases": ["full spelled-out name", "common abbreviation", "2-5 conceptual paraphrases a user might type"]
+  "aliases": ["full spelled-out name", "common abbreviation",
+              "<3-6 CONCEPTUAL paraphrases: how a user describes the quantity WITHOUT its name>"]
 }
 ```
 
-Rules: aliases lowercase; include the everyday/paraphrase wording, not just the formal term
-(that is what lifts paraphrase recall). This asset feeds RANKING ONLY - it never touches the
-claim router (`draft_contract.CLAIM_METRIC_HINTS`) or any verdict, so it cannot cause a false
-verification; worst case is a worse suggestion. `tests/test_suggest.py` FAILS if any registered
-recipe is missing this entry or has <2 aliases, and asserts recall@8 floors on the blind gold
-set (`tests/suggest_bench/gold.json`). Measure after editing: `python3 tests/suggest_bench/bench.py`.
+The conceptual paraphrases are the part that matters — and the part people skip. Measured on the
+blind benchmark, formal-name-only enrichment scored 88.8% paraphrase recall@8; adding everyday
+"what does it actually measure, in plain words" phrasings lifted it to 94.4%. So for `gini_norm`,
+don't stop at `["gini","gini coefficient","inequality"]` — add `["how unequal the distribution is",
+"are a few hogging most of it","spread of wealth across people","fairness of the split"]`. Write
+them as a user who forgot the term would phrase it; lowercase; 5-8 total is the right density.
+
+Rules: this asset feeds RANKING ONLY — it never touches the claim router
+(`draft_contract.CLAIM_METRIC_HINTS`) or any verdict, so LLM-authored phrasing here cannot cause a
+false verification; worst case is a worse suggestion. `tests/test_suggest.py` FAILS if any
+registered recipe is missing this entry or has <2 aliases, and asserts recall@8 floors on the
+blind gold set (`tests/suggest_bench/gold.json`). Measure: `python3 tests/suggest_bench/bench.py`
+(its weak-recipe report lists exactly which recipes still need richer paraphrases).
 
 ## Trading (3)
 
