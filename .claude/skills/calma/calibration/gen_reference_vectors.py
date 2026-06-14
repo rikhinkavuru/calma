@@ -1362,6 +1362,34 @@ for _p, _r in zip(tok_preds, tok_refs):
 case("token_jaccard", "token_jaccard", {"preds": tok_preds, "refs": tok_refs}, float(np.mean(_tj)), atol=1e-12)
 case("token_dice", "token_dice", {"preds": tok_preds, "refs": tok_refs}, float(np.mean(_td)), atol=1e-12)
 
+# ============================ Pack FI - fixed-income analytics ============================
+
+from scipy.optimize import brentq  # noqa: E402
+
+fi_cf = [5.0, 5.0, 5.0, 5.0, 105.0]
+fi_t = [1.0, 2.0, 3.0, 4.0, 5.0]
+fi_y = 0.04
+fi_args = {"cashflow": fi_cf, "time": fi_t, "ytm": fi_y}
+fi_pv = [cf / (1 + fi_y) ** t for cf, t in zip(fi_cf, fi_t)]
+fi_price = sum(fi_pv)
+fi_mac = sum(t * v for t, v in zip(fi_t, fi_pv)) / fi_price
+fi_mod = fi_mac / (1 + fi_y)
+fi_cvx = sum(t * (t + 1) * v for t, v in zip(fi_t, fi_pv)) / (fi_price * (1 + fi_y) ** 2)
+fi_dv01 = fi_mod * fi_price * 1e-4
+fi_wal = sum(t * cf for t, cf in zip(fi_t, fi_cf)) / sum(fi_cf)
+case("bond_price", "bond_price", fi_args, fi_price, atol=1e-9)
+case("macaulay_duration", "macaulay_duration", fi_args, fi_mac, atol=1e-9)
+case("modified_duration", "modified_duration", fi_args, fi_mod, atol=1e-9)
+case("convexity", "convexity", fi_args, fi_cvx, atol=1e-9)
+case("dv01", "dv01", fi_args, fi_dv01, atol=1e-12)
+case("weighted_average_life", "weighted_average_life",
+     {"cashflow": fi_cf, "time": fi_t}, fi_wal, atol=1e-9)
+fi_target = 100.0
+fi_ytm = brentq(lambda y: sum(cf / (1 + y) ** t for cf, t in zip(fi_cf, fi_t)) - fi_target,
+                -0.99, 10.0, xtol=1e-13)
+case("yield_to_maturity", "yield_to_maturity",
+     {"cashflow": fi_cf, "time": fi_t, "price": fi_target}, fi_ytm, atol=1e-9)
+
 # ============================ write ============================
 
 doc = {

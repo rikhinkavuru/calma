@@ -329,6 +329,14 @@ KINDS = {
     "token_f1": lambda a: N.token_f1(a["preds"], a["refs"]),
     "token_jaccard": lambda a: N.token_jaccard(a["preds"], a["refs"]),
     "token_dice": lambda a: N.token_dice(a["preds"], a["refs"]),
+    # pack FI - fixed income
+    "bond_price": lambda a: N.bond_price(a["cashflow"], a["time"], a["ytm"]),
+    "macaulay_duration": lambda a: N.macaulay_duration(a["cashflow"], a["time"], a["ytm"]),
+    "modified_duration": lambda a: N.modified_duration(a["cashflow"], a["time"], a["ytm"]),
+    "convexity": lambda a: N.convexity(a["cashflow"], a["time"], a["ytm"]),
+    "dv01": lambda a: N.dv01(a["cashflow"], a["time"], a["ytm"]),
+    "weighted_average_life": lambda a: N.weighted_average_life(a["cashflow"], a["time"]),
+    "yield_to_maturity": lambda a: N.yield_to_maturity(a["cashflow"], a["time"], a["price"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -430,10 +438,13 @@ EXPECTED = {
     # pack IR - retrieval / ranking + token-overlap (8)
     "r_precision", "mean_average_precision", "f1_at_k", "fallout_at_k", "rbp",
     "token_f1", "token_jaccard", "token_dice",
+    # pack FI - fixed income (7)
+    "bond_price", "macaulay_duration", "modified_duration", "convexity", "dv01",
+    "weighted_average_life", "yield_to_maturity",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 265 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 272 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

@@ -3751,3 +3751,93 @@ def token_dice(preds, refs):
         d = len(a) + len(b)
         vals.append(2 * len(a & b) / d if d else 1.0)
     return fmean(vals)
+
+
+# ======================================================================================
+# Pack FI - fixed-income analytics. Bind a cashflow column and a (year) time column;
+# discrete discounting PV_i = CF_i / (1+y)**t_i (documented closed forms).
+# ======================================================================================
+
+def _pv_terms(cashflows, times, y):
+    return [cf / (1.0 + y) ** t for cf, t in zip(cashflows, times)]
+
+
+def _fi_ok(cashflows, times):
+    return bool(cashflows) and len(times) == len(cashflows) and not _has_nan(cashflows) and not _has_nan(times)
+
+
+def bond_price(cashflows, times, y):
+    """Present value of a cashflow stream: sum CF_i / (1+y)**t_i."""
+    if not _fi_ok(cashflows, times) or y <= -1.0:
+        return float("nan")
+    return math.fsum(_pv_terms(cashflows, times, y))
+
+
+def macaulay_duration(cashflows, times, y):
+    """Macaulay duration: sum t_i * PV_i / sum PV_i (years)."""
+    if not _fi_ok(cashflows, times) or y <= -1.0:
+        return float("nan")
+    pv = _pv_terms(cashflows, times, y)
+    p = math.fsum(pv)
+    if p == 0:
+        return float("nan")
+    return math.fsum(t * v for t, v in zip(times, pv)) / p
+
+
+def modified_duration(cashflows, times, y):
+    """Modified duration: Macaulay duration / (1+y)."""
+    d = macaulay_duration(cashflows, times, y)
+    return float("nan") if d != d else d / (1.0 + y)
+
+
+def convexity(cashflows, times, y):
+    """Convexity: sum t_i (t_i+1) PV_i / (P (1+y)**2)."""
+    if not _fi_ok(cashflows, times) or y <= -1.0:
+        return float("nan")
+    pv = _pv_terms(cashflows, times, y)
+    p = math.fsum(pv)
+    if p == 0:
+        return float("nan")
+    num = math.fsum(t * (t + 1.0) * v for t, v in zip(times, pv))
+    return num / (p * (1.0 + y) ** 2)
+
+
+def dv01(cashflows, times, y):
+    """Dollar value of a basis point: modified duration * price * 1e-4."""
+    p = bond_price(cashflows, times, y)
+    md = modified_duration(cashflows, times, y)
+    return float("nan") if (p != p or md != md) else md * p * 1e-4
+
+
+def weighted_average_life(cashflows, times):
+    """Cashflow-weighted average time: sum t_i CF_i / sum CF_i (years, undiscounted)."""
+    if not _fi_ok(cashflows, times):
+        return float("nan")
+    s = math.fsum(cashflows)
+    if s == 0:
+        return float("nan")
+    return math.fsum(t * cf for t, cf in zip(times, cashflows)) / s
+
+
+def yield_to_maturity(cashflows, times, price):
+    """Internal yield y solving sum CF_i/(1+y)**t_i = price, bisection on [-0.9999, 10]."""
+    if not _fi_ok(cashflows, times) or price <= 0:
+        return float("nan")
+
+    def f(y):
+        return math.fsum(_pv_terms(cashflows, times, y)) - price
+
+    lo, hi = -0.9999, 10.0
+    flo, fhi = f(lo), f(hi)
+    if flo != flo or fhi != fhi or flo * fhi > 0:
+        return float("nan")
+    for _ in range(200):
+        mid = 0.5 * (lo + hi)
+        fm = f(mid)
+        if fm == 0.0:
+            return mid
+        if flo * fm < 0:
+            hi = mid
+        else:
+            lo, flo = mid, fm
+    return 0.5 * (lo + hi)

@@ -5,7 +5,7 @@
   "scipy": "1.17.1",
   "sklearn": "1.9.0"
  },
- "n_cases": 536,
+ "n_cases": 543,
  "cases": [
   {
    "id": "total_return",
@@ -106520,7 +106520,7 @@
      -1.8997410835051982
     ]
    },
-   "expected": 0.7476666698368369,
+   "expected": 0.7476666698368367,
    "atol": 1e-11,
    "rtol": 1e-12
   },
@@ -153918,6 +153918,173 @@
    },
    "expected": 0.7318181818181817,
    "atol": 1e-12,
+   "rtol": 1e-12
+  },
+  {
+   "id": "bond_price",
+   "kind": "bond_price",
+   "args": {
+    "cashflow": [
+     5.0,
+     5.0,
+     5.0,
+     5.0,
+     105.0
+    ],
+    "time": [
+     1.0,
+     2.0,
+     3.0,
+     4.0,
+     5.0
+    ],
+    "ytm": 0.04
+   },
+   "expected": 104.45182233101619,
+   "atol": 1e-09,
+   "rtol": 1e-12
+  },
+  {
+   "id": "macaulay_duration",
+   "kind": "macaulay_duration",
+   "args": {
+    "cashflow": [
+     5.0,
+     5.0,
+     5.0,
+     5.0,
+     105.0
+    ],
+    "time": [
+     1.0,
+     2.0,
+     3.0,
+     4.0,
+     5.0
+    ],
+    "ytm": 0.04
+   },
+   "expected": 4.557086741662756,
+   "atol": 1e-09,
+   "rtol": 1e-12
+  },
+  {
+   "id": "modified_duration",
+   "kind": "modified_duration",
+   "args": {
+    "cashflow": [
+     5.0,
+     5.0,
+     5.0,
+     5.0,
+     105.0
+    ],
+    "time": [
+     1.0,
+     2.0,
+     3.0,
+     4.0,
+     5.0
+    ],
+    "ytm": 0.04
+   },
+   "expected": 4.381814174675727,
+   "atol": 1e-09,
+   "rtol": 1e-12
+  },
+  {
+   "id": "convexity",
+   "kind": "convexity",
+   "args": {
+    "cashflow": [
+     5.0,
+     5.0,
+     5.0,
+     5.0,
+     105.0
+    ],
+    "time": [
+     1.0,
+     2.0,
+     3.0,
+     4.0,
+     5.0
+    ],
+    "ytm": 0.04
+   },
+   "expected": 24.476569415711438,
+   "atol": 1e-09,
+   "rtol": 1e-12
+  },
+  {
+   "id": "dv01",
+   "kind": "dv01",
+   "args": {
+    "cashflow": [
+     5.0,
+     5.0,
+     5.0,
+     5.0,
+     105.0
+    ],
+    "time": [
+     1.0,
+     2.0,
+     3.0,
+     4.0,
+     5.0
+    ],
+    "ytm": 0.04
+   },
+   "expected": 0.045768847566075736,
+   "atol": 1e-12,
+   "rtol": 1e-12
+  },
+  {
+   "id": "weighted_average_life",
+   "kind": "weighted_average_life",
+   "args": {
+    "cashflow": [
+     5.0,
+     5.0,
+     5.0,
+     5.0,
+     105.0
+    ],
+    "time": [
+     1.0,
+     2.0,
+     3.0,
+     4.0,
+     5.0
+    ]
+   },
+   "expected": 4.6,
+   "atol": 1e-09,
+   "rtol": 1e-12
+  },
+  {
+   "id": "yield_to_maturity",
+   "kind": "yield_to_maturity",
+   "args": {
+    "cashflow": [
+     5.0,
+     5.0,
+     5.0,
+     5.0,
+     105.0
+    ],
+    "time": [
+     1.0,
+     2.0,
+     3.0,
+     4.0,
+     5.0
+    ],
+    "price": 100.0
+   },
+   "expected": 0.049999999999999975,
+   "atol": 1e-09,
    "rtol": 1e-12
   }
  ]

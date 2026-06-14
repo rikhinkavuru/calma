@@ -1823,3 +1823,35 @@ def _pr(fn):
 for _mid in ("token_f1", "token_jaccard", "token_dice"):
     register(_mid, family="llm-eval", required_tags=["prediction", "reference"],
              string_tags=["prediction", "reference"], set_maturity="reviewed")(_pr(getattr(N, _mid)))
+
+
+# ======================================================================================
+# Pack FI - fixed-income analytics (cashflow + time columns, yield convention).
+# ======================================================================================
+
+def _fi_y(fn):
+    def recipe(cols, binding, convention=None):
+        cf, t = cols[binding["cashflow"]], cols[binding["time"]]
+        y = _conv_float(convention, "ytm", 0.05)
+        return _result(fn(cf, t, y), {"n": len(cf), "ytm": y})
+    return recipe
+
+
+for _mid in ("bond_price", "macaulay_duration", "modified_duration", "convexity", "dv01"):
+    register(_mid, family="finance", required_tags=["cashflow", "time"],
+             set_maturity="reviewed", accepted_conventions=["ytm=<frac>"])(_fi_y(getattr(N, _mid)))
+
+
+@register("weighted_average_life", family="finance", required_tags=["cashflow", "time"],
+          set_maturity="reviewed")
+def weighted_average_life(cols, binding, convention=None):
+    cf, t = cols[binding["cashflow"]], cols[binding["time"]]
+    return _result(N.weighted_average_life(cf, t), {"n": len(cf)})
+
+
+@register("yield_to_maturity", family="finance", required_tags=["cashflow", "time"],
+          set_maturity="reviewed", accepted_conventions=["price=<float>"])
+def yield_to_maturity(cols, binding, convention=None):
+    cf, t = cols[binding["cashflow"]], cols[binding["time"]]
+    price = _conv_float(convention, "price", 100.0)
+    return _result(N.yield_to_maturity(cf, t, price), {"n": len(cf), "price": price})
