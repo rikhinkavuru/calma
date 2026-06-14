@@ -2073,6 +2073,22 @@ for _mid in ("reward_to_var_ratio", "starr_ratio", "modified_sharpe_ratio"):
 
 
 # ======================================================================================
+# Pack RV - realized volatility / jump measures. A return column.
+# ======================================================================================
+
+def _rv_recipe(fn):
+    def recipe(cols, binding, convention=None):
+        r = cols[binding["return"]]
+        return _result(fn(r), {"n": len(r)})
+    return recipe
+
+
+for _mid in ("realized_variance", "realized_volatility", "bipower_variation", "jump_variation"):
+    register(_mid, family="quant", required_tags=["return"],
+             set_maturity="reviewed")(_rv_recipe(getattr(N, _mid)))
+
+
+# ======================================================================================
 # Pack ML2 - margin classification losses. Decision-score + binary-label columns.
 # ======================================================================================
 

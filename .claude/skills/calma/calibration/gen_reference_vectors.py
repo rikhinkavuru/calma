@@ -1715,6 +1715,18 @@ case("reward_to_var_ratio", "reward_to_var_ratio", qr_args, _qmu / _qvar, atol=1
 case("starr_ratio", "starr_ratio", qr_args, _qmu / _qcvar, atol=1e-10)
 case("modified_sharpe_ratio", "modified_sharpe_ratio", qr_args, _qmu / _qcfvar, atol=1e-9)
 
+# Pack RV - realized volatility / jump measures (numpy recompute)
+rv_rets = list(uniforms(2901, 200, -0.03, 0.03))
+_rva = np.array(rv_rets)
+rv_var = float(np.sum(_rva ** 2))
+rv_vol = float(np.sqrt(rv_var))
+rv_bv = float((np.pi / 2.0) * np.sum(np.abs(_rva[1:]) * np.abs(_rva[:-1])))
+rv_jump = max(rv_var - rv_bv, 0.0)
+case("realized_variance", "realized_variance", {"rets": rv_rets}, rv_var, atol=1e-12)
+case("realized_volatility", "realized_volatility", {"rets": rv_rets}, rv_vol, atol=1e-12)
+case("bipower_variation", "bipower_variation", {"rets": rv_rets}, rv_bv, atol=1e-12)
+case("jump_variation", "jump_variation", {"rets": rv_rets}, rv_jump, atol=1e-12)
+
 # Pack ML2 - margin classification losses (sklearn hinge; numpy squared-hinge / exponential)
 from sklearn.metrics import hinge_loss as _sk_hinge  # noqa: E402
 

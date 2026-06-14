@@ -384,6 +384,10 @@ KINDS = {
     "reward_to_var_ratio": lambda a: N.reward_to_var_ratio(a["rets"], a["level"]),
     "starr_ratio": lambda a: N.starr_ratio(a["rets"], a["level"]),
     "modified_sharpe_ratio": lambda a: N.modified_sharpe_ratio(a["rets"], a["level"]),
+    "realized_variance": lambda a: N.realized_variance(a["rets"]),
+    "realized_volatility": lambda a: N.realized_volatility(a["rets"]),
+    "bipower_variation": lambda a: N.bipower_variation(a["rets"]),
+    "jump_variation": lambda a: N.jump_variation(a["rets"]),
     "hinge_loss": lambda a: N.hinge_loss(a["scores"], a["labels"]),
     "squared_hinge_loss": lambda a: N.squared_hinge_loss(a["scores"], a["labels"]),
     "exponential_loss": lambda a: N.exponential_loss(a["scores"], a["labels"]),
@@ -700,6 +704,8 @@ EXPECTED = {
     "hinge_loss", "squared_hinge_loss", "exponential_loss",
     # pack QR - tail-risk-adjusted reward ratios (3)
     "reward_to_var_ratio", "starr_ratio", "modified_sharpe_ratio",
+    # pack RV - realized volatility / jump measures (4)
+    "realized_variance", "realized_volatility", "bipower_variation", "jump_variation",
     # pack CN - concentration-ratio depth (4)
     "concentration_ratio", "normalized_hhi", "rosenbluth_index",
     "comprehensive_concentration_index",
@@ -787,7 +793,7 @@ EXPECTED = {
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 473 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 477 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

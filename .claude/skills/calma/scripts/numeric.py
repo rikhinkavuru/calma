@@ -4533,6 +4533,42 @@ def modified_sharpe_ratio(rets, level):
 
 
 # ======================================================================================
+# Pack RV - realized volatility / jump measures (high-frequency). A return column gives the
+# realized variance / volatility, the jump-robust bipower variation (BNS) and the jump
+# variation (RV - BV). Definitional; validated against numpy.
+# ======================================================================================
+
+def realized_variance(rets):
+    """Realized variance: sum of squared returns over the window."""
+    if not rets or _has_nan(rets):
+        return float("nan")
+    return math.fsum(r * r for r in rets)
+
+
+def realized_volatility(rets):
+    """Realized volatility: sqrt of the realized variance."""
+    rv = realized_variance(rets)
+    return float("nan") if rv != rv else math.sqrt(rv)
+
+
+def bipower_variation(rets):
+    """Barndorff-Nielsen-Shephard bipower variation: (pi/2) * sum |r_i||r_{i-1}|
+    (a jump-robust estimate of integrated variance)."""
+    if not rets or _has_nan(rets) or len(rets) < 2:
+        return float("nan")
+    return (math.pi / 2.0) * math.fsum(abs(rets[i]) * abs(rets[i - 1]) for i in range(1, len(rets)))
+
+
+def jump_variation(rets):
+    """Jump variation: max(realized variance - bipower variation, 0) - the jump component."""
+    rv = realized_variance(rets)
+    bv = bipower_variation(rets)
+    if rv != rv or bv != bv:
+        return float("nan")
+    return max(rv - bv, 0.0)
+
+
+# ======================================================================================
 # Pack ML2 - margin classification losses. Decision-score + binary-label (0/1) columns give
 # the hinge, squared-hinge and exponential (AdaBoost) losses. y is mapped to +/-1.
 # Validated against scikit-learn / numpy.
