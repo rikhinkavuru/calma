@@ -127,7 +127,7 @@ export function RecipeTicker() {
         </Reveal>
         <Reveal delay={120}>
           <h2 className="h2 recsec__h2">
-            <span className="recsec__num">100+</span> validated recipes
+            <span className="recsec__num">500+</span> validated recipes
           </h2>
         </Reveal>
         <Reveal delay={200}>
