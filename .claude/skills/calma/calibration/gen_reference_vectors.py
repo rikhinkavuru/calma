@@ -3199,6 +3199,29 @@ _fair_mu = _fair_b.mean()
 case("generalized_entropy_error", "generalized_entropy_error", {"preds": fair_p, "labels": fair_y, "alpha": 2.0},
      float(np.sum((_fair_b / _fair_mu) ** 2.0 - 1.0) / (fair_n * 2.0 * 1.0)), atol=1e-9, rtol=1e-9)
 
+# ============================ Pack HET - regression heteroskedasticity tests ============================
+# Independent reference: statsmodels.stats.diagnostic het_breuschpagan / het_white /
+# het_goldfeldquandt (the last sorted by the regressor, idx=1).
+
+import statsmodels.api as _sm  # noqa: E402
+from statsmodels.stats.diagnostic import (het_breuschpagan as _hbp, het_white as _hw,  # noqa: E402
+                                          het_goldfeldquandt as _hgq)
+
+het_n = 60
+het_x = list(uniforms(6001, het_n, -3, 3))
+het_resid = [(1.0 + 0.4 * xi) * ei for xi, ei in zip(het_x, uniforms(6002, het_n, -1, 1))]
+het_y = [2.0 + 1.5 * xi + ri for xi, ri in zip(het_x, het_resid)]
+_het_exog = _sm.add_constant(np.array(het_x))
+_bp = _hbp(het_resid, _het_exog)
+_wh = _hw(het_resid, _het_exog)
+_gq = _hgq(np.array(het_y), _het_exog, idx=1)
+_het_args = {"resid": het_resid, "x": het_x}
+case("breusch_pagan_lm", "breusch_pagan_lm", _het_args, float(_bp[0]), atol=1e-7, rtol=1e-9)
+case("breusch_pagan_fstat", "breusch_pagan_fstat", _het_args, float(_bp[2]), atol=1e-7, rtol=1e-9)
+case("white_lm", "white_lm", _het_args, float(_wh[0]), atol=1e-7, rtol=1e-9)
+case("goldfeld_quandt_fstat", "goldfeld_quandt_fstat", {"y": het_y, "x": het_x},
+     float(_gq[0]), atol=1e-7, rtol=1e-9)
+
 # ============================ write ============================
 
 doc = {

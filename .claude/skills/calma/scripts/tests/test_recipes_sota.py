@@ -716,6 +716,11 @@ KINDS = {
     "treatment_equality_difference": lambda a: N.treatment_equality_difference(a["preds"], a["labels"], a["groups"]),
     "balanced_accuracy_parity_difference": lambda a: N.balanced_accuracy_parity_difference(a["preds"], a["labels"], a["groups"]),
     "generalized_entropy_error": lambda a: N.generalized_entropy_error(a["preds"], a["labels"], a["alpha"]),
+    # pack HET - regression heteroskedasticity tests
+    "breusch_pagan_lm": lambda a: N.breusch_pagan_lm(a["resid"], a["x"]),
+    "breusch_pagan_fstat": lambda a: N.breusch_pagan_fstat(a["resid"], a["x"]),
+    "white_lm": lambda a: N.white_lm(a["resid"], a["x"]),
+    "goldfeld_quandt_fstat": lambda a: N.goldfeld_quandt_fstat(a["y"], a["x"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -997,10 +1002,12 @@ EXPECTED = {
     "fdr_parity_difference", "for_parity_difference", "average_abs_odds_difference",
     "treatment_equality_difference", "balanced_accuracy_parity_difference",
     "generalized_entropy_error",
+    # pack HET - regression heteroskedasticity tests (4)
+    "breusch_pagan_lm", "breusch_pagan_fstat", "white_lm", "goldfeld_quandt_fstat",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 600 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 604 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

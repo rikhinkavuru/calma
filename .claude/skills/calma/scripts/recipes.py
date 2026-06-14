@@ -3519,3 +3519,27 @@ def generalized_entropy_error(cols, binding, convention=None):
     p, l = cols[binding["prediction"]], cols[binding["label"]]
     alpha = _conv_float(convention, "alpha", 2.0)
     return _result(N.generalized_entropy_error(p, l, alpha), {"n": len(l), "alpha": alpha})
+
+
+# ======================================================================================
+# Pack HET - regression heteroskedasticity tests. Breusch-Pagan / White bind (residual,
+# regressor); Goldfeld-Quandt binds (value=dependent, regressor).
+# ======================================================================================
+
+def _het_recipe(fn):
+    def recipe(cols, binding, convention=None):
+        r, x = cols[binding["residual"]], cols[binding["regressor"]]
+        return _result(fn(r, x), {"n": len(r)})
+    return recipe
+
+
+for _mid in ("breusch_pagan_lm", "breusch_pagan_fstat", "white_lm"):
+    register(_mid, family="regression", required_tags=["residual", "regressor"],
+             set_maturity="reviewed")(_het_recipe(getattr(N, _mid)))
+
+
+@register("goldfeld_quandt_fstat", family="regression", required_tags=["value", "regressor"],
+          set_maturity="reviewed")
+def goldfeld_quandt_fstat(cols, binding, convention=None):
+    v, x = cols[binding["value"]], cols[binding["regressor"]]
+    return _result(N.goldfeld_quandt_fstat(v, x), {"n": len(v)})

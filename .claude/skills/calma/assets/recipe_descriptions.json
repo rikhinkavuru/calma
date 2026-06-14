@@ -699,6 +699,29 @@
       ],
       "description": "Chance-corrected inter-rater agreement assuming uniform expected agreement."
     },
+    "breusch_pagan_fstat": {
+      "aliases": [
+        "breusch-pagan f test",
+        "breusch pagan fstat",
+        "bp f statistic",
+        "f test for heteroskedasticity",
+        "f version of the changing-variance test",
+        "heteroskedasticity f-test"
+      ],
+      "description": "Breusch-Pagan F-statistic for heteroskedasticity."
+    },
+    "breusch_pagan_lm": {
+      "aliases": [
+        "breusch-pagan test",
+        "breusch pagan lm",
+        "bp test statistic",
+        "lm test for heteroskedasticity",
+        "are the residuals' variance non-constant",
+        "test for changing error variance",
+        "heteroskedasticity lm"
+      ],
+      "description": "Breusch-Pagan LM test statistic for heteroskedasticity."
+    },
     "brier": {
       "aliases": [
         "brier score",
@@ -2724,6 +2747,17 @@
         "delta effect size"
       ],
       "description": "Standardized mean difference scaled by the control group's standard deviation."
+    },
+    "goldfeld_quandt_fstat": {
+      "aliases": [
+        "goldfeld-quandt test",
+        "goldfeld quandt f",
+        "gq test",
+        "does variance grow with the regressor",
+        "split-sample variance ratio test",
+        "goldfeld-quandt f statistic"
+      ],
+      "description": "Goldfeld-Quandt F comparing residual variance across sorted halves."
     },
     "goodman_kruskal_gamma": {
       "aliases": [
@@ -6523,6 +6557,17 @@
         "edit error rate"
       ],
       "description": "Word-level edit distance between transcription and reference divided by reference length."
+    },
+    "white_lm": {
+      "aliases": [
+        "white test",
+        "white lm",
+        "white heteroskedasticity test",
+        "general heteroskedasticity test",
+        "test for non-constant variance with squares",
+        "white's test statistic"
+      ],
+      "description": "White test LM statistic for heteroskedasticity (with squared term)."
     },
     "wilcoxon_rank_sum": {
       "aliases": [

@@ -8200,3 +8200,108 @@ def generalized_entropy_error(pred, label, alpha=2.0):
     if mu == 0:
         return float("nan")
     return math.fsum(dpow(bi / mu, alpha) - 1.0 for bi in b) / (n * alpha * (alpha - 1.0))
+
+
+# ======================================================================================
+# Pack HET - regression heteroskedasticity tests (single regressor). Breusch-Pagan (LM and F),
+# White (LM with the squared term) and Goldfeld-Quandt (F). A small deterministic OLS solver
+# (normal equations + Gaussian elimination) backs the auxiliary regressions; validated against
+# statsmodels.stats.diagnostic.
+# ======================================================================================
+
+def _solve_linear(a, b):
+    """Solve a*x = b for a small square system via Gauss-Jordan with partial pivoting."""
+    k = len(a)
+    m = [list(a[i]) + [b[i]] for i in range(k)]
+    for col in range(k):
+        piv = max(range(col, k), key=lambda r: abs(m[r][col]))
+        if abs(m[piv][col]) < 1e-300:
+            return None
+        m[col], m[piv] = m[piv], m[col]
+        pv = m[col][col]
+        for r in range(k):
+            if r != col and m[r][col] != 0.0:
+                f = m[r][col] / pv
+                for c in range(col, k + 1):
+                    m[r][c] -= f * m[col][c]
+    return [m[i][k] / m[i][i] for i in range(k)]
+
+
+def _ols_fit(rows, yv):
+    """OLS via normal equations -> (beta, ss_res, ss_tot)."""
+    k = len(rows[0])
+    nrows = len(rows)
+    ata = [[math.fsum(rows[t][i] * rows[t][j] for t in range(nrows)) for j in range(k)] for i in range(k)]
+    aty = [math.fsum(rows[t][i] * yv[t] for t in range(nrows)) for i in range(k)]
+    beta = _solve_linear(ata, aty)
+    if beta is None:
+        return None
+    fit = [math.fsum(beta[j] * rows[t][j] for j in range(k)) for t in range(nrows)]
+    ybar = fmean(yv)
+    ss_res = math.fsum((yv[t] - fit[t]) ** 2 for t in range(nrows))
+    ss_tot = math.fsum((y - ybar) ** 2 for y in yv)
+    return beta, ss_res, ss_tot
+
+
+def _bp_r2(resid, regressor):
+    if not resid or len(resid) != len(regressor) or _has_nan(resid) or _has_nan(regressor):
+        return None
+    e2 = [r * r for r in resid]
+    rows = [[1.0, x] for x in regressor]
+    fit = _ols_fit(rows, e2)
+    if fit is None or fit[2] == 0:
+        return None
+    return 1.0 - fit[1] / fit[2]
+
+
+def breusch_pagan_lm(resid, regressor):
+    """Breusch-Pagan LM statistic n*R^2 from regressing squared residuals on the regressor
+    (statsmodels het_breuschpagan, Koenker form)."""
+    r2 = _bp_r2(resid, regressor)
+    return float("nan") if r2 is None else len(resid) * r2
+
+
+def breusch_pagan_fstat(resid, regressor):
+    """Breusch-Pagan F statistic of the squared-residual auxiliary regression on one regressor."""
+    r2 = _bp_r2(resid, regressor)
+    n = len(resid)
+    if r2 is None or r2 >= 1.0 or n <= 3:
+        return float("nan")
+    return (r2 / 1.0) / ((1.0 - r2) / (n - 2))
+
+
+def white_lm(resid, regressor):
+    """White test LM statistic n*R^2 regressing squared residuals on [1, x, x^2]
+    (statsmodels het_white for a single regressor)."""
+    if not resid or len(resid) != len(regressor) or _has_nan(resid) or _has_nan(regressor):
+        return float("nan")
+    e2 = [r * r for r in resid]
+    rows = [[1.0, x, x * x] for x in regressor]
+    fit = _ols_fit(rows, e2)
+    if fit is None or fit[2] == 0:
+        return float("nan")
+    return len(resid) * (1.0 - fit[1] / fit[2])
+
+
+def goldfeld_quandt_fstat(value, regressor):
+    """Goldfeld-Quandt F: sort by the regressor, fit OLS on the low and high halves (middle
+    point dropped when n is odd), F = (RSS_high/df_high)/(RSS_low/df_low)
+    (statsmodels het_goldfeldquandt, idx=regressor)."""
+    n = len(value)
+    if n < 6 or len(regressor) != n or _has_nan(value) or _has_nan(regressor):
+        return float("nan")
+    order = sorted(range(n), key=lambda i: regressor[i])
+    ys = [value[i] for i in order]
+    xs = [regressor[i] for i in order]
+    half = n // 2
+
+    def rss(lo, hi):
+        rows = [[1.0, xs[i]] for i in range(lo, hi)]
+        fit = _ols_fit(rows, [ys[i] for i in range(lo, hi)])
+        return None if fit is None else (fit[1], (hi - lo) - 2)
+
+    a = rss(0, half)
+    b = rss(n - half, n)
+    if a is None or b is None or a[1] <= 0 or b[1] <= 0 or a[0] == 0:
+        return float("nan")
+    return (b[0] / b[1]) / (a[0] / a[1])
