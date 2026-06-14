@@ -2796,6 +2796,49 @@ case("sen_welfare", "sen_welfare", {"xs": dec_x}, float(_dx.mean() * (1.0 - _dec
 case("simpson_evenness", "simpson_evenness", {"xs": dec_x},
      float((1.0 / np.sum(_dp ** 2)) / _dS), atol=1e-12)
 
+# ============================ Pack CR3 - distress-scoring models & bank-capital ratios ============================
+# Independent reference: numpy applies the published model coefficients (Altman Z'', Springate,
+# Zmijewski) averaged over firms, and the summed balance-sheet capital ratios.
+
+cr3_n = 12
+cr3_x1 = list(uniforms(5101, cr3_n, -0.2, 0.5))
+cr3_x2 = list(uniforms(5102, cr3_n, -0.1, 0.6))
+cr3_x3 = list(uniforms(5103, cr3_n, -0.05, 0.3))
+cr3_x4 = list(uniforms(5104, cr3_n, 0.2, 3.0))
+cr3_roa = list(uniforms(5105, cr3_n, -0.1, 0.2))
+cr3_tlta = list(uniforms(5106, cr3_n, 0.1, 0.9))
+cr3_cacl = list(uniforms(5107, cr3_n, 0.5, 3.0))
+cr3_ebtcl = list(uniforms(5108, cr3_n, -0.2, 0.8))
+cr3_sales = list(uniforms(5109, cr3_n, 0.3, 2.5))
+cr3_cap = list(uniforms(5110, cr3_n, 5, 20))
+cr3_rwa = list(uniforms(5111, cr3_n, 50, 200))
+cr3_t1 = list(uniforms(5112, cr3_n, 4, 15))
+cr3_expo = list(uniforms(5113, cr3_n, 80, 300))
+cr3_prov = list(uniforms(5114, cr3_n, 2, 10))
+cr3_npl = list(uniforms(5115, cr3_n, 5, 25))
+cr3_spread = list(uniforms(5116, cr3_n, 0.005, 0.05))
+cr3_rec = list(uniforms(5117, cr3_n, 0.2, 0.6))
+case("altman_z_double_prime", "altman_z_double_prime",
+     {"x1": cr3_x1, "x2": cr3_x2, "x3": cr3_x3, "x4": cr3_x4},
+     float(np.mean(3.25 + 6.56 * np.array(cr3_x1) + 3.26 * np.array(cr3_x2)
+                   + 6.72 * np.array(cr3_x3) + 1.05 * np.array(cr3_x4))), atol=1e-12)
+case("springate_score", "springate_score",
+     {"wc_ta": cr3_x1, "ebit_ta": cr3_x3, "ebt_cl": cr3_ebtcl, "sales_ta": cr3_sales},
+     float(np.mean(1.03 * np.array(cr3_x1) + 3.07 * np.array(cr3_x3)
+                   + 0.66 * np.array(cr3_ebtcl) + 0.40 * np.array(cr3_sales))), atol=1e-12)
+case("zmijewski_score", "zmijewski_score",
+     {"roa": cr3_roa, "tl_ta": cr3_tlta, "ca_cl": cr3_cacl},
+     float(np.mean(-4.336 - 4.513 * np.array(cr3_roa) + 5.679 * np.array(cr3_tlta)
+                   + 0.004 * np.array(cr3_cacl))), atol=1e-12)
+case("capital_adequacy_ratio", "capital_adequacy_ratio", {"capital": cr3_cap, "rwa": cr3_rwa},
+     float(np.sum(cr3_cap) / np.sum(cr3_rwa)), atol=1e-12)
+case("tier1_leverage_ratio", "tier1_leverage_ratio", {"tier1_capital": cr3_t1, "total_exposure": cr3_expo},
+     float(np.sum(cr3_t1) / np.sum(cr3_expo)), atol=1e-12)
+case("provision_coverage_ratio", "provision_coverage_ratio", {"provisions": cr3_prov, "npl": cr3_npl},
+     float(np.sum(cr3_prov) / np.sum(cr3_npl)), atol=1e-12)
+case("cds_implied_hazard", "cds_implied_hazard", {"spread": cr3_spread, "recovery": cr3_rec},
+     float(np.mean(np.array(cr3_spread) / (1.0 - np.array(cr3_rec)))), atol=1e-12)
+
 # ============================ write ============================
 
 doc = {

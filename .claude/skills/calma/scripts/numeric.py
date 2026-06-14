@@ -7228,3 +7228,74 @@ def simpson_evenness(xs):
     if s <= 0 or rich == 0:
         return float("nan")
     return (1.0 / s) / rich
+
+
+# ======================================================================================
+# Pack CR3 - distress-scoring models & bank-capital ratios. The bankruptcy scores apply the
+# published coefficients to pre-computed ratio columns and average over the firms (rows),
+# matching the altman_z convention; the capital ratios sum the balance-sheet line items.
+# ======================================================================================
+
+def altman_z_double_prime(x1, x2, x3, x4):
+    """Altman Z''-score (emerging-market / non-manufacturer form): 3.25 + 6.56X1 + 3.26X2 +
+    6.72X3 + 1.05X4, averaged over firms. X1 WC/TA, X2 RE/TA, X3 EBIT/TA, X4 BVE/TL."""
+    if not _cr_ok(x1, x2, x3, x4):
+        return float("nan")
+    return fmean([3.25 + 6.56 * a + 3.26 * b + 6.72 * c + 1.05 * d
+                  for a, b, c, d in zip(x1, x2, x3, x4)])
+
+
+def springate_score(wc_ta, ebit_ta, ebt_cl, sales_ta):
+    """Springate (1978) S-score: 1.03A + 3.07B + 0.66C + 0.40D, averaged over firms.
+    A WC/TA, B EBIT/TA, C EBT/current-liabilities, D sales/TA. Below 0.862 = distress."""
+    if not _cr_ok(wc_ta, ebit_ta, ebt_cl, sales_ta):
+        return float("nan")
+    return fmean([1.03 * a + 3.07 * b + 0.66 * c + 0.40 * d
+                  for a, b, c, d in zip(wc_ta, ebit_ta, ebt_cl, sales_ta)])
+
+
+def zmijewski_score(roa, tl_ta, ca_cl):
+    """Zmijewski (1984) probit X-score: -4.336 - 4.513*ROA + 5.679*(TL/TA) + 0.004*(CA/CL),
+    averaged over firms. Higher = more distressed."""
+    if not _cr_ok(roa, tl_ta, ca_cl):
+        return float("nan")
+    return fmean([-4.336 - 4.513 * a + 5.679 * b + 0.004 * c
+                  for a, b, c in zip(roa, tl_ta, ca_cl)])
+
+
+def capital_adequacy_ratio(capital, rwa):
+    """Basel capital adequacy ratio: sum(regulatory capital) / sum(risk-weighted assets)."""
+    if not _cr_ok(capital, rwa):
+        return float("nan")
+    tot = math.fsum(rwa)
+    if tot == 0:
+        return float("nan")
+    return math.fsum(capital) / tot
+
+
+def tier1_leverage_ratio(tier1_capital, total_exposure):
+    """Basel tier-1 leverage ratio: sum(tier-1 capital) / sum(total leverage exposure)."""
+    if not _cr_ok(tier1_capital, total_exposure):
+        return float("nan")
+    tot = math.fsum(total_exposure)
+    if tot == 0:
+        return float("nan")
+    return math.fsum(tier1_capital) / tot
+
+
+def provision_coverage_ratio(provisions, npl):
+    """Provision coverage ratio: sum(loan-loss provisions) / sum(non-performing loans)."""
+    if not _cr_ok(provisions, npl):
+        return float("nan")
+    tot = math.fsum(npl)
+    if tot == 0:
+        return float("nan")
+    return math.fsum(provisions) / tot
+
+
+def cds_implied_hazard(spread, recovery):
+    """Credit-triangle hazard rate: average of spread_i / (1 - recovery_i) across names
+    (continuous-time default-intensity approximation)."""
+    if not _cr_ok(spread, recovery) or any(r >= 1.0 for r in recovery):
+        return float("nan")
+    return fmean([s / (1.0 - r) for s, r in zip(spread, recovery)])

@@ -3197,3 +3197,24 @@ for _mid in ("margalef_richness", "menhinick_richness", "mcintosh_diversity",
              "sen_welfare", "simpson_evenness"):
     register(_mid, family="analytics", required_tags=["value"],
              set_maturity="reviewed")(_mom_recipe(getattr(N, _mid)))
+
+
+# ======================================================================================
+# Pack CR3 - distress-scoring models & bank-capital ratios. Each binds its named ratio /
+# line-item columns; the kernel applies the published coefficients (scores averaged over
+# firms; capital ratios summed across the balance sheet).
+# ======================================================================================
+
+_CR3_BIND = {
+    "altman_z_double_prime": ["x1", "x2", "x3", "x4"],
+    "springate_score": ["wc_ta", "ebit_ta", "ebt_cl", "sales_ta"],
+    "zmijewski_score": ["roa", "tl_ta", "ca_cl"],
+    "capital_adequacy_ratio": ["capital", "rwa"],
+    "tier1_leverage_ratio": ["tier1_capital", "total_exposure"],
+    "provision_coverage_ratio": ["provisions", "npl"],
+    "cds_implied_hazard": ["spread", "recovery"],
+}
+
+for _mid, _tags in _CR3_BIND.items():
+    register(_mid, family="credit", required_tags=list(_tags),
+             set_maturity="reviewed")(_biz_recipe(getattr(N, _mid), _tags))

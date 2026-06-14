@@ -150,6 +150,18 @@
       ],
       "description": "Bankruptcy-risk score combining five financial ratios for public manufacturers."
     },
+    "altman_z_double_prime": {
+      "aliases": [
+        "altman z double prime",
+        "z'' score",
+        "altman z'' score",
+        "emerging market z-score",
+        "bankruptcy score for service firms",
+        "altman zeta variant",
+        "distress score non-manufacturer"
+      ],
+      "description": "Altman Z''-score for non-manufacturers / emerging markets."
+    },
     "altman_z_prime": {
       "aliases": [
         "z-prime",
@@ -971,6 +983,18 @@
       ],
       "description": "Annualized return divided by maximum drawdown."
     },
+    "capital_adequacy_ratio": {
+      "aliases": [
+        "capital adequacy ratio",
+        "car",
+        "basel capital ratio",
+        "capital to rwa",
+        "how well capitalized the bank is",
+        "regulatory capital ratio",
+        "crar"
+      ],
+      "description": "Regulatory capital over risk-weighted assets (Basel CAR)."
+    },
     "capture_ratio": {
       "aliases": [
         "up over down capture",
@@ -1000,6 +1024,18 @@
         "tail drawdown measure"
       ],
       "description": "Average of the worst drawdowns beyond a chosen confidence level."
+    },
+    "cds_implied_hazard": {
+      "aliases": [
+        "cds implied hazard rate",
+        "hazard rate from spread",
+        "default intensity",
+        "credit triangle hazard",
+        "spread over one minus recovery",
+        "implied default rate",
+        "cds hazard"
+      ],
+      "description": "Default intensity from CDS spread over loss given default."
     },
     "chi_square": {
       "aliases": [
@@ -4240,6 +4276,18 @@
       ],
       "description": "Tests whether two groups differ in their proportions."
     },
+    "provision_coverage_ratio": {
+      "aliases": [
+        "provision coverage ratio",
+        "pcr",
+        "npl coverage",
+        "loan loss coverage",
+        "reserves against bad loans",
+        "how covered are the bad loans",
+        "provisioning coverage"
+      ],
+      "description": "Loan-loss provisions as a share of non-performing loans."
+    },
     "psi": {
       "aliases": [
         "psi",
@@ -4980,6 +5028,18 @@
       ],
       "description": "Dollar price change per one basis-point move in credit spread."
     },
+    "springate_score": {
+      "aliases": [
+        "springate score",
+        "springate s-score",
+        "springate model",
+        "four-ratio bankruptcy score",
+        "will this firm go bankrupt springate",
+        "gordon springate model",
+        "s-score distress"
+      ],
+      "description": "Springate S-score bankruptcy classifier from four financial ratios."
+    },
     "squared_hinge_loss": {
       "aliases": [
         "squared hinge loss",
@@ -5150,6 +5210,18 @@
         "requests per second"
       ],
       "description": "Number of operations completed per unit of time."
+    },
+    "tier1_leverage_ratio": {
+      "aliases": [
+        "tier 1 leverage ratio",
+        "leverage ratio",
+        "tier-1 leverage",
+        "basel leverage ratio",
+        "capital over total exposure",
+        "non-risk leverage ratio",
+        "t1 leverage"
+      ],
+      "description": "Tier-1 capital over total leverage exposure (Basel III)."
     },
     "time_underwater": {
       "aliases": [
@@ -5731,6 +5803,18 @@
         "credit spread over curve"
       ],
       "description": "Constant spread over the zero curve that prices a bond."
+    },
+    "zmijewski_score": {
+      "aliases": [
+        "zmijewski score",
+        "zmijewski x-score",
+        "zmijewski model",
+        "probit bankruptcy score",
+        "financial distress probit",
+        "x-score",
+        "zmijewski 1984"
+      ],
+      "description": "Zmijewski probit distress score from profitability, leverage and liquidity."
     }
   },
   "schema": "calma/recipe-descriptions@1"

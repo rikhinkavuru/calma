@@ -627,6 +627,14 @@ KINDS = {
     "mcintosh_diversity": lambda a: N.mcintosh_diversity(a["xs"]),
     "sen_welfare": lambda a: N.sen_welfare(a["xs"]),
     "simpson_evenness": lambda a: N.simpson_evenness(a["xs"]),
+    # pack CR3 - distress-scoring models & bank-capital ratios
+    "altman_z_double_prime": lambda a: N.altman_z_double_prime(a["x1"], a["x2"], a["x3"], a["x4"]),
+    "springate_score": lambda a: N.springate_score(a["wc_ta"], a["ebit_ta"], a["ebt_cl"], a["sales_ta"]),
+    "zmijewski_score": lambda a: N.zmijewski_score(a["roa"], a["tl_ta"], a["ca_cl"]),
+    "capital_adequacy_ratio": lambda a: N.capital_adequacy_ratio(a["capital"], a["rwa"]),
+    "tier1_leverage_ratio": lambda a: N.tier1_leverage_ratio(a["tier1_capital"], a["total_exposure"]),
+    "provision_coverage_ratio": lambda a: N.provision_coverage_ratio(a["provisions"], a["npl"]),
+    "cds_implied_hazard": lambda a: N.cds_implied_hazard(a["spread"], a["recovery"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -867,10 +875,14 @@ EXPECTED = {
     # pack DEC - diversity, entropy & welfare depth (7)
     "renyi_entropy", "tsallis_entropy", "margalef_richness", "menhinick_richness",
     "mcintosh_diversity", "sen_welfare", "simpson_evenness",
+    # pack CR3 - distress-scoring models & bank-capital ratios (7)
+    "altman_z_double_prime", "springate_score", "zmijewski_score",
+    "capital_adequacy_ratio", "tier1_leverage_ratio", "provision_coverage_ratio",
+    "cds_implied_hazard",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 523 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 530 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402
