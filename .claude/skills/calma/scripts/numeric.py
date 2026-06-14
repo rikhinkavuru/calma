@@ -5968,3 +5968,60 @@ def cumulative_forecast_error(pred, actual):
     if not _fc2_ok(pred, actual):
         return float("nan")
     return math.fsum(a - p for p, a in zip(pred, actual))
+
+
+# ======================================================================================
+# Pack DV - diversity / breadth indices. A non-negative amounts column (portfolio weights /
+# abundances) gives the Shannon diversity, the Hill number of order q (the unifying
+# effective-diversity framework), Pielou evenness and the Berger-Parker dominance.
+# ======================================================================================
+
+def _dv_shares(xs):
+    if not xs or _has_nan(xs) or any(v < 0 for v in xs):
+        return None
+    s = math.fsum(xs)
+    if s <= 0:
+        return None
+    return [v / s for v in xs]
+
+
+def shannon_diversity(xs):
+    """Shannon diversity index H = -sum p_i ln p_i (natural log) over the normalized shares."""
+    p = _dv_shares(xs)
+    if p is None:
+        return float("nan")
+    return -math.fsum(pi * dlog(pi) for pi in p if pi > 0)
+
+
+def hill_number(xs, q=1.0):
+    """Hill number of order q (effective diversity, Jost 2006): (sum p_i^q)^(1/(1-q)); q=0
+    richness, q=1 exp(Shannon), q=2 inverse Simpson."""
+    p = _dv_shares(xs)
+    if p is None:
+        return float("nan")
+    if q == 1.0:
+        return dexp(-math.fsum(pi * dlog(pi) for pi in p if pi > 0))
+    ssum = math.fsum(pi ** q for pi in p if pi > 0)
+    if ssum <= 0:
+        return float("nan")
+    return ssum ** (1.0 / (1.0 - q))
+
+
+def pielou_evenness(xs):
+    """Pielou evenness J = H / ln(S), S = number of positive categories, in [0, 1]."""
+    p = _dv_shares(xs)
+    if p is None:
+        return float("nan")
+    s = sum(1 for pi in p if pi > 0)
+    if s <= 1:
+        return float("nan")
+    h = -math.fsum(pi * dlog(pi) for pi in p if pi > 0)
+    return h / dlog(s)
+
+
+def berger_parker(xs):
+    """Berger-Parker dominance: largest share max(x_i) / sum(x)."""
+    p = _dv_shares(xs)
+    if p is None:
+        return float("nan")
+    return max(p)

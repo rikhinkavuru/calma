@@ -2770,3 +2770,33 @@ def _fc2_recipe(fn):
 for _mid in ("mean_arctangent_ape", "geometric_mean_absolute_error", "cumulative_forecast_error"):
     register(_mid, family="forecasting", required_tags=["prediction", "target"],
              set_maturity="reviewed")(_fc2_recipe(getattr(N, _mid)))
+
+
+# ======================================================================================
+# Pack DV - diversity / breadth indices. A non-negative amounts column; Hill takes order q.
+# ======================================================================================
+
+@register("shannon_diversity", family="analytics", required_tags=["value"], set_maturity="reviewed")
+def shannon_diversity(cols, binding, convention=None):
+    xs = cols[binding["value"]]
+    return _result(N.shannon_diversity(xs), {"n": len(xs)})
+
+
+@register("pielou_evenness", family="analytics", required_tags=["value"], set_maturity="reviewed")
+def pielou_evenness(cols, binding, convention=None):
+    xs = cols[binding["value"]]
+    return _result(N.pielou_evenness(xs), {"n": len(xs)})
+
+
+@register("berger_parker", family="analytics", required_tags=["value"], set_maturity="reviewed")
+def berger_parker(cols, binding, convention=None):
+    xs = cols[binding["value"]]
+    return _result(N.berger_parker(xs), {"n": len(xs)})
+
+
+@register("hill_number", family="analytics", required_tags=["value"],
+          set_maturity="reviewed", accepted_conventions=["q=<float>"])
+def hill_number(cols, binding, convention=None):
+    xs = cols[binding["value"]]
+    q = _conv_float(convention, "q", 1.0)
+    return _result(N.hill_number(xs, q), {"n": len(xs), "q": q})

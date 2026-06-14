@@ -2317,6 +2317,23 @@ case("mean_arctangent_ape", "mean_arctangent_ape", fc2_args, fc2_maape, atol=1e-
 case("geometric_mean_absolute_error", "geometric_mean_absolute_error", fc2_args, fc2_gmae, atol=1e-11)
 case("cumulative_forecast_error", "cumulative_forecast_error", fc2_args, fc2_cfe, atol=1e-11)
 
+# ============================ Pack DV - diversity / breadth indices ============================
+# Independent reference: numpy recompute of the Shannon diversity, Hill number of order q,
+# Pielou evenness and Berger-Parker dominance over a deterministic abundance vector.
+
+dv_x = list(uniforms(3501, 30, 0.0, 50.0))
+dv_q = 2.0
+_dvp = np.array(dv_x) / np.sum(dv_x)
+_dvpos = _dvp[_dvp > 0]
+dv_shannon = float(-np.sum(_dvpos * np.log(_dvpos)))
+dv_hill = float(np.sum(_dvpos ** dv_q) ** (1.0 / (1.0 - dv_q)))
+dv_pielou = float(dv_shannon / np.log(np.sum(_dvp > 0)))
+dv_bp = float(_dvp.max())
+case("shannon_diversity", "shannon_diversity", {"xs": dv_x}, dv_shannon, atol=1e-12)
+case("hill_number", "hill_number", {"xs": dv_x, "q": dv_q}, dv_hill, atol=1e-12)
+case("pielou_evenness", "pielou_evenness", {"xs": dv_x}, dv_pielou, atol=1e-12)
+case("berger_parker", "berger_parker", {"xs": dv_x}, dv_bp, atol=1e-12)
+
 # ============================ write ============================
 
 doc = {
