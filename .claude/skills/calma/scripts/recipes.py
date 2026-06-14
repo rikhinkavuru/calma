@@ -3150,3 +3150,19 @@ def root_mean_square(cols, binding, convention=None):
 for _mid in ("kstat_third", "kstat_fourth"):
     register(_mid, family="stats", required_tags=["value"],
              set_maturity="reviewed")(_mom_recipe(getattr(N, _mid)))
+
+
+# ======================================================================================
+# Pack NT - normality & nonparametric test statistics. skewtest/kurtosistest/normaltest/
+# differential_entropy take a single value column; the two-sample location tests take
+# sample_a / sample_b.
+# ======================================================================================
+
+for _mid in ("skewtest", "kurtosistest", "normaltest", "differential_entropy"):
+    register(_mid, family="stats", required_tags=["value"],
+             set_maturity="reviewed")(_mom_recipe(getattr(N, _mid)))
+
+
+for _mid in ("wilcoxon_rank_sum", "mood_median_test"):
+    register(_mid, family="stats", required_tags=["sample_a", "sample_b"],
+             set_maturity="reviewed")(_np_ab(getattr(N, _mid)))

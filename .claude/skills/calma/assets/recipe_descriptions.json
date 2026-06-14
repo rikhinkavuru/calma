@@ -1470,6 +1470,17 @@
       ],
       "description": "Ratio of positive to negative likelihood ratios summarizing test discrimination."
     },
+    "differential_entropy": {
+      "aliases": [
+        "differential entropy",
+        "continuous entropy",
+        "vasicek entropy",
+        "how spread out or uncertain the data is",
+        "entropy of a continuous variable",
+        "information content of the sample"
+      ],
+      "description": "Vasicek estimate of a continuous distribution's differential entropy in nats."
+    },
     "direct_alpha": {
       "aliases": [
         "pme alpha",
@@ -2814,6 +2825,18 @@
       ],
       "description": "Measures the heaviness of a distribution's tails relative to normal."
     },
+    "kurtosistest": {
+      "aliases": [
+        "kurtosis test",
+        "anscombe-glynn test",
+        "kurtosistest",
+        "are the tails too heavy",
+        "test for tailedness",
+        "normality test on kurtosis",
+        "kurtosis z-score"
+      ],
+      "description": "Anscombe-Glynn z-test for whether kurtosis departs from normal."
+    },
     "kyle_lambda": {
       "aliases": [
         "kyle lambda",
@@ -3457,6 +3480,17 @@
       ],
       "description": "Sharpe-style ratio using modified (Cornish-Fisher) VaR as the risk denominator."
     },
+    "mood_median_test": {
+      "aliases": [
+        "mood's median test",
+        "median test",
+        "do two groups have the same median",
+        "compare medians across groups",
+        "median split chi-square",
+        "brown-mood test"
+      ],
+      "description": "Mood's median test: chi-square that two samples share a common median."
+    },
     "mood_test": {
       "aliases": [
         "mood's test",
@@ -3657,6 +3691,18 @@
         "overlap of information between groupings adjusted so size doesn't skew it"
       ],
       "description": "Mutual information scaled to a zero-to-one clustering agreement score."
+    },
+    "normaltest": {
+      "aliases": [
+        "normality test",
+        "d'agostino-pearson test",
+        "omnibus normality test",
+        "is the data normal",
+        "test for gaussianity",
+        "k-squared statistic",
+        "normaltest"
+      ],
+      "description": "D'Agostino-Pearson omnibus K-squared test for normality."
     },
     "npv": {
       "aliases": [
@@ -4695,6 +4741,18 @@
       ],
       "description": "Measures the asymmetry of a distribution about its mean."
     },
+    "skewtest": {
+      "aliases": [
+        "skewness test",
+        "d'agostino skewness test",
+        "skewtest",
+        "is the data skewed",
+        "test for asymmetry",
+        "normality test on skew",
+        "skewness z-score"
+      ],
+      "description": "D'Agostino z-test for whether sample skewness departs from normal."
+    },
     "slo_attainment": {
       "aliases": [
         "slo attainment",
@@ -5368,6 +5426,18 @@
         "edit error rate"
       ],
       "description": "Word-level edit distance between transcription and reference divided by reference length."
+    },
+    "wilcoxon_rank_sum": {
+      "aliases": [
+        "wilcoxon rank sum",
+        "rank-sum test",
+        "ranksums",
+        "wilcoxon two-sample",
+        "are the two groups different",
+        "do two samples come from the same distribution",
+        "rank sum z"
+      ],
+      "description": "Wilcoxon rank-sum z-statistic comparing two samples' locations."
     },
     "wilcoxon_signed_rank": {
       "aliases": [

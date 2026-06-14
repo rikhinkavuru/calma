@@ -605,6 +605,13 @@ KINDS = {
     "root_mean_square": lambda a: N.root_mean_square(a["xs"]),
     "kstat_third": lambda a: N.kstat_third(a["xs"]),
     "kstat_fourth": lambda a: N.kstat_fourth(a["xs"]),
+    # pack NT - normality & nonparametric test statistics
+    "skewtest": lambda a: N.skewtest(a["xs"]),
+    "kurtosistest": lambda a: N.kurtosistest(a["xs"]),
+    "normaltest": lambda a: N.normaltest(a["xs"]),
+    "differential_entropy": lambda a: N.differential_entropy(a["xs"]),
+    "wilcoxon_rank_sum": lambda a: N.wilcoxon_rank_sum(a["a"], a["b"]),
+    "mood_median_test": lambda a: N.mood_median_test(a["a"], a["b"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -835,10 +842,13 @@ EXPECTED = {
     # pack GM - generalized means & power-sum statistics (6)
     "power_mean", "geometric_std", "lehmer_mean", "root_mean_square",
     "kstat_third", "kstat_fourth",
+    # pack NT - normality & nonparametric test statistics (6)
+    "skewtest", "kurtosistest", "normaltest", "differential_entropy",
+    "wilcoxon_rank_sum", "mood_median_test",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 504 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 510 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

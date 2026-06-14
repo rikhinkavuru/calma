@@ -6962,3 +6962,106 @@ def kstat_fourth(xs):
     return ((-6.0 * s1 ** 4 + 12.0 * n * s1 * s1 * s2 - 3.0 * n * (n - 1.0) * s2 * s2
              - 4.0 * n * (n + 1.0) * s1 * s3 + n * n * (n + 1.0) * s4)
             / (n * (n - 1.0) * (n - 2.0) * (n - 3.0)))
+
+
+# ======================================================================================
+# Pack NT - normality & nonparametric test statistics. skewtest / kurtosistest / normaltest
+# are the D'Agostino-Pearson omnibus pieces (transformed z-scores and their sum-of-squares);
+# wilcoxon_rank_sum / mood_median_test are two-sample location tests; differential_entropy is
+# the Vasicek spacing estimator. Validated against scipy.stats.{skewtest, kurtosistest,
+# normaltest, ranksums, median_test, differential_entropy}.
+# ======================================================================================
+
+def skewtest(xs):
+    """D'Agostino (1970) skewness test z-statistic (scipy.stats.skewtest); needs n>=8."""
+    n = len(xs)
+    if n < 8 or _has_nan(xs):
+        return float("nan")
+    b2 = skewness(xs)
+    if b2 != b2:
+        return float("nan")
+    y = b2 * math.sqrt((n + 1) * (n + 3) / (6.0 * (n - 2)))
+    beta2 = 3.0 * (n * n + 27 * n - 70) * (n + 1) * (n + 3) / ((n - 2.0) * (n + 5) * (n + 7) * (n + 9))
+    w2 = -1.0 + math.sqrt(2 * (beta2 - 1))
+    delta = 1.0 / math.sqrt(0.5 * dlog(w2))
+    alpha = math.sqrt(2.0 / (w2 - 1))
+    yy = 1.0 if y == 0 else y
+    return delta * dlog(yy / alpha + math.sqrt((yy / alpha) ** 2 + 1))
+
+
+def kurtosistest(xs):
+    """Anscombe-Glynn (1983) kurtosis test z-statistic (scipy.stats.kurtosistest); needs n>=5."""
+    n = len(xs)
+    if n < 5 or _has_nan(xs):
+        return float("nan")
+    b2 = kurtosis_excess(xs)
+    if b2 != b2:
+        return float("nan")
+    b2 += 3.0
+    e = 3.0 * (n - 1) / (n + 1.0)
+    varb2 = 24.0 * n * (n - 2) * (n - 3) / ((n + 1.0) ** 2 * (n + 3) * (n + 5))
+    x = (b2 - e) / math.sqrt(varb2)
+    sqrtbeta1 = (6.0 * (n * n - 5 * n + 2) / ((n + 7.0) * (n + 9))
+                 * math.sqrt(6.0 * (n + 3) * (n + 5) / (n * (n - 2.0) * (n - 3))))
+    a = 6.0 + 8.0 / sqrtbeta1 * (2.0 / sqrtbeta1 + math.sqrt(1 + 4.0 / (sqrtbeta1 ** 2)))
+    term1 = 1 - 2.0 / (9.0 * a)
+    denom = 1 + x * math.sqrt(2.0 / (a - 4.0))
+    term2 = (1.0 if denom > 0 else -1.0) * dpow((1 - 2.0 / a) / abs(denom), 1.0 / 3.0)
+    return (term1 - term2) / math.sqrt(2.0 / (9.0 * a))
+
+
+def normaltest(xs):
+    """D'Agostino-Pearson omnibus K^2 = skewtest^2 + kurtosistest^2 (scipy.stats.normaltest)."""
+    s = skewtest(xs)
+    k = kurtosistest(xs)
+    if s != s or k != k:
+        return float("nan")
+    return s * s + k * k
+
+
+def wilcoxon_rank_sum(a, b):
+    """Wilcoxon rank-sum z-statistic (scipy.stats.ranksums): standardized rank sum of sample a
+    under the no-tie-correction normal approximation."""
+    n1, n2 = len(a), len(b)
+    if n1 == 0 or n2 == 0 or _has_nan(a) or _has_nan(b):
+        return float("nan")
+    r = _avg_ranks(list(a) + list(b))
+    s = math.fsum(r[:n1])
+    expected = n1 * (n1 + n2 + 1) / 2.0
+    return (s - expected) / math.sqrt(n1 * n2 * (n1 + n2 + 1) / 12.0)
+
+
+def mood_median_test(a, b):
+    """Mood's median test chi-square statistic (scipy.stats.median_test): a 2x2 of counts
+    above vs at-or-below the grand median, Yates-corrected. ties go to 'below' (scipy default)."""
+    if len(a) == 0 or len(b) == 0 or _has_nan(a) or _has_nan(b):
+        return float("nan")
+    grand = quantile(sorted(list(a) + list(b)), 0.5)
+    aa = sum(1 for v in a if v > grand)
+    ab = sum(1 for v in b if v > grand)
+    tab = [[aa, ab], [len(a) - aa, len(b) - ab]]
+    n = len(a) + len(b)
+    rs = [tab[0][0] + tab[0][1], tab[1][0] + tab[1][1]]
+    cs = [tab[0][0] + tab[1][0], tab[0][1] + tab[1][1]]
+    chi = 0.0
+    for i in range(2):
+        for j in range(2):
+            e = rs[i] * cs[j] / n
+            if e == 0:
+                return float("nan")
+            chi += (abs(tab[i][j] - e) - 0.5) ** 2 / e
+    return chi
+
+
+def differential_entropy(xs):
+    """Vasicek (1976) differential-entropy estimator in nats (scipy.stats.differential_entropy
+    method='vasicek'): mean log of m-spacings with window m = floor(sqrt(n)+0.5)."""
+    n = len(xs)
+    if n < 3 or _has_nan(xs):
+        return float("nan")
+    s = sorted(xs)
+    m = math.floor(math.sqrt(n) + 0.5)
+    if m < 1:
+        return float("nan")
+    pad = [s[0]] * m + s + [s[-1]] * m
+    return math.fsum(dlog(n / (2.0 * m) * (pad[2 * m + i] - pad[i])) for i in range(n)) / n

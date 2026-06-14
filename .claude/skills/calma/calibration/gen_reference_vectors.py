@@ -2723,6 +2723,24 @@ case("root_mean_square", "root_mean_square", {"xs": gm_any},
 case("kstat_third", "kstat_third", {"xs": gm_any}, float(stats.kstat(gm_any, 3)), atol=1e-9, rtol=1e-9)
 case("kstat_fourth", "kstat_fourth", {"xs": gm_any}, float(stats.kstat(gm_any, 4)), atol=1e-9, rtol=1e-9)
 
+# ============================ Pack NT - normality & nonparametric test statistics ============================
+# Independent reference: scipy.stats.skewtest / kurtosistest / normaltest (D'Agostino-Pearson),
+# ranksums (Wilcoxon rank-sum z), median_test (Mood's median chi-square), and
+# differential_entropy(method='vasicek').
+
+nt_x = list(uniforms(7003, 60, -3.0, 9.0))
+nt_a = list(uniforms(7001, 40, -2.0, 5.0))
+nt_b = list(uniforms(7002, 55, -1.0, 6.0))
+case("skewtest", "skewtest", {"xs": nt_x}, float(stats.skewtest(nt_x).statistic), atol=1e-10, rtol=1e-10)
+case("kurtosistest", "kurtosistest", {"xs": nt_x}, float(stats.kurtosistest(nt_x).statistic), atol=1e-10, rtol=1e-10)
+case("normaltest", "normaltest", {"xs": nt_x}, float(stats.normaltest(nt_x).statistic), atol=1e-9, rtol=1e-9)
+case("wilcoxon_rank_sum", "wilcoxon_rank_sum", {"a": nt_a, "b": nt_b},
+     float(stats.ranksums(nt_a, nt_b).statistic), atol=1e-12)
+case("mood_median_test", "mood_median_test", {"a": nt_a, "b": nt_b},
+     float(stats.median_test(nt_a, nt_b)[0]), atol=1e-10, rtol=1e-10)
+case("differential_entropy", "differential_entropy", {"xs": nt_x},
+     float(stats.differential_entropy(nt_x, method="vasicek")), atol=1e-12)
+
 # ============================ write ============================
 
 doc = {
