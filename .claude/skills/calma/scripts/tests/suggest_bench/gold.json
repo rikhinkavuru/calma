@@ -5888,5 +5888,265 @@
   "query": "I measured how much information you lose going between the two groupings and then divided it by their combined total uncertainty to put it on a 0-to-1 scale, getting 0.99 — does that hold?",
   "gold": "normalized_variation_of_information",
   "kind": "paraphrase"
+ },
+ {
+  "query": "can you confirm the FDR parity difference across groups is 0.24 here?",
+  "gold": "fdr_parity_difference",
+  "kind": "named"
+ },
+ {
+  "query": "among the cases each group was flagged positive, the share that turn out to be wrong differs by about 0.24 between groups — does that hold?",
+  "gold": "fdr_parity_difference",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "verify the average absolute odds difference is 0.25 for me?",
+  "gold": "average_abs_odds_difference",
+  "kind": "named"
+ },
+ {
+  "query": "if you average how much the true-positive and false-positive rates differ between the groups, I got roughly 0.25 — can you check that?",
+  "gold": "average_abs_odds_difference",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "is the balanced-accuracy parity gap actually 0.23 between the protected groups?",
+  "gold": "balanced_accuracy_parity_difference",
+  "kind": "named"
+ },
+ {
+  "query": "the average of sensitivity and specificity comes out about 0.23 apart between the two groups — can you confirm that gap?",
+  "gold": "balanced_accuracy_parity_difference",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "can you check the Breusch-Pagan LM stat is 22.1 on this regression?",
+  "gold": "breusch_pagan_lm",
+  "kind": "named"
+ },
+ {
+  "query": "I'm testing whether the spread of the leftover errors changes with the predictors and got a test value of 22.1 — does that reproduce?",
+  "gold": "breusch_pagan_lm",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "confirm the White test LM statistic is 24.3 here?",
+  "gold": "white_lm",
+  "kind": "named"
+ },
+ {
+  "query": "running the general check for whether residual variance shifts across fitted values, including the squared term, I get 24.3 — can you verify?",
+  "gold": "white_lm",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "is the OLS slope of y on x really 0.82?",
+  "gold": "ols_slope",
+  "kind": "named"
+ },
+ {
+  "query": "the least-squares line says y goes up about 0.82 for each one-unit increase in x — can you confirm that coefficient?",
+  "gold": "ols_slope",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "can you verify the residual standard error (sigma-hat) is 0.87?",
+  "gold": "residual_standard_error",
+  "kind": "named"
+ },
+ {
+  "query": "the typical leftover gap between the fitted line and the actual points is around 0.87 — does that check out?",
+  "gold": "residual_standard_error",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "does the slope t-statistic come out to 15.3 in this fit?",
+  "gold": "regression_t_statistic",
+  "kind": "named"
+ },
+ {
+  "query": "the slope divided by its standard error is about 15.3, so it's clearly far from zero — can you confirm that ratio?",
+  "gold": "regression_t_statistic",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "can you confirm the Rogers-Tanimoto distance between these two binary vectors is 0.71?",
+  "gold": "rogers_tanimoto_distance",
+  "kind": "named"
+ },
+ {
+  "query": "comparing the two yes/no vectors where disagreements count double, the dissimilarity works out to 0.71 — does that hold?",
+  "gold": "rogers_tanimoto_distance",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "is the Sokal-Sneath distance for these binary records 0.88?",
+  "gold": "sokal_sneath_distance",
+  "kind": "named"
+ },
+ {
+  "query": "that taxonomy-style dissimilarity that upweights the positions where the two binary sets disagree gives me 0.88 — can you verify?",
+  "gold": "sokal_sneath_distance",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "verify the Hamming distance between the two strings is 0.55?",
+  "gold": "hamming_distance",
+  "kind": "named"
+ },
+ {
+  "query": "about 55% of the positions don't match up between the two sequences — can you confirm that fraction?",
+  "gold": "hamming_distance",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "can you check the indel / LCS similarity ratio is 0.86?",
+  "gold": "indel_similarity",
+  "kind": "named"
+ },
+ {
+  "query": "the longest run of characters that appears in the same order in both strings gives an overlap score of about 0.86 — does that reproduce?",
+  "gold": "indel_similarity",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "is the Jaro-Winkler similarity between these two names 0.92?",
+  "gold": "jaro_winkler_similarity",
+  "kind": "named"
+ },
+ {
+  "query": "that name-matching score that rewards shared starting letters comes out to 0.92 for this pair — can you confirm?",
+  "gold": "jaro_winkler_similarity",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "can you confirm the false-omission-rate gap between groups is 0.32 here?",
+  "gold": "for_parity_difference",
+  "kind": "named"
+ },
+ {
+  "query": "of the cases the model cleared as negative, the share that were actually positive differs by about 0.32 between the two demographic groups — can you check that?",
+  "gold": "for_parity_difference",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "can you verify the treatment equality gap across groups comes out to 0.78?",
+  "gold": "treatment_equality_difference",
+  "kind": "named"
+ },
+ {
+  "query": "the ratio of missed positives to false alarms is supposed to differ by 0.78 between the protected groups — does that hold?",
+  "gold": "treatment_equality_difference",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "is the generalized entropy index for individual fairness really 0.21 on this run?",
+  "gold": "generalized_entropy_error",
+  "kind": "named"
+ },
+ {
+  "query": "can you check that the inequality in how much benefit each individual gets from the model works out to about 0.21?",
+  "gold": "generalized_entropy_error",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "can you confirm the Breusch-Pagan F-stat is 33.8 for these residuals?",
+  "gold": "breusch_pagan_fstat",
+  "kind": "named"
+ },
+ {
+  "query": "I ran the F-version of the test for whether the error spread changes with the predictors and got 33.8 — does that reproduce?",
+  "gold": "breusch_pagan_fstat",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "does the Goldfeld-Quandt F come out to 10.3 here?",
+  "gold": "goldfeld_quandt_fstat",
+  "kind": "named"
+ },
+ {
+  "query": "when you sort the sample and compare residual variance in the low half versus the high half, the ratio should be about 10.3 — can you verify?",
+  "gold": "goldfeld_quandt_fstat",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "can you check the OLS intercept of y on x is 1.24?",
+  "gold": "ols_intercept",
+  "kind": "named"
+ },
+ {
+  "query": "when you fit the straight line of y against x by least squares, the value where it crosses at x=0 should be 1.24 — does that hold?",
+  "gold": "ols_intercept",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "is the overall regression F-statistic 233.8 on this model?",
+  "gold": "regression_f_statistic",
+  "kind": "named"
+ },
+ {
+  "query": "can you confirm the test for whether the whole model explains a meaningful chunk of the variation gives about 233.8?",
+  "gold": "regression_f_statistic",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "can you verify the Dice distance between these two fingerprints is 0.65?",
+  "gold": "dice_distance",
+  "kind": "named"
+ },
+ {
+  "query": "how dissimilar the two binary on/off vectors are, weighting shared 1s, should come out to 0.65 — can you check?",
+  "gold": "dice_distance",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "does the Russell-Rao distance work out to 0.85 for these bit vectors?",
+  "gold": "russell_rao_distance",
+  "kind": "named"
+ },
+ {
+  "query": "the fraction of positions where the two sets aren't both turned on is supposed to be 0.85 — can you confirm?",
+  "gold": "russell_rao_distance",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "can you confirm the Yule distance between the two binary attributes is 1.24?",
+  "gold": "yule_distance",
+  "kind": "named"
+ },
+ {
+  "query": "the association-based dissimilarity built from the cross-product of the mismatched pairs should be 1.24 — does that reproduce?",
+  "gold": "yule_distance",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "is the Levenshtein similarity between predicted and reference strings 0.82?",
+  "gold": "levenshtein_similarity",
+  "kind": "named"
+ },
+ {
+  "query": "how close the predicted text is to the reference, based on the fewest single-character insert/delete/swap edits to turn one into the other, should be about 0.82 — can you check?",
+  "gold": "levenshtein_similarity",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "can you verify the Jaro similarity for these short strings is 0.91?",
+  "gold": "jaro_similarity",
+  "kind": "named"
+ },
+ {
+  "query": "the closeness score for these short names, built from how many characters match and how many are out of order, should be 0.91 — does that hold?",
+  "gold": "jaro_similarity",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "does the mean longest common subsequence length come out to 9 across these pairs?",
+  "gold": "longest_common_subsequence",
+  "kind": "named"
+ },
+ {
+  "query": "on average, the number of characters that appear in the same order in both strings should be about 9 — can you confirm?",
+  "gold": "longest_common_subsequence",
+  "kind": "paraphrase"
  }
 ]
