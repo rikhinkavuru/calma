@@ -5707,3 +5707,51 @@ def distance_correlation(x, y):
         return float("nan")
     dcov = math.sqrt(dcov2) if dcov2 > 0 else 0.0
     return dcov / math.sqrt(dvx * dvy)
+
+
+# ======================================================================================
+# Pack RNK - ranking / IR depth. Per-query (query, rank, relevance) rows drive the Expected
+# Reciprocal Rank, Success@k and Average Reciprocal Hit Rank, complementing NDCG/MAP/MRR.
+# ======================================================================================
+
+def err_at_k(queries, ranks, rels, k):
+    """Expected Reciprocal Rank @k (Chapelle 2009). Satisfaction R(rel) = (2^rel - 1)/2^gmax,
+    gmax = max relevance grade in the data. Mean over queries."""
+    if not queries or _has_nan(ranks) or _has_nan(rels) or k < 1:
+        return float("nan")
+    gmax = max(rels)
+    if gmax <= 0:
+        return float("nan")
+    denom = 2.0 ** gmax
+    per = _by_query(queries, ranks, rels)
+    scores = []
+    for _, rows in per.items():
+        err = 0.0
+        notsat = 1.0
+        for i, (_r, rel) in enumerate(rows[:k]):
+            sat = (2.0 ** rel - 1.0) / denom
+            err += notsat * sat / (i + 1.0)
+            notsat *= 1.0 - sat
+        scores.append(err)
+    return fmean(scores) if scores else float("nan")
+
+
+def success_at_k(queries, ranks, rels, k):
+    """Success@k: fraction of queries with at least one relevant (rel>0) item in the top k."""
+    if not queries or _has_nan(ranks) or _has_nan(rels) or k < 1:
+        return float("nan")
+    per = _by_query(queries, ranks, rels)
+    scores = [1.0 if any(rel > 0 for _r, rel in rows[:k]) else 0.0 for _, rows in per.items()]
+    return fmean(scores) if scores else float("nan")
+
+
+def arhr_at_k(queries, ranks, rels, k):
+    """Average reciprocal hit rank @k: mean over queries of sum of 1/position over the relevant
+    items in the top k (1-based positions)."""
+    if not queries or _has_nan(ranks) or _has_nan(rels) or k < 1:
+        return float("nan")
+    per = _by_query(queries, ranks, rels)
+    scores = []
+    for _, rows in per.items():
+        scores.append(math.fsum(1.0 / (i + 1.0) for i, (_r, rel) in enumerate(rows[:k]) if rel > 0))
+    return fmean(scores) if scores else float("nan")

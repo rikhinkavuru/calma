@@ -495,6 +495,10 @@ KINDS = {
     "distance_correlation": lambda a: N.distance_correlation(a["x"], a["y"]),
     "somers_d": lambda a: N.somers_d(a["x"], a["y"]),
     "goodman_kruskal_gamma": lambda a: N.goodman_kruskal_gamma(a["x"], a["y"]),
+    # pack RNK - ranking / IR depth
+    "err_at_k": lambda a: N.err_at_k(a["queries"], a["ranks"], a["rels"], a["k"]),
+    "success_at_k": lambda a: N.success_at_k(a["queries"], a["ranks"], a["rels"], a["k"]),
+    "arhr_at_k": lambda a: N.arhr_at_k(a["queries"], a["ranks"], a["rels"], a["k"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -664,10 +668,12 @@ EXPECTED = {
     "percentage_agreement", "scott_pi", "brennan_prediger", "gwet_ac1",
     # pack CO - correlation / dependence depth (3)
     "distance_correlation", "somers_d", "goodman_kruskal_gamma",
+    # pack RNK - ranking / IR depth (3)
+    "err_at_k", "success_at_k", "arhr_at_k",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 405 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 408 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

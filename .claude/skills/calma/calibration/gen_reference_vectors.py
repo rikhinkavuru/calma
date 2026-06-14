@@ -2167,6 +2167,59 @@ case("distance_correlation", "distance_correlation", co_args, co_dcor, atol=1e-1
 case("somers_d", "somers_d", co_args, co_somers, atol=1e-12)
 case("goodman_kruskal_gamma", "goodman_kruskal_gamma", co_args, co_gamma, atol=1e-12)
 
+# ============================ Pack RNK - ranking / IR depth ============================
+# Independent reference: plain-Python recompute of the documented ERR (Chapelle 2009),
+# Success@k and ARHR@k over a deterministic graded-relevance ranking.
+
+rnk_q = []
+rnk_rank = []
+rnk_rel = []
+_grades = [int(u * 5) for u in uniforms(7001, 6 * 8, 0.0, 0.999)]  # grades 0..4
+_gi = 0
+for _qi in range(6):
+    for _pos in range(1, 9):
+        rnk_q.append("q%d" % _qi)
+        rnk_rank.append(float(_pos))
+        rnk_rel.append(float(_grades[_gi]))
+        _gi += 1
+rnk_k = 5
+_rper = {}
+for _q, _r, _rel in zip(rnk_q, rnk_rank, rnk_rel):
+    _rper.setdefault(_q, []).append((_r, _rel))
+for _q in _rper:
+    _rper[_q].sort()
+_gmax = max(rnk_rel)
+_denom = 2.0 ** _gmax
+
+
+def _err_ref(kk):
+    sc = []
+    for _q, rows in _rper.items():
+        e = 0.0
+        ns = 1.0
+        for _i, (_rr, _rel) in enumerate(rows[:kk]):
+            _R = (2.0 ** _rel - 1.0) / _denom
+            e += ns * _R / (_i + 1.0)
+            ns *= 1.0 - _R
+        sc.append(e)
+    return sum(sc) / len(sc)
+
+
+def _succ_ref(kk):
+    return sum(1.0 if any(rel > 0 for _, rel in rows[:kk]) else 0.0
+               for rows in _rper.values()) / len(_rper)
+
+
+def _arhr_ref(kk):
+    return sum(sum(1.0 / (i + 1.0) for i, (_, rel) in enumerate(rows[:kk]) if rel > 0)
+               for rows in _rper.values()) / len(_rper)
+
+
+rnk_args = {"queries": rnk_q, "ranks": rnk_rank, "rels": rnk_rel, "k": rnk_k}
+case("err_at_k", "err_at_k", rnk_args, _err_ref(rnk_k), atol=1e-12)
+case("success_at_k", "success_at_k", rnk_args, _succ_ref(rnk_k), atol=1e-12)
+case("arhr_at_k", "arhr_at_k", rnk_args, _arhr_ref(rnk_k), atol=1e-12)
+
 # ============================ write ============================
 
 doc = {

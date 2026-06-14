@@ -2643,3 +2643,21 @@ def _co_xy(fn):
 for _mid in ("distance_correlation", "somers_d", "goodman_kruskal_gamma"):
     register(_mid, family="stats", required_tags=["x", "y"],
              set_maturity="reviewed")(_co_xy(getattr(N, _mid)))
+
+
+# ======================================================================================
+# Pack RNK - ranking / IR depth. Per-query (query, rank, relevance) rows; k via convention.
+# ======================================================================================
+
+def _rnk_recipe(fn):
+    def recipe(cols, binding, convention=None):
+        q, r, rel = cols[binding["query"]], cols[binding["rank"]], cols[binding["relevance"]]
+        k = _conv_int(convention, "k", 10)
+        return _result(fn(q, r, rel, k), {"k": k, "n_rows": len(r)})
+    return recipe
+
+
+for _mid in ("err_at_k", "success_at_k", "arhr_at_k"):
+    register(_mid, family="retrieval", required_tags=["query", "rank", "relevance"],
+             set_maturity="reviewed", string_tags=["query"],
+             accepted_conventions=["k=<int>"])(_rnk_recipe(getattr(N, _mid)))
