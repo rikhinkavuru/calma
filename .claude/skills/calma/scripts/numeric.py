@@ -5821,3 +5821,45 @@ def l_kurtosis(xs):
     if m is None or m[1] == 0:
         return float("nan")
     return m[3] / m[1]
+
+
+# ======================================================================================
+# Pack TL - tail-risk / extreme-value estimators. A positive loss / magnitude column gives
+# the Hill and Pickands tail-index estimates and the max-to-sum moment ratio (a finite-
+# moment diagnostic). Validated against numpy recomputes of the documented closed forms.
+# ======================================================================================
+
+def hill_estimator(xs, k):
+    """Hill (1975) tail index alpha = k / sum_{i=1..k} ln(X_(i)/X_(k+1)) from the k largest
+    positive order statistics (larger alpha = lighter tail)."""
+    if not xs or _has_nan(xs) or any(x <= 0 for x in xs) or k < 1 or k + 1 > len(xs):
+        return float("nan")
+    s = sorted(xs, reverse=True)
+    g = math.fsum(dlog(s[i] / s[k]) for i in range(k)) / k
+    if g <= 0:
+        return float("nan")
+    return 1.0 / g
+
+
+def pickands_estimator(xs, k):
+    """Pickands (1975) extreme-value index from the order statistics X_(k), X_(2k), X_(4k):
+    (1/ln2) * ln((X_(k)-X_(2k)) / (X_(2k)-X_(4k)))."""
+    if not xs or _has_nan(xs) or k < 1 or 4 * k > len(xs):
+        return float("nan")
+    s = sorted(xs, reverse=True)
+    num = s[k - 1] - s[2 * k - 1]
+    den = s[2 * k - 1] - s[4 * k - 1]
+    if den <= 0 or num <= 0:
+        return float("nan")
+    return dlog(num / den) / _LN2C
+
+
+def max_to_sum_ratio(xs, p=2.0):
+    """Max-to-sum ratio R_n^(p) = max|x|^p / sum|x|^p; tends to 0 iff the p-th moment is finite."""
+    if not xs or _has_nan(xs) or p <= 0:
+        return float("nan")
+    pows = [abs(x) ** p for x in xs]
+    s = math.fsum(pows)
+    if s <= 0:
+        return float("nan")
+    return max(pows) / s

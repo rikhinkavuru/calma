@@ -504,6 +504,10 @@ KINDS = {
     "moors_kurtosis": lambda a: N.moors_kurtosis(a["xs"]),
     "l_skewness": lambda a: N.l_skewness(a["xs"]),
     "l_kurtosis": lambda a: N.l_kurtosis(a["xs"]),
+    # pack TL - tail-risk / extreme-value estimators
+    "hill_estimator": lambda a: N.hill_estimator(a["xs"], a["k"]),
+    "pickands_estimator": lambda a: N.pickands_estimator(a["xs"], a["k"]),
+    "max_to_sum_ratio": lambda a: N.max_to_sum_ratio(a["xs"], a["p"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -677,10 +681,12 @@ EXPECTED = {
     "err_at_k", "success_at_k", "arhr_at_k",
     # pack SH - robust distribution shape (4)
     "bowley_skewness", "moors_kurtosis", "l_skewness", "l_kurtosis",
+    # pack TL - tail-risk / extreme-value estimators (3)
+    "hill_estimator", "pickands_estimator", "max_to_sum_ratio",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 412 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 415 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

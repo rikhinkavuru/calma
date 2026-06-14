@@ -2677,3 +2677,29 @@ def _sh_recipe(fn):
 for _mid in ("bowley_skewness", "moors_kurtosis", "l_skewness", "l_kurtosis"):
     register(_mid, family="stats", required_tags=["value"],
              set_maturity="reviewed")(_sh_recipe(getattr(N, _mid)))
+
+
+# ======================================================================================
+# Pack TL - tail-risk / extreme-value estimators. A positive loss / magnitude column; Hill
+# and Pickands take a k convention (number of order statistics), max-to-sum takes a moment p.
+# ======================================================================================
+
+def _tl_k(fn):
+    def recipe(cols, binding, convention=None):
+        xs = cols[binding["value"]]
+        k = _conv_int(convention, "k", 25)
+        return _result(fn(xs, k), {"n": len(xs), "k": k}, path_dependent=True)
+    return recipe
+
+
+for _mid in ("hill_estimator", "pickands_estimator"):
+    register(_mid, family="quant", required_tags=["value"], set_maturity="reviewed",
+             accepted_conventions=["k=<int>"])(_tl_k(getattr(N, _mid)))
+
+
+@register("max_to_sum_ratio", family="quant", required_tags=["value"],
+          set_maturity="reviewed", accepted_conventions=["p=<float>"])
+def max_to_sum_ratio(cols, binding, convention=None):
+    xs = cols[binding["value"]]
+    p = _conv_float(convention, "p", 2.0)
+    return _result(N.max_to_sum_ratio(xs, p), {"n": len(xs), "p": p})

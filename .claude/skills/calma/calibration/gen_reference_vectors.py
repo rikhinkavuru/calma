@@ -2247,6 +2247,23 @@ case("moors_kurtosis", "moors_kurtosis", {"xs": sh_x}, sh_moors, atol=1e-12)
 case("l_skewness", "l_skewness", {"xs": sh_x}, sh_lskew, atol=1e-12)
 case("l_kurtosis", "l_kurtosis", {"xs": sh_x}, sh_lkurt, atol=1e-12)
 
+# ============================ Pack TL - tail-risk / extreme-value estimators ============================
+# Independent reference: numpy recompute of the Hill / Pickands tail-index estimators and
+# the max-to-sum moment ratio over a deterministic Pareto(alpha=3) sample.
+
+tl_x = [(1.0 - u) ** (-1.0 / 3.0) for u in uniforms(2701, 400, 1e-6, 1.0 - 1e-6)]
+tl_k = 40
+tl_p = 2.0
+_ts = np.sort(np.array(tl_x))[::-1]
+_tg = float(np.mean(np.log(_ts[:tl_k] / _ts[tl_k])))
+tl_hill = 1.0 / _tg
+tl_pick = float(np.log((_ts[tl_k - 1] - _ts[2 * tl_k - 1]) / (_ts[2 * tl_k - 1] - _ts[4 * tl_k - 1])) / np.log(2.0))
+_tpows = np.abs(np.array(tl_x)) ** tl_p
+tl_mts = float(_tpows.max() / _tpows.sum())
+case("hill_estimator", "hill_estimator", {"xs": tl_x, "k": tl_k}, tl_hill, atol=1e-10)
+case("pickands_estimator", "pickands_estimator", {"xs": tl_x, "k": tl_k}, tl_pick, atol=1e-10)
+case("max_to_sum_ratio", "max_to_sum_ratio", {"xs": tl_x, "p": tl_p}, tl_mts, atol=1e-12)
+
 # ============================ write ============================
 
 doc = {
