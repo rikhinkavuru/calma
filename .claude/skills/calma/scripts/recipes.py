@@ -2505,3 +2505,20 @@ def generalized_entropy_index(cols, binding, convention=None):
 def percentile_ratio(cols, binding, convention=None):
     xs = cols[binding["value"]]
     return _result(N.percentile_ratio(xs), {"n": len(xs)})
+
+
+# ======================================================================================
+# Pack EF - effect-size depth. Two samples (sample_a / sample_b); Cohen's h reads them as
+# binary outcome columns.
+# ======================================================================================
+
+def _ef_ab(fn):
+    def recipe(cols, binding, convention=None):
+        a, b = cols[binding["sample_a"]], cols[binding["sample_b"]]
+        return _result(fn(a, b), {"n_a": len(a), "n_b": len(b)})
+    return recipe
+
+
+for _mid in ("glass_delta", "hedges_g", "common_language_effect_size", "cohens_h"):
+    register(_mid, family="stats", required_tags=["sample_a", "sample_b"],
+             set_maturity="reviewed")(_ef_ab(getattr(N, _mid)))

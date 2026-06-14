@@ -5337,3 +5337,63 @@ def percentile_ratio(xs):
     if lo <= 0:
         return float("nan")
     return quantile(xs, 0.90) / lo
+
+
+# ======================================================================================
+# Pack EF - effect-size depth (A/B / research reporting). Two samples give Glass's delta,
+# Hedges' g (bias-corrected SMD) and the common-language effect size; two binary outcome
+# columns give Cohen's h. Validated against numpy / scipy definitions.
+# ======================================================================================
+
+def _ef_ok(a, b):
+    return bool(a) and bool(b) and not _has_nan(a) and not _has_nan(b)
+
+
+def glass_delta(a, b):
+    """Glass's delta: (mean(a) - mean(b)) / std(b, ddof=1) (control-group SD)."""
+    if not _ef_ok(a, b) or len(b) < 2:
+        return float("nan")
+    sb = fstd(b, 1)
+    if sb == 0:
+        return float("nan")
+    return (fmean(a) - fmean(b)) / sb
+
+
+def hedges_g(a, b):
+    """Hedges' g: pooled-SD standardized mean difference with the small-sample J correction."""
+    na, nb = len(a), len(b)
+    if not _ef_ok(a, b) or na < 2 or nb < 2:
+        return float("nan")
+    sp2 = ((na - 1) * fvar(a, 1) + (nb - 1) * fvar(b, 1)) / (na + nb - 2)
+    if sp2 <= 0:
+        return float("nan")
+    d = (fmean(a) - fmean(b)) / math.sqrt(sp2)
+    j = 1.0 - 3.0 / (4.0 * (na + nb) - 9.0)
+    return d * j
+
+
+def common_language_effect_size(a, b):
+    """Common-language effect size P(X>Y): (#a>b + 0.5*ties) / (na*nb)."""
+    if not _ef_ok(a, b):
+        return float("nan")
+    gt = 0
+    eq = 0
+    for x in a:
+        for y in b:
+            if x > y:
+                gt += 1
+            elif x == y:
+                eq += 1
+    return (gt + 0.5 * eq) / (len(a) * len(b))
+
+
+def cohens_h(a, b):
+    """Cohen's h for two proportions: 2*asin(sqrt(p1)) - 2*asin(sqrt(p2)), p = mean of the
+    binary outcome column."""
+    if not _ef_ok(a, b):
+        return float("nan")
+    p1 = fmean([1.0 if x == 1 else 0.0 for x in a])
+    p2 = fmean([1.0 if x == 1 else 0.0 for x in b])
+    if not (0.0 <= p1 <= 1.0 and 0.0 <= p2 <= 1.0):
+        return float("nan")
+    return 2.0 * math.asin(math.sqrt(p1)) - 2.0 * math.asin(math.sqrt(p2))

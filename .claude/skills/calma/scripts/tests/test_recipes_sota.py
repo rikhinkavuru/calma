@@ -466,6 +466,11 @@ KINDS = {
     "mean_log_deviation": lambda a: N.mean_log_deviation(a["xs"]),
     "generalized_entropy_index": lambda a: N.generalized_entropy_index(a["xs"], a["alpha"]),
     "percentile_ratio": lambda a: N.percentile_ratio(a["xs"]),
+    # pack EF - effect-size depth
+    "glass_delta": lambda a: N.glass_delta(a["a"], a["b"]),
+    "hedges_g": lambda a: N.hedges_g(a["a"], a["b"]),
+    "common_language_effect_size": lambda a: N.common_language_effect_size(a["a"], a["b"]),
+    "cohens_h": lambda a: N.cohens_h(a["a"], a["b"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -622,10 +627,12 @@ EXPECTED = {
     "log_likelihood_gaussian", "aic", "bic", "aicc", "hqic",
     # pack INE - inequality / concentration depth (4)
     "hoover_index", "mean_log_deviation", "generalized_entropy_index", "percentile_ratio",
+    # pack EF - effect-size depth (4)
+    "glass_delta", "hedges_g", "common_language_effect_size", "cohens_h",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 382 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 386 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

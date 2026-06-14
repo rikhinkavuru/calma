@@ -2005,6 +2005,29 @@ case("generalized_entropy_index", "generalized_entropy_index",
      {"xs": ine_x, "alpha": ine_alpha}, ine_ge, atol=1e-12)
 case("percentile_ratio", "percentile_ratio", {"xs": ine_x}, ine_pr, atol=1e-12)
 
+# ============================ Pack EF - effect-size depth ============================
+# Independent reference: numpy for Glass's delta / Hedges' g / Cohen's h, scipy
+# mannwhitneyu U for the common-language effect size.
+
+from scipy.stats import mannwhitneyu as _mwu  # noqa: E402
+
+ef_a = list(uniforms(4401, 35, 0.0, 1.0))
+ef_b = list(uniforms(4402, 40, -0.3, 0.8))
+_ea, _eb = np.array(ef_a), np.array(ef_b)
+_na, _nb = len(_ea), len(_eb)
+ef_glass = float((_ea.mean() - _eb.mean()) / _eb.std(ddof=1))
+_sp2 = ((_na - 1) * _ea.var(ddof=1) + (_nb - 1) * _eb.var(ddof=1)) / (_na + _nb - 2)
+ef_hg = float((_ea.mean() - _eb.mean()) / np.sqrt(_sp2) * (1.0 - 3.0 / (4.0 * (_na + _nb) - 9.0)))
+ef_cles = float(_mwu(ef_a, ef_b, alternative="greater").statistic / (_na * _nb))
+ef_la = [1 if u < 0.6 else 0 for u in uniforms(4403, 60, 0.0, 1.0)]
+ef_lb = [1 if u < 0.4 else 0 for u in uniforms(4404, 60, 0.0, 1.0)]
+ef_h = float(2.0 * np.arcsin(np.sqrt(np.mean(ef_la))) - 2.0 * np.arcsin(np.sqrt(np.mean(ef_lb))))
+case("glass_delta", "glass_delta", {"a": ef_a, "b": ef_b}, ef_glass, atol=1e-12)
+case("hedges_g", "hedges_g", {"a": ef_a, "b": ef_b}, ef_hg, atol=1e-12)
+case("common_language_effect_size", "common_language_effect_size",
+     {"a": ef_a, "b": ef_b}, ef_cles, atol=1e-12)
+case("cohens_h", "cohens_h", {"a": ef_la, "b": ef_lb}, ef_h, atol=1e-12)
+
 # ============================ write ============================
 
 doc = {
