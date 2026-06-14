@@ -1,0 +1,5071 @@
+{
+  "recipes": {
+    "accuracy": {
+      "aliases": [
+        "accuracy",
+        "percent correct",
+        "fraction correct",
+        "hit rate",
+        "classification accuracy",
+        "how often right"
+      ],
+      "description": "Fraction of predictions that exactly match the true labels."
+    },
+    "accuracy_parity_difference": {
+      "aliases": [
+        "accuracy gap between groups",
+        "accuracy fairness",
+        "group accuracy difference",
+        "accuracy disparity",
+        "equal accuracy",
+        "fairness accuracy parity"
+      ],
+      "description": "Gap in per-group accuracy between the best- and worst-served groups."
+    },
+    "acerbi_szekely_z1": {
+      "aliases": [
+        "expected shortfall backtest",
+        "es backtest first statistic",
+        "acerbi szekely test 1",
+        "tail risk model check",
+        "conditional es exceedance test",
+        "does my es estimate hold up"
+      ],
+      "description": "Tests whether realized losses match the model's expected shortfall, conditional on VaR breaches."
+    },
+    "acerbi_szekely_z2": {
+      "aliases": [
+        "unconditional es backtest",
+        "es backtest second statistic",
+        "acerbi szekely test 2",
+        "expected shortfall calibration check",
+        "tail loss model validation",
+        "is the shortfall estimate accurate"
+      ],
+      "description": "Tests expected-shortfall calibration across the full sample without conditioning on breaches."
+    },
+    "active_return": {
+      "aliases": [
+        "excess return over benchmark",
+        "return above the index",
+        "outperformance vs benchmark",
+        "annualized active return",
+        "beating the benchmark by how much"
+      ],
+      "description": "Annualized average return earned above the benchmark."
+    },
+    "active_share": {
+      "aliases": [
+        "active share",
+        "how active is the fund",
+        "deviation from benchmark",
+        "share vs index",
+        "overlap with benchmark",
+        "active weight"
+      ],
+      "description": "Fraction of a portfolio that differs from its benchmark holdings."
+    },
+    "adjusted_r2": {
+      "aliases": [
+        "adjusted r2",
+        "adj r2",
+        "adjusted r squared",
+        "adjusted r^2",
+        "penalized r2"
+      ],
+      "description": "R-squared penalized for the number of predictors in the model."
+    },
+    "adjusted_rand_index": {
+      "aliases": [
+        "ari",
+        "adjusted rand",
+        "cluster agreement",
+        "chance-corrected rand",
+        "clustering similarity",
+        "compare two clusterings"
+      ],
+      "description": "Chance-corrected agreement between two clusterings, scaled so random equals zero."
+    },
+    "adjusted_sharpe_ratio": {
+      "aliases": [
+        "sharpe corrected for skew and fat tails",
+        "skew kurtosis adjusted sharpe",
+        "pezier white sharpe",
+        "non-normal sharpe ratio",
+        "higher moment adjusted sharpe"
+      ],
+      "description": "Sharpe ratio penalized for negative skew and excess kurtosis in returns."
+    },
+    "aic": {
+      "aliases": [
+        "aic",
+        "akaike",
+        "akaike information criterion",
+        "information criterion"
+      ],
+      "description": "Model fit score trading likelihood against parameter count, lower is better."
+    },
+    "aicc": {
+      "aliases": [
+        "aicc",
+        "corrected aic",
+        "small sample aic",
+        "akaike corrected"
+      ],
+      "description": "Small-sample corrected Akaike criterion, lower indicates a better model."
+    },
+    "alpha": {
+      "aliases": [
+        "excess return from skill",
+        "jensen's alpha",
+        "value added over benchmark",
+        "intercept of return regression",
+        "manager skill return"
+      ],
+      "description": "Return earned beyond what the benchmark exposure (beta) would predict."
+    },
+    "alpha_tstat": {
+      "aliases": [
+        "is the alpha significant",
+        "t stat on alpha",
+        "alpha significance test",
+        "statistical reliability of alpha",
+        "how confident in the alpha"
+      ],
+      "description": "T-statistic on alpha measuring whether outperformance is statistically significant."
+    },
+    "altman_z": {
+      "aliases": [
+        "altman z-score",
+        "z score",
+        "bankruptcy score",
+        "default risk score",
+        "insolvency score"
+      ],
+      "description": "Bankruptcy-risk score combining five financial ratios for public manufacturers."
+    },
+    "altman_z_prime": {
+      "aliases": [
+        "z-prime",
+        "altman private firm score",
+        "z' score",
+        "private company bankruptcy score",
+        "altman model b"
+      ],
+      "description": "Altman bankruptcy score variant for private firms using four ratios."
+    },
+    "amihud_illiquidity": {
+      "aliases": [
+        "amihud",
+        "illiquidity ratio",
+        "price impact measure",
+        "amihud illiq",
+        "return per dollar volume",
+        "illiquidity"
+      ],
+      "description": "Average ratio of absolute return to dollar volume, measuring price impact per traded dollar."
+    },
+    "amivest_liquidity": {
+      "aliases": [
+        "amivest",
+        "amivest ratio",
+        "liquidity ratio",
+        "volume per return",
+        "trading liquidity measure"
+      ],
+      "description": "Average ratio of dollar volume to absolute return, measuring liquidity per unit of price move."
+    },
+    "anderson_darling": {
+      "aliases": [
+        "anderson darling test",
+        "ad test",
+        "normality test",
+        "goodness of fit",
+        "distribution fit test",
+        "tail-weighted fit"
+      ],
+      "description": "Tests whether a sample comes from a specified distribution, weighting the tails heavily."
+    },
+    "annuity_factor": {
+      "aliases": [
+        "annuity discount factor",
+        "pv annuity factor",
+        "present value factor",
+        "annuity multiplier",
+        "discount sum factor"
+      ],
+      "description": "Present value of one unit paid each period over a discounted horizon."
+    },
+    "anova": {
+      "aliases": [
+        "analysis of variance",
+        "f test",
+        "one-way anova",
+        "compare group means",
+        "between-group means test",
+        "f ratio"
+      ],
+      "description": "Tests whether the means of three or more groups differ significantly."
+    },
+    "ansari_bradley": {
+      "aliases": [
+        "ansari bradley test",
+        "scale test",
+        "dispersion test",
+        "compare variability",
+        "nonparametric scale test",
+        "equal spread test"
+      ],
+      "description": "Nonparametric test comparing the spread or scale of two samples."
+    },
+    "apdex": {
+      "aliases": [
+        "apdex",
+        "apdex score",
+        "satisfaction score",
+        "performance index"
+      ],
+      "description": "User satisfaction score from response times against a target threshold."
+    },
+    "appraisal_ratio": {
+      "aliases": [
+        "alpha per unit of residual risk",
+        "treynor black ratio",
+        "stock selection skill ratio",
+        "alpha over tracking residual",
+        "information ratio of alpha"
+      ],
+      "description": "Alpha divided by idiosyncratic risk, measuring risk-adjusted stock-picking skill."
+    },
+    "arch_lm": {
+      "aliases": [
+        "arch test",
+        "lm test for arch",
+        "volatility clustering test",
+        "heteroskedasticity test",
+        "engle arch test",
+        "conditional variance test"
+      ],
+      "description": "Tests for autoregressive conditional heteroskedasticity (volatility clustering) in a series."
+    },
+    "arhr_at_k": {
+      "aliases": [
+        "arhr",
+        "arhr@k",
+        "average reciprocal hit rank",
+        "reciprocal hit rate",
+        "arhr at k"
+      ],
+      "description": "Average reciprocal hit rank over the top-k results across queries."
+    },
+    "arrival_slippage": {
+      "aliases": [
+        "arrival slippage",
+        "slippage vs arrival",
+        "arrival price slippage",
+        "execution slippage",
+        "arrival cost"
+      ],
+      "description": "Cost of execution measured against the price when the order arrived."
+    },
+    "asrf_capital_requirement": {
+      "aliases": [
+        "basel capital",
+        "regulatory capital",
+        "irb capital charge",
+        "asrf capital",
+        "credit capital requirement"
+      ],
+      "description": "Basel regulatory capital per unit exposure under the single-factor credit model."
+    },
+    "asrf_rwa": {
+      "aliases": [
+        "risk weighted assets",
+        "basel rwa",
+        "credit rwa",
+        "irb risk weights",
+        "regulatory risk weight"
+      ],
+      "description": "Risk-weighted assets from the Basel single-factor credit capital model."
+    },
+    "asset_turnover": {
+      "aliases": [
+        "asset efficiency",
+        "sales to assets",
+        "revenue per asset",
+        "turnover ratio",
+        "asset utilization"
+      ],
+      "description": "How much revenue each dollar of assets generates."
+    },
+    "atkinson_index": {
+      "aliases": [
+        "atkinson",
+        "inequality aversion",
+        "welfare inequality",
+        "income inequality index"
+      ],
+      "description": "Inequality measure capturing welfare loss from unequal distribution, tunable by aversion parameter."
+    },
+    "auc": {
+      "aliases": [
+        "auc",
+        "roc auc",
+        "area under the roc curve",
+        "c-statistic",
+        "ranking quality",
+        "auroc"
+      ],
+      "description": "Probability a random positive scores higher than a random negative."
+    },
+    "autocorrelation": {
+      "aliases": [
+        "acf",
+        "serial correlation",
+        "lagged correlation",
+        "autocorrelation function",
+        "self correlation",
+        "correlation with past values"
+      ],
+      "description": "Measures linear correlation of a series with its own lagged values."
+    },
+    "availability": {
+      "aliases": [
+        "availability",
+        "uptime ratio",
+        "up time",
+        "service availability",
+        "availability percentage"
+      ],
+      "description": "Fraction of time a system was up versus total time."
+    },
+    "average_treatment_effect": {
+      "aliases": [
+        "ate",
+        "treatment effect",
+        "average effect",
+        "mean treatment difference",
+        "causal effect",
+        "lift from treatment"
+      ],
+      "description": "Mean difference in outcome between treated and control units."
+    },
+    "balanced_accuracy": {
+      "aliases": [
+        "balanced accuracy",
+        "mean recall",
+        "average per-class accuracy",
+        "imbalance-adjusted accuracy",
+        "macro recall",
+        "class-balanced accuracy"
+      ],
+      "description": "Average of per-class recall, robust to class imbalance."
+    },
+    "bartlett": {
+      "aliases": [
+        "bartlett test",
+        "equal variance test",
+        "homogeneity of variance",
+        "test for equal variances",
+        "variance equality test",
+        "homoscedasticity test"
+      ],
+      "description": "Tests whether several groups have equal variances, assuming normality."
+    },
+    "basel_traffic_light": {
+      "aliases": [
+        "basel backtesting zones",
+        "var model traffic light test",
+        "regulatory var exception zones",
+        "green yellow red var test",
+        "basel exception count check"
+      ],
+      "description": "Regulatory zone (green/yellow/red) grading VaR model accuracy by breach count."
+    },
+    "batting_average": {
+      "aliases": [
+        "percent of periods beating the index",
+        "hit rate vs benchmark",
+        "how often we outperform",
+        "win frequency against benchmark",
+        "fraction of periods ahead"
+      ],
+      "description": "Fraction of periods the portfolio beat its benchmark."
+    },
+    "bcubed_f1": {
+      "aliases": [
+        "b-cubed f1",
+        "bcubed f-score",
+        "b3 f1",
+        "element-wise cluster f1",
+        "bcubed harmonic mean",
+        "clustering f1"
+      ],
+      "description": "Harmonic mean of B-cubed precision and recall for clustering quality."
+    },
+    "bcubed_precision": {
+      "aliases": [
+        "b-cubed precision",
+        "b3 precision",
+        "bcubed prec",
+        "element-wise cluster precision",
+        "per-item cluster purity",
+        "clustering precision"
+      ],
+      "description": "Average fraction of an item's cluster sharing its true class."
+    },
+    "bcubed_recall": {
+      "aliases": [
+        "b-cubed recall",
+        "b3 recall",
+        "bcubed rec",
+        "element-wise cluster recall",
+        "per-item cluster completeness",
+        "clustering recall"
+      ],
+      "description": "Average fraction of an item's true class landing in its cluster."
+    },
+    "bear_beta": {
+      "aliases": [
+        "downside beta",
+        "beta in falling markets",
+        "sensitivity in bear markets",
+        "down market beta",
+        "how much we drop when market drops"
+      ],
+      "description": "Portfolio's sensitivity to the benchmark during down markets only."
+    },
+    "benjamini_yekutieli": {
+      "aliases": [
+        "by correction",
+        "fdr correction",
+        "false discovery rate",
+        "multiple testing correction",
+        "dependent fdr control",
+        "by procedure"
+      ],
+      "description": "Controls false discovery rate across many tests under arbitrary dependence."
+    },
+    "berger_parker": {
+      "aliases": [
+        "berger parker",
+        "dominance index",
+        "top category share",
+        "largest share"
+      ],
+      "description": "Dominance index equal to the proportional abundance of the single most common category."
+    },
+    "beta": {
+      "aliases": [
+        "market sensitivity",
+        "exposure to the index",
+        "systematic risk coefficient",
+        "slope vs benchmark",
+        "how much it moves with the market"
+      ],
+      "description": "Sensitivity of returns to benchmark moves; market exposure."
+    },
+    "beta_tstat": {
+      "aliases": [
+        "is the beta significant",
+        "t stat on beta",
+        "beta significance test",
+        "reliability of market exposure estimate",
+        "confidence in the beta"
+      ],
+      "description": "T-statistic on beta measuring whether market sensitivity is statistically significant."
+    },
+    "bh_rejections": {
+      "aliases": [
+        "benjamini hochberg",
+        "bh fdr",
+        "fdr rejections",
+        "false discovery rate correction",
+        "number of discoveries",
+        "multiple comparison correction"
+      ],
+      "description": "Counts hypotheses rejected by the Benjamini-Hochberg false-discovery-rate procedure."
+    },
+    "bhattacharyya_distance": {
+      "aliases": [
+        "bhattacharyya",
+        "distribution distance",
+        "distribution overlap",
+        "divergence between distributions",
+        "bhattacharyya coefficient",
+        "probability distance"
+      ],
+      "description": "Measures dissimilarity between two probability distributions via their overlap."
+    },
+    "bias_ratio": {
+      "aliases": [
+        "return smoothing detector",
+        "marking manipulation check",
+        "fraud detection ratio",
+        "suspicious returns near zero",
+        "smoothed returns indicator"
+      ],
+      "description": "Detects return smoothing or pricing manipulation by comparing returns just above and below zero."
+    },
+    "bic": {
+      "aliases": [
+        "bic",
+        "bayesian information criterion",
+        "schwarz criterion",
+        "schwarz",
+        "bayes ic"
+      ],
+      "description": "Model selection score penalizing parameters more strongly with sample size."
+    },
+    "bipower_variation": {
+      "aliases": [
+        "jump robust variance estimate",
+        "continuous part of volatility",
+        "realized variance without jumps",
+        "diffusive variation",
+        "smooth volatility component"
+      ],
+      "description": "Estimates continuous (jump-free) variance from products of adjacent absolute returns."
+    },
+    "bond_price": {
+      "aliases": [
+        "bond value",
+        "present value of bond",
+        "fixed income price",
+        "discounted bond cashflows",
+        "bond pv"
+      ],
+      "description": "Present value of a bond's cash flows discounted to today."
+    },
+    "bonferroni_rejections": {
+      "aliases": [
+        "bonferroni correction",
+        "bonferroni adjustment",
+        "family-wise error correction",
+        "multiple testing correction",
+        "adjusted significance",
+        "number rejected after correction"
+      ],
+      "description": "Counts hypotheses rejected after the conservative Bonferroni multiple-comparison correction."
+    },
+    "bowley_skewness": {
+      "aliases": [
+        "quartile skewness",
+        "yule bowley skewness",
+        "robust skewness",
+        "asymmetry measure",
+        "median-based skew",
+        "quantile skewness"
+      ],
+      "description": "Quartile-based robust measure of distribution asymmetry."
+    },
+    "box_pierce": {
+      "aliases": [
+        "box pierce test",
+        "portmanteau test",
+        "white noise test",
+        "joint autocorrelation test",
+        "serial correlation test",
+        "q statistic"
+      ],
+      "description": "Tests whether a group of autocorrelations is jointly zero (white noise)."
+    },
+    "brennan_prediger": {
+      "aliases": [
+        "brennan-prediger",
+        "bp coefficient",
+        "free-marginal kappa",
+        "chance-corrected agreement",
+        "rater agreement",
+        "bp kappa"
+      ],
+      "description": "Chance-corrected inter-rater agreement assuming uniform expected agreement."
+    },
+    "brier": {
+      "aliases": [
+        "brier score",
+        "probability mse",
+        "squared probability error",
+        "mean squared probability error",
+        "calibration score",
+        "quadratic scoring rule"
+      ],
+      "description": "Mean squared error between predicted probabilities and outcomes."
+    },
+    "brier_reliability": {
+      "aliases": [
+        "brier reliability",
+        "calibration component",
+        "reliability term",
+        "brier calibration",
+        "miscalibration component",
+        "reliability of forecasts"
+      ],
+      "description": "Calibration component of the Brier score measuring predicted-vs-observed gap."
+    },
+    "brier_resolution": {
+      "aliases": [
+        "brier resolution",
+        "resolution component",
+        "discrimination term",
+        "brier discrimination",
+        "forecast resolution",
+        "ability to separate outcomes"
+      ],
+      "description": "Discrimination component of the Brier score rewarding outcome-separating forecasts."
+    },
+    "brier_skill_score": {
+      "aliases": [
+        "brier skill score",
+        "bss",
+        "skill over baseline",
+        "relative brier",
+        "forecast skill",
+        "improvement over climatology"
+      ],
+      "description": "Brier score improvement over a baseline forecast, higher is better."
+    },
+    "brinson_allocation": {
+      "aliases": [
+        "allocation effect",
+        "brinson allocation",
+        "sector allocation",
+        "asset allocation effect",
+        "weighting effect"
+      ],
+      "description": "Portion of active return from over- or under-weighting sectors versus the benchmark."
+    },
+    "brinson_fachler_allocation": {
+      "aliases": [
+        "brinson fachler",
+        "bf allocation",
+        "fachler allocation",
+        "allocation effect bf",
+        "brinson-fachler allocation"
+      ],
+      "description": "Allocation effect measured relative to total benchmark return, per Brinson-Fachler."
+    },
+    "brinson_interaction": {
+      "aliases": [
+        "interaction effect",
+        "brinson interaction",
+        "interaction term",
+        "combined allocation selection effect"
+      ],
+      "description": "Active return from the combined effect of weighting and selection decisions."
+    },
+    "brinson_selection": {
+      "aliases": [
+        "selection effect",
+        "stock selection",
+        "brinson selection",
+        "security selection effect",
+        "picking effect"
+      ],
+      "description": "Active return from picking better securities within each benchmark sector."
+    },
+    "brinson_total_active": {
+      "aliases": [
+        "total active return",
+        "brinson total",
+        "active return",
+        "total attribution",
+        "overall excess return"
+      ],
+      "description": "Total active return decomposed across allocation, selection, and interaction effects."
+    },
+    "brunner_munzel": {
+      "aliases": [
+        "brunner munzel test",
+        "generalized wilcoxon",
+        "stochastic dominance test",
+        "robust rank test",
+        "nonparametric two sample test",
+        "unequal variance rank test"
+      ],
+      "description": "Nonparametric test of stochastic equality between two samples without equal-variance assumption."
+    },
+    "bs_charm": {
+      "aliases": [
+        "charm",
+        "delta decay",
+        "ddeltadtime",
+        "charm greek",
+        "delta bleed"
+      ],
+      "description": "Rate of change of option delta as time passes (delta decay)."
+    },
+    "bs_color": {
+      "aliases": [
+        "color",
+        "gamma decay",
+        "color greek",
+        "dgammadtime",
+        "gamma bleed"
+      ],
+      "description": "Rate of change of option gamma with respect to passage of time."
+    },
+    "bs_delta": {
+      "aliases": [
+        "delta",
+        "option delta",
+        "hedge ratio",
+        "price sensitivity to spot",
+        "first order greek"
+      ],
+      "description": "Sensitivity of option price to a change in the underlying spot."
+    },
+    "bs_gamma": {
+      "aliases": [
+        "gamma",
+        "option gamma",
+        "delta sensitivity",
+        "second order greek",
+        "convexity of option"
+      ],
+      "description": "Rate of change of option delta with respect to the underlying spot."
+    },
+    "bs_implied_vol": {
+      "aliases": [
+        "implied vol",
+        "iv",
+        "implied volatility",
+        "back out vol",
+        "market implied volatility"
+      ],
+      "description": "Volatility that makes the Black-Scholes price match the observed option price."
+    },
+    "bs_lambda": {
+      "aliases": [
+        "lambda",
+        "option elasticity",
+        "leverage greek",
+        "omega",
+        "percent price sensitivity"
+      ],
+      "description": "Percentage change in option price for a percentage change in the underlying (elasticity)."
+    },
+    "bs_rho": {
+      "aliases": [
+        "rho",
+        "option rho",
+        "rate sensitivity",
+        "interest rate greek",
+        "sensitivity to rates"
+      ],
+      "description": "Sensitivity of option price to a change in the risk-free interest rate."
+    },
+    "bs_speed": {
+      "aliases": [
+        "speed",
+        "gamma sensitivity",
+        "third order greek",
+        "dgammadspot",
+        "speed greek"
+      ],
+      "description": "Rate of change of option gamma with respect to the underlying spot."
+    },
+    "bs_theta": {
+      "aliases": [
+        "theta",
+        "time decay",
+        "option theta",
+        "daily decay",
+        "time value erosion"
+      ],
+      "description": "Sensitivity of option price to the passage of time (time decay)."
+    },
+    "bs_ultima": {
+      "aliases": [
+        "ultima",
+        "vomma sensitivity",
+        "third order vega greek",
+        "dvommadvol",
+        "ultima greek"
+      ],
+      "description": "Third-order sensitivity of option price to changes in volatility."
+    },
+    "bs_value": {
+      "aliases": [
+        "option price",
+        "black scholes price",
+        "bs price",
+        "fair value",
+        "theoretical value",
+        "option value"
+      ],
+      "description": "Black-Scholes fair value (theoretical price) of a European option."
+    },
+    "bs_vanna": {
+      "aliases": [
+        "vanna",
+        "ddeltadvol",
+        "delta vol sensitivity",
+        "vanna greek",
+        "cross greek"
+      ],
+      "description": "Sensitivity of option delta to volatility, or vega to spot."
+    },
+    "bs_vega": {
+      "aliases": [
+        "vega",
+        "option vega",
+        "vol sensitivity",
+        "sensitivity to volatility",
+        "kappa"
+      ],
+      "description": "Sensitivity of option price to a change in volatility."
+    },
+    "bs_veta": {
+      "aliases": [
+        "veta",
+        "vega decay",
+        "dvegadtime",
+        "veta greek",
+        "vega bleed"
+      ],
+      "description": "Rate of change of option vega with respect to passage of time."
+    },
+    "bs_volga": {
+      "aliases": [
+        "volga",
+        "vomma",
+        "vega convexity",
+        "dvegadvol",
+        "vol gamma"
+      ],
+      "description": "Sensitivity of option vega to a change in volatility (vol convexity)."
+    },
+    "bs_zomma": {
+      "aliases": [
+        "zomma",
+        "gamma vol sensitivity",
+        "dgammadvol",
+        "zomma greek",
+        "dzomma"
+      ],
+      "description": "Rate of change of option gamma with respect to volatility."
+    },
+    "bull_beta": {
+      "aliases": [
+        "upside beta",
+        "beta in rising markets",
+        "sensitivity in bull markets",
+        "up market beta",
+        "how much we gain when market rises"
+      ],
+      "description": "Portfolio's sensitivity to the benchmark during up markets only."
+    },
+    "burke_ratio": {
+      "aliases": [
+        "return over drawdown rms",
+        "drawdown penalized return ratio",
+        "return per square root of drawdowns",
+        "burke performance ratio"
+      ],
+      "description": "Excess return divided by the root-sum-square of drawdowns."
+    },
+    "cache_hit_rate": {
+      "aliases": [
+        "cache hit",
+        "cache hit rate",
+        "hit ratio",
+        "cache ratio",
+        "cache efficiency"
+      ],
+      "description": "Fraction of requests served from cache rather than recomputed."
+    },
+    "cagr": {
+      "aliases": [
+        "compound annual growth rate",
+        "annualized growth",
+        "yearly growth rate",
+        "annual return",
+        "compound growth"
+      ],
+      "description": "Smoothed annual growth rate of a value over multiple years."
+    },
+    "calibration_in_the_large": {
+      "aliases": [
+        "calibration in the large",
+        "mean calibration",
+        "average miscalibration",
+        "overall bias",
+        "predicted vs observed rate",
+        "global calibration"
+      ],
+      "description": "Overall difference between mean predicted probability and observed event rate."
+    },
+    "called_pct": {
+      "aliases": [
+        "called capital percent",
+        "paid-in ratio",
+        "drawn capital",
+        "capital called",
+        "contribution rate"
+      ],
+      "description": "Share of committed capital that an investor has actually contributed."
+    },
+    "calmar": {
+      "aliases": [
+        "return over max drawdown",
+        "annual return per drawdown",
+        "drawdown adjusted return",
+        "return divided by worst loss",
+        "calmar performance ratio"
+      ],
+      "description": "Annualized return divided by maximum drawdown."
+    },
+    "capture_ratio": {
+      "aliases": [
+        "up over down capture",
+        "capture asymmetry",
+        "participation ratio",
+        "upside vs downside capture",
+        "how we capture market moves"
+      ],
+      "description": "Up-capture divided by down-capture; asymmetry of participation in market moves."
+    },
+    "carried_interest": {
+      "aliases": [
+        "carry",
+        "gp profit share",
+        "performance fee",
+        "manager carry",
+        "incentive allocation"
+      ],
+      "description": "Fund manager's profit share earned above returning investor capital."
+    },
+    "cdar": {
+      "aliases": [
+        "conditional drawdown at risk",
+        "expected tail drawdown",
+        "average of worst drawdowns",
+        "mean extreme drawdown",
+        "tail drawdown measure"
+      ],
+      "description": "Average of the worst drawdowns beyond a chosen confidence level."
+    },
+    "chi_square": {
+      "aliases": [
+        "chi squared",
+        "chi2",
+        "chi square test",
+        "independence test",
+        "test of association",
+        "contingency table test"
+      ],
+      "description": "Tests association between two categorical variables from a contingency table."
+    },
+    "chi_square_distance": {
+      "aliases": [
+        "chi-square distance",
+        "chi2 distance",
+        "histogram distance",
+        "distribution distance",
+        "weighted distribution difference",
+        "chi-squared divergence"
+      ],
+      "description": "Measures dissimilarity between two distributions using a chi-square-weighted difference."
+    },
+    "christoffersen_cc": {
+      "aliases": [
+        "conditional coverage test",
+        "joint var backtest",
+        "christoffersen combined test",
+        "breach rate and clustering test",
+        "var coverage and independence check"
+      ],
+      "description": "Joint test of correct VaR breach frequency and breach independence over time."
+    },
+    "christoffersen_independence": {
+      "aliases": [
+        "var breach clustering test",
+        "independence of exceptions test",
+        "do var breaches bunch up",
+        "serial dependence of var breaches",
+        "breach clustering check"
+      ],
+      "description": "Tests whether VaR breaches cluster in time rather than occurring independently."
+    },
+    "churn_rate": {
+      "aliases": [
+        "churn",
+        "attrition rate",
+        "customer loss rate",
+        "cancellation rate",
+        "retention loss"
+      ],
+      "description": "Fraction of customers lost over a period."
+    },
+    "cliffs_delta": {
+      "aliases": [
+        "cliff delta",
+        "dominance effect size",
+        "ordinal effect size",
+        "nonparametric effect size",
+        "probability of superiority",
+        "rank dominance"
+      ],
+      "description": "Ordinal effect size for how often one group exceeds another."
+    },
+    "coefficient_of_variation": {
+      "aliases": [
+        "cv",
+        "relative standard deviation",
+        "relative variability",
+        "normalized dispersion",
+        "std over mean",
+        "relative spread"
+      ],
+      "description": "Ratio of standard deviation to mean, expressing relative variability."
+    },
+    "cohen_kappa": {
+      "aliases": [
+        "cohen's kappa",
+        "kappa",
+        "chance-corrected agreement",
+        "inter-rater agreement",
+        "rater reliability",
+        "agreement beyond chance"
+      ],
+      "description": "Inter-rater agreement corrected for chance agreement."
+    },
+    "cohens_h": {
+      "aliases": [
+        "cohen h",
+        "proportion effect size",
+        "arcsine effect size",
+        "difference in proportions effect",
+        "effect size for proportions",
+        "h statistic"
+      ],
+      "description": "Effect size for the difference between two proportions using arcsine transform."
+    },
+    "column_max": {
+      "aliases": [
+        "maximum",
+        "max",
+        "highest",
+        "largest",
+        "peak",
+        "top value"
+      ],
+      "description": "Largest value in a numeric column."
+    },
+    "column_mean": {
+      "aliases": [
+        "mean",
+        "average",
+        "avg",
+        "arithmetic mean",
+        "expected value"
+      ],
+      "description": "Arithmetic average of the values in a column."
+    },
+    "column_median": {
+      "aliases": [
+        "median",
+        "middle value",
+        "p50",
+        "50th percentile",
+        "midpoint"
+      ],
+      "description": "Middle value of a column when sorted, the 50th percentile."
+    },
+    "column_min": {
+      "aliases": [
+        "minimum",
+        "min",
+        "lowest",
+        "smallest",
+        "bottom value"
+      ],
+      "description": "Smallest value in a numeric column."
+    },
+    "column_std": {
+      "aliases": [
+        "standard deviation",
+        "std dev",
+        "stdev",
+        "spread",
+        "dispersion",
+        "volatility"
+      ],
+      "description": "Sample standard deviation measuring spread around the column mean."
+    },
+    "column_sum": {
+      "aliases": [
+        "sum",
+        "total",
+        "revenue",
+        "grand total",
+        "aggregate",
+        "sum total"
+      ],
+      "description": "Total of all values added together in a column."
+    },
+    "common_language_effect_size": {
+      "aliases": [
+        "cles",
+        "probability of superiority",
+        "common language statistic",
+        "a over b probability",
+        "mcgraw wong effect size",
+        "stochastic superiority"
+      ],
+      "description": "Probability a random value from one group exceeds one from another."
+    },
+    "common_sense_ratio": {
+      "aliases": [
+        "tail ratio times profit factor",
+        "combined tail and profit measure",
+        "common sense performance ratio",
+        "tail and gain loss combined"
+      ],
+      "description": "Tail ratio multiplied by profit factor; combines tail asymmetry and gain/loss balance."
+    },
+    "completeness_score": {
+      "aliases": [
+        "completeness",
+        "cluster completeness",
+        "class concentration",
+        "clustering completeness",
+        "all members together",
+        "entropy completeness"
+      ],
+      "description": "Whether all members of a true class fall in one cluster."
+    },
+    "comprehensive_concentration_index": {
+      "aliases": [
+        "cci",
+        "comprehensive concentration",
+        "market concentration",
+        "concentration index"
+      ],
+      "description": "Market concentration index weighting each firm's share by its relative rank importance."
+    },
+    "compression_ratio": {
+      "aliases": [
+        "compression ratio",
+        "compression",
+        "size reduction",
+        "compress factor"
+      ],
+      "description": "Ratio of original size to compressed size of the data."
+    },
+    "concentration_ratio": {
+      "aliases": [
+        "cr4",
+        "cr ratio",
+        "top firms share",
+        "market share top",
+        "concentration ratio"
+      ],
+      "description": "Combined market share held by the largest few firms or categories."
+    },
+    "concordance_correlation": {
+      "aliases": [
+        "ccc",
+        "concordance correlation",
+        "lin concordance",
+        "agreement coefficient",
+        "concordance"
+      ],
+      "description": "Agreement between predictions and targets combining correlation and bias."
+    },
+    "concordance_index": {
+      "aliases": [
+        "c-index",
+        "harrell c",
+        "concordance statistic",
+        "survival ranking accuracy",
+        "discrimination index",
+        "c statistic"
+      ],
+      "description": "Fraction of comparable pairs whose predicted risk ordering matches observed survival."
+    },
+    "confidence_interval": {
+      "aliases": [
+        "ci",
+        "margin of error",
+        "interval estimate",
+        "confidence bounds",
+        "error margin",
+        "mean confidence range"
+      ],
+      "description": "Range plausibly containing the true mean at a given confidence level."
+    },
+    "convexity": {
+      "aliases": [
+        "bond convexity",
+        "price curvature",
+        "second-order rate sensitivity",
+        "duration convexity",
+        "interest rate convexity"
+      ],
+      "description": "Curvature of a bond's price response to interest-rate changes."
+    },
+    "cornish_fisher_var": {
+      "aliases": [
+        "modified var",
+        "skew kurtosis adjusted var",
+        "non-normal value at risk",
+        "fat tail var",
+        "higher moment var"
+      ],
+      "description": "Value-at-risk adjusted for skew and kurtosis via the Cornish-Fisher expansion."
+    },
+    "correlation": {
+      "aliases": [
+        "pearson",
+        "spearman",
+        "correlation coefficient",
+        "linear relationship",
+        "r value",
+        "rank correlation"
+      ],
+      "description": "Strength and direction of the linear or monotonic relationship between two variables."
+    },
+    "covariance": {
+      "aliases": [
+        "covariance",
+        "joint variability",
+        "co-movement",
+        "cov"
+      ],
+      "description": "Measure of how two variables move together, jointly above or below their means."
+    },
+    "coverage_deviation": {
+      "aliases": [
+        "coverage deviation",
+        "coverage gap",
+        "coverage error",
+        "miscoverage",
+        "interval coverage error"
+      ],
+      "description": "Gap between empirical interval coverage and the nominal target level."
+    },
+    "cramers_v": {
+      "aliases": [
+        "cramer v",
+        "cramers phi",
+        "categorical association strength",
+        "chi-square effect size",
+        "nominal association",
+        "contingency effect size"
+      ],
+      "description": "Effect size for association strength between two categorical variables."
+    },
+    "cumulative_forecast_error": {
+      "aliases": [
+        "cumulative error",
+        "running forecast error",
+        "cfe",
+        "summed forecast error",
+        "total forecast error"
+      ],
+      "description": "Running sum of forecast errors over the horizon."
+    },
+    "cuped_ate": {
+      "aliases": [
+        "cuped",
+        "covariate-adjusted treatment effect",
+        "variance-reduced ate",
+        "controlled experiment uplift",
+        "regression-adjusted effect",
+        "pre-experiment adjusted effect"
+      ],
+      "description": "Variance-reduced treatment effect using a pre-experiment covariate adjustment."
+    },
+    "current_ratio": {
+      "aliases": [
+        "liquidity ratio",
+        "working capital ratio",
+        "short-term solvency",
+        "current assets to liabilities",
+        "liquidity coverage"
+      ],
+      "description": "Short-term liquidity from current assets divided by current liabilities."
+    },
+    "curve_pv": {
+      "aliases": [
+        "curve present value",
+        "discounted cashflow value",
+        "zero curve pv",
+        "spot curve valuation",
+        "term structure pv"
+      ],
+      "description": "Present value of cash flows discounted along a zero-rate curve."
+    },
+    "cvar": {
+      "aliases": [
+        "expected shortfall",
+        "average tail loss",
+        "conditional value at risk",
+        "mean of the worst losses",
+        "expected loss beyond var"
+      ],
+      "description": "Average loss in the worst tail beyond the VaR threshold."
+    },
+    "d2_absolute_error": {
+      "aliases": [
+        "d2 absolute error",
+        "d2 score",
+        "d2 mae",
+        "explained absolute error"
+      ],
+      "description": "Fraction of absolute error explained relative to a median baseline."
+    },
+    "d2_tweedie_score": {
+      "aliases": [
+        "d2 tweedie",
+        "d2 tweedie score",
+        "tweedie d2",
+        "explained tweedie deviance"
+      ],
+      "description": "Fraction of Tweedie deviance explained relative to a mean baseline."
+    },
+    "days_sales_outstanding": {
+      "aliases": [
+        "dso",
+        "collection period",
+        "receivables days",
+        "days receivable",
+        "average collection days"
+      ],
+      "description": "Average days to collect cash from credit sales."
+    },
+    "debt_to_ebitda": {
+      "aliases": [
+        "leverage ratio",
+        "debt ebitda multiple",
+        "debt load",
+        "gross leverage",
+        "borrowing to earnings"
+      ],
+      "description": "Leverage measured as total debt over operating earnings."
+    },
+    "debt_to_equity": {
+      "aliases": [
+        "d/e ratio",
+        "gearing ratio",
+        "leverage ratio",
+        "debt equity ratio",
+        "capital structure ratio"
+      ],
+      "description": "Leverage comparing total debt to shareholder equity."
+    },
+    "demographic_parity_difference": {
+      "aliases": [
+        "demographic parity difference",
+        "statistical parity gap",
+        "selection rate difference",
+        "positive rate disparity",
+        "fairness parity gap",
+        "dp difference"
+      ],
+      "description": "Difference in positive-prediction rate across protected groups."
+    },
+    "demographic_parity_ratio": {
+      "aliases": [
+        "demographic parity ratio",
+        "disparate impact ratio",
+        "selection rate ratio",
+        "four-fifths rule",
+        "positive rate ratio",
+        "dp ratio"
+      ],
+      "description": "Ratio of positive-prediction rates between protected groups."
+    },
+    "diagnostic_odds_ratio": {
+      "aliases": [
+        "diagnostic odds ratio",
+        "dor",
+        "test discrimination odds",
+        "odds ratio of a test",
+        "lr ratio",
+        "diagnostic effectiveness"
+      ],
+      "description": "Ratio of positive to negative likelihood ratios summarizing test discrimination."
+    },
+    "direct_alpha": {
+      "aliases": [
+        "pme alpha",
+        "fund excess return",
+        "private market alpha",
+        "annualized outperformance",
+        "index-relative return"
+      ],
+      "description": "Annualized excess return of a fund versus a public-market index."
+    },
+    "distance_correlation": {
+      "aliases": [
+        "dcor",
+        "distance covariance",
+        "nonlinear dependence",
+        "general dependence measure",
+        "energy correlation",
+        "dependence statistic"
+      ],
+      "description": "Measures both linear and nonlinear dependence between two variables."
+    },
+    "distinct_count": {
+      "aliases": [
+        "distinct",
+        "unique",
+        "unique count",
+        "cardinality",
+        "number of distinct"
+      ],
+      "description": "Number of unique values present in a column."
+    },
+    "dividend_payout_ratio": {
+      "aliases": [
+        "payout ratio",
+        "dividend ratio",
+        "earnings paid out",
+        "dividend coverage",
+        "distribution ratio"
+      ],
+      "description": "Portion of net income paid out to shareholders as dividends."
+    },
+    "down_capture_ratio": {
+      "aliases": [
+        "downside capture",
+        "how much we lose in down markets",
+        "participation in market declines",
+        "down market capture",
+        "capture of negative benchmark moves"
+      ],
+      "description": "Portfolio return relative to benchmark during the benchmark's down periods."
+    },
+    "downside_deviation": {
+      "aliases": [
+        "downside volatility",
+        "bad volatility",
+        "below target deviation",
+        "loss side standard deviation",
+        "negative return volatility"
+      ],
+      "description": "Volatility computed only from returns below a target, ignoring upside."
+    },
+    "downside_potential": {
+      "aliases": [
+        "expected shortfall below target",
+        "average downside",
+        "mean loss below target",
+        "lower partial first moment",
+        "average underperformance"
+      ],
+      "description": "Average shortfall of returns below a target threshold."
+    },
+    "dpi": {
+      "aliases": [
+        "distributions to paid-in",
+        "realized multiple",
+        "cash multiple",
+        "dpi multiple",
+        "distributed paid in"
+      ],
+      "description": "Cash returned to investors per dollar of contributed capital."
+    },
+    "drawdown_at_risk": {
+      "aliases": [
+        "drawdown var",
+        "drawdown quantile",
+        "worst likely drawdown",
+        "drawdown threshold at confidence",
+        "value at risk of drawdowns"
+      ],
+      "description": "Drawdown quantile at a confidence level; threshold the drawdown rarely exceeds."
+    },
+    "drawdown_deviation": {
+      "aliases": [
+        "volatility of drawdowns",
+        "drawdown standard deviation",
+        "spread of drawdowns",
+        "dispersion of underwater values"
+      ],
+      "description": "Standard deviation of the drawdown series."
+    },
+    "duplicate_count": {
+      "aliases": [
+        "duplicates",
+        "duplicate",
+        "repeated rows",
+        "dupes",
+        "redundant rows"
+      ],
+      "description": "Number of rows that repeat an earlier identical row."
+    },
+    "durbin_watson": {
+      "aliases": [
+        "durbin",
+        "durbin watson",
+        "dw statistic",
+        "autocorrelation test",
+        "residual autocorrelation"
+      ],
+      "description": "Tests residuals for autocorrelation, with 2 meaning no correlation."
+    },
+    "dv01": {
+      "aliases": [
+        "dollar duration",
+        "pv01",
+        "price value of a basis point",
+        "bpv",
+        "rate dollar sensitivity"
+      ],
+      "description": "Dollar price change of a bond per one basis-point rate move."
+    },
+    "ebitda_margin": {
+      "aliases": [
+        "operating profit margin",
+        "ebitda profitability",
+        "earnings margin",
+        "cash margin",
+        "ebitda to revenue"
+      ],
+      "description": "Operating profitability as EBITDA divided by revenue."
+    },
+    "ece": {
+      "aliases": [
+        "expected calibration error",
+        "ece",
+        "calibration error",
+        "confidence vs accuracy gap",
+        "binned calibration error",
+        "miscalibration"
+      ],
+      "description": "Average binned gap between predicted confidence and actual accuracy."
+    },
+    "effect_size": {
+      "aliases": [
+        "cohen's d",
+        "cohens d",
+        "standardized mean difference",
+        "hedges g",
+        "magnitude of difference",
+        "d statistic"
+      ],
+      "description": "Standardized magnitude of the difference between two group means."
+    },
+    "effective_convexity": {
+      "aliases": [
+        "option-adjusted convexity",
+        "shifted convexity",
+        "numerical convexity",
+        "callable bond convexity",
+        "effective price curvature"
+      ],
+      "description": "Convexity estimated by shifting rates, accounting for embedded options."
+    },
+    "effective_duration": {
+      "aliases": [
+        "option-adjusted duration",
+        "shifted duration",
+        "numerical duration",
+        "callable bond duration",
+        "effective rate sensitivity"
+      ],
+      "description": "Rate sensitivity estimated by shifting yields, capturing optionality."
+    },
+    "effective_number_of_bets": {
+      "aliases": [
+        "effective number of bets",
+        "enb",
+        "diversification count",
+        "number of bets",
+        "effective positions"
+      ],
+      "description": "Diversification measure counting how many independent positions a portfolio effectively holds."
+    },
+    "effective_spread_bps": {
+      "aliases": [
+        "effective spread",
+        "effective spread bps",
+        "trade spread",
+        "realized spread cost",
+        "spread in bps"
+      ],
+      "description": "Twice the signed distance between execution price and the prevailing midpoint, in basis points."
+    },
+    "energy_distance": {
+      "aliases": [
+        "energy statistic",
+        "distribution distance",
+        "two-sample energy distance",
+        "energy test",
+        "distributional distance",
+        "sample distance metric"
+      ],
+      "description": "Statistical distance between two distributions based on pairwise distances."
+    },
+    "entropy": {
+      "aliases": [
+        "entropy",
+        "shannon entropy",
+        "information content",
+        "uncertainty",
+        "diversity"
+      ],
+      "description": "Shannon entropy quantifying uncertainty or diversity across category frequencies."
+    },
+    "equal_opportunity_difference": {
+      "aliases": [
+        "equal opportunity difference",
+        "true positive rate gap",
+        "tpr disparity",
+        "recall parity gap",
+        "fairness recall difference",
+        "equal opportunity gap"
+      ],
+      "description": "Difference in true-positive rate across protected groups."
+    },
+    "equalized_odds_difference": {
+      "aliases": [
+        "equalized odds difference",
+        "tpr and fpr gap",
+        "equal odds disparity",
+        "max rate difference",
+        "fairness odds gap",
+        "eo difference"
+      ],
+      "description": "Largest gap in true- or false-positive rates across groups."
+    },
+    "equalized_odds_ratio": {
+      "aliases": [
+        "equalized odds ratio",
+        "equal odds ratio",
+        "tpr fpr ratio",
+        "fairness odds ratio",
+        "min rate ratio",
+        "eo ratio"
+      ],
+      "description": "Smallest ratio of true- or false-positive rates across groups."
+    },
+    "err_at_k": {
+      "aliases": [
+        "err",
+        "err@k",
+        "expected reciprocal rank",
+        "err at k",
+        "graded reciprocal rank"
+      ],
+      "description": "Expected reciprocal rank reflecting graded relevance and user-stopping behavior over top-k."
+    },
+    "error_budget_burn": {
+      "aliases": [
+        "error budget burn",
+        "burn rate",
+        "budget burn",
+        "slo burn rate",
+        "error budget consumption"
+      ],
+      "description": "Rate at which an SLO error budget is being consumed."
+    },
+    "error_rate": {
+      "aliases": [
+        "error rate",
+        "failure rate",
+        "fail rate",
+        "error percentage",
+        "5xx rate"
+      ],
+      "description": "Fraction of requests that failed out of total requests."
+    },
+    "es_backtest_ratio": {
+      "aliases": [
+        "expected shortfall ratio backtest",
+        "realized over predicted es",
+        "tail loss calibration ratio",
+        "es accuracy ratio",
+        "shortfall coverage ratio"
+      ],
+      "description": "Ratio of realized tail losses to predicted expected shortfall during breaches."
+    },
+    "eta_squared": {
+      "aliases": [
+        "eta2",
+        "anova effect size",
+        "variance explained",
+        "proportion of variance",
+        "eta-squared",
+        "between-group variance share"
+      ],
+      "description": "Proportion of total variance explained by group membership in ANOVA."
+    },
+    "exact_match": {
+      "aliases": [
+        "exact match",
+        "exact-match",
+        "em",
+        "string match",
+        "exact string accuracy"
+      ],
+      "description": "Whether the prediction exactly equals the reference after normalization."
+    },
+    "expected_exceedance": {
+      "aliases": [
+        "average breach size",
+        "mean exceedance beyond var",
+        "how far past var losses go",
+        "average tail overshoot",
+        "expected loss above var"
+      ],
+      "description": "Average amount by which losses exceed VaR when a breach occurs."
+    },
+    "expected_loss": {
+      "aliases": [
+        "el",
+        "credit expected loss",
+        "pd lgd ead",
+        "average loss",
+        "anticipated loss"
+      ],
+      "description": "Average credit loss as probability of default times loss times exposure."
+    },
+    "expected_loss_rate": {
+      "aliases": [
+        "el rate",
+        "loss rate",
+        "expected loss percent",
+        "credit loss rate",
+        "loss ratio"
+      ],
+      "description": "Expected credit loss expressed as a fraction of exposure."
+    },
+    "explained_variance": {
+      "aliases": [
+        "explained variance",
+        "variance explained",
+        "explained variance score",
+        "evs"
+      ],
+      "description": "Fraction of target variance captured by the model predictions."
+    },
+    "exponential_loss": {
+      "aliases": [
+        "exponential loss",
+        "exp loss",
+        "adaboost loss",
+        "boosting loss",
+        "margin exponential loss",
+        "exploss"
+      ],
+      "description": "Exponentially weighted margin loss used by boosting algorithms."
+    },
+    "exposure_weighted_maturity": {
+      "aliases": [
+        "weighted maturity",
+        "ead-weighted maturity",
+        "portfolio maturity",
+        "average tenor",
+        "exposure tenor"
+      ],
+      "description": "Average maturity of credits weighted by exposure size."
+    },
+    "exposure_weighted_pd": {
+      "aliases": [
+        "weighted pd",
+        "portfolio default probability",
+        "ead-weighted pd",
+        "average default rate",
+        "exposure weighted default"
+      ],
+      "description": "Average default probability weighted by exposure size."
+    },
+    "f1": {
+      "aliases": [
+        "f1 score",
+        "f-measure",
+        "f-score",
+        "harmonic mean of precision and recall",
+        "balanced precision recall",
+        "f1"
+      ],
+      "description": "Harmonic mean of precision and recall for the positive class."
+    },
+    "f1_at_k": {
+      "aliases": [
+        "f1@k",
+        "f1 at k",
+        "retrieval f1",
+        "f-score at k",
+        "precision recall harmonic at k"
+      ],
+      "description": "Harmonic mean of precision and recall over the top-k retrieved results."
+    },
+    "fallout_at_k": {
+      "aliases": [
+        "fallout",
+        "fallout@k",
+        "false positive rate at k",
+        "fall-out",
+        "irrelevant rate at k"
+      ],
+      "description": "Fraction of irrelevant items retrieved within the top-k (false positive rate)."
+    },
+    "false_discovery_rate": {
+      "aliases": [
+        "false discovery rate",
+        "fdr",
+        "wrong positive fraction",
+        "false positives among predicted positives",
+        "1 minus precision",
+        "false alarm proportion"
+      ],
+      "description": "Fraction of positive predictions that are actually wrong."
+    },
+    "false_negative_rate": {
+      "aliases": [
+        "false negative rate",
+        "fnr",
+        "miss rate",
+        "missed positives fraction",
+        "1 minus recall",
+        "type ii error rate"
+      ],
+      "description": "Fraction of actual positives the model misses."
+    },
+    "false_positive_rate": {
+      "aliases": [
+        "false positive rate",
+        "fpr",
+        "fall-out",
+        "false alarm rate",
+        "1 minus specificity",
+        "type i error rate"
+      ],
+      "description": "Fraction of actual negatives wrongly predicted positive."
+    },
+    "fbeta": {
+      "aliases": [
+        "f-beta score",
+        "fbeta",
+        "f2",
+        "f0.5",
+        "weighted f-score",
+        "beta-weighted f1"
+      ],
+      "description": "Weighted harmonic mean of precision and recall tunable by beta."
+    },
+    "fisher_exact": {
+      "aliases": [
+        "fisher test",
+        "fisher exact test",
+        "exact contingency test",
+        "small sample independence test",
+        "2x2 exact test",
+        "hypergeometric test"
+      ],
+      "description": "Exact test of association in a 2x2 table for small samples."
+    },
+    "fligner": {
+      "aliases": [
+        "fligner killeen test",
+        "nonparametric variance test",
+        "equal variance test",
+        "robust homogeneity test",
+        "dispersion equality test",
+        "variance homogeneity"
+      ],
+      "description": "Robust nonparametric test for equality of variances across groups."
+    },
+    "forecast_bias": {
+      "aliases": [
+        "forecast bias",
+        "bias",
+        "prediction bias",
+        "over forecast",
+        "under forecast"
+      ],
+      "description": "Systematic tendency of forecasts to over or under predict."
+    },
+    "forward_rate": {
+      "aliases": [
+        "implied forward rate",
+        "forward yield",
+        "future rate",
+        "forward curve rate",
+        "fra rate"
+      ],
+      "description": "Future interest rate implied between two points on the zero curve."
+    },
+    "fowlkes_mallows": {
+      "aliases": [
+        "fowlkes-mallows",
+        "fm index",
+        "geometric mean of precision and recall",
+        "fowlkes mallows score",
+        "g-measure",
+        "fm score"
+      ],
+      "description": "Geometric mean of precision and recall from confusion counts."
+    },
+    "fowlkes_mallows_clustering": {
+      "aliases": [
+        "fowlkes-mallows clustering",
+        "fm clustering index",
+        "pairwise cluster similarity",
+        "clustering geometric mean",
+        "fmi",
+        "cluster fowlkes mallows"
+      ],
+      "description": "Geometric mean of pairwise precision and recall between two clusterings."
+    },
+    "fpr_parity_difference": {
+      "aliases": [
+        "fpr parity difference",
+        "false positive rate gap",
+        "predictive equality gap",
+        "fpr disparity",
+        "fairness false positive gap",
+        "false alarm parity"
+      ],
+      "description": "Difference in false-positive rate across protected groups."
+    },
+    "free_cash_flow_margin": {
+      "aliases": [
+        "fcf margin",
+        "cash flow margin",
+        "fcf to revenue",
+        "cash conversion",
+        "free cash margin"
+      ],
+      "description": "Free cash flow as a share of revenue."
+    },
+    "g_mean": {
+      "aliases": [
+        "g-mean",
+        "geometric mean",
+        "sensitivity specificity geometric mean",
+        "balanced imbalance score",
+        "gmean",
+        "tpr tnr geometric mean"
+      ],
+      "description": "Geometric mean of sensitivity and specificity for imbalanced data."
+    },
+    "g_test": {
+      "aliases": [
+        "g-test",
+        "log-likelihood ratio test",
+        "likelihood ratio chi-square",
+        "g squared test",
+        "independence test",
+        "maximum likelihood chi-square"
+      ],
+      "description": "Likelihood-ratio test of association in a contingency table."
+    },
+    "gain_loss_ratio": {
+      "aliases": [
+        "average win over average loss",
+        "mean gain to mean loss",
+        "size of gains vs losses",
+        "average up move vs down move"
+      ],
+      "description": "Average gain divided by average loss in magnitude."
+    },
+    "gain_to_pain_ratio": {
+      "aliases": [
+        "total return over total losses",
+        "schwager ratio",
+        "return per unit of pain",
+        "net gain to loss sum",
+        "profit relative to losses"
+      ],
+      "description": "Sum of returns divided by the absolute sum of losing returns."
+    },
+    "gamma_deviance": {
+      "aliases": [
+        "gamma deviance",
+        "mean gamma deviance",
+        "gamma loss",
+        "gamma regression loss"
+      ],
+      "description": "Mean deviance loss assuming a Gamma-distributed target."
+    },
+    "garman_klass_volatility": {
+      "aliases": [
+        "ohlc volatility estimator",
+        "range based volatility",
+        "garman klass vol",
+        "high low open close volatility",
+        "intraday range volatility"
+      ],
+      "description": "Range-based volatility estimator using open, high, low, and close prices."
+    },
+    "gastwirth_location": {
+      "aliases": [
+        "gastwirth",
+        "robust center",
+        "robust location",
+        "gastwirth mean"
+      ],
+      "description": "Robust location estimator combining weighted central quantiles for resistance to outliers."
+    },
+    "generalized_entropy_index": {
+      "aliases": [
+        "ge index",
+        "generalized entropy",
+        "inequality index",
+        "entropy inequality"
+      ],
+      "description": "Family of inequality measures parameterized by sensitivity to different parts of the distribution."
+    },
+    "geometric_excess_return": {
+      "aliases": [
+        "geometric excess return",
+        "geometric active return",
+        "compounded excess return",
+        "relative geometric return"
+      ],
+      "description": "Portfolio return relative to benchmark computed geometrically rather than by subtraction."
+    },
+    "geometric_mean": {
+      "aliases": [
+        "geometric mean",
+        "geomean",
+        "compound average",
+        "multiplicative mean"
+      ],
+      "description": "Nth root of the product of values, the average for rates and ratios."
+    },
+    "geometric_mean_absolute_error": {
+      "aliases": [
+        "gmae",
+        "geometric mean absolute error",
+        "geometric mae",
+        "geometric absolute error"
+      ],
+      "description": "Geometric mean of absolute forecast errors, robust to large outliers."
+    },
+    "gini_coefficient": {
+      "aliases": [
+        "gini coefficient",
+        "gini",
+        "gini index",
+        "inequality",
+        "income gini"
+      ],
+      "description": "Inequality measure from 0 (perfect equality) to 1 (maximal concentration)."
+    },
+    "gini_mean_difference": {
+      "aliases": [
+        "gini mean difference",
+        "gmd",
+        "mean absolute difference",
+        "pairwise difference"
+      ],
+      "description": "Average absolute difference between all pairs of values, a spread measure."
+    },
+    "gini_norm": {
+      "aliases": [
+        "gini coefficient",
+        "gini",
+        "normalized gini",
+        "somers d",
+        "2 auc minus 1",
+        "accuracy ratio"
+      ],
+      "description": "Normalized Gini coefficient equal to twice AUC minus one."
+    },
+    "glass_delta": {
+      "aliases": [
+        "glass delta",
+        "glass's delta",
+        "control-scaled effect size",
+        "standardized difference",
+        "effect size with control sd",
+        "delta effect size"
+      ],
+      "description": "Standardized mean difference scaled by the control group's standard deviation."
+    },
+    "goodman_kruskal_gamma": {
+      "aliases": [
+        "gamma statistic",
+        "goodman kruskal gamma",
+        "ordinal correlation",
+        "rank association",
+        "concordance measure",
+        "gamma correlation"
+      ],
+      "description": "Ordinal association measure based on concordant minus discordant pairs."
+    },
+    "gross_exposure": {
+      "aliases": [
+        "gross exposure",
+        "gross leverage",
+        "total exposure",
+        "long plus short",
+        "gross book"
+      ],
+      "description": "Sum of absolute long and short position values relative to capital."
+    },
+    "groupby_aggregate": {
+      "aliases": [
+        "group by",
+        "per group",
+        "aggregate by group",
+        "grouped sum",
+        "grouped mean",
+        "pivot"
+      ],
+      "description": "Aggregated value such as sum or mean computed per group."
+    },
+    "growth_rate": {
+      "aliases": [
+        "growth",
+        "mom",
+        "yoy",
+        "percent change",
+        "growth rate",
+        "increase"
+      ],
+      "description": "Percentage change in a value from the first period to the last."
+    },
+    "gwet_ac1": {
+      "aliases": [
+        "gwet ac1",
+        "ac1",
+        "gwet's agreement",
+        "prevalence-robust kappa",
+        "chance-corrected agreement",
+        "gwet coefficient"
+      ],
+      "description": "Chance-corrected inter-rater agreement robust to prevalence skew."
+    },
+    "harmonic_mean": {
+      "aliases": [
+        "harmonic mean",
+        "rate average",
+        "reciprocal mean"
+      ],
+      "description": "Reciprocal of the average of reciprocals, suited to averaging rates."
+    },
+    "hedges_g": {
+      "aliases": [
+        "hedges g",
+        "corrected cohen's d",
+        "small-sample effect size",
+        "bias-corrected effect size",
+        "standardized mean difference",
+        "g effect size"
+      ],
+      "description": "Bias-corrected standardized mean difference for small samples."
+    },
+    "hellinger_distance": {
+      "aliases": [
+        "hellinger",
+        "distribution distance",
+        "probability distance",
+        "distributional similarity",
+        "bhattacharyya-related distance",
+        "divergence measure"
+      ],
+      "description": "Bounded distance measuring similarity between two probability distributions."
+    },
+    "hhi": {
+      "aliases": [
+        "hhi",
+        "herfindahl",
+        "concentration",
+        "herfindahl hirschman",
+        "market concentration"
+      ],
+      "description": "Herfindahl-Hirschman index summing squared market shares to measure concentration."
+    },
+    "hill_estimator": {
+      "aliases": [
+        "tail index estimator",
+        "fat tail exponent",
+        "power law tail estimate",
+        "heavy tail shape parameter",
+        "extreme value tail index"
+      ],
+      "description": "Estimates the tail index (heaviness) of a heavy-tailed distribution from extreme values."
+    },
+    "hill_number": {
+      "aliases": [
+        "hill number",
+        "effective species",
+        "diversity order",
+        "true diversity"
+      ],
+      "description": "Effective number of categories at a chosen diversity order parameter."
+    },
+    "hinge_loss": {
+      "aliases": [
+        "hinge loss",
+        "svm loss",
+        "margin loss",
+        "max-margin loss",
+        "support vector loss",
+        "hingeloss"
+      ],
+      "description": "Margin-based loss penalizing predictions inside the margin."
+    },
+    "hochberg_rejections": {
+      "aliases": [
+        "hochberg correction",
+        "step-up procedure",
+        "family-wise error control",
+        "multiple testing correction",
+        "hochberg adjustment",
+        "number rejected"
+      ],
+      "description": "Counts hypotheses rejected by Hochberg's step-up multiple-comparison procedure."
+    },
+    "hodges_lehmann_estimator": {
+      "aliases": [
+        "hodges lehmann",
+        "pairwise median",
+        "robust median",
+        "pseudomedian"
+      ],
+      "description": "Robust median of all pairwise averages, resistant to outliers."
+    },
+    "holm_rejections": {
+      "aliases": [
+        "holm correction",
+        "holm-bonferroni",
+        "step-down procedure",
+        "family-wise error control",
+        "multiple testing correction",
+        "sequential bonferroni"
+      ],
+      "description": "Counts hypotheses rejected by Holm's step-down multiple-comparison procedure."
+    },
+    "holm_sidak_rejections": {
+      "aliases": [
+        "holm sidak correction",
+        "sidak step-down",
+        "family-wise error control",
+        "multiple testing correction",
+        "holm-sidak adjustment",
+        "number rejected"
+      ],
+      "description": "Counts hypotheses rejected by the Holm-Sidak step-down correction."
+    },
+    "homogeneity_score": {
+      "aliases": [
+        "homogeneity",
+        "cluster homogeneity",
+        "cluster purity score",
+        "clustering homogeneity",
+        "single-class clusters",
+        "entropy homogeneity"
+      ],
+      "description": "Whether each cluster contains only members of one true class."
+    },
+    "hoover_index": {
+      "aliases": [
+        "hoover",
+        "robin hood index",
+        "redistribution share",
+        "pietra index"
+      ],
+      "description": "Share of total that would need redistributing to achieve perfect equality."
+    },
+    "hqic": {
+      "aliases": [
+        "hqic",
+        "hannan quinn",
+        "hannan-quinn criterion",
+        "hannan quinn ic"
+      ],
+      "description": "Hannan-Quinn model selection score, lower indicates better fit."
+    },
+    "huber_loss": {
+      "aliases": [
+        "huber loss",
+        "huber",
+        "smooth l1 loss",
+        "robust loss"
+      ],
+      "description": "Error loss that is quadratic for small residuals and linear for large ones."
+    },
+    "hurst_rs": {
+      "aliases": [
+        "hurst exponent",
+        "long memory measure",
+        "trend persistence indicator",
+        "mean reversion vs trending",
+        "rescaled range hurst"
+      ],
+      "description": "Hurst exponent via rescaled range; measures long-memory or trending vs mean-reversion."
+    },
+    "idiosyncratic_volatility": {
+      "aliases": [
+        "specific risk",
+        "residual volatility",
+        "non-market volatility",
+        "unsystematic risk",
+        "stock specific volatility"
+      ],
+      "description": "Volatility of returns not explained by the benchmark; firm-specific risk."
+    },
+    "implementation_shortfall": {
+      "aliases": [
+        "implementation shortfall",
+        "is",
+        "decision price slippage",
+        "total trading cost",
+        "paper vs real cost"
+      ],
+      "description": "Total cost between the decision price and actual execution, including unfilled opportunity cost."
+    },
+    "index_of_dispersion": {
+      "aliases": [
+        "dispersion index",
+        "variance to mean",
+        "fano factor",
+        "vmr"
+      ],
+      "description": "Variance-to-mean ratio indicating clustering or spread relative to a Poisson baseline."
+    },
+    "information_ratio": {
+      "aliases": [
+        "active return over tracking error",
+        "excess return per active risk",
+        "risk adjusted outperformance",
+        "consistency of alpha",
+        "outperformance per tracking risk"
+      ],
+      "description": "Active return divided by tracking error; consistency of benchmark outperformance."
+    },
+    "information_value": {
+      "aliases": [
+        "iv",
+        "weight of evidence",
+        "feature predictive power",
+        "binary separation strength",
+        "credit scoring iv",
+        "information value statistic"
+      ],
+      "description": "Predictive strength of a feature for separating a binary outcome."
+    },
+    "interest_coverage": {
+      "aliases": [
+        "times interest earned",
+        "icr",
+        "ebit to interest",
+        "interest coverage ratio",
+        "debt service coverage"
+      ],
+      "description": "Ability to pay interest from operating earnings."
+    },
+    "interval_coverage": {
+      "aliases": [
+        "interval coverage",
+        "coverage",
+        "prediction interval coverage",
+        "picp",
+        "coverage rate"
+      ],
+      "description": "Fraction of actual values falling inside the predicted intervals."
+    },
+    "iqr": {
+      "aliases": [
+        "iqr",
+        "interquartile",
+        "interquartile range",
+        "middle spread",
+        "q3 minus q1"
+      ],
+      "description": "Interquartile range, the spread between the 75th and 25th percentiles."
+    },
+    "irr": {
+      "aliases": [
+        "internal rate of return",
+        "rate of return",
+        "money-weighted return",
+        "irr percent",
+        "annualized return"
+      ],
+      "description": "Discount rate that makes a cash-flow stream's net present value zero."
+    },
+    "jaccard": {
+      "aliases": [
+        "jaccard index",
+        "iou",
+        "intersection over union",
+        "jaccard similarity",
+        "overlap coefficient",
+        "tanimoto"
+      ],
+      "description": "Intersection over union of predicted and true positive sets."
+    },
+    "jarque_bera": {
+      "aliases": [
+        "jarque bera test",
+        "normality test",
+        "skewness kurtosis test",
+        "jb test",
+        "goodness of fit normality",
+        "test for normal distribution"
+      ],
+      "description": "Tests normality using sample skewness and kurtosis jointly."
+    },
+    "jeffreys_divergence": {
+      "aliases": [
+        "jeffreys divergence",
+        "symmetric kl divergence",
+        "j-divergence",
+        "distribution divergence",
+        "symmetrized kullback-leibler",
+        "two-way kl"
+      ],
+      "description": "Symmetric KL-based divergence between two probability distributions."
+    },
+    "jitter": {
+      "aliases": [
+        "jitter",
+        "latency jitter",
+        "latency variability",
+        "response time variance"
+      ],
+      "description": "Variability in latency, typically the spread of response times."
+    },
+    "join_row_loss": {
+      "aliases": [
+        "merged",
+        "merge",
+        "join",
+        "joined",
+        "row loss",
+        "lost rows",
+        "join mismatch"
+      ],
+      "description": "Rows dropped or added when joining tables, detecting unintended row loss or fan-out."
+    },
+    "js_divergence": {
+      "aliases": [
+        "jensen shannon divergence",
+        "jsd",
+        "symmetric divergence",
+        "distribution similarity",
+        "bounded kl divergence",
+        "js distance"
+      ],
+      "description": "Symmetric, bounded measure of similarity between two probability distributions."
+    },
+    "jump_variation": {
+      "aliases": [
+        "jump component of variance",
+        "discontinuous variation",
+        "price jump volatility",
+        "realized variance jump part",
+        "jump risk measure"
+      ],
+      "description": "Variance attributable to price jumps, isolated from continuous diffusion."
+    },
+    "kappa_three": {
+      "aliases": [
+        "kappa 3 ratio",
+        "third order downside ratio",
+        "kaplan knowles ratio",
+        "return per downside skew",
+        "higher order sortino"
+      ],
+      "description": "Return over the cubic root of the third lower partial moment; downside-skew-aware ratio."
+    },
+    "kelly_criterion": {
+      "aliases": [
+        "optimal bet size",
+        "kelly bet fraction",
+        "optimal position sizing",
+        "growth optimal stake",
+        "how much to wager"
+      ],
+      "description": "Optimal fraction of capital to bet given win rate and win/loss size."
+    },
+    "kendall_tau": {
+      "aliases": [
+        "kendall's tau",
+        "tau correlation",
+        "rank correlation",
+        "ordinal correlation",
+        "tau-b",
+        "concordance correlation"
+      ],
+      "description": "Rank correlation based on concordant versus discordant pairs."
+    },
+    "kl_divergence": {
+      "aliases": [
+        "kullback leibler divergence",
+        "relative entropy",
+        "kl",
+        "information divergence",
+        "distribution divergence",
+        "cross entropy difference"
+      ],
+      "description": "Asymmetric measure of how one distribution diverges from another."
+    },
+    "kling_gupta_efficiency": {
+      "aliases": [
+        "kge",
+        "kling gupta",
+        "kling-gupta efficiency",
+        "kling gupta efficiency"
+      ],
+      "description": "Forecast skill score combining correlation, bias, and variability ratios."
+    },
+    "km_median_survival": {
+      "aliases": [
+        "median survival time",
+        "kaplan meier median",
+        "median time to event",
+        "survival median",
+        "km median",
+        "half-survival time"
+      ],
+      "description": "Time at which Kaplan-Meier estimated survival probability reaches one half."
+    },
+    "km_survival_at": {
+      "aliases": [
+        "survival probability at time",
+        "kaplan meier estimate",
+        "km survival estimate",
+        "survival rate at t",
+        "probability of surviving",
+        "survival curve value"
+      ],
+      "description": "Kaplan-Meier estimated survival probability at a specified time."
+    },
+    "kruskal_wallis": {
+      "aliases": [
+        "kruskal wallis test",
+        "nonparametric anova",
+        "rank-based anova",
+        "multi-group rank test",
+        "h test",
+        "compare group medians"
+      ],
+      "description": "Nonparametric test of whether three or more groups have equal distributions."
+    },
+    "ks_2samp": {
+      "aliases": [
+        "two-sample kolmogorov smirnov",
+        "ks test",
+        "distribution comparison test",
+        "kolmogorov smirnov",
+        "same distribution test",
+        "ecdf distance test"
+      ],
+      "description": "Tests whether two samples come from the same distribution."
+    },
+    "ks_pme": {
+      "aliases": [
+        "pme",
+        "public market equivalent",
+        "kaplan schoar",
+        "ks pme ratio",
+        "index benchmark multiple"
+      ],
+      "description": "Kaplan-Schoar public market equivalent comparing fund to index returns."
+    },
+    "ks_statistic": {
+      "aliases": [
+        "ks statistic",
+        "kolmogorov-smirnov",
+        "ks score",
+        "max distribution gap",
+        "score separation",
+        "ks distance"
+      ],
+      "description": "Maximum separation between positive and negative score distributions."
+    },
+    "ks_test": {
+      "aliases": [
+        "kolmogorov smirnov test",
+        "ks test",
+        "distribution fit test",
+        "goodness of fit",
+        "ecdf test",
+        "distribution comparison"
+      ],
+      "description": "Tests whether two samples share the same underlying distribution."
+    },
+    "kupiec_pof": {
+      "aliases": [
+        "proportion of failures test",
+        "var breach count test",
+        "kupiec test",
+        "var exception frequency test",
+        "is breach rate correct"
+      ],
+      "description": "Likelihood-ratio test of whether VaR breach frequency matches the expected rate."
+    },
+    "kurtosis": {
+      "aliases": [
+        "excess kurtosis",
+        "tailedness",
+        "tail heaviness",
+        "fourth moment",
+        "peakedness",
+        "fat tails measure"
+      ],
+      "description": "Measures the heaviness of a distribution's tails relative to normal."
+    },
+    "kyle_lambda": {
+      "aliases": [
+        "kyle lambda",
+        "price impact coefficient",
+        "kyle's lambda",
+        "market impact slope",
+        "lambda liquidity"
+      ],
+      "description": "Price impact coefficient relating price changes to signed order flow."
+    },
+    "l_cv": {
+      "aliases": [
+        "l-cv",
+        "l coefficient of variation",
+        "lcv",
+        "l-moment cv"
+      ],
+      "description": "L-moment coefficient of variation, a robust relative dispersion measure."
+    },
+    "l_kurtosis": {
+      "aliases": [
+        "l-kurtosis",
+        "fourth l-moment ratio",
+        "robust kurtosis",
+        "l-moment kurtosis",
+        "tau4",
+        "robust tailedness"
+      ],
+      "description": "L-moment based robust measure of distribution tail weight."
+    },
+    "l_scale": {
+      "aliases": [
+        "l-scale",
+        "l-moment scale",
+        "lscale",
+        "second l-moment"
+      ],
+      "description": "Second L-moment measuring scale, a robust alternative to standard deviation."
+    },
+    "l_skewness": {
+      "aliases": [
+        "l-skewness",
+        "third l-moment ratio",
+        "robust skewness",
+        "l-moment skew",
+        "tau3",
+        "robust asymmetry"
+      ],
+      "description": "L-moment based robust measure of distribution asymmetry."
+    },
+    "largest_position": {
+      "aliases": [
+        "largest position",
+        "biggest holding",
+        "top position weight",
+        "max position",
+        "concentration top holding"
+      ],
+      "description": "Size of the single biggest position as a share of the portfolio."
+    },
+    "latency_p50": {
+      "aliases": [
+        "p50",
+        "latency",
+        "median latency",
+        "p50 latency",
+        "50th percentile"
+      ],
+      "description": "Median response time, the 50th percentile of latencies."
+    },
+    "latency_p75": {
+      "aliases": [
+        "p75",
+        "p75 latency",
+        "75th percentile",
+        "latency p75"
+      ],
+      "description": "75th percentile of response times."
+    },
+    "latency_p90": {
+      "aliases": [
+        "p90",
+        "p90 latency",
+        "90th percentile",
+        "latency p90"
+      ],
+      "description": "90th percentile of response times."
+    },
+    "latency_p95": {
+      "aliases": [
+        "p95",
+        "p95 latency",
+        "95th percentile",
+        "tail latency"
+      ],
+      "description": "95th percentile of response times."
+    },
+    "latency_p99": {
+      "aliases": [
+        "p99",
+        "p99 latency",
+        "99th percentile",
+        "tail latency"
+      ],
+      "description": "99th percentile of response times."
+    },
+    "latency_p999": {
+      "aliases": [
+        "p999",
+        "p99.9",
+        "p999 latency",
+        "99.9th percentile",
+        "extreme tail latency"
+      ],
+      "description": "99.9th percentile of response times, the extreme tail."
+    },
+    "latency_stddev": {
+      "aliases": [
+        "latency stddev",
+        "latency std",
+        "latency standard deviation",
+        "response time stddev"
+      ],
+      "description": "Standard deviation of response times measuring latency spread."
+    },
+    "levene": {
+      "aliases": [
+        "levene test",
+        "equal variance test",
+        "homogeneity of variance",
+        "variance equality test",
+        "robust variance test",
+        "homoscedasticity test"
+      ],
+      "description": "Robust test for equality of variances across groups."
+    },
+    "lift": {
+      "aliases": [
+        "uplift",
+        "relative improvement",
+        "percent change",
+        "incremental gain",
+        "mean lift",
+        "improvement over baseline"
+      ],
+      "description": "Relative or absolute improvement of one group's mean over another."
+    },
+    "liquidity_coverage": {
+      "aliases": [
+        "liquidity coverage",
+        "liquidatable fraction",
+        "days to liquidate coverage",
+        "liquidation coverage",
+        "portfolio liquidity"
+      ],
+      "description": "Share of the portfolio liquidatable within a given number of days."
+    },
+    "ljung_box": {
+      "aliases": [
+        "ljung box test",
+        "portmanteau test",
+        "white noise test",
+        "joint autocorrelation test",
+        "serial correlation test",
+        "q statistic"
+      ],
+      "description": "Tests whether a group of autocorrelations is jointly zero."
+    },
+    "log_likelihood_gaussian": {
+      "aliases": [
+        "log likelihood",
+        "gaussian log likelihood",
+        "loglik",
+        "log-likelihood"
+      ],
+      "description": "Gaussian log-likelihood of residuals, higher means a better fit."
+    },
+    "log_loss": {
+      "aliases": [
+        "log loss",
+        "cross entropy",
+        "logistic loss",
+        "negative log likelihood",
+        "logloss",
+        "cross-entropy loss"
+      ],
+      "description": "Average negative log-likelihood of predicted class probabilities."
+    },
+    "long_exposure": {
+      "aliases": [
+        "long exposure",
+        "long book",
+        "long side exposure",
+        "gross long",
+        "long leverage"
+      ],
+      "description": "Total value of long positions relative to capital."
+    },
+    "long_short_ratio": {
+      "aliases": [
+        "long short ratio",
+        "long/short ratio",
+        "l/s ratio",
+        "long to short",
+        "long vs short"
+      ],
+      "description": "Ratio of long exposure to short exposure in the portfolio."
+    },
+    "m2_measure": {
+      "aliases": [
+        "modigliani risk adjusted performance",
+        "m squared",
+        "sharpe in return units",
+        "volatility matched return",
+        "rap measure"
+      ],
+      "description": "Risk-adjusted return scaled to the benchmark's volatility for direct comparison."
+    },
+    "macaulay_duration": {
+      "aliases": [
+        "bond duration",
+        "weighted average term",
+        "macaulay term",
+        "time to cashflows",
+        "average maturity weighted"
+      ],
+      "description": "Cash-flow-weighted average time to receive a bond's payments."
+    },
+    "macro_f1": {
+      "aliases": [
+        "macro f1",
+        "macro-averaged f1",
+        "mean class f1",
+        "unweighted f1",
+        "per-class f1 average",
+        "macro f-score"
+      ],
+      "description": "Unweighted average of per-class F1 scores."
+    },
+    "mae": {
+      "aliases": [
+        "mae",
+        "mean absolute error",
+        "absolute error",
+        "avg absolute error"
+      ],
+      "description": "Average absolute difference between predictions and targets."
+    },
+    "mann_whitney": {
+      "aliases": [
+        "mann whitney u",
+        "wilcoxon rank-sum",
+        "u test",
+        "rank sum test",
+        "nonparametric two sample test",
+        "ranked comparison"
+      ],
+      "description": "Nonparametric test of whether one sample tends to exceed another."
+    },
+    "map_at_k": {
+      "aliases": [
+        "map",
+        "map@k",
+        "mean average precision",
+        "average precision at k",
+        "map at k"
+      ],
+      "description": "Mean of average precision over queries, truncated at rank k."
+    },
+    "mape": {
+      "aliases": [
+        "mape",
+        "smape",
+        "mean absolute percentage error",
+        "percentage error",
+        "percent error"
+      ],
+      "description": "Average absolute error expressed as a percentage of actual values."
+    },
+    "margin_pct": {
+      "aliases": [
+        "profit margin",
+        "margin",
+        "gross margin",
+        "markup percent",
+        "profitability"
+      ],
+      "description": "Profit as a percentage of revenue after costs."
+    },
+    "markedness": {
+      "aliases": [
+        "markedness",
+        "deltap",
+        "precision plus npv minus one",
+        "informedness counterpart",
+        "mark",
+        "predictive markedness"
+      ],
+      "description": "Sum of precision and negative predictive value minus one."
+    },
+    "martin_ratio": {
+      "aliases": [
+        "ulcer performance index",
+        "return over ulcer index",
+        "return per drawdown pain",
+        "martin performance ratio"
+      ],
+      "description": "Annualized return divided by the ulcer index."
+    },
+    "mase": {
+      "aliases": [
+        "mase",
+        "scaled error",
+        "mean absolute scaled error",
+        "scaled forecast error"
+      ],
+      "description": "Forecast error scaled against a naive seasonal benchmark."
+    },
+    "max_consecutive_losses": {
+      "aliases": [
+        "longest losing streak",
+        "most losses in a row",
+        "longest down streak",
+        "consecutive losing periods",
+        "worst losing run"
+      ],
+      "description": "Longest run of consecutive losing periods."
+    },
+    "max_drawdown": {
+      "aliases": [
+        "worst peak to trough",
+        "largest drop from a high",
+        "biggest loss from the top",
+        "maximum decline",
+        "deepest equity fall"
+      ],
+      "description": "Worst peak-to-trough decline of the equity curve."
+    },
+    "max_drawdown_duration": {
+      "aliases": [
+        "longest underwater period",
+        "time stuck below peak",
+        "longest recovery time",
+        "duration of worst drawdown",
+        "longest time below high water mark"
+      ],
+      "description": "Longest stretch the equity curve stayed below a prior peak."
+    },
+    "max_error": {
+      "aliases": [
+        "max error",
+        "maximum error",
+        "worst case error",
+        "largest residual"
+      ],
+      "description": "Largest single absolute residual between prediction and target."
+    },
+    "max_to_sum_ratio": {
+      "aliases": [
+        "largest contribution share",
+        "max over sum",
+        "tail dominance ratio",
+        "concentration of extremes",
+        "biggest value share of total"
+      ],
+      "description": "Largest single value over the total sum; tail dominance diagnostic."
+    },
+    "maximum_calibration_error": {
+      "aliases": [
+        "maximum calibration error",
+        "mce",
+        "worst-bin calibration error",
+        "max miscalibration",
+        "peak calibration gap",
+        "worst confidence gap"
+      ],
+      "description": "Largest binned gap between predicted confidence and actual accuracy."
+    },
+    "mcc": {
+      "aliases": [
+        "matthews correlation coefficient",
+        "mcc",
+        "matthews",
+        "phi coefficient",
+        "confusion matrix correlation",
+        "balanced confusion score"
+      ],
+      "description": "Correlation between predicted and true labels from the confusion matrix."
+    },
+    "mcnemar": {
+      "aliases": [
+        "mcnemar test",
+        "paired binary test",
+        "matched pairs test",
+        "discordant pairs test",
+        "test for paired proportions",
+        "before-after binary test"
+      ],
+      "description": "Tests for changes in paired binary outcomes between two conditions."
+    },
+    "mean_abs_deviation": {
+      "aliases": [
+        "mad",
+        "mean absolute deviation",
+        "average deviation",
+        "absolute deviation"
+      ],
+      "description": "Average absolute distance of values from their mean."
+    },
+    "mean_arctangent_ape": {
+      "aliases": [
+        "maape",
+        "mean arctangent ape",
+        "arctangent percentage error",
+        "arctan ape"
+      ],
+      "description": "Arctangent-transformed percentage error, bounded and robust to zeros."
+    },
+    "mean_average_precision": {
+      "aliases": [
+        "map",
+        "mean average precision",
+        "average precision",
+        "overall map",
+        "full map"
+      ],
+      "description": "Mean over queries of the average precision across all relevant items."
+    },
+    "mean_directional_accuracy": {
+      "aliases": [
+        "mda",
+        "directional accuracy",
+        "mean directional accuracy",
+        "direction accuracy",
+        "up down accuracy"
+      ],
+      "description": "Fraction of times the forecast predicts the correct direction of change."
+    },
+    "mean_interval_width": {
+      "aliases": [
+        "mean interval width",
+        "interval width",
+        "average interval width",
+        "prediction interval width",
+        "miw"
+      ],
+      "description": "Average width of the predicted lower-to-upper intervals."
+    },
+    "mean_log_deviation": {
+      "aliases": [
+        "mld",
+        "mean log deviation",
+        "theil l",
+        "log deviation inequality"
+      ],
+      "description": "Inequality measure averaging the log gap between mean and individual values."
+    },
+    "mean_percentage_error": {
+      "aliases": [
+        "mpe",
+        "mean percentage error",
+        "percentage bias",
+        "signed percentage error"
+      ],
+      "description": "Average signed percentage error, indicating forecast bias direction."
+    },
+    "mean_squared_error": {
+      "aliases": [
+        "mse",
+        "mean squared error",
+        "squared error",
+        "l2 loss"
+      ],
+      "description": "Average of squared differences between predictions and targets."
+    },
+    "mean_tweedie_deviance": {
+      "aliases": [
+        "mean tweedie deviance",
+        "tweedie deviance",
+        "tweedie loss",
+        "tweedie"
+      ],
+      "description": "Average Tweedie deviance loss for the chosen power parameter."
+    },
+    "medae": {
+      "aliases": [
+        "median absolute error",
+        "medae",
+        "median abs error",
+        "robust mae"
+      ],
+      "description": "Median of absolute residuals, robust to outliers."
+    },
+    "median_abs_deviation": {
+      "aliases": [
+        "mad",
+        "median absolute deviation",
+        "robust spread",
+        "robust dispersion"
+      ],
+      "description": "Median of absolute deviations from the median, a robust spread measure."
+    },
+    "median_absolute_percentage_error": {
+      "aliases": [
+        "mdape",
+        "median absolute percentage error",
+        "median ape",
+        "median percentage error"
+      ],
+      "description": "Median of absolute percentage errors, robust to outlier errors."
+    },
+    "merton_distance_to_default": {
+      "aliases": [
+        "distance to default",
+        "dd",
+        "merton dd",
+        "default distance",
+        "structural default measure"
+      ],
+      "description": "Standard deviations of asset value separating a firm from default."
+    },
+    "merton_pd": {
+      "aliases": [
+        "merton default probability",
+        "structural pd",
+        "default probability",
+        "merton model pd",
+        "kmv pd"
+      ],
+      "description": "Default probability from the Merton structural firm-value model."
+    },
+    "micro_f1": {
+      "aliases": [
+        "micro f1",
+        "micro-averaged f1",
+        "pooled f1",
+        "global f1",
+        "instance-weighted f1",
+        "micro f-score"
+      ],
+      "description": "F1 computed from globally pooled true positives, false positives, and negatives."
+    },
+    "midhinge": {
+      "aliases": [
+        "midhinge",
+        "quartile midpoint",
+        "q1 q3 average",
+        "hinge mean"
+      ],
+      "description": "Average of the first and third quartiles, a robust center estimate."
+    },
+    "mode_share": {
+      "aliases": [
+        "most common",
+        "mode share",
+        "modal share",
+        "most frequent",
+        "top value share"
+      ],
+      "description": "Fraction of rows held by the single most frequent value."
+    },
+    "modified_duration": {
+      "aliases": [
+        "mod duration",
+        "bond rate sensitivity",
+        "price sensitivity",
+        "yield duration",
+        "interest rate sensitivity"
+      ],
+      "description": "Percentage price change of a bond per unit change in yield."
+    },
+    "modified_sharpe_ratio": {
+      "aliases": [
+        "sharpe using modified var",
+        "return over modified var",
+        "fat tail adjusted sharpe",
+        "var based sharpe ratio",
+        "non-normal risk adjusted return"
+      ],
+      "description": "Sharpe-style ratio using modified (Cornish-Fisher) VaR as the risk denominator."
+    },
+    "mood_test": {
+      "aliases": [
+        "mood's test",
+        "mood scale test",
+        "dispersion test",
+        "nonparametric scale test",
+        "spread comparison",
+        "equal variability test"
+      ],
+      "description": "Nonparametric test comparing the scale or spread of two samples."
+    },
+    "moors_kurtosis": {
+      "aliases": [
+        "moors kurtosis",
+        "octile kurtosis",
+        "robust kurtosis",
+        "quantile kurtosis",
+        "robust tailedness",
+        "moors measure"
+      ],
+      "description": "Octile-based robust measure of distribution tail weight."
+    },
+    "mrr": {
+      "aliases": [
+        "mrr",
+        "mean reciprocal rank",
+        "reciprocal rank",
+        "first hit rank",
+        "average inverse rank"
+      ],
+      "description": "Average of the reciprocal rank of the first relevant result per query."
+    },
+    "msle": {
+      "aliases": [
+        "rmsle",
+        "msle",
+        "mean squared log error",
+        "log error",
+        "squared log error"
+      ],
+      "description": "Mean squared error computed on log-transformed values."
+    },
+    "mtbf": {
+      "aliases": [
+        "mtbf",
+        "mean time between failures",
+        "time between failures",
+        "failure interval"
+      ],
+      "description": "Average operating time between consecutive system failures."
+    },
+    "mutual_info_score": {
+      "aliases": [
+        "mutual information",
+        "mutual info score",
+        "mi",
+        "shared information",
+        "information overlap",
+        "label mutual information"
+      ],
+      "description": "Shared information between two label assignments measured in nats."
+    },
+    "nash_sutcliffe_efficiency": {
+      "aliases": [
+        "nse",
+        "nash sutcliffe",
+        "nash-sutcliffe efficiency",
+        "nash sutcliffe efficiency"
+      ],
+      "description": "Forecast skill relative to using the observed mean as prediction."
+    },
+    "ndcg_at_k": {
+      "aliases": [
+        "ndcg",
+        "ndcg@k",
+        "normalized dcg",
+        "ranking quality",
+        "ndcg at k"
+      ],
+      "description": "Discounted cumulative gain over top-k normalized by the ideal ranking."
+    },
+    "negative_likelihood_ratio": {
+      "aliases": [
+        "negative likelihood ratio",
+        "lr-",
+        "nlr",
+        "negative lr",
+        "likelihood ratio negative",
+        "test rule-out ratio"
+      ],
+      "description": "Odds of a negative test result in cases versus non-cases."
+    },
+    "negative_predictive_value": {
+      "aliases": [
+        "negative predictive value",
+        "npv",
+        "true negatives among predicted negatives",
+        "negative precision",
+        "rule-out value",
+        "predicted negative correctness"
+      ],
+      "description": "Fraction of negative predictions that are actually negative."
+    },
+    "nelson_aalen_cumhaz": {
+      "aliases": [
+        "nelson aalen estimator",
+        "cumulative hazard",
+        "cumulative hazard function",
+        "hazard accumulation",
+        "na estimator",
+        "survival hazard estimate"
+      ],
+      "description": "Nonparametric estimate of cumulative hazard over time."
+    },
+    "net_debt_to_ebitda": {
+      "aliases": [
+        "net leverage",
+        "net debt leverage",
+        "net debt ebitda multiple",
+        "net borrowing ratio",
+        "cash-adjusted leverage"
+      ],
+      "description": "Leverage using debt net of cash over operating earnings."
+    },
+    "net_exposure": {
+      "aliases": [
+        "net exposure",
+        "net leverage",
+        "net book",
+        "long minus short",
+        "directional exposure"
+      ],
+      "description": "Long exposure minus short exposure relative to capital."
+    },
+    "net_margin": {
+      "aliases": [
+        "net profit margin",
+        "bottom line margin",
+        "profit margin",
+        "net income margin",
+        "earnings margin"
+      ],
+      "description": "Net income as a share of revenue."
+    },
+    "normalized_hhi": {
+      "aliases": [
+        "normalized hhi",
+        "rescaled hhi",
+        "adjusted herfindahl",
+        "hhi star"
+      ],
+      "description": "Herfindahl index rescaled to 0-1 independent of the number of firms."
+    },
+    "normalized_mutual_info": {
+      "aliases": [
+        "normalized mutual information",
+        "nmi",
+        "scaled mutual information",
+        "normalized mi",
+        "clustering nmi",
+        "information-based cluster agreement"
+      ],
+      "description": "Mutual information scaled to a zero-to-one clustering agreement score."
+    },
+    "npv": {
+      "aliases": [
+        "net present value",
+        "discounted cash flow",
+        "present value",
+        "dcf value",
+        "discounted value"
+      ],
+      "description": "Present value of cash flows minus the initial investment."
+    },
+    "nrmse": {
+      "aliases": [
+        "nrmse",
+        "normalized rmse",
+        "normalised rmse",
+        "normalized root mean squared error"
+      ],
+      "description": "Root mean squared error normalized by the target range or mean."
+    },
+    "null_fraction": {
+      "aliases": [
+        "null",
+        "missing",
+        "null rate",
+        "missing fraction",
+        "empty share",
+        "nan rate"
+      ],
+      "description": "Fraction of cells in a column that are empty or missing."
+    },
+    "number_needed_to_treat": {
+      "aliases": [
+        "nnt",
+        "patients to treat",
+        "treatment efficiency",
+        "inverse risk difference",
+        "number to treat",
+        "harm prevention count"
+      ],
+      "description": "Number of patients treated to prevent one additional adverse outcome."
+    },
+    "odds_ratio": {
+      "aliases": [
+        "or",
+        "odds ratio 2x2",
+        "relative odds",
+        "exposure odds ratio",
+        "association odds",
+        "odds comparison"
+      ],
+      "description": "Ratio of the odds of an outcome between two groups."
+    },
+    "omega_ratio": {
+      "aliases": [
+        "gains over losses around threshold",
+        "omega performance measure",
+        "upside over downside probability ratio",
+        "gain loss area ratio"
+      ],
+      "description": "Probability-weighted gains above a threshold divided by losses below it."
+    },
+    "omega_sharpe_ratio": {
+      "aliases": [
+        "omega minus one",
+        "omega excess ratio",
+        "sharpe form of omega",
+        "omega based excess measure"
+      ],
+      "description": "Omega ratio minus one; expresses omega as an excess performance figure."
+    },
+    "operating_margin": {
+      "aliases": [
+        "operating profit margin",
+        "ebit margin",
+        "operating profitability",
+        "operating income margin",
+        "core margin"
+      ],
+      "description": "Operating income as a share of revenue."
+    },
+    "outlier_count": {
+      "aliases": [
+        "outliers",
+        "outlier",
+        "anomalies",
+        "extreme values",
+        "outlier count"
+      ],
+      "description": "Number of values falling outside the Tukey IQR fences."
+    },
+    "p_value": {
+      "aliases": [
+        "t-test",
+        "significance",
+        "significant",
+        "pvalue",
+        "hypothesis test p",
+        "statistical significance"
+      ],
+      "description": "Probability of results this extreme if the null hypothesis holds."
+    },
+    "pain_index": {
+      "aliases": [
+        "average drawdown depth",
+        "mean underwater level",
+        "average pain of drawdowns",
+        "typical drawdown magnitude"
+      ],
+      "description": "Average depth of drawdowns over the whole period."
+    },
+    "pain_ratio": {
+      "aliases": [
+        "return over pain index",
+        "return per average drawdown",
+        "pain adjusted return",
+        "return relative to drawdown pain"
+      ],
+      "description": "Excess return divided by the pain index."
+    },
+    "par_yield": {
+      "aliases": [
+        "par rate",
+        "par coupon",
+        "par bond yield",
+        "coupon at par",
+        "par swap rate"
+      ],
+      "description": "Coupon rate that prices a bond exactly at par."
+    },
+    "parametric_es": {
+      "aliases": [
+        "gaussian expected shortfall",
+        "normal distribution es",
+        "analytic expected shortfall",
+        "parametric tail loss",
+        "variance covariance es"
+      ],
+      "description": "Expected shortfall computed assuming normally distributed returns."
+    },
+    "parametric_var": {
+      "aliases": [
+        "gaussian var",
+        "normal distribution var",
+        "analytic value at risk",
+        "variance covariance var",
+        "parametric value at risk"
+      ],
+      "description": "Value-at-risk computed assuming normally distributed returns."
+    },
+    "parkinson_volatility": {
+      "aliases": [
+        "high low range volatility",
+        "parkinson vol",
+        "intraday high low volatility",
+        "range estimator volatility"
+      ],
+      "description": "Range-based volatility estimator using high and low prices."
+    },
+    "partial_autocorrelation": {
+      "aliases": [
+        "pacf",
+        "partial acf",
+        "partial serial correlation",
+        "direct lag correlation",
+        "partial autocorrelation function",
+        "conditional autocorrelation"
+      ],
+      "description": "Correlation of a series with a lag after removing intermediate lags."
+    },
+    "participation_rate": {
+      "aliases": [
+        "participation rate",
+        "pov",
+        "percent of volume",
+        "volume participation",
+        "market share of trade"
+      ],
+      "description": "Order volume as a fraction of total market volume over the trading window."
+    },
+    "pass_at_k": {
+      "aliases": [
+        "pass@k",
+        "pass at k",
+        "pass@1",
+        "code pass rate",
+        "k-sample success"
+      ],
+      "description": "Probability that at least one of k sampled solutions is correct."
+    },
+    "peak_memory": {
+      "aliases": [
+        "peak memory",
+        "memory",
+        "max memory",
+        "peak ram",
+        "memory high water mark"
+      ],
+      "description": "Maximum memory consumed during execution."
+    },
+    "pearson_median_skewness": {
+      "aliases": [
+        "skewness",
+        "pearson skew",
+        "median skewness",
+        "asymmetry"
+      ],
+      "description": "Skewness estimate from the gap between mean and median scaled by deviation."
+    },
+    "percentage_agreement": {
+      "aliases": [
+        "percentage agreement",
+        "percent agreement",
+        "observed agreement",
+        "raw rater agreement",
+        "po",
+        "simple agreement"
+      ],
+      "description": "Fraction of items two raters labeled identically."
+    },
+    "percentile": {
+      "aliases": [
+        "p99.9",
+        "p75",
+        "percentile",
+        "quantile",
+        "pct",
+        "p95"
+      ],
+      "description": "Value below which a given percentage of the data falls."
+    },
+    "percentile_ratio": {
+      "aliases": [
+        "percentile ratio",
+        "p90 p10",
+        "decile ratio",
+        "quantile ratio",
+        "p90/p10"
+      ],
+      "description": "Ratio between two percentiles, summarizing spread between distribution tails."
+    },
+    "permutation_entropy": {
+      "aliases": [
+        "ordinal entropy",
+        "complexity measure",
+        "time series complexity",
+        "bandt pompe entropy",
+        "ordinal pattern entropy",
+        "signal complexity"
+      ],
+      "description": "Complexity measure based on the frequency of ordinal patterns in a series."
+    },
+    "perplexity": {
+      "aliases": [
+        "perplexity",
+        "ppl",
+        "model perplexity",
+        "language model uncertainty",
+        "exp negative loglik"
+      ],
+      "description": "Exponentiated average negative log-likelihood, measuring language model uncertainty."
+    },
+    "pickands_estimator": {
+      "aliases": [
+        "tail index estimator",
+        "extreme value shape parameter",
+        "pickands tail estimate",
+        "evt shape estimator",
+        "fat tail exponent"
+      ],
+      "description": "Estimates the extreme-value tail index using spaced order statistics."
+    },
+    "pielou_evenness": {
+      "aliases": [
+        "pielou",
+        "evenness",
+        "pielou evenness",
+        "species evenness"
+      ],
+      "description": "Diversity evenness normalizing Shannon entropy by the maximum possible."
+    },
+    "pinball_loss": {
+      "aliases": [
+        "pinball",
+        "quantile loss",
+        "pinball loss",
+        "quantile regression loss"
+      ],
+      "description": "Quantile loss penalizing over and under prediction asymmetrically."
+    },
+    "pme_plus_lambda": {
+      "aliases": [
+        "pme plus",
+        "pme+ lambda",
+        "capital dynamics pme",
+        "scaling factor",
+        "adjusted pme"
+      ],
+      "description": "Capital Dynamics PME+ scaling factor matching fund and index value."
+    },
+    "point_biserial": {
+      "aliases": [
+        "point biserial correlation",
+        "binary-continuous correlation",
+        "dichotomous correlation",
+        "binary correlation",
+        "pointbiserialr",
+        "0/1 to value correlation"
+      ],
+      "description": "Correlation between a binary variable and a continuous variable."
+    },
+    "poisson_deviance": {
+      "aliases": [
+        "poisson deviance",
+        "mean poisson deviance",
+        "poisson loss",
+        "count deviance"
+      ],
+      "description": "Mean deviance loss assuming a Poisson-distributed count target."
+    },
+    "portfolio_turnover": {
+      "aliases": [
+        "turnover",
+        "portfolio turnover",
+        "trading turnover",
+        "rebalance turnover",
+        "weight change"
+      ],
+      "description": "Fraction of the portfolio traded between two periods."
+    },
+    "positive_likelihood_ratio": {
+      "aliases": [
+        "positive likelihood ratio",
+        "lr+",
+        "plr",
+        "positive lr",
+        "likelihood ratio positive",
+        "test rule-in ratio"
+      ],
+      "description": "Odds of a positive test result in cases versus non-cases."
+    },
+    "pr_auc": {
+      "aliases": [
+        "pr auc",
+        "average precision",
+        "auprc",
+        "area under precision recall curve",
+        "pr-auc",
+        "precision recall area"
+      ],
+      "description": "Area under the precision-recall curve, useful for rare positives."
+    },
+    "precision": {
+      "aliases": [
+        "precision",
+        "positive predictive value",
+        "ppv",
+        "true positives among predicted positives",
+        "exactness",
+        "predicted positive correctness"
+      ],
+      "description": "Fraction of positive predictions that are correct."
+    },
+    "precision_at_k": {
+      "aliases": [
+        "precision@k",
+        "precision at k",
+        "p@k",
+        "top-k precision",
+        "relevant in top k"
+      ],
+      "description": "Fraction of the top-k retrieved items that are relevant, averaged over queries."
+    },
+    "predictive_parity_difference": {
+      "aliases": [
+        "predictive parity difference",
+        "ppv gap",
+        "precision parity gap",
+        "predictive value disparity",
+        "fairness precision difference",
+        "calibration parity gap"
+      ],
+      "description": "Difference in positive predictive value across protected groups."
+    },
+    "probabilistic_sharpe_ratio": {
+      "aliases": [
+        "psr",
+        "probability sharpe beats threshold",
+        "confidence in the sharpe",
+        "bailey lopez de prado sharpe",
+        "is the sharpe real"
+      ],
+      "description": "Probability that the true Sharpe ratio exceeds a benchmark, accounting for track-record length and non-normality."
+    },
+    "profit_factor": {
+      "aliases": [
+        "gross gains over gross losses",
+        "total wins over total losses",
+        "profit to loss ratio",
+        "sum of gains over sum of losses"
+      ],
+      "description": "Gross profits divided by gross losses."
+    },
+    "proportion_z": {
+      "aliases": [
+        "two-proportion z test",
+        "proportion test",
+        "compare proportions",
+        "z test for proportions",
+        "difference in proportions test",
+        "rate comparison test"
+      ],
+      "description": "Tests whether two groups differ in their proportions."
+    },
+    "psi": {
+      "aliases": [
+        "psi",
+        "population stability",
+        "distribution shift",
+        "drift",
+        "stability index"
+      ],
+      "description": "Population stability index measuring distribution shift between expected and actual."
+    },
+    "purity": {
+      "aliases": [
+        "purity",
+        "cluster purity",
+        "dominant class fraction",
+        "clustering purity",
+        "majority-class share",
+        "cluster accuracy"
+      ],
+      "description": "Fraction of items in the dominant true class of their cluster."
+    },
+    "quartile_coefficient_dispersion": {
+      "aliases": [
+        "qcd",
+        "quartile dispersion",
+        "quartile coefficient",
+        "robust cv"
+      ],
+      "description": "Quartile spread divided by quartile sum, a robust relative dispersion."
+    },
+    "quick_ratio": {
+      "aliases": [
+        "acid test",
+        "acid-test ratio",
+        "liquid ratio",
+        "quick assets ratio",
+        "fast liquidity"
+      ],
+      "description": "Liquidity excluding inventory from current assets over current liabilities."
+    },
+    "r2": {
+      "aliases": [
+        "r2",
+        "r^2",
+        "r squared",
+        "coefficient of determination",
+        "goodness of fit"
+      ],
+      "description": "Fraction of target variance explained by the model."
+    },
+    "r_precision": {
+      "aliases": [
+        "r-precision",
+        "r precision",
+        "precision at r",
+        "rprec",
+        "precision at num relevant"
+      ],
+      "description": "Precision measured at a cutoff equal to the number of relevant items."
+    },
+    "r_squared": {
+      "aliases": [
+        "fit to benchmark",
+        "variance explained by index",
+        "correlation squared with benchmark",
+        "how well benchmark explains returns",
+        "goodness of fit to market"
+      ],
+      "description": "Fraction of return variance explained by the benchmark."
+    },
+    "rachev_ratio": {
+      "aliases": [
+        "tail gain over tail loss",
+        "upside es over downside es",
+        "extreme reward to risk ratio",
+        "rachev reward risk ratio"
+      ],
+      "description": "Expected tail gain divided by expected tail loss at chosen quantiles."
+    },
+    "rand_index": {
+      "aliases": [
+        "rand index",
+        "ri",
+        "pairwise agreement",
+        "cluster pair accuracy",
+        "rand score",
+        "pair consistency"
+      ],
+      "description": "Fraction of point pairs clustered consistently between two labelings."
+    },
+    "range_value": {
+      "aliases": [
+        "range",
+        "spread",
+        "max minus min",
+        "data range",
+        "value range"
+      ],
+      "description": "Difference between the maximum and minimum values."
+    },
+    "rank_biserial": {
+      "aliases": [
+        "rank biserial correlation",
+        "wendt effect size",
+        "mann-whitney effect size",
+        "rank-based effect size",
+        "ordinal effect size",
+        "u-based effect size"
+      ],
+      "description": "Effect size for Mann-Whitney based on rank dominance."
+    },
+    "ratio_share": {
+      "aliases": [
+        "share",
+        "proportion",
+        "rate",
+        "fraction",
+        "percentage true",
+        "ratio"
+      ],
+      "description": "Fraction of rows where a flag or condition is true."
+    },
+    "rbp": {
+      "aliases": [
+        "rbp",
+        "rank biased precision",
+        "rank-biased precision",
+        "persistence weighted precision"
+      ],
+      "description": "Rank-biased precision weighting relevance by a geometric user-persistence factor."
+    },
+    "realization_ratio": {
+      "aliases": [
+        "realized ratio",
+        "realization rate",
+        "cash realized",
+        "distribution realization",
+        "realized proportion"
+      ],
+      "description": "Share of fund value already returned as cash distributions."
+    },
+    "realized_shortfall": {
+      "aliases": [
+        "observed tail loss average",
+        "actual shortfall on breaches",
+        "realized expected shortfall",
+        "empirical breach loss",
+        "average realized var exceedance"
+      ],
+      "description": "Average of actually observed losses that breached VaR."
+    },
+    "realized_variance": {
+      "aliases": [
+        "sum of squared returns",
+        "realized var",
+        "high frequency variance",
+        "intraday variance estimate",
+        "summed squared returns"
+      ],
+      "description": "Sum of squared returns over a period; high-frequency variance estimate."
+    },
+    "realized_volatility": {
+      "aliases": [
+        "realized vol",
+        "high frequency volatility",
+        "annualized realized volatility",
+        "observed volatility from returns",
+        "root of summed squared returns"
+      ],
+      "description": "Square root of realized variance; volatility from summed squared returns."
+    },
+    "recall": {
+      "aliases": [
+        "recall",
+        "sensitivity",
+        "true positive rate",
+        "tpr",
+        "hit rate",
+        "completeness"
+      ],
+      "description": "Fraction of actual positives the model correctly finds."
+    },
+    "recall_at_k": {
+      "aliases": [
+        "recall@k",
+        "recall at k",
+        "r@k",
+        "top-k recall",
+        "found relevant fraction"
+      ],
+      "description": "Fraction of all relevant items found within the top-k results."
+    },
+    "reconciliation_total": {
+      "aliases": [
+        "reconciliation",
+        "reconciled",
+        "ledger diff",
+        "balance difference",
+        "tie out"
+      ],
+      "description": "Difference between two totals; zero means the ledgers reconcile."
+    },
+    "recovery_factor": {
+      "aliases": [
+        "return over max drawdown",
+        "profit relative to worst loss",
+        "total gain per drawdown",
+        "recovery from drawdown ratio"
+      ],
+      "description": "Total return divided by maximum drawdown."
+    },
+    "recovery_rate": {
+      "aliases": [
+        "recovery",
+        "1 minus lgd",
+        "collection rate",
+        "recovered amount",
+        "recovery percent"
+      ],
+      "description": "Fraction of exposure recovered after a default."
+    },
+    "relative_absolute_error": {
+      "aliases": [
+        "rae",
+        "relative absolute error",
+        "relative mae",
+        "relative error"
+      ],
+      "description": "Total absolute error relative to a naive mean predictor's error."
+    },
+    "relative_mean_deviation": {
+      "aliases": [
+        "relative mean deviation",
+        "rmd",
+        "normalized mad",
+        "relative deviation"
+      ],
+      "description": "Mean absolute deviation expressed relative to the mean."
+    },
+    "relative_mean_difference": {
+      "aliases": [
+        "relative mean difference",
+        "rmd",
+        "scaled gini difference",
+        "normalized gmd"
+      ],
+      "description": "Gini mean difference scaled by the mean, twice the Gini coefficient."
+    },
+    "relative_risk": {
+      "aliases": [
+        "risk ratio",
+        "rr",
+        "relative risk 2x2",
+        "probability ratio",
+        "incidence ratio",
+        "outcome rate ratio"
+      ],
+      "description": "Ratio of outcome probability between exposed and unexposed groups."
+    },
+    "relative_risk_reduction": {
+      "aliases": [
+        "rrr",
+        "risk reduction",
+        "proportional risk reduction",
+        "relative reduction",
+        "percent risk reduction",
+        "treatment risk reduction"
+      ],
+      "description": "Proportional reduction in risk from treatment relative to control."
+    },
+    "relative_spread": {
+      "aliases": [
+        "relative spread",
+        "percentage spread",
+        "quoted spread pct",
+        "proportional spread",
+        "bid ask spread ratio"
+      ],
+      "description": "Bid-ask spread expressed as a fraction of the midpoint price."
+    },
+    "relative_squared_error": {
+      "aliases": [
+        "rse",
+        "relative squared error",
+        "relative mse",
+        "relative se"
+      ],
+      "description": "Total squared error relative to a naive mean predictor's error."
+    },
+    "rescaled_range": {
+      "aliases": [
+        "r over s statistic",
+        "rescaled range analysis",
+        "range over standard deviation",
+        "hurst rescaled range",
+        "long memory range statistic"
+      ],
+      "description": "Range of cumulative deviations divided by standard deviation; basis of the Hurst exponent."
+    },
+    "restricted_mean_survival_time": {
+      "aliases": [
+        "rmst",
+        "mean survival time",
+        "area under survival curve",
+        "average event-free time",
+        "truncated mean survival",
+        "restricted survival mean"
+      ],
+      "description": "Average event-free time up to a specified time horizon."
+    },
+    "return_on_assets": {
+      "aliases": [
+        "roa",
+        "asset return",
+        "return on total assets",
+        "profitability of assets",
+        "net income to assets"
+      ],
+      "description": "Net income earned per dollar of total assets."
+    },
+    "return_on_equity": {
+      "aliases": [
+        "roe",
+        "equity return",
+        "shareholder return",
+        "net income to equity",
+        "profitability of equity"
+      ],
+      "description": "Net income earned per dollar of shareholder equity."
+    },
+    "return_on_invested_capital": {
+      "aliases": [
+        "roic",
+        "return on capital",
+        "nopat to capital",
+        "capital efficiency",
+        "invested capital return"
+      ],
+      "description": "After-tax operating profit earned per dollar of invested capital."
+    },
+    "reward_to_var_ratio": {
+      "aliases": [
+        "return over var",
+        "return per unit of var",
+        "var adjusted return",
+        "reward to value at risk"
+      ],
+      "description": "Average return divided by value-at-risk."
+    },
+    "risk_difference": {
+      "aliases": [
+        "absolute risk reduction",
+        "arr",
+        "risk difference",
+        "rate difference",
+        "absolute risk difference",
+        "difference in risk"
+      ],
+      "description": "Absolute difference in outcome probability between treatment and control."
+    },
+    "rmse": {
+      "aliases": [
+        "rmse",
+        "root mean squared error",
+        "root mse",
+        "rms error"
+      ],
+      "description": "Square root of the mean squared error between predictions and targets."
+    },
+    "rmsle": {
+      "aliases": [
+        "rmsle",
+        "root mean squared log error",
+        "log rmse",
+        "rms log error"
+      ],
+      "description": "Root mean squared error on log-transformed values."
+    },
+    "rmsse": {
+      "aliases": [
+        "rmsse",
+        "root mean squared scaled error",
+        "scaled rmse",
+        "rms scaled error"
+      ],
+      "description": "Root mean squared error scaled by a naive seasonal benchmark."
+    },
+    "rogers_satchell_volatility": {
+      "aliases": [
+        "drift independent range volatility",
+        "rogers satchell vol",
+        "ohlc volatility with drift",
+        "range estimator robust to trend"
+      ],
+      "description": "Range-based volatility estimator robust to drift, using OHLC prices."
+    },
+    "roll_spread": {
+      "aliases": [
+        "roll spread",
+        "roll's spread",
+        "roll measure",
+        "implied spread",
+        "effective spread estimator"
+      ],
+      "description": "Implied bid-ask spread estimated from the autocovariance of price changes."
+    },
+    "rosenbluth_index": {
+      "aliases": [
+        "rosenbluth",
+        "hall tideman",
+        "rank concentration",
+        "rosenbluth index"
+      ],
+      "description": "Concentration index based on rank-weighted firm shares."
+    },
+    "row_count": {
+      "aliases": [
+        "rows",
+        "row",
+        "count",
+        "record count",
+        "number of rows",
+        "n"
+      ],
+      "description": "Total number of rows in the dataset."
+    },
+    "runs_test": {
+      "aliases": [
+        "wald wolfowitz runs test",
+        "randomness test",
+        "runs test",
+        "sequence randomness test",
+        "test for randomness",
+        "serial randomness"
+      ],
+      "description": "Tests whether a binary sequence is randomly ordered."
+    },
+    "rvpi": {
+      "aliases": [
+        "residual value to paid-in",
+        "unrealized multiple",
+        "remaining value multiple",
+        "residual multiple",
+        "rvpi multiple"
+      ],
+      "description": "Remaining fund value per dollar of contributed capital."
+    },
+    "scott_pi": {
+      "aliases": [
+        "scott's pi",
+        "scott pi",
+        "pi coefficient",
+        "chance-corrected agreement",
+        "pooled-marginal kappa",
+        "rater reliability"
+      ],
+      "description": "Chance-corrected inter-rater agreement using pooled marginal proportions."
+    },
+    "sem": {
+      "aliases": [
+        "standard error",
+        "standard error of the mean",
+        "mean standard error",
+        "sampling error",
+        "se of mean",
+        "precision of the mean"
+      ],
+      "description": "Standard deviation of the sampling distribution of the mean."
+    },
+    "shannon_diversity": {
+      "aliases": [
+        "shannon diversity",
+        "shannon index",
+        "diversity",
+        "h index",
+        "shannon wiener"
+      ],
+      "description": "Shannon diversity index measuring richness and evenness of categories."
+    },
+    "sharpe": {
+      "aliases": [
+        "return per unit of risk",
+        "risk adjusted return",
+        "return over volatility",
+        "reward to variability ratio",
+        "return to risk ratio"
+      ],
+      "description": "Excess return per unit of total volatility."
+    },
+    "sharpness": {
+      "aliases": [
+        "sharpness",
+        "forecast spread",
+        "probability variance",
+        "prediction concentration",
+        "confidence spread",
+        "forecast decisiveness"
+      ],
+      "description": "Spread of predicted probabilities, independent of outcomes."
+    },
+    "short_exposure": {
+      "aliases": [
+        "short exposure",
+        "short book",
+        "short side exposure",
+        "gross short",
+        "short leverage"
+      ],
+      "description": "Total value of short positions relative to capital."
+    },
+    "sidak_rejections": {
+      "aliases": [
+        "sidak correction",
+        "sidak adjustment",
+        "family-wise error control",
+        "multiple testing correction",
+        "dunn-sidak",
+        "number rejected"
+      ],
+      "description": "Counts hypotheses rejected after the Sidak multiple-comparison correction."
+    },
+    "skewness": {
+      "aliases": [
+        "skew",
+        "asymmetry",
+        "distribution asymmetry",
+        "third moment",
+        "lopsidedness",
+        "tail direction"
+      ],
+      "description": "Measures the asymmetry of a distribution about its mean."
+    },
+    "slo_attainment": {
+      "aliases": [
+        "slo attainment",
+        "slo compliance",
+        "sla attainment",
+        "slo met",
+        "service level attainment"
+      ],
+      "description": "Fraction of requests meeting the service level objective threshold."
+    },
+    "somers_d": {
+      "aliases": [
+        "somers d",
+        "somers delta",
+        "ordinal association",
+        "directional rank association",
+        "asymmetric gamma",
+        "predictive ordinal measure"
+      ],
+      "description": "Asymmetric ordinal association measure between two variables."
+    },
+    "sortino": {
+      "aliases": [
+        "return over downside risk",
+        "downside risk adjusted return",
+        "sharpe using only downside",
+        "return per bad volatility",
+        "downside reward to risk"
+      ],
+      "description": "Excess return per unit of downside deviation."
+    },
+    "specificity": {
+      "aliases": [
+        "specificity",
+        "true negative rate",
+        "tnr",
+        "selectivity",
+        "negatives correctly found",
+        "1 minus false positive rate"
+      ],
+      "description": "Fraction of actual negatives correctly identified."
+    },
+    "speedup_ratio": {
+      "aliases": [
+        "speedup",
+        "speed-up",
+        "faster",
+        "times faster",
+        "speedup factor"
+      ],
+      "description": "How many times faster the new version runs versus the old."
+    },
+    "spiegelhalter_z": {
+      "aliases": [
+        "spiegelhalter z",
+        "spiegelhalter's z",
+        "calibration z-test",
+        "z-statistic calibration",
+        "calibration test statistic",
+        "spiegelhalter test"
+      ],
+      "description": "Z-test statistic assessing overall calibration of probability forecasts."
+    },
+    "spread_duration": {
+      "aliases": [
+        "credit spread duration",
+        "spread sensitivity",
+        "oas duration",
+        "credit duration",
+        "spread risk"
+      ],
+      "description": "Price sensitivity of a bond to changes in its credit spread."
+    },
+    "spread_dv01": {
+      "aliases": [
+        "credit dv01",
+        "spread dollar sensitivity",
+        "cs01",
+        "spread bpv",
+        "credit spread dv01"
+      ],
+      "description": "Dollar price change per one basis-point move in credit spread."
+    },
+    "squared_hinge_loss": {
+      "aliases": [
+        "squared hinge loss",
+        "l2 hinge loss",
+        "quadratic hinge",
+        "squared svm loss",
+        "squared margin loss",
+        "l2-svm loss"
+      ],
+      "description": "Squared margin loss penalizing margin violations more steeply."
+    },
+    "srm_pvalue": {
+      "aliases": [
+        "sample ratio mismatch",
+        "srm test",
+        "allocation ratio test",
+        "traffic split check",
+        "assignment balance test",
+        "experiment split test"
+      ],
+      "description": "Tests whether observed group allocation matches the expected split ratio."
+    },
+    "standardized_mean_difference": {
+      "aliases": [
+        "smd",
+        "standardized difference",
+        "balance metric",
+        "covariate balance",
+        "normalized mean difference",
+        "scaled mean difference"
+      ],
+      "description": "Group mean difference scaled by a pooled standard deviation."
+    },
+    "starr_ratio": {
+      "aliases": [
+        "return over cvar",
+        "stable tail adjusted return ratio",
+        "return per expected shortfall",
+        "reward to cvar ratio"
+      ],
+      "description": "Excess return divided by conditional value-at-risk (expected shortfall)."
+    },
+    "sterling_ratio": {
+      "aliases": [
+        "return over average drawdown",
+        "return per typical drawdown",
+        "sterling performance ratio",
+        "drawdown adjusted return"
+      ],
+      "description": "Annualized return divided by average drawdown (often adjusted by a constant)."
+    },
+    "studentized_range": {
+      "aliases": [
+        "studentized range",
+        "q statistic",
+        "range over std",
+        "tukey range"
+      ],
+      "description": "Range divided by standard deviation, used in range-based outlier tests."
+    },
+    "success_at_k": {
+      "aliases": [
+        "success@k",
+        "success at k",
+        "hit at k",
+        "any relevant in top k",
+        "found within k"
+      ],
+      "description": "Whether at least one relevant item appears in the top-k results."
+    },
+    "tail_latency_ratio": {
+      "aliases": [
+        "tail latency ratio",
+        "tail ratio",
+        "p99 over p50",
+        "latency tail ratio"
+      ],
+      "description": "Ratio of tail latency to median, measuring response time skew."
+    },
+    "tail_ratio": {
+      "aliases": [
+        "right tail over left tail",
+        "upside tail vs downside tail",
+        "p95 over p5 ratio",
+        "gain tail to loss tail",
+        "tail asymmetry"
+      ],
+      "description": "Magnitude of the right tail relative to the left tail of returns."
+    },
+    "test_coverage": {
+      "aliases": [
+        "coverage",
+        "test coverage",
+        "code coverage",
+        "line coverage",
+        "coverage percent"
+      ],
+      "description": "Fraction of code lines executed by the test suite."
+    },
+    "theil_index": {
+      "aliases": [
+        "theil",
+        "theil index",
+        "theil t",
+        "entropy inequality"
+      ],
+      "description": "Entropy-based inequality measure that decomposes across subgroups."
+    },
+    "theil_sen_slope": {
+      "aliases": [
+        "theil sen estimator",
+        "robust slope",
+        "median slope",
+        "robust trend",
+        "nonparametric regression slope",
+        "robust linear trend"
+      ],
+      "description": "Robust trend estimate from the median of all pairwise slopes."
+    },
+    "theil_u1": {
+      "aliases": [
+        "theil u1",
+        "theil u",
+        "theil inequality",
+        "u1 statistic"
+      ],
+      "description": "Bounded forecast accuracy index between zero and one."
+    },
+    "theil_u2": {
+      "aliases": [
+        "theil u2",
+        "theil u statistic",
+        "u2 statistic",
+        "theil naive ratio"
+      ],
+      "description": "Forecast accuracy relative to a naive no-change forecast."
+    },
+    "threat_score": {
+      "aliases": [
+        "threat score",
+        "critical success index",
+        "csi",
+        "jaccard for positives",
+        "ts",
+        "hit ratio over union"
+      ],
+      "description": "Intersection over union of predicted and actual positives."
+    },
+    "throughput": {
+      "aliases": [
+        "throughput",
+        "rps",
+        "qps",
+        "ops/sec",
+        "requests per second"
+      ],
+      "description": "Number of operations completed per unit of time."
+    },
+    "time_underwater": {
+      "aliases": [
+        "percent of time in drawdown",
+        "time below high water mark",
+        "fraction underwater",
+        "share of periods in drawdown",
+        "time spent recovering"
+      ],
+      "description": "Fraction of time the equity curve spent below a prior peak."
+    },
+    "token_dice": {
+      "aliases": [
+        "token dice",
+        "dice coefficient",
+        "dice overlap",
+        "token dice score",
+        "dice similarity"
+      ],
+      "description": "Dice overlap coefficient between predicted and reference token sets."
+    },
+    "token_f1": {
+      "aliases": [
+        "token f1",
+        "token-level f1",
+        "word overlap f1",
+        "answer f1",
+        "f1 overlap"
+      ],
+      "description": "F1 score over the overlap of predicted and reference tokens."
+    },
+    "token_jaccard": {
+      "aliases": [
+        "token jaccard",
+        "jaccard overlap",
+        "jaccard index",
+        "token set similarity",
+        "intersection over union tokens"
+      ],
+      "description": "Jaccard similarity between predicted and reference token sets."
+    },
+    "top_k_accuracy": {
+      "aliases": [
+        "top-k accuracy",
+        "top-1",
+        "top-5",
+        "hit rate",
+        "top-k hit",
+        "accuracy at k"
+      ],
+      "description": "Fraction of queries whose correct item appears within the top-k results."
+    },
+    "total_return": {
+      "aliases": [
+        "cumulative return",
+        "overall gain",
+        "compounded return",
+        "total profit percent",
+        "end to end return"
+      ],
+      "description": "Cumulative compounded return over the full period."
+    },
+    "total_variation_distance": {
+      "aliases": [
+        "tvd",
+        "total variation",
+        "statistical distance",
+        "distribution distance",
+        "half l1 distance",
+        "probability difference"
+      ],
+      "description": "Maximum difference in probability assigned by two distributions."
+    },
+    "tracking_error": {
+      "aliases": [
+        "active risk",
+        "volatility of excess returns",
+        "deviation from benchmark",
+        "std of return difference",
+        "how much we diverge from index"
+      ],
+      "description": "Volatility of return differences versus the benchmark."
+    },
+    "tracking_signal": {
+      "aliases": [
+        "tracking signal",
+        "ts",
+        "forecast tracking signal",
+        "bias signal"
+      ],
+      "description": "Cumulative error divided by mean absolute deviation to detect drift."
+    },
+    "treynor_ratio": {
+      "aliases": [
+        "return per unit of beta",
+        "return over systematic risk",
+        "reward to market risk",
+        "beta adjusted return"
+      ],
+      "description": "Excess return per unit of market beta."
+    },
+    "trimean": {
+      "aliases": [
+        "trimean",
+        "tukey trimean",
+        "robust mean",
+        "weighted quartile mean"
+      ],
+      "description": "Weighted average of the median and the two quartiles, a robust center."
+    },
+    "trimmed_mean": {
+      "aliases": [
+        "trimmed mean",
+        "truncated mean",
+        "robust average",
+        "clipped mean"
+      ],
+      "description": "Mean computed after discarding a fraction of the extreme values."
+    },
+    "trimmed_std": {
+      "aliases": [
+        "trimmed std",
+        "robust std",
+        "truncated standard deviation",
+        "clipped std"
+      ],
+      "description": "Standard deviation computed after removing extreme tail values."
+    },
+    "tvpi": {
+      "aliases": [
+        "total value to paid-in",
+        "total multiple",
+        "investment multiple",
+        "moic",
+        "tvpi multiple"
+      ],
+      "description": "Total fund value per dollar of contributed capital."
+    },
+    "ulcer_index": {
+      "aliases": [
+        "rms of drawdowns",
+        "drawdown stress measure",
+        "depth and duration of losses",
+        "downside pain index",
+        "root mean square drawdown"
+      ],
+      "description": "Root-mean-square of drawdowns; depth-and-duration measure of downside pain."
+    },
+    "unexpected_loss": {
+      "aliases": [
+        "ul",
+        "loss volatility",
+        "credit loss stddev",
+        "unexpected credit loss",
+        "loss standard deviation"
+      ],
+      "description": "Volatility of credit losses around the expected loss."
+    },
+    "uniqueness_ratio": {
+      "aliases": [
+        "uniqueness",
+        "unique ratio",
+        "distinct ratio",
+        "cardinality ratio"
+      ],
+      "description": "Fraction of rows whose values are distinct, distinct count over total."
+    },
+    "up_capture_ratio": {
+      "aliases": [
+        "upside capture",
+        "how much we gain in up markets",
+        "participation in market rallies",
+        "up market capture",
+        "capture of positive benchmark moves"
+      ],
+      "description": "Portfolio return relative to benchmark during the benchmark's up periods."
+    },
+    "up_down_beta_ratio": {
+      "aliases": [
+        "bull beta over bear beta",
+        "upside vs downside beta",
+        "beta asymmetry ratio",
+        "up market to down market sensitivity"
+      ],
+      "description": "Bull-market beta divided by bear-market beta; beta asymmetry."
+    },
+    "upside_deviation": {
+      "aliases": [
+        "upside volatility",
+        "good volatility",
+        "above target deviation",
+        "gain side standard deviation",
+        "positive return volatility"
+      ],
+      "description": "Volatility computed only from returns above a target."
+    },
+    "upside_potential": {
+      "aliases": [
+        "average upside",
+        "mean gain above target",
+        "upper partial first moment",
+        "expected upside above target",
+        "average outperformance"
+      ],
+      "description": "Average excess of returns above a target threshold."
+    },
+    "upside_potential_ratio": {
+      "aliases": [
+        "upside over downside risk",
+        "gain potential per downside",
+        "upside to downside deviation ratio",
+        "sortino with upside numerator"
+      ],
+      "description": "Average upside above target divided by downside deviation."
+    },
+    "uptime_pct": {
+      "aliases": [
+        "uptime",
+        "availability",
+        "uptime percent",
+        "uptime percentage",
+        "percent uptime"
+      ],
+      "description": "Percentage of time the system was operational."
+    },
+    "v_measure_score": {
+      "aliases": [
+        "v-measure",
+        "v measure score",
+        "homogeneity completeness harmonic mean",
+        "vmeasure",
+        "clustering v-score",
+        "entropy-based cluster f1"
+      ],
+      "description": "Harmonic mean of homogeneity and completeness for clustering quality."
+    },
+    "value_at_risk": {
+      "aliases": [
+        "var",
+        "worst expected loss at confidence",
+        "maximum likely loss",
+        "loss not exceeded with probability",
+        "downside loss threshold"
+      ],
+      "description": "Loss threshold the portfolio is unlikely to exceed at a given confidence."
+    },
+    "var_breach_rate": {
+      "aliases": [
+        "var exception rate",
+        "how often var was breached",
+        "breach frequency",
+        "proportion of var exceedances",
+        "rate of var violations"
+      ],
+      "description": "Fraction of periods where losses exceeded VaR."
+    },
+    "variance": {
+      "aliases": [
+        "variance",
+        "var",
+        "squared deviation",
+        "spread",
+        "dispersion"
+      ],
+      "description": "Average squared deviation of values from their mean."
+    },
+    "variance_ratio": {
+      "aliases": [
+        "lo mackinlay variance ratio",
+        "random walk test",
+        "mean reversion test",
+        "variance scaling ratio",
+        "trending vs reverting test"
+      ],
+      "description": "Ratio of long-horizon to scaled short-horizon variance; tests random walk / mean reversion."
+    },
+    "variance_reduction_cuped": {
+      "aliases": [
+        "cuped variance reduction",
+        "variance reduction",
+        "experiment precision gain",
+        "covariate adjustment gain",
+        "reduced variance fraction",
+        "cuped efficiency"
+      ],
+      "description": "Fraction of outcome variance removed by CUPED covariate adjustment."
+    },
+    "vasicek_conditional_pd": {
+      "aliases": [
+        "conditional pd",
+        "stressed pd",
+        "downturn pd",
+        "vasicek pd",
+        "worst-case default probability"
+      ],
+      "description": "Stressed default probability under an adverse systemic factor."
+    },
+    "volatility": {
+      "aliases": [
+        "standard deviation of returns",
+        "return dispersion",
+        "risk as volatility",
+        "annualized std dev",
+        "how much returns vary"
+      ],
+      "description": "Annualized standard deviation of returns."
+    },
+    "vwap": {
+      "aliases": [
+        "vwap",
+        "volume weighted average price",
+        "avg price by volume",
+        "volume weighted price"
+      ],
+      "description": "Average price weighted by traded volume over the period."
+    },
+    "vwap_slippage": {
+      "aliases": [
+        "vwap slippage",
+        "slippage vs vwap",
+        "vwap cost",
+        "execution vs vwap",
+        "vwap benchmark slippage"
+      ],
+      "description": "Cost of execution measured against the period's volume-weighted average price."
+    },
+    "wape": {
+      "aliases": [
+        "wape",
+        "weighted absolute percentage error",
+        "weighted mape",
+        "wmape"
+      ],
+      "description": "Total absolute error as a fraction of total actual volume."
+    },
+    "wasserstein_1d": {
+      "aliases": [
+        "earth mover distance",
+        "wasserstein distance",
+        "optimal transport distance",
+        "emd",
+        "1d wasserstein",
+        "distribution transport cost"
+      ],
+      "description": "Minimal cost to transform one distribution into another in one dimension."
+    },
+    "weighted_average_life": {
+      "aliases": [
+        "wal",
+        "average life",
+        "weighted life",
+        "principal weighted maturity",
+        "average repayment time"
+      ],
+      "description": "Principal-weighted average time until a bond's cash is repaid."
+    },
+    "weighted_f1": {
+      "aliases": [
+        "weighted f1",
+        "support-weighted f1",
+        "weighted-average f1",
+        "class-frequency f1",
+        "weighted f-score",
+        "prevalence-weighted f1"
+      ],
+      "description": "Support-weighted average of per-class F1 scores."
+    },
+    "weighted_lgd": {
+      "aliases": [
+        "exposure-weighted lgd",
+        "portfolio lgd",
+        "weighted loss given default",
+        "average lgd",
+        "ead-weighted lgd"
+      ],
+      "description": "Average loss-given-default weighted by exposure size."
+    },
+    "weighted_mean": {
+      "aliases": [
+        "weighted mean",
+        "weighted average",
+        "weighted avg",
+        "value weighted"
+      ],
+      "description": "Average where each value contributes in proportion to its weight."
+    },
+    "wer": {
+      "aliases": [
+        "wer",
+        "word error rate",
+        "cer",
+        "character error rate",
+        "transcription error rate",
+        "edit error rate"
+      ],
+      "description": "Word-level edit distance between transcription and reference divided by reference length."
+    },
+    "wilcoxon_signed_rank": {
+      "aliases": [
+        "wilcoxon signed-rank test",
+        "paired rank test",
+        "signed rank test",
+        "nonparametric paired test",
+        "matched pairs rank test",
+        "paired difference test"
+      ],
+      "description": "Nonparametric test for differences between paired observations."
+    },
+    "willmott_index": {
+      "aliases": [
+        "willmott index",
+        "index of agreement",
+        "willmott",
+        "d index",
+        "agreement index"
+      ],
+      "description": "Index of agreement between predictions and observations from zero to one."
+    },
+    "wilson_lower": {
+      "aliases": [
+        "wilson lower bound",
+        "wilson score lower",
+        "proportion confidence lower",
+        "lower confidence bound",
+        "wilson interval floor",
+        "conservative proportion estimate"
+      ],
+      "description": "Lower bound of the Wilson confidence interval for a proportion."
+    },
+    "wilson_upper": {
+      "aliases": [
+        "wilson upper bound",
+        "wilson score upper",
+        "proportion confidence upper",
+        "upper confidence bound",
+        "wilson interval ceiling",
+        "optimistic proportion estimate"
+      ],
+      "description": "Upper bound of the Wilson confidence interval for a proportion."
+    },
+    "win_loss_ratio": {
+      "aliases": [
+        "wins over losses count",
+        "ratio of winners to losers",
+        "number of wins to losses",
+        "win count over loss count"
+      ],
+      "description": "Number of winning periods divided by losing periods."
+    },
+    "win_rate": {
+      "aliases": [
+        "percent of winning periods",
+        "hit rate",
+        "fraction of positive returns",
+        "how often we win",
+        "share of profitable periods"
+      ],
+      "description": "Fraction of periods with positive returns."
+    },
+    "winkler_score": {
+      "aliases": [
+        "winkler score",
+        "winkler",
+        "interval score",
+        "prediction interval score"
+      ],
+      "description": "Interval score rewarding narrow intervals and penalizing missed actuals."
+    },
+    "winsorized_mean": {
+      "aliases": [
+        "winsorized mean",
+        "capped mean",
+        "clipped mean",
+        "robust mean"
+      ],
+      "description": "Mean after capping extreme values at chosen percentiles instead of dropping them."
+    },
+    "winsorized_std": {
+      "aliases": [
+        "winsorized std",
+        "capped std",
+        "robust std",
+        "clipped standard deviation"
+      ],
+      "description": "Standard deviation after capping extreme values at chosen percentiles."
+    },
+    "yang_zhang_volatility": {
+      "aliases": [
+        "yang zhang vol",
+        "ohlc volatility with overnight gaps",
+        "drift independent ohlc volatility",
+        "open close range volatility",
+        "most efficient range volatility"
+      ],
+      "description": "Range-based volatility estimator combining overnight and intraday moves using OHLC."
+    },
+    "yield_to_maturity": {
+      "aliases": [
+        "ytm",
+        "bond yield",
+        "redemption yield",
+        "internal yield",
+        "yield"
+      ],
+      "description": "Single discount rate equating a bond's price to its cash flows."
+    },
+    "youden_j": {
+      "aliases": [
+        "youden's j",
+        "youden index",
+        "informedness",
+        "j statistic",
+        "sensitivity plus specificity minus one",
+        "bookmaker informedness"
+      ],
+      "description": "Sensitivity plus specificity minus one, summarizing overall discrimination."
+    },
+    "z_spread": {
+      "aliases": [
+        "zero-volatility spread",
+        "z-spread",
+        "static spread",
+        "curve spread",
+        "credit spread over curve"
+      ],
+      "description": "Constant spread over the zero curve that prices a bond."
+    }
+  },
+  "schema": "calma/recipe-descriptions@1"
+}

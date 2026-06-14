@@ -28,6 +28,7 @@ import recipes as RCP
 import recompute as RC
 import report as REP
 import run_hermetic as H
+import suggest as SUGG
 import verdict as V
 
 __version__ = "0.9.0"
@@ -1177,6 +1178,12 @@ def main():
                                      "(bundled fixture; offline, a few seconds)")
     dm.add_argument("--keep", action="store_true",
                     help="keep the temp copy of the fixture (prints its path)")
+    sg = sub.add_parser("suggest", help="unclear what to verify? rank the recipes a free-text "
+                                        "ask most likely means (suggestion only - never verifies)")
+    sg.add_argument("text", nargs="+", help="the ask, e.g. \"my risk-adjusted return looked strong\"")
+    sg.add_argument("-k", "--top", type=int, default=5, help="how many candidates to show (default 5)")
+    sg.add_argument("--json", action="store_true", dest="as_json",
+                    help="print ranked candidates as JSON")
     rc = sub.add_parser("recipes", help="list every built-in metric recipe, grouped by family")
     rc.add_argument("--json", action="store_true", dest="as_json",
                     help="print {family: [metric ids]} as JSON")
@@ -1316,6 +1323,14 @@ def main():
             print("\nthat was a real inflated backtest. now try your own:  "
                   "%s verify <folder> \"<claim>\"" % _invocation())
             return 0 if res["repo_verdict"] == "REFUTED" else 1
+        if a.cmd == "suggest":
+            text = " ".join(a.text)
+            results = SUGG.suggest(text, k=a.top)
+            if a.as_json:
+                print(json.dumps({"query": text, "candidates": results}, indent=2))
+                return 0 if results else 1
+            print(SUGG.render(text, results, invocation=_invocation()))
+            return 0 if results else 1
         if a.cmd == "recipes":
             fams = {}
             for mid in RCP.ids():

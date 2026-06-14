@@ -56,7 +56,8 @@ calma verify <target> "<claim>" --isolation docker    # run in a network-denied 
 calma verify <target> "<claim>" --restore             # restore + PIN the repo's declared deps into
                                                       # .calma_venv before the run (network used in this phase only)
 calma batch <dir>... | --manifest m.tsv   # verify MANY results in one run -> one summary table + roll-up exit
-calma recipes                       # all 120 metric ids, grouped by family (for --metric)
+calma recipes                       # all 500 metric ids, grouped by family (for --metric)
+calma suggest "<free-text ask>"     # unclear what to verify? rank the likely recipes (suggestion only)
 calma teardown <target> "<claim>" [--svg card.svg]    # shareable "claimed X -> really Y" card on a break
 calma replay <run_dir>              # re-run a saved verification; exit 0 iff the verdict reproduces
 calma report <run_dir> [--out f.html] [--no-pdf]   # branded HTML report (prints to PDF) + an offline replay bundle
@@ -162,7 +163,9 @@ committed claim and says so in the report and `--json` (`note`).
    failures return counterexamples - CEGIS). Pass -> frozen under a content hash in
    `assets/compiled_recipes.json` with `set_maturity: compiled-validated`; the loader re-validates the
    hash so a tampered asset fails closed. Verify-time NEVER consults a model: compiled, validated,
-   frozen - never improvised.
+   frozen - never improvised. ALSO add a `assets/recipe_descriptions.json` entry (description +
+   >=2 aliases) for every new recipe so `calma suggest` can find it - REQUIRED, enforced by
+   `tests/test_suggest.py`. See references/recipes.md "Suggester enrichment".
 
 ## Machine-enforced invariants (never violate; encoded in the scripts, not prose)
 

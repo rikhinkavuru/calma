@@ -1,0 +1,5002 @@
+[
+  {
+    "query": "can you confirm the Atkinson index of household income in this file comes out to 0.412?",
+    "gold": "atkinson_index",
+    "kind": "named"
+  },
+  {
+    "query": "I want to double-check how unequal these wages are when I weight heavily toward the bottom earners \u2014 does the inequality penalty land around 0.41?",
+    "gold": "atkinson_index",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the Berger-Parker index for these species counts is 0.38",
+    "gold": "berger_parker",
+    "kind": "named"
+  },
+  {
+    "query": "what share of the total belongs to the single biggest category here \u2014 I got about 38%",
+    "gold": "berger_parker",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "recompute the max of the price column, I think it's 1499.99",
+    "gold": "column_max",
+    "kind": "named"
+  },
+  {
+    "query": "what's the largest value sitting in the latency field? should be 842 ms",
+    "gold": "column_max",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the column mean of order_total is 87.34",
+    "gold": "column_mean",
+    "kind": "named"
+  },
+  {
+    "query": "on average what does each row spend in the amount column \u2014 I calculated 87.3",
+    "gold": "column_mean",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check the median of the salary column, I got 72000",
+    "gold": "column_median",
+    "kind": "named"
+  },
+  {
+    "query": "what's the middle value of response_time when you sort them all \u2014 I think 210ms",
+    "gold": "column_median",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "recompute the column min for temperature, should be -4.2",
+    "gold": "column_min",
+    "kind": "named"
+  },
+  {
+    "query": "what's the smallest entry in the discount field? I see 0.05",
+    "gold": "column_min",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the standard deviation of the age column is 11.8",
+    "gold": "column_std",
+    "kind": "named"
+  },
+  {
+    "query": "how much do the values in revenue spread out around their average \u2014 I got a spread of about 4200",
+    "gold": "column_std",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "can you check the column sum of revenue equals 1,204,553?",
+    "gold": "column_sum",
+    "kind": "named"
+  },
+  {
+    "query": "add up everything in the units_sold field for me, I total 48,210",
+    "gold": "column_sum",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the comprehensive concentration index for these firms is 0.27",
+    "gold": "comprehensive_concentration_index",
+    "kind": "named"
+  },
+  {
+    "query": "I combined the leader's dominance with the spread across the rest of the firms into one concentration measure \u2014 does 0.27 check out?",
+    "gold": "comprehensive_concentration_index",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm the concentration ratio of the top 4 firms is 0.62",
+    "gold": "concentration_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "what fraction of total sales do the four biggest players together account for \u2014 I estimate 62%",
+    "gold": "concentration_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the covariance between price and demand is -34.7",
+    "gold": "covariance",
+    "kind": "named"
+  },
+  {
+    "query": "do height and weight move together in this data, and by how much \u2014 I got a joint variation of 41.2",
+    "gold": "covariance",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check there are 12,403 distinct user_ids in this table",
+    "gold": "distinct_count",
+    "kind": "named"
+  },
+  {
+    "query": "how many unique email addresses show up in the customers file \u2014 I counted 9,812",
+    "gold": "distinct_count",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify there are 318 duplicate rows in this export",
+    "gold": "duplicate_count",
+    "kind": "named"
+  },
+  {
+    "query": "how many records here are repeats of an earlier row \u2014 I think 318 are dupes",
+    "gold": "duplicate_count",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "recompute the Shannon entropy of the category column, I got 2.91 nats",
+    "gold": "entropy",
+    "kind": "named"
+  },
+  {
+    "query": "how unpredictable is the mix of values in the status field \u2014 I measured the information content at about 2.9",
+    "gold": "entropy",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the Gastwirth location estimate for this sample is 51.4",
+    "gold": "gastwirth_location",
+    "kind": "named"
+  },
+  {
+    "query": "I blended the median with the two tertile points to get a robust center of about 51 \u2014 can you confirm?",
+    "gold": "gastwirth_location",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check the generalized entropy index GE(2) of income is 0.19",
+    "gold": "generalized_entropy_index",
+    "kind": "named"
+  },
+  {
+    "query": "give me the parametric inequality measure for these earnings with alpha set to 1 \u2014 I got 0.22",
+    "gold": "generalized_entropy_index",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the geometric mean of the growth multipliers is 1.083",
+    "gold": "geometric_mean",
+    "kind": "named"
+  },
+  {
+    "query": "what's the average annual return when you compound these year-over-year factors \u2014 I got about 1.08x",
+    "gold": "geometric_mean",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm the Gini coefficient of household income is 0.47",
+    "gold": "gini_coefficient",
+    "kind": "named"
+  },
+  {
+    "query": "how unequal is the wealth distribution across these accounts on a 0-to-1 scale \u2014 I calculated 0.47",
+    "gold": "gini_coefficient",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the Gini mean difference of these payouts is 124.6",
+    "gold": "gini_mean_difference",
+    "kind": "named"
+  },
+  {
+    "query": "what's the average absolute gap between any two randomly picked incomes here \u2014 I got about 125",
+    "gold": "gini_mean_difference",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the groupby aggregate \u2014 total revenue per region \u2014 gives West = 402,118",
+    "gold": "groupby_aggregate",
+    "kind": "named"
+  },
+  {
+    "query": "when I break out average order value by customer segment, premium comes to 142 \u2014 can you check that?",
+    "gold": "groupby_aggregate",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm the growth rate over the full period is 23.4%",
+    "gold": "growth_rate",
+    "kind": "named"
+  },
+  {
+    "query": "from the first month to the last, how much did revenue climb in percent \u2014 I figure about 23%",
+    "gold": "growth_rate",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the harmonic mean of these speeds is 47.2 mph",
+    "gold": "harmonic_mean",
+    "kind": "named"
+  },
+  {
+    "query": "for these rates I need the reciprocal-averaged center, not the plain average \u2014 does 47 look right?",
+    "gold": "harmonic_mean",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check the HHI for this market is 0.18",
+    "gold": "hhi",
+    "kind": "named"
+  },
+  {
+    "query": "how concentrated is market share across these firms \u2014 sum of squared shares \u2014 I got around 0.18",
+    "gold": "hhi",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the Hill number of order q=1 for these communities is 14.3",
+    "gold": "hill_number",
+    "kind": "named"
+  },
+  {
+    "query": "what's the effective number of equally-common categories in this data \u2014 I estimated about 14",
+    "gold": "hill_number",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm the Hodges-Lehmann estimator for this sample is 49.5",
+    "gold": "hodges_lehmann_estimator",
+    "kind": "named"
+  },
+  {
+    "query": "I took the median of all pairwise averages to get a robust center of 49.5 \u2014 can you verify?",
+    "gold": "hodges_lehmann_estimator",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the Hoover index of income here is 0.31",
+    "gold": "hoover_index",
+    "kind": "named"
+  },
+  {
+    "query": "what fraction of total income would have to be reshuffled to make everyone equal \u2014 I got about 31%",
+    "gold": "hoover_index",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check the index of dispersion for these counts is 2.4",
+    "gold": "index_of_dispersion",
+    "kind": "named"
+  },
+  {
+    "query": "is this count data overdispersed relative to a Poisson \u2014 variance over mean came out to 2.4 for me",
+    "gold": "index_of_dispersion",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the IQR of the response times is 145ms",
+    "gold": "iqr",
+    "kind": "named"
+  },
+  {
+    "query": "what's the spread between the 75th and 25th percentile of latency \u2014 I got 145",
+    "gold": "iqr",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the join row loss is 0 when I join orders to customers on customer_id",
+    "gold": "join_row_loss",
+    "kind": "named"
+  },
+  {
+    "query": "did I drop any rows merging the left table into the joined result \u2014 I expected none lost",
+    "gold": "join_row_loss",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm the L-CV of these claim sizes is 0.34",
+    "gold": "l_cv",
+    "kind": "named"
+  },
+  {
+    "query": "give me the L-moment based relative variability for this distribution \u2014 I calculated about 0.34",
+    "gold": "l_cv",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the L-scale of this sample is 18.7",
+    "gold": "l_scale",
+    "kind": "named"
+  },
+  {
+    "query": "what's the second L-moment measuring the spread of these values \u2014 I got 18.7",
+    "gold": "l_scale",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check the mean absolute deviation of the errors is 6.3",
+    "gold": "mean_abs_deviation",
+    "kind": "named"
+  },
+  {
+    "query": "on average how far do these values sit from their mean, in absolute terms \u2014 I got 6.3",
+    "gold": "mean_abs_deviation",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the mean log deviation for income is 0.21",
+    "gold": "mean_log_deviation",
+    "kind": "named"
+  },
+  {
+    "query": "give me Theil's L for these earnings \u2014 the log of mean over geometric mean type measure \u2014 I got 0.21",
+    "gold": "mean_log_deviation",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm the median absolute deviation of this sample is 4.9",
+    "gold": "median_abs_deviation",
+    "kind": "named"
+  },
+  {
+    "query": "what's the typical absolute distance from the median here \u2014 the robust spread \u2014 I got 4.9",
+    "gold": "median_abs_deviation",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the midhinge of these values is 53.0",
+    "gold": "midhinge",
+    "kind": "named"
+  },
+  {
+    "query": "average the first and third quartile for me \u2014 I got 53 as the center",
+    "gold": "midhinge",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check the mode share of the top category is 0.41",
+    "gold": "mode_share",
+    "kind": "named"
+  },
+  {
+    "query": "what proportion of rows fall into the single most common value of the status field \u2014 I think 41%",
+    "gold": "mode_share",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the normalized HHI for these 6 firms is 0.04",
+    "gold": "normalized_hhi",
+    "kind": "named"
+  },
+  {
+    "query": "give me the concentration index adjusted for the number of firms so it runs 0 to 1 \u2014 I got 0.04",
+    "gold": "normalized_hhi",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm the null fraction in the phone_number column is 0.12",
+    "gold": "null_fraction",
+    "kind": "named"
+  },
+  {
+    "query": "what share of cells in the email field are empty or missing \u2014 I counted about 12%",
+    "gold": "null_fraction",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify there are 27 outliers in the amount column",
+    "gold": "outlier_count",
+    "kind": "named"
+  },
+  {
+    "query": "how many points fall outside the Tukey fences in this distribution \u2014 I flagged 27",
+    "gold": "outlier_count",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check the Pearson median skewness of this distribution is 0.43",
+    "gold": "pearson_median_skewness",
+    "kind": "named"
+  },
+  {
+    "query": "how lopsided is this distribution using the mean-minus-median over std formula \u2014 I got 0.43",
+    "gold": "pearson_median_skewness",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the 95th percentile of latency is 480ms",
+    "gold": "percentile",
+    "kind": "named"
+  },
+  {
+    "query": "what's the value that 90% of the response times fall below \u2014 I got 412ms",
+    "gold": "percentile",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm the P90/P10 percentile ratio of income is 5.8",
+    "gold": "percentile_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "how many times bigger is someone near the top than someone near the bottom \u2014 90th over 10th \u2014 I got 5.8",
+    "gold": "percentile_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify Pielou's evenness for these species is 0.86",
+    "gold": "pielou_evenness",
+    "kind": "named"
+  },
+  {
+    "query": "how evenly spread are the counts across categories relative to perfectly uniform \u2014 I got 0.86",
+    "gold": "pielou_evenness",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check the PSI between the training and scoring distributions is 0.14",
+    "gold": "psi",
+    "kind": "named"
+  },
+  {
+    "query": "how much has the feature distribution drifted from last month's baseline to now \u2014 I measured 0.14",
+    "gold": "psi",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the quartile coefficient of dispersion is 0.28",
+    "gold": "quartile_coefficient_dispersion",
+    "kind": "named"
+  },
+  {
+    "query": "give me the IQR-over-midhinge relative spread for these values \u2014 I got 0.28",
+    "gold": "quartile_coefficient_dispersion",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm the range of the temperature column is 38.4",
+    "gold": "range_value",
+    "kind": "named"
+  },
+  {
+    "query": "what's the gap between the highest and lowest reading in this field \u2014 I got 38.4",
+    "gold": "range_value",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the ratio share of converted rows is 0.23",
+    "gold": "ratio_share",
+    "kind": "named"
+  },
+  {
+    "query": "what fraction of records have the active flag set to true \u2014 I got about 23%",
+    "gold": "ratio_share",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check the relative mean deviation of this sample is 0.19",
+    "gold": "relative_mean_deviation",
+    "kind": "named"
+  },
+  {
+    "query": "give me the mean absolute deviation divided by the mean for these values \u2014 I got 0.19",
+    "gold": "relative_mean_deviation",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the relative mean difference of these incomes is 0.94",
+    "gold": "relative_mean_difference",
+    "kind": "named"
+  },
+  {
+    "query": "what's the average pairwise gap divided by the mean for this distribution \u2014 I got 0.94",
+    "gold": "relative_mean_difference",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm the Rosenbluth index for this market is 0.21",
+    "gold": "rosenbluth_index",
+    "kind": "named"
+  },
+  {
+    "query": "give me the rank-weighted concentration measure for these firm shares \u2014 I got 0.21",
+    "gold": "rosenbluth_index",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the row count of this dataset is 84,512",
+    "gold": "row_count",
+    "kind": "named"
+  },
+  {
+    "query": "how many records are in this file total \u2014 I processed 84,512",
+    "gold": "row_count",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check the Shannon diversity of these communities is 2.74",
+    "gold": "shannon_diversity",
+    "kind": "named"
+  },
+  {
+    "query": "give me the diversity index that accounts for both richness and balance of species here \u2014 I got 2.74",
+    "gold": "shannon_diversity",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the studentized range of this sample is 5.1",
+    "gold": "studentized_range",
+    "kind": "named"
+  },
+  {
+    "query": "what's the spread from min to max expressed in standard deviations \u2014 I got 5.1",
+    "gold": "studentized_range",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm Theil's T index for income is 0.26",
+    "gold": "theil_index",
+    "kind": "named"
+  },
+  {
+    "query": "give me the entropy-based inequality measure for these earnings \u2014 GE alpha=1 \u2014 I got 0.26",
+    "gold": "theil_index",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the trimean of this distribution is 52.3",
+    "gold": "trimean",
+    "kind": "named"
+  },
+  {
+    "query": "give me the weighted blend of the median and two quartiles as a robust center \u2014 I got 52.3",
+    "gold": "trimean",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check the 10% trimmed mean of these scores is 78.4",
+    "gold": "trimmed_mean",
+    "kind": "named"
+  },
+  {
+    "query": "average these values after chopping off the top and bottom 10% \u2014 I got 78.4",
+    "gold": "trimmed_mean",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the trimmed standard deviation at 10% is 8.2",
+    "gold": "trimmed_std",
+    "kind": "named"
+  },
+  {
+    "query": "what's the spread after dropping the extreme tails on both ends before computing it \u2014 I got 8.2",
+    "gold": "trimmed_std",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm the uniqueness ratio of the session_id column is 0.97",
+    "gold": "uniqueness_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "what proportion of values in this key column are distinct relative to total rows \u2014 I got 0.97",
+    "gold": "uniqueness_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the variance of the measurement column is 312.5",
+    "gold": "variance",
+    "kind": "named"
+  },
+  {
+    "query": "how much do these values scatter around their mean in squared units \u2014 I got 312.5",
+    "gold": "variance",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check the weighted mean price, weighting by volume, is 41.7",
+    "gold": "weighted_mean",
+    "kind": "named"
+  },
+  {
+    "query": "give me the average rating where each row counts proportional to its number of votes \u2014 I got 41.7",
+    "gold": "weighted_mean",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the 5% winsorized mean of these returns is 0.062",
+    "gold": "winsorized_mean",
+    "kind": "named"
+  },
+  {
+    "query": "average these values after capping the extreme 5% on each tail to the boundary rather than removing them \u2014 I got 0.062",
+    "gold": "winsorized_mean",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm the winsorized standard deviation at 5% is 14.6",
+    "gold": "winsorized_std",
+    "kind": "named"
+  },
+  {
+    "query": "what's the spread after clamping the outermost 5% of values to the limits on each side \u2014 I got 14.6",
+    "gold": "winsorized_std",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "can you double-check my classifier's accuracy came out to 0.873?",
+    "gold": "accuracy",
+    "kind": "named"
+  },
+  {
+    "query": "verify what fraction of my test set the model labeled correctly overall",
+    "gold": "accuracy",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm the accuracy parity difference between my male and female groups is 0.04",
+    "gold": "accuracy_parity_difference",
+    "kind": "named"
+  },
+  {
+    "query": "I want to check the gap in how often each demographic group gets correctly classified",
+    "gold": "accuracy_parity_difference",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "can you recompute the adjusted rand index for my two clusterings, I got 0.62",
+    "gold": "adjusted_rand_index",
+    "kind": "named"
+  },
+  {
+    "query": "verify how well my cluster assignments match the ground-truth groups after correcting for chance agreement",
+    "gold": "adjusted_rand_index",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "is my model's AUC really 0.914? please verify",
+    "gold": "auc",
+    "kind": "named"
+  },
+  {
+    "query": "check the probability that my model scores a random positive higher than a random negative",
+    "gold": "auc",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "double check my balanced accuracy of 0.78 on this imbalanced set",
+    "gold": "balanced_accuracy",
+    "kind": "named"
+  },
+  {
+    "query": "recompute the average of the per-class recalls so each class counts equally regardless of size",
+    "gold": "balanced_accuracy",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the B-cubed F1 for my coreference clustering came to 0.71",
+    "gold": "bcubed_f1",
+    "kind": "named"
+  },
+  {
+    "query": "compute the harmonic mean of the per-item precision and recall over my cluster assignments",
+    "gold": "bcubed_f1",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "can you confirm my bcubed precision is 0.69?",
+    "gold": "bcubed_precision",
+    "kind": "named"
+  },
+  {
+    "query": "for each element, what share of items in its predicted cluster share its true label, averaged over all items?",
+    "gold": "bcubed_precision",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check the B-cubed recall, I think it's 0.74",
+    "gold": "bcubed_recall",
+    "kind": "named"
+  },
+  {
+    "query": "for every point, what fraction of its true-class members landed in the same predicted cluster, averaged across points?",
+    "gold": "bcubed_recall",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the Brennan-Prediger coefficient for my two annotators is 0.66",
+    "gold": "brennan_prediger",
+    "kind": "named"
+  },
+  {
+    "query": "I need the chance-corrected agreement assuming chance is uniform over categories, not from the observed marginals",
+    "gold": "brennan_prediger",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "recompute my Brier score, I'm getting 0.142",
+    "gold": "brier",
+    "kind": "named"
+  },
+  {
+    "query": "check the mean squared difference between my predicted probabilities and the actual 0/1 outcomes",
+    "gold": "brier",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "can you verify the reliability component of my Brier decomposition is 0.012?",
+    "gold": "brier_reliability",
+    "kind": "named"
+  },
+  {
+    "query": "isolate the part of my probability-score error that comes from forecasts not matching observed frequencies within bins",
+    "gold": "brier_reliability",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm the resolution term of my Brier decomposition equals 0.08",
+    "gold": "brier_resolution",
+    "kind": "named"
+  },
+  {
+    "query": "measure how much my binned forecast frequencies differ from the overall base rate",
+    "gold": "brier_resolution",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my Brier skill score against the climatology baseline is 0.31",
+    "gold": "brier_skill_score",
+    "kind": "named"
+  },
+  {
+    "query": "how much better is my probabilistic forecast than just always predicting the base rate, on a relative scale?",
+    "gold": "brier_skill_score",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check my calibration-in-the-large, I got -0.02",
+    "gold": "calibration_in_the_large",
+    "kind": "named"
+  },
+  {
+    "query": "verify whether the average predicted probability matches the overall observed positive rate",
+    "gold": "calibration_in_the_large",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "can you confirm Cohen's kappa between the raters is 0.81?",
+    "gold": "cohen_kappa",
+    "kind": "named"
+  },
+  {
+    "query": "recompute the inter-rater agreement corrected for the chance you'd expect from each rater's own label frequencies",
+    "gold": "cohen_kappa",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the completeness score of my clustering is 0.88",
+    "gold": "completeness_score",
+    "kind": "named"
+  },
+  {
+    "query": "check whether all members of each true class got assigned to the same cluster",
+    "gold": "completeness_score",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm the demographic parity difference is 0.07 across my protected groups",
+    "gold": "demographic_parity_difference",
+    "kind": "named"
+  },
+  {
+    "query": "check the gap in positive-prediction rates between the two groups regardless of true outcome",
+    "gold": "demographic_parity_difference",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the demographic parity ratio came to 0.83",
+    "gold": "demographic_parity_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "divide the lower group's selection rate by the higher group's selection rate for me",
+    "gold": "demographic_parity_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "can you recompute the diagnostic odds ratio for my test, I got 18.5",
+    "gold": "diagnostic_odds_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "compare the likelihood of a positive result among sick cases against that among healthy cases as a single combined figure",
+    "gold": "diagnostic_odds_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my model's ECE is 0.034",
+    "gold": "ece",
+    "kind": "named"
+  },
+  {
+    "query": "check whether my predicted probabilities actually match the observed frequencies, averaged across confidence bins",
+    "gold": "ece",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm the equal opportunity difference is 0.05 between groups",
+    "gold": "equal_opportunity_difference",
+    "kind": "named"
+  },
+  {
+    "query": "check the gap in true positive rates across my protected groups",
+    "gold": "equal_opportunity_difference",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the equalized odds difference for my classifier is 0.06",
+    "gold": "equalized_odds_difference",
+    "kind": "named"
+  },
+  {
+    "query": "check the largest disparity across groups in both the true-positive and false-positive rates",
+    "gold": "equalized_odds_difference",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "can you confirm the equalized odds ratio is 0.79?",
+    "gold": "equalized_odds_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "give me the worst-case between-group fraction comparing both the hit rates and the false-alarm rates",
+    "gold": "equalized_odds_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "recompute the exponential loss for my boosted model, I got 0.41",
+    "gold": "exponential_loss",
+    "kind": "named"
+  },
+  {
+    "query": "check the AdaBoost-style penalty that blows up super-fast as a prediction's margin goes negative",
+    "gold": "exponential_loss",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my F1 score is 0.86",
+    "gold": "f1",
+    "kind": "named"
+  },
+  {
+    "query": "recompute the harmonic mean of precision and recall for my positive class",
+    "gold": "f1",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm the false discovery rate is 0.12",
+    "gold": "false_discovery_rate",
+    "kind": "named"
+  },
+  {
+    "query": "of everything my model flagged as positive, what fraction were actually negative?",
+    "gold": "false_discovery_rate",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the false negative rate came out to 0.09",
+    "gold": "false_negative_rate",
+    "kind": "named"
+  },
+  {
+    "query": "what proportion of the actual positives did my model miss?",
+    "gold": "false_negative_rate",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check my false positive rate, I think it's 0.15",
+    "gold": "false_positive_rate",
+    "kind": "named"
+  },
+  {
+    "query": "of all the genuinely clean cases, what fraction did the model wrongly raise an alarm on?",
+    "gold": "false_positive_rate",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "can you confirm my F2 score is 0.80?",
+    "gold": "fbeta",
+    "kind": "named"
+  },
+  {
+    "query": "recompute the precision-recall blend that weights recall twice as heavily as precision",
+    "gold": "fbeta",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the Fowlkes-Mallows index between my two label sets is 0.7",
+    "gold": "fowlkes_mallows",
+    "kind": "named"
+  },
+  {
+    "query": "compute the geometric mean of pairwise precision and pairwise recall comparing my partition to the truth",
+    "gold": "fowlkes_mallows",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check the Fowlkes-Mallows clustering score across my k values, I got 0.65",
+    "gold": "fowlkes_mallows_clustering",
+    "kind": "named"
+  },
+  {
+    "query": "evaluate my grouping by the geometric mean of the pair-counting precision and recall against ground truth labels",
+    "gold": "fowlkes_mallows_clustering",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the FPR parity difference is 0.03 between groups",
+    "gold": "fpr_parity_difference",
+    "kind": "named"
+  },
+  {
+    "query": "check the gap in false-alarm rates between my two protected cohorts",
+    "gold": "fpr_parity_difference",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm the G-mean is 0.77 for my imbalanced classifier",
+    "gold": "g_mean",
+    "kind": "named"
+  },
+  {
+    "query": "combine sensitivity and specificity by taking their geometric average",
+    "gold": "g_mean",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the normalized Gini coefficient for my scorecard is 0.62",
+    "gold": "gini_norm",
+    "kind": "named"
+  },
+  {
+    "query": "recompute the discrimination measure that equals twice the area under the ROC minus one",
+    "gold": "gini_norm",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "can you confirm Gwet's AC1 between annotators is 0.74?",
+    "gold": "gwet_ac1",
+    "kind": "named"
+  },
+  {
+    "query": "recompute the agreement coefficient that's robust to the high-prevalence paradox, not the usual marginal-based chance correction",
+    "gold": "gwet_ac1",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "recompute my SVM's hinge loss, I got 0.33",
+    "gold": "hinge_loss",
+    "kind": "named"
+  },
+  {
+    "query": "check the max-margin penalty that charges predictions sitting inside the margin and drops to zero once classified safely beyond it",
+    "gold": "hinge_loss",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the homogeneity score of my clustering is 0.9",
+    "gold": "homogeneity_score",
+    "kind": "named"
+  },
+  {
+    "query": "check whether each of my clusters contains points from only a single true class",
+    "gold": "homogeneity_score",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm the Jaccard index for my positive class is 0.68",
+    "gold": "jaccard",
+    "kind": "named"
+  },
+  {
+    "query": "compute the intersection-over-union of predicted positives and actual positives",
+    "gold": "jaccard",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the KS statistic for my scorecard separation is 0.41",
+    "gold": "ks_statistic",
+    "kind": "named"
+  },
+  {
+    "query": "check the maximum gap between the cumulative score distributions of the good and bad classes",
+    "gold": "ks_statistic",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "recompute my log loss, I'm getting 0.387",
+    "gold": "log_loss",
+    "kind": "named"
+  },
+  {
+    "query": "check the average cross-entropy penalty on the probability my model gave the correct outcome",
+    "gold": "log_loss",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the macro F1 across my 5 classes is 0.72",
+    "gold": "macro_f1",
+    "kind": "named"
+  },
+  {
+    "query": "recompute the per-class F1 scores then average them equally without weighting by class size",
+    "gold": "macro_f1",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm the markedness of my classifier is 0.55",
+    "gold": "markedness",
+    "kind": "named"
+  },
+  {
+    "query": "compute precision plus negative predictive value minus one for my binary classifier",
+    "gold": "markedness",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the maximum calibration error is 0.09",
+    "gold": "maximum_calibration_error",
+    "kind": "named"
+  },
+  {
+    "query": "find the worst single bin where predicted confidence diverges most from observed accuracy",
+    "gold": "maximum_calibration_error",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "can you confirm my MCC is 0.63?",
+    "gold": "mcc",
+    "kind": "named"
+  },
+  {
+    "query": "recompute the correlation-coefficient-style score over the confusion matrix that balances all four cells",
+    "gold": "mcc",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the micro F1 across all my classes is 0.84",
+    "gold": "micro_f1",
+    "kind": "named"
+  },
+  {
+    "query": "pool all the true positives, false positives and false negatives globally then compute one F1",
+    "gold": "micro_f1",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check the mutual information score between my clustering and the labels, I got 0.52",
+    "gold": "mutual_info_score",
+    "kind": "named"
+  },
+  {
+    "query": "measure how much knowing the cluster reduces uncertainty about the true class, in raw nats",
+    "gold": "mutual_info_score",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the negative likelihood ratio for my test is 0.11",
+    "gold": "negative_likelihood_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "divide the miss rate by the specificity for my diagnostic test",
+    "gold": "negative_likelihood_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm the negative predictive value is 0.93",
+    "gold": "negative_predictive_value",
+    "kind": "named"
+  },
+  {
+    "query": "of all the cases my model cleared, what fraction were genuinely clear?",
+    "gold": "negative_predictive_value",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the normalized mutual information of my clustering is 0.71",
+    "gold": "normalized_mutual_info",
+    "kind": "named"
+  },
+  {
+    "query": "compute the shared signal between clusters and labels rescaled to a 0-to-1 range by their entropies",
+    "gold": "normalized_mutual_info",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check the percentage agreement between the two coders, I got 0.91",
+    "gold": "percentage_agreement",
+    "kind": "named"
+  },
+  {
+    "query": "what raw fraction of items did both annotators label identically, before any chance correction?",
+    "gold": "percentage_agreement",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the positive likelihood ratio for the test is 6.2",
+    "gold": "positive_likelihood_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "divide the true hit rate by the false-alarm rate for my diagnostic test",
+    "gold": "positive_likelihood_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm my PR-AUC is 0.58",
+    "gold": "pr_auc",
+    "kind": "named"
+  },
+  {
+    "query": "recompute the area under the precision-recall curve for my positive class",
+    "gold": "pr_auc",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my precision is 0.88",
+    "gold": "precision",
+    "kind": "named"
+  },
+  {
+    "query": "of the items my model predicted positive, what fraction were actually positive?",
+    "gold": "precision",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm the predictive parity difference across groups is 0.04",
+    "gold": "predictive_parity_difference",
+    "kind": "named"
+  },
+  {
+    "query": "check whether the precision among flagged cases differs between my two protected groups",
+    "gold": "predictive_parity_difference",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the purity of my clustering is 0.86",
+    "gold": "purity",
+    "kind": "named"
+  },
+  {
+    "query": "assign each cluster its majority true label and tell me the overall fraction correctly covered",
+    "gold": "purity",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "can you recompute the rand index for my partition, I got 0.79?",
+    "gold": "rand_index",
+    "kind": "named"
+  },
+  {
+    "query": "what fraction of point pairs are either together in both partitions or apart in both?",
+    "gold": "rand_index",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my recall is 0.82",
+    "gold": "recall",
+    "kind": "named"
+  },
+  {
+    "query": "of all the genuinely positive cases, what fraction did the model successfully catch?",
+    "gold": "recall",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm Scott's pi between the annotators is 0.7",
+    "gold": "scott_pi",
+    "kind": "named"
+  },
+  {
+    "query": "recompute the chance-corrected agreement using the pooled category distribution shared across both raters",
+    "gold": "scott_pi",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the sharpness of my probabilistic forecasts is 0.18",
+    "gold": "sharpness",
+    "kind": "named"
+  },
+  {
+    "query": "measure how spread out my predicted probabilities are from each other, ignoring the actual outcomes",
+    "gold": "sharpness",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm my specificity is 0.94",
+    "gold": "specificity",
+    "kind": "named"
+  },
+  {
+    "query": "of all the truly negative cases, what fraction did the model correctly identify as negative?",
+    "gold": "specificity",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the Spiegelhalter Z statistic for my calibration is 1.3",
+    "gold": "spiegelhalter_z",
+    "kind": "named"
+  },
+  {
+    "query": "compute the standardized z-test for whether my probability forecasts are well calibrated",
+    "gold": "spiegelhalter_z",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "recompute the squared hinge loss for my model, I got 0.21",
+    "gold": "squared_hinge_loss",
+    "kind": "named"
+  },
+  {
+    "query": "check the max-margin penalty but with each margin violation charged quadratically instead of linearly",
+    "gold": "squared_hinge_loss",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the threat score for my detector is 0.6",
+    "gold": "threat_score",
+    "kind": "named"
+  },
+  {
+    "query": "compute the critical success index, hits over hits plus misses plus false alarms",
+    "gold": "threat_score",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm the V-measure of my clustering is 0.83",
+    "gold": "v_measure_score",
+    "kind": "named"
+  },
+  {
+    "query": "give me the harmonic mean of how pure my clusters are and how well each true class stays together",
+    "gold": "v_measure_score",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my weighted F1 across classes is 0.79",
+    "gold": "weighted_f1",
+    "kind": "named"
+  },
+  {
+    "query": "average the per-class F1 scores weighting each by how many true instances that class has",
+    "gold": "weighted_f1",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "can you confirm Youden's J for my classifier is 0.57?",
+    "gold": "youden_j",
+    "kind": "named"
+  },
+  {
+    "query": "compute sensitivity plus specificity minus one to find my best operating threshold",
+    "gold": "youden_j",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "I ran an Anderson-Darling test on my residuals and got A-squared = 0.74, can you confirm whether they're normally distributed?",
+    "gold": "anderson_darling",
+    "kind": "named"
+  },
+  {
+    "query": "Here's my sample of 200 values \u2014 check how well they fit a normal distribution, giving more weight to the tails than a typical fit test would.",
+    "gold": "anderson_darling",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "My one-way ANOVA gave F = 4.12 across three groups, is that p < 0.05?",
+    "gold": "anova",
+    "kind": "named"
+  },
+  {
+    "query": "I have measurements from four different machines and want to know if the average output differs between them \u2014 recompute the F ratio from these raw numbers.",
+    "gold": "anova",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Ran an Ansari-Bradley test comparing dispersion of the two samples, got statistic 312 \u2014 verify it.",
+    "gold": "ansari_bradley",
+    "kind": "named"
+  },
+  {
+    "query": "I want to check whether these two groups have the same spread using a rank-based comparison of scale, not a variance test that assumes normality.",
+    "gold": "ansari_bradley",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "My ARCH LM test on the GARCH residuals returned a statistic of 9.3 with p=0.05 \u2014 is there conditional heteroskedasticity?",
+    "gold": "arch_lm",
+    "kind": "named"
+  },
+  {
+    "query": "Check whether the volatility in my return series clusters over time \u2014 test if squared residuals are predictable from their own lags.",
+    "gold": "arch_lm",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "I computed the autocorrelation at lag 1 and got 0.43 for my time series \u2014 can you verify that ACF value?",
+    "gold": "autocorrelation",
+    "kind": "named"
+  },
+  {
+    "query": "How strongly does today's value in my series correlate with the value from one step earlier? I got about 0.43.",
+    "gold": "autocorrelation",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "My estimated average treatment effect from the experiment is 2.4 \u2014 recompute the ATE from the treatment and control outcomes.",
+    "gold": "average_treatment_effect",
+    "kind": "named"
+  },
+  {
+    "query": "I ran an A/B test; what's the mean difference in outcome caused by giving people the intervention versus not? I think it's around 2.4.",
+    "gold": "average_treatment_effect",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Bartlett's test gave me a statistic of 6.8 across my groups \u2014 are the variances equal?",
+    "gold": "bartlett",
+    "kind": "named"
+  },
+  {
+    "query": "Check whether my three samples have the same variance, assuming the data are normal.",
+    "gold": "bartlett",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "I applied Benjamini-Yekutieli correction to my 40 p-values \u2014 how many stay significant at FDR 0.05?",
+    "gold": "benjamini_yekutieli",
+    "kind": "named"
+  },
+  {
+    "query": "I have a batch of p-values from correlated tests and want to control the false discovery rate without assuming independence \u2014 which survive?",
+    "gold": "benjamini_yekutieli",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "After Benjamini-Hochberg correction, I claim 7 of my 50 hypotheses are rejected \u2014 verify the count.",
+    "gold": "bh_rejections",
+    "kind": "named"
+  },
+  {
+    "query": "Across these p-values, how many tests come out significant once I control the expected fraction of false positives among my discoveries?",
+    "gold": "bh_rejections",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "I measured a Bhattacharyya distance of 0.18 between my two distributions \u2014 can you recompute it?",
+    "gold": "bhattacharyya_distance",
+    "kind": "named"
+  },
+  {
+    "query": "Quantify the overlap between these two probability distributions using the metric based on the geometric mean of their densities.",
+    "gold": "bhattacharyya_distance",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Using Bonferroni at alpha 0.05 over 30 tests, I think 4 are significant \u2014 check that.",
+    "gold": "bonferroni_rejections",
+    "kind": "named"
+  },
+  {
+    "query": "If I divide my significance threshold by the number of tests to be conservative, how many of these p-values still pass?",
+    "gold": "bonferroni_rejections",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "My Bowley skewness came out to 0.12 \u2014 verify that quartile-based skewness.",
+    "gold": "bowley_skewness",
+    "kind": "named"
+  },
+  {
+    "query": "Measure the asymmetry of my data using the quartiles rather than the third moment \u2014 I expect roughly 0.12.",
+    "gold": "bowley_skewness",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "The Box-Pierce statistic for my residuals up to lag 10 is 14.2 \u2014 is there autocorrelation?",
+    "gold": "box_pierce",
+    "kind": "named"
+  },
+  {
+    "query": "Test whether my time-series residuals are collectively uncorrelated across the first ten lags using the sum of squared autocorrelations.",
+    "gold": "box_pierce",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Brunner-Munzel test gave me a statistic of 2.1 and p=0.04 \u2014 confirm the two groups differ.",
+    "gold": "brunner_munzel",
+    "kind": "named"
+  },
+  {
+    "query": "Compare these two samples with a nonparametric test that doesn't assume equal variances, telling me the probability one tends to exceed the other.",
+    "gold": "brunner_munzel",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "My chi-square test of independence on the 2x3 contingency table gave 8.9 with p=0.012 \u2014 verify it.",
+    "gold": "chi_square",
+    "kind": "named"
+  },
+  {
+    "query": "From these category pairs, test whether the two categorical variables are associated or independent.",
+    "gold": "chi_square",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "I got a chi-square distance of 0.07 between the observed and expected histograms \u2014 recompute it.",
+    "gold": "chi_square_distance",
+    "kind": "named"
+  },
+  {
+    "query": "Measure the divergence between these two binned distributions weighting each bin's squared gap by its expected count.",
+    "gold": "chi_square_distance",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Cliff's delta between my two groups is 0.33 \u2014 is that a medium effect?",
+    "gold": "cliffs_delta",
+    "kind": "named"
+  },
+  {
+    "query": "What fraction of comparisons favor group A over group B minus the reverse \u2014 the ordinal, dominance-style effect size? I got 0.33.",
+    "gold": "cliffs_delta",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "My coefficient of variation is 0.45 for this dataset \u2014 verify the CV.",
+    "gold": "coefficient_of_variation",
+    "kind": "named"
+  },
+  {
+    "query": "Give me the standard deviation expressed as a fraction of the mean for these numbers \u2014 I computed about 45%.",
+    "gold": "coefficient_of_variation",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Cohen's h between proportions 0.6 and 0.5 is 0.20 \u2014 confirm the effect size.",
+    "gold": "cohens_h",
+    "kind": "named"
+  },
+  {
+    "query": "What's the arcsine-transformed difference effect size between these two proportions? I estimate 0.20.",
+    "gold": "cohens_h",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "The common language effect size for my comparison is 0.68 \u2014 verify it.",
+    "gold": "common_language_effect_size",
+    "kind": "named"
+  },
+  {
+    "query": "What's the probability that a randomly chosen value from group A is larger than one from group B? I got about 68%.",
+    "gold": "common_language_effect_size",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "My concordance index for the survival model is 0.72 \u2014 recompute the C-index from predicted risks and outcomes.",
+    "gold": "concordance_index",
+    "kind": "named"
+  },
+  {
+    "query": "How often does my model rank the higher-risk patient as riskier among comparable pairs? I think around 0.72.",
+    "gold": "concordance_index",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "My 95% confidence interval half-width for the mean is 1.6 \u2014 can you verify the margin of error?",
+    "gold": "confidence_interval",
+    "kind": "named"
+  },
+  {
+    "query": "Given these samples, how far above and below the average does the plausible range for the true mean extend at 95%?",
+    "gold": "confidence_interval",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "The Pearson correlation between x and y is 0.81 \u2014 verify it.",
+    "gold": "correlation",
+    "kind": "named"
+  },
+  {
+    "query": "How tightly do these two variables move together in a straight-line sense? I got about 0.81.",
+    "gold": "correlation",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Cramer's V for my contingency table is 0.28 \u2014 confirm the association strength.",
+    "gold": "cramers_v",
+    "kind": "named"
+  },
+  {
+    "query": "I want a 0-to-1 normalized measure of how strongly these two categorical variables are associated, derived from the chi-square. Got 0.28.",
+    "gold": "cramers_v",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "My CUPED-adjusted ATE is 2.1 \u2014 recompute the variance-reduced treatment effect using the pre-experiment covariate.",
+    "gold": "cuped_ate",
+    "kind": "named"
+  },
+  {
+    "query": "Estimate the experiment's average causal impact after subtracting out the predictable part explained by pre-period behavior. I expect about 2.1.",
+    "gold": "cuped_ate",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Distance correlation between x and y came out to 0.55 \u2014 verify it.",
+    "gold": "distance_correlation",
+    "kind": "named"
+  },
+  {
+    "query": "Measure dependence between these two variables in a way that detects nonlinear relationships and is zero only under independence. Around 0.55.",
+    "gold": "distance_correlation",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "My Cohen's d effect size between the two groups is 0.62 \u2014 confirm it.",
+    "gold": "effect_size",
+    "kind": "named"
+  },
+  {
+    "query": "How many pooled standard deviations apart are the means of these two groups? I calculated 0.62.",
+    "gold": "effect_size",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "The energy distance between my two samples is 0.41 \u2014 recompute it.",
+    "gold": "energy_distance",
+    "kind": "named"
+  },
+  {
+    "query": "Give me the divergence metric based on average pairwise Euclidean separations within and between these two samples. I got 0.41.",
+    "gold": "energy_distance",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "My eta-squared for the one-way ANOVA is 0.18 \u2014 verify the proportion of variance explained.",
+    "gold": "eta_squared",
+    "kind": "named"
+  },
+  {
+    "query": "What fraction of the total variation in the outcome is attributable to the group factor? I think 0.18.",
+    "gold": "eta_squared",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Fisher's exact test on my 2x2 table gave p=0.031 \u2014 confirm it.",
+    "gold": "fisher_exact",
+    "kind": "named"
+  },
+  {
+    "query": "With this small 2x2 count table, give me the precise hypergeometric probability of seeing an association this extreme, not the approximate version.",
+    "gold": "fisher_exact",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Fligner-Killeen test gave a statistic of 5.5 across groups \u2014 are the variances homogeneous?",
+    "gold": "fligner",
+    "kind": "named"
+  },
+  {
+    "query": "Check equality of spread across my groups using a robust rank-based test that holds up under non-normal data.",
+    "gold": "fligner",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "My G-test of independence returned 9.1 \u2014 verify the log-likelihood-ratio statistic.",
+    "gold": "g_test",
+    "kind": "named"
+  },
+  {
+    "query": "Test association in my contingency table using the likelihood-ratio version rather than the squared-difference statistic.",
+    "gold": "g_test",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Glass's delta between treatment and control is 0.7 using the control SD \u2014 confirm it.",
+    "gold": "glass_delta",
+    "kind": "named"
+  },
+  {
+    "query": "How many control-group standard deviations apart are the two means? I standardized by the control's spread only and got 0.7.",
+    "gold": "glass_delta",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Goodman-Kruskal gamma for my ordinal cross-tab is 0.46 \u2014 verify it.",
+    "gold": "goodman_kruskal_gamma",
+    "kind": "named"
+  },
+  {
+    "query": "For these two ordinal rankings, what's the concordant-minus-discordant measure that ignores tied pairs entirely? About 0.46.",
+    "gold": "goodman_kruskal_gamma",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Hedges' g for my two-group comparison is 0.59 \u2014 confirm the bias-corrected effect size.",
+    "gold": "hedges_g",
+    "kind": "named"
+  },
+  {
+    "query": "Give me the standardized mean difference between the groups with the small-sample correction factor applied. I got 0.59.",
+    "gold": "hedges_g",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Hellinger distance between the two distributions is 0.22 \u2014 recompute it.",
+    "gold": "hellinger_distance",
+    "kind": "named"
+  },
+  {
+    "query": "Measure how different these two probability distributions are using the metric based on differences of square-root densities. Around 0.22.",
+    "gold": "hellinger_distance",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "With Hochberg's step-up procedure, I claim 5 of my p-values are significant \u2014 verify the rejection count.",
+    "gold": "hochberg_rejections",
+    "kind": "named"
+  },
+  {
+    "query": "Apply the step-up family-wise error control to these p-values and tell me how many reject. I think 5.",
+    "gold": "hochberg_rejections",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Holm correction rejects 6 of my 20 hypotheses \u2014 confirm that.",
+    "gold": "holm_rejections",
+    "kind": "named"
+  },
+  {
+    "query": "Using the sequential step-down Bonferroni-type adjustment, how many of these p-values stay significant?",
+    "gold": "holm_rejections",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Holm-Sidak procedure flags 4 significant tests in my set \u2014 verify it.",
+    "gold": "holm_sidak_rejections",
+    "kind": "named"
+  },
+  {
+    "query": "Run the step-down multiple-comparison correction that uses the multiplicative rather than the additive threshold at each step \u2014 how many reject?",
+    "gold": "holm_sidak_rejections",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "The information value of my feature came out to 0.4 \u2014 confirm the IV for this predictor.",
+    "gold": "information_value",
+    "kind": "named"
+  },
+  {
+    "query": "How predictive is this binned feature of my binary target, summing the weight-of-evidence times the distribution gap across bins? I got 0.4.",
+    "gold": "information_value",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Jarque-Bera statistic on my returns is 12.4 with p=0.002 \u2014 reject normality?",
+    "gold": "jarque_bera",
+    "kind": "named"
+  },
+  {
+    "query": "Test whether my data is normal by jointly checking that the skewness is zero and the excess kurtosis is zero.",
+    "gold": "jarque_bera",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Jeffreys divergence between P and Q is 0.33 \u2014 verify it.",
+    "gold": "jeffreys_divergence",
+    "kind": "named"
+  },
+  {
+    "query": "Give me the symmetric version of the relative-entropy distance \u2014 the sum of the KL in both directions. Around 0.33.",
+    "gold": "jeffreys_divergence",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Jensen-Shannon divergence between the two distributions is 0.09 \u2014 recompute it.",
+    "gold": "js_divergence",
+    "kind": "named"
+  },
+  {
+    "query": "Measure the distance between these two distributions using the symmetric, bounded version that averages each against their midpoint. I got 0.09.",
+    "gold": "js_divergence",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Kendall's tau between my two rankings is 0.41 \u2014 confirm it.",
+    "gold": "kendall_tau",
+    "kind": "named"
+  },
+  {
+    "query": "How concordant are these two orderings, based on the excess of agreeing over disagreeing pairs with a tie correction? I got 0.41.",
+    "gold": "kendall_tau",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "KL divergence from Q to P is 0.27 nats \u2014 verify the relative entropy.",
+    "gold": "kl_divergence",
+    "kind": "named"
+  },
+  {
+    "query": "How many extra bits do I pay encoding samples from one distribution using a code optimized for the other? About 0.27 nats.",
+    "gold": "kl_divergence",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "My Kaplan-Meier median survival time is 14 months \u2014 recompute it from the event data.",
+    "gold": "km_median_survival",
+    "kind": "named"
+  },
+  {
+    "query": "From these event durations with censoring, at what point does half the cohort still remain event-free? I got 14 months.",
+    "gold": "km_median_survival",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "The Kaplan-Meier survival probability at 12 months is 0.62 \u2014 verify it.",
+    "gold": "km_survival_at",
+    "kind": "named"
+  },
+  {
+    "query": "Given these censored event times, what fraction is estimated to still be surviving at the one-year mark? Around 0.62.",
+    "gold": "km_survival_at",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Kruskal-Wallis test across my four groups gave H=11.3, p=0.01 \u2014 confirm the medians differ.",
+    "gold": "kruskal_wallis",
+    "kind": "named"
+  },
+  {
+    "query": "Compare more than two groups nonparametrically to see if at least one tends to have larger values, using ranks instead of means.",
+    "gold": "kruskal_wallis",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Two-sample KS test gave D=0.21 with p=0.03 \u2014 do the two samples come from different distributions?",
+    "gold": "ks_2samp",
+    "kind": "named"
+  },
+  {
+    "query": "Compare the empirical CDFs of these two samples and tell me the largest vertical gap between them.",
+    "gold": "ks_2samp",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "One-sample Kolmogorov-Smirnov against a normal gave D=0.08 \u2014 verify the goodness-of-fit.",
+    "gold": "ks_test",
+    "kind": "named"
+  },
+  {
+    "query": "How far does my sample's cumulative distribution deviate at its worst point from the theoretical normal CDF? I got 0.08.",
+    "gold": "ks_test",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Excess kurtosis of my data is 1.8 \u2014 confirm it's leptokurtic.",
+    "gold": "kurtosis",
+    "kind": "named"
+  },
+  {
+    "query": "How heavy are the tails of my distribution relative to a normal \u2014 the fourth-moment-based tailedness measure? I got 1.8 excess.",
+    "gold": "kurtosis",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "My L-kurtosis (tau-4) is 0.13 \u2014 verify the L-moment ratio.",
+    "gold": "l_kurtosis",
+    "kind": "named"
+  },
+  {
+    "query": "Give me the tail-weight measure built from linear combinations of order statistics rather than the fourth power. I estimate 0.13.",
+    "gold": "l_kurtosis",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "L-skewness (tau-3) for my sample is 0.05 \u2014 confirm it.",
+    "gold": "l_skewness",
+    "kind": "named"
+  },
+  {
+    "query": "Measure the asymmetry of my distribution using a robust ratio of L-moments instead of the cubed deviations. About 0.05.",
+    "gold": "l_skewness",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Levene's test gave a statistic of 3.9, p=0.02 \u2014 are my group variances unequal?",
+    "gold": "levene",
+    "kind": "named"
+  },
+  {
+    "query": "Test whether the spread differs across my groups using the approach based on absolute deviations from the group center, robust to non-normality.",
+    "gold": "levene",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "The lift of variant B over A is 12% \u2014 verify the relative lift.",
+    "gold": "lift",
+    "kind": "named"
+  },
+  {
+    "query": "By what percentage did the treatment group's average beat the control group's average? I calculated 12%.",
+    "gold": "lift",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Ljung-Box statistic at lag 10 is 18.5, p=0.047 \u2014 is there residual autocorrelation?",
+    "gold": "ljung_box",
+    "kind": "named"
+  },
+  {
+    "query": "Test whether my residuals show any serial correlation over the first ten lags jointly, using the sample-size-weighted portmanteau version.",
+    "gold": "ljung_box",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Mann-Whitney U test gave U=420, p=0.02 \u2014 do the two groups differ?",
+    "gold": "mann_whitney",
+    "kind": "named"
+  },
+  {
+    "query": "Compare two independent samples using a rank-sum approach to see if one tends to be larger, without assuming normality.",
+    "gold": "mann_whitney",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "McNemar's test on my paired binary outcomes gave chi-square 5.2, p=0.022 \u2014 confirm the paired proportions changed.",
+    "gold": "mcnemar",
+    "kind": "named"
+  },
+  {
+    "query": "I have before/after yes-no results on the same subjects \u2014 test whether the discordant pairs are imbalanced.",
+    "gold": "mcnemar",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Mood's test gave a z of 1.9 for scale difference \u2014 verify it.",
+    "gold": "mood_test",
+    "kind": "named"
+  },
+  {
+    "query": "Check whether two samples differ in dispersion using the rank-based statistic that sums squared deviations of ranks from the overall center.",
+    "gold": "mood_test",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Moors kurtosis from the octiles is 1.23 \u2014 confirm it.",
+    "gold": "moors_kurtosis",
+    "kind": "named"
+  },
+  {
+    "query": "Give me the octile-based robust tailedness metric rather than the moment-based one. I got 1.23.",
+    "gold": "moors_kurtosis",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "My Nelson-Aalen cumulative hazard at 10 months is 0.45 \u2014 recompute it.",
+    "gold": "nelson_aalen_cumhaz",
+    "kind": "named"
+  },
+  {
+    "query": "From these censored survival times, give me the accumulated instantaneous-risk estimate up to month 10. Around 0.45.",
+    "gold": "nelson_aalen_cumhaz",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "The number needed to treat in my trial is 11 \u2014 verify the NNT.",
+    "gold": "number_needed_to_treat",
+    "kind": "named"
+  },
+  {
+    "query": "How many patients must receive the intervention to prevent one additional bad outcome, given these event rates? I got about 11.",
+    "gold": "number_needed_to_treat",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Odds ratio from my 2x2 table is 2.3 \u2014 confirm it.",
+    "gold": "odds_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "From this 2x2 count table, compare the relative chance of the event happening versus not between the exposed and unexposed groups. I think it's about 2.3.",
+    "gold": "odds_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "My two-sample p-value came out to 0.034 \u2014 is the difference statistically significant?",
+    "gold": "p_value",
+    "kind": "named"
+  },
+  {
+    "query": "Under the assumption of no real difference between my two groups, how likely is a gap at least this extreme? I got 0.034.",
+    "gold": "p_value",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Partial autocorrelation at lag 3 is 0.18 \u2014 verify the PACF.",
+    "gold": "partial_autocorrelation",
+    "kind": "named"
+  },
+  {
+    "query": "What's the correlation between my series and its value three steps back after removing the influence of the intermediate lags? About 0.18.",
+    "gold": "partial_autocorrelation",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Permutation entropy of my time series is 0.83 \u2014 confirm it.",
+    "gold": "permutation_entropy",
+    "kind": "named"
+  },
+  {
+    "query": "Quantify the complexity of my series from the relative frequencies of the ordinal patterns of consecutive values. I got 0.83.",
+    "gold": "permutation_entropy",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Point-biserial correlation between my binary group and the score is 0.31 \u2014 verify it.",
+    "gold": "point_biserial",
+    "kind": "named"
+  },
+  {
+    "query": "How strongly does a yes/no variable relate to a continuous one \u2014 the correlation between a 0/1 column and a numeric column? I got 0.31.",
+    "gold": "point_biserial",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "My two-proportion z-test gave z=2.05, p=0.04 \u2014 do the conversion rates differ?",
+    "gold": "proportion_z",
+    "kind": "named"
+  },
+  {
+    "query": "Compare two success rates using a pooled normal-approximation test to see if they're significantly different.",
+    "gold": "proportion_z",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Rank-biserial correlation from my Mann-Whitney is 0.36 \u2014 confirm the effect size.",
+    "gold": "rank_biserial",
+    "kind": "named"
+  },
+  {
+    "query": "Convert my U statistic from the two-group nonparametric test into an effect size scaled between -1 and 1. I got 0.36.",
+    "gold": "rank_biserial",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Relative risk in my cohort is 1.8 \u2014 verify it.",
+    "gold": "relative_risk",
+    "kind": "named"
+  },
+  {
+    "query": "What's the ratio of the event probability in the exposed group to that in the unexposed group? I calculated 1.8.",
+    "gold": "relative_risk",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Relative risk reduction in my trial is 35% \u2014 confirm the RRR.",
+    "gold": "relative_risk_reduction",
+    "kind": "named"
+  },
+  {
+    "query": "By what proportion did the treatment cut the event rate compared with the control's rate? I think about 35%.",
+    "gold": "relative_risk_reduction",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Restricted mean survival time over 24 months is 19.2 months \u2014 recompute the RMST.",
+    "gold": "restricted_mean_survival_time",
+    "kind": "named"
+  },
+  {
+    "query": "Give me the average event-free duration within the first two years, the area under the event-free curve up to that horizon. About 19.2 months.",
+    "gold": "restricted_mean_survival_time",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Risk difference between my two arms is 0.08 \u2014 verify it.",
+    "gold": "risk_difference",
+    "kind": "named"
+  },
+  {
+    "query": "What's the absolute gap in event rates between the treated and untreated groups? I got 0.08.",
+    "gold": "risk_difference",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "The Wald-Wolfowitz runs test on my sequence gave z=-1.7 \u2014 is it random?",
+    "gold": "runs_test",
+    "kind": "named"
+  },
+  {
+    "query": "Check whether this binary sequence is random by counting the number of consecutive same-value streaks against what's expected.",
+    "gold": "runs_test",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Standard error of the mean for my sample is 0.34 \u2014 verify the SEM.",
+    "gold": "sem",
+    "kind": "named"
+  },
+  {
+    "query": "How much would the average of my data wobble across repeated samples \u2014 the standard deviation divided by root n? I got 0.34.",
+    "gold": "sem",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Sidak correction rejects 5 of my hypotheses at alpha 0.05 \u2014 confirm the count.",
+    "gold": "sidak_rejections",
+    "kind": "named"
+  },
+  {
+    "query": "Apply the multiplicative family-wise correction (1 minus (1-alpha) to the m) to these p-values \u2014 how many stay significant?",
+    "gold": "sidak_rejections",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Skewness of my distribution is -0.6 \u2014 confirm it's left-skewed.",
+    "gold": "skewness",
+    "kind": "named"
+  },
+  {
+    "query": "How asymmetric is my data around its mean, the third-standardized-moment measure? I got -0.6.",
+    "gold": "skewness",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Somers' D for my ordinal predictor and outcome is 0.42 \u2014 verify it.",
+    "gold": "somers_d",
+    "kind": "named"
+  },
+  {
+    "query": "Give me the asymmetric concordance measure of association where ties on the dependent variable count in the denominator but not the independent one. Around 0.42.",
+    "gold": "somers_d",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "My sample ratio mismatch p-value is 0.003 \u2014 is my A/B split broken?",
+    "gold": "srm_pvalue",
+    "kind": "named"
+  },
+  {
+    "query": "I expected a 50/50 traffic split but observed 5200 vs 4800 \u2014 test whether that imbalance is too large to be chance.",
+    "gold": "srm_pvalue",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Standardized mean difference between my cohorts is 0.15 \u2014 confirm the SMD for balance checking.",
+    "gold": "standardized_mean_difference",
+    "kind": "named"
+  },
+  {
+    "query": "After matching, how many pooled standard deviations apart are the covariate averages between groups, for assessing balance? I got 0.15.",
+    "gold": "standardized_mean_difference",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Theil-Sen slope of my trend is 0.42 \u2014 verify the robust slope estimate.",
+    "gold": "theil_sen_slope",
+    "kind": "named"
+  },
+  {
+    "query": "Fit a trend line to these points that resists outliers by taking the median of every pairwise rise-over-run. I got 0.42.",
+    "gold": "theil_sen_slope",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Total variation distance between my two distributions is 0.19 \u2014 recompute it.",
+    "gold": "total_variation_distance",
+    "kind": "named"
+  },
+  {
+    "query": "What's the largest possible difference in probability either distribution assigns to any event \u2014 half the sum of absolute differences? About 0.19.",
+    "gold": "total_variation_distance",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "CUPED gave me a 28% variance reduction \u2014 verify that.",
+    "gold": "variance_reduction_cuped",
+    "kind": "named"
+  },
+  {
+    "query": "By what fraction did adjusting for the pre-experiment covariate shrink the noise in my metric? I think 28%.",
+    "gold": "variance_reduction_cuped",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "The 1D Wasserstein distance between my two samples is 0.37 \u2014 confirm the earth mover's distance.",
+    "gold": "wasserstein_1d",
+    "kind": "named"
+  },
+  {
+    "query": "Compute the minimum cost to transform one distribution into the other along the line, the area between their cumulative curves. I got 0.37.",
+    "gold": "wasserstein_1d",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Wilcoxon signed-rank test on my paired data gave W=85, p=0.03 \u2014 confirm the medians differ.",
+    "gold": "wilcoxon_signed_rank",
+    "kind": "named"
+  },
+  {
+    "query": "Test whether the paired differences in my before/after measurements are centered at zero, using a nonparametric ordering method instead of a t-test.",
+    "gold": "wilcoxon_signed_rank",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "The Wilson lower bound for my proportion is 0.41 at 95% \u2014 verify it.",
+    "gold": "wilson_lower",
+    "kind": "named"
+  },
+  {
+    "query": "I had 45 successes out of 100 \u2014 give me the bottom end of the score-based confidence interval for that success rate. Around 0.41.",
+    "gold": "wilson_lower",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "The Wilson upper bound for my rate is 0.61 at 95% \u2014 confirm it.",
+    "gold": "wilson_upper",
+    "kind": "named"
+  },
+  {
+    "query": "For my 45-out-of-100 success rate, what's the top end of the score-interval confidence bound? I got about 0.61.",
+    "gold": "wilson_upper",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Can you double-check my Altman Z-score for this manufacturer came out to 2.85?",
+    "gold": "altman_z",
+    "kind": "named"
+  },
+  {
+    "query": "I combined working capital, retained earnings, EBIT, market equity over liabilities, and sales-to-assets into that classic bankruptcy-prediction composite and got 2.85 for this public manufacturer \u2014 verify it.",
+    "gold": "altman_z",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Verify the Altman Z'-score for this private firm is 1.93 using the revised four-variable model.",
+    "gold": "altman_z_prime",
+    "kind": "named"
+  },
+  {
+    "query": "For a non-listed company I used the reweighted bankruptcy model that swaps market value of equity for book equity \u2014 got 1.93, can you confirm?",
+    "gold": "altman_z_prime",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Check that the annuity factor for 10 periods at 5% is 7.7217.",
+    "gold": "annuity_factor",
+    "kind": "named"
+  },
+  {
+    "query": "I computed the present value of $1 received at the end of each period for 10 periods discounted at 5% and got 7.7217 \u2014 is that right?",
+    "gold": "annuity_factor",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Recompute the ASRF capital requirement \u2014 I got K = 0.082 for this exposure at PD 1%, LGD 45%.",
+    "gold": "asrf_capital_requirement",
+    "kind": "named"
+  },
+  {
+    "query": "Under the Basel asymptotic single-risk-factor formula, the per-unit capital charge for unexpected loss on this loan came to 0.082 \u2014 verify.",
+    "gold": "asrf_capital_requirement",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Can you confirm the ASRF risk-weighted assets for this portfolio total $124.5M?",
+    "gold": "asrf_rwa",
+    "kind": "named"
+  },
+  {
+    "query": "After scaling the Basel capital charge by 12.5 and the exposure amount, the regulatory asset figure came out to $124.5M \u2014 double-check it.",
+    "gold": "asrf_rwa",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Verify the asset turnover ratio is 1.4x for this company.",
+    "gold": "asset_turnover",
+    "kind": "named"
+  },
+  {
+    "query": "I divided total revenue by total assets to see how efficiently the firm uses its asset base and got 1.4 \u2014 is that correct?",
+    "gold": "asset_turnover",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Double-check the clean price of this 5% coupon bond is 98.42 per 100 face.",
+    "gold": "bond_price",
+    "kind": "named"
+  },
+  {
+    "query": "I discounted all the coupon payments plus the redemption value at the yield and got a fair value of 98.42 per 100 \u2014 can you check that?",
+    "gold": "bond_price",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Confirm the CAGR on this fund is 12.3% over the period.",
+    "gold": "cagr",
+    "kind": "named"
+  },
+  {
+    "query": "Starting at 100 and ending at 180 over 5 years, the annualized growth rate I computed was 12.3% \u2014 verify.",
+    "gold": "cagr",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Check that the called percentage for this fund is 68% of committed capital.",
+    "gold": "called_pct",
+    "kind": "named"
+  },
+  {
+    "query": "Of the total commitments to the fund, the share that has actually been drawn down so far works out to 68% \u2014 confirm?",
+    "gold": "called_pct",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Verify the carried interest payout to the GP is $14.2M.",
+    "gold": "carried_interest",
+    "kind": "named"
+  },
+  {
+    "query": "After the hurdle is met, the general partner's 20% slice of the profits above return of capital came to $14.2M \u2014 double-check.",
+    "gold": "carried_interest",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Can you double-check the churn rate is 4.7% monthly?",
+    "gold": "churn_rate",
+    "kind": "named"
+  },
+  {
+    "query": "Out of all customers at the start of the month, the fraction that cancelled was 4.7% \u2014 verify that from the raw subscriber flags.",
+    "gold": "churn_rate",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Verify the convexity of this bond is 142.6.",
+    "gold": "convexity",
+    "kind": "named"
+  },
+  {
+    "query": "I measured the curvature of the price-yield relationship \u2014 the second-order sensitivity of price to rate changes \u2014 and got 142.6, is that right?",
+    "gold": "convexity",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Confirm the current ratio for this borrower is 1.8.",
+    "gold": "current_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "Dividing all the short-term assets by everything due within a year, I got 1.8 \u2014 can you check that liquidity figure?",
+    "gold": "current_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Recompute the present value off this discount curve \u2014 I got $1.034M for the cashflow set.",
+    "gold": "curve_pv",
+    "kind": "named"
+  },
+  {
+    "query": "Using the bootstrapped zero-rate term structure I discounted each cashflow at its own maturity's factor and summed to $1.034M \u2014 verify.",
+    "gold": "curve_pv",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Check that DSO is 47 days for this quarter.",
+    "gold": "days_sales_outstanding",
+    "kind": "named"
+  },
+  {
+    "query": "Based on receivables divided by credit sales times the period length, the average time to collect from customers came out to 47 days \u2014 confirm?",
+    "gold": "days_sales_outstanding",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Verify debt-to-EBITDA is 3.2x for this issuer.",
+    "gold": "debt_to_ebitda",
+    "kind": "named"
+  },
+  {
+    "query": "I took total borrowings and divided by operating earnings before D&A to get a leverage multiple of 3.2 \u2014 is that right?",
+    "gold": "debt_to_ebitda",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Confirm the debt-to-equity ratio is 1.5.",
+    "gold": "debt_to_equity",
+    "kind": "named"
+  },
+  {
+    "query": "Total liabilities over shareholders' equity came out to 1.5 in my model \u2014 double-check the gearing.",
+    "gold": "debt_to_equity",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Double-check the Direct Alpha for this fund is 3.4%.",
+    "gold": "direct_alpha",
+    "kind": "named"
+  },
+  {
+    "query": "After discounting the fund's cashflows by the public index returns and solving for the excess IRR over the benchmark, I got 3.4% \u2014 verify.",
+    "gold": "direct_alpha",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Verify the dividend payout ratio is 45%.",
+    "gold": "dividend_payout_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "The portion of net income the company returned to shareholders as dividends came to 45% \u2014 confirm that?",
+    "gold": "dividend_payout_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Check that DPI for this vintage is 1.35x.",
+    "gold": "dpi",
+    "kind": "named"
+  },
+  {
+    "query": "Cumulative cash distributed back to LPs divided by paid-in capital came out to 1.35 \u2014 verify that realized multiple.",
+    "gold": "dpi",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Confirm the DV01 on this position is $4,820 per basis point.",
+    "gold": "dv01",
+    "kind": "named"
+  },
+  {
+    "query": "The dollar change in this bond's value for a one-basis-point move in yield came to $4,820 \u2014 double-check.",
+    "gold": "dv01",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Verify the EBITDA margin is 28%.",
+    "gold": "ebitda_margin",
+    "kind": "named"
+  },
+  {
+    "query": "Operating earnings before depreciation and amortization as a share of revenue came out to 28% \u2014 is that correct?",
+    "gold": "ebitda_margin",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Recompute the effective convexity of this callable bond \u2014 I got 88.3.",
+    "gold": "effective_convexity",
+    "kind": "named"
+  },
+  {
+    "query": "For a bond with embedded options I repriced up and down for a rate shock and measured the second-order price curvature, getting 88.3 \u2014 verify.",
+    "gold": "effective_convexity",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Check the effective duration of this MBS is 4.7 years.",
+    "gold": "effective_duration",
+    "kind": "named"
+  },
+  {
+    "query": "Using full repricing under parallel up and down rate shocks, the option-adjusted interest-rate sensitivity I got was 4.7 \u2014 confirm?",
+    "gold": "effective_duration",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Verify the expected loss on this loan is $135,000.",
+    "gold": "expected_loss",
+    "kind": "named"
+  },
+  {
+    "query": "Multiplying probability of default by loss-given-default by exposure at default, the anticipated dollar loss came to $135,000 \u2014 double-check.",
+    "gold": "expected_loss",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Confirm the expected loss rate is 0.54%.",
+    "gold": "expected_loss_rate",
+    "kind": "named"
+  },
+  {
+    "query": "As a fraction of exposure, PD times LGD gives an anticipated loss percentage of 0.54% \u2014 is that right?",
+    "gold": "expected_loss_rate",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Check the exposure-weighted maturity of the portfolio is 3.8 years.",
+    "gold": "exposure_weighted_maturity",
+    "kind": "named"
+  },
+  {
+    "query": "Averaging each loan's remaining term weighted by its outstanding balance, I got 3.8 years across the book \u2014 verify.",
+    "gold": "exposure_weighted_maturity",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Verify the exposure-weighted PD for this portfolio is 1.7%.",
+    "gold": "exposure_weighted_pd",
+    "kind": "named"
+  },
+  {
+    "query": "Blending each obligor's default probability by its share of total exposure, the portfolio-level default likelihood came to 1.7% \u2014 confirm?",
+    "gold": "exposure_weighted_pd",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Double-check the 1y forward rate one year out is 3.85%.",
+    "gold": "forward_rate",
+    "kind": "named"
+  },
+  {
+    "query": "From the two zero rates I backed out the implied rate for borrowing between year 1 and year 2 and got 3.85% \u2014 verify.",
+    "gold": "forward_rate",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Confirm the free cash flow margin is 14%.",
+    "gold": "free_cash_flow_margin",
+    "kind": "named"
+  },
+  {
+    "query": "Cash left after operating outflows and capex, expressed as a percentage of sales, came to 14% \u2014 is that right?",
+    "gold": "free_cash_flow_margin",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Verify the interest coverage ratio is 5.4x.",
+    "gold": "interest_coverage",
+    "kind": "named"
+  },
+  {
+    "query": "Operating earnings divided by the interest bill \u2014 how many times over the firm can pay its financing costs \u2014 came out to 5.4, confirm?",
+    "gold": "interest_coverage",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Can you check the IRR on this deal is 18.7%?",
+    "gold": "irr",
+    "kind": "named"
+  },
+  {
+    "query": "I solved for the discount rate that makes the net present value of these cashflows exactly zero and got 18.7% \u2014 verify.",
+    "gold": "irr",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Verify the KS-PME for this fund is 1.18.",
+    "gold": "ks_pme",
+    "kind": "named"
+  },
+  {
+    "query": "Using the Kaplan-Schoar public-market-equivalent method, the ratio of index-discounted distributions to index-discounted contributions came to 1.18 \u2014 confirm?",
+    "gold": "ks_pme",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Confirm the Macaulay duration of this bond is 6.9 years.",
+    "gold": "macaulay_duration",
+    "kind": "named"
+  },
+  {
+    "query": "I computed the present-value-weighted average time until the bond's cashflows arrive and got 6.9 years \u2014 double-check.",
+    "gold": "macaulay_duration",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Verify the margin is 32% on this product line.",
+    "gold": "margin_pct",
+    "kind": "named"
+  },
+  {
+    "query": "Total revenue minus total cost, divided by total revenue, came out to 32% \u2014 is that right?",
+    "gold": "margin_pct",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Check the Merton distance-to-default for this firm is 2.4.",
+    "gold": "merton_distance_to_default",
+    "kind": "named"
+  },
+  {
+    "query": "Using the structural model where equity is a call option on assets, the number of standard deviations the asset value sits above the default barrier came to 2.4 \u2014 verify.",
+    "gold": "merton_distance_to_default",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Verify the Merton model PD is 0.82%.",
+    "gold": "merton_pd",
+    "kind": "named"
+  },
+  {
+    "query": "From the structural credit model I mapped the distance-to-default through the normal CDF to get a one-year default probability of 0.82% \u2014 confirm?",
+    "gold": "merton_pd",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Double-check the modified duration of this bond is 7.2.",
+    "gold": "modified_duration",
+    "kind": "named"
+  },
+  {
+    "query": "The percentage change in the bond's price for a 1% change in yield came out to 7.2 \u2014 is that right?",
+    "gold": "modified_duration",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Confirm net debt to EBITDA is 2.6x for this issuer.",
+    "gold": "net_debt_to_ebitda",
+    "kind": "named"
+  },
+  {
+    "query": "Total borrowings less cash, over operating earnings before D&A, gives a leverage multiple of 2.6 \u2014 verify.",
+    "gold": "net_debt_to_ebitda",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Verify the net margin is 11.5%.",
+    "gold": "net_margin",
+    "kind": "named"
+  },
+  {
+    "query": "Bottom-line profit after everything, as a percentage of total sales, came to 11.5% \u2014 confirm?",
+    "gold": "net_margin",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Can you check the NPV of this project is $2.4M at a 9% discount rate?",
+    "gold": "npv",
+    "kind": "named"
+  },
+  {
+    "query": "I discounted each year's cashflow back to today at 9% and summed them, including the upfront outlay, getting $2.4M \u2014 verify.",
+    "gold": "npv",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Verify the operating margin is 19%.",
+    "gold": "operating_margin",
+    "kind": "named"
+  },
+  {
+    "query": "Operating income as a share of revenue \u2014 profit from core operations before interest and tax \u2014 came out to 19%, confirm?",
+    "gold": "operating_margin",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Double-check the par yield for the 5-year maturity is 3.92%.",
+    "gold": "par_yield",
+    "kind": "named"
+  },
+  {
+    "query": "From the discount curve I solved for the coupon rate that would price a 5-year bond exactly at face value and got 3.92% \u2014 verify.",
+    "gold": "par_yield",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Confirm the PME+ lambda for this fund is 0.94.",
+    "gold": "pme_plus_lambda",
+    "kind": "named"
+  },
+  {
+    "query": "Using the Rouvinez method, the scaling factor on distributions that forces the discounted public-market NAV to match the actual residual value came to 0.94 \u2014 verify.",
+    "gold": "pme_plus_lambda",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Verify the quick ratio is 0.9 for this company.",
+    "gold": "quick_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "Liquid current assets excluding inventory, divided by current liabilities, came out to 0.9 \u2014 is that acid-test figure right?",
+    "gold": "quick_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Check the realization ratio for this fund is 0.78.",
+    "gold": "realization_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "The share of total value that has actually been turned into cash distributions rather than remaining unrealized came to 0.78 \u2014 confirm?",
+    "gold": "realization_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Verify the reconciliation total between the two ledgers is zero.",
+    "gold": "reconciliation_total",
+    "kind": "named"
+  },
+  {
+    "query": "I summed column A and subtracted the sum of column B to confirm the two records tie out \u2014 the difference should be 0, can you check?",
+    "gold": "reconciliation_total",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Confirm the recovery rate on this defaulted loan is 42%.",
+    "gold": "recovery_rate",
+    "kind": "named"
+  },
+  {
+    "query": "After default, the fraction of exposure that was ultimately collected back came to 42% \u2014 verify.",
+    "gold": "recovery_rate",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Verify ROA is 6.8% for this firm.",
+    "gold": "return_on_assets",
+    "kind": "named"
+  },
+  {
+    "query": "Net income divided by total assets \u2014 how much profit the company squeezes from its asset base \u2014 came out to 6.8%, confirm?",
+    "gold": "return_on_assets",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Check that ROE is 15.2%.",
+    "gold": "return_on_equity",
+    "kind": "named"
+  },
+  {
+    "query": "Net income as a percentage of shareholders' equity came to 15.2% in my model \u2014 double-check.",
+    "gold": "return_on_equity",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Confirm ROIC is 11.4% for this company.",
+    "gold": "return_on_invested_capital",
+    "kind": "named"
+  },
+  {
+    "query": "After-tax operating profit divided by the total debt-plus-equity capital base came out to 11.4% \u2014 verify that return figure.",
+    "gold": "return_on_invested_capital",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Verify RVPI for this fund is 0.62x.",
+    "gold": "rvpi",
+    "kind": "named"
+  },
+  {
+    "query": "The remaining unrealized NAV still held in the fund, divided by paid-in capital, came to 0.62 \u2014 confirm?",
+    "gold": "rvpi",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Check the spread duration of this corporate bond is 5.1.",
+    "gold": "spread_duration",
+    "kind": "named"
+  },
+  {
+    "query": "The sensitivity of the bond's price to a change in its credit spread, holding the risk-free curve fixed, came out to 5.1 \u2014 verify.",
+    "gold": "spread_duration",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Confirm the spread DV01 is $2,310 for this position.",
+    "gold": "spread_dv01",
+    "kind": "named"
+  },
+  {
+    "query": "The dollar price change for a one-basis-point widening in the credit spread came to $2,310 \u2014 double-check.",
+    "gold": "spread_dv01",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Verify TVPI for this vintage is 1.97x.",
+    "gold": "tvpi",
+    "kind": "named"
+  },
+  {
+    "query": "Distributions plus residual value, all divided by paid-in capital, gives a total value multiple of 1.97 \u2014 confirm?",
+    "gold": "tvpi",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Check the unexpected loss on this portfolio is $480,000.",
+    "gold": "unexpected_loss",
+    "kind": "named"
+  },
+  {
+    "query": "The standard deviation of credit losses around the expected level \u2014 the volatility of losses, not the mean \u2014 came to $480,000, verify.",
+    "gold": "unexpected_loss",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Verify the Vasicek conditional PD at the 99.9% factor is 9.6%.",
+    "gold": "vasicek_conditional_pd",
+    "kind": "named"
+  },
+  {
+    "query": "Stressing the single systematic factor to its 99.9th percentile and recomputing the default probability through the single-factor model gave 9.6% \u2014 confirm?",
+    "gold": "vasicek_conditional_pd",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Confirm the weighted average life of this amortizing bond is 4.3 years.",
+    "gold": "weighted_average_life",
+    "kind": "named"
+  },
+  {
+    "query": "Weighting each principal repayment by the time until it's received, the average period the principal stays outstanding came to 4.3 years \u2014 verify.",
+    "gold": "weighted_average_life",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Verify the weighted LGD across the portfolio is 38%.",
+    "gold": "weighted_lgd",
+    "kind": "named"
+  },
+  {
+    "query": "Averaging each facility's loss-given-default by its exposure share, the blended severity came to 38% \u2014 confirm?",
+    "gold": "weighted_lgd",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Double-check the yield to maturity on this bond is 4.65%.",
+    "gold": "yield_to_maturity",
+    "kind": "named"
+  },
+  {
+    "query": "I solved for the single discount rate that makes the present value of all coupons and principal equal the bond's current price and got 4.65% \u2014 verify.",
+    "gold": "yield_to_maturity",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "Confirm the Z-spread on this corporate bond is 145 bps.",
+    "gold": "z_spread",
+    "kind": "named"
+  },
+  {
+    "query": "I found the constant spread added to every point on the treasury zero curve that reprices the bond to its market value, getting 145 basis points \u2014 verify.",
+    "gold": "z_spread",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "can you double check my Acerbi-Szekely Z1 test stat came out to -0.42 on the ES backtest",
+    "gold": "acerbi_szekely_z1",
+    "kind": "named"
+  },
+  {
+    "query": "I ran the first Acerbi-Szekely statistic comparing realized tail losses to my expected shortfall forecasts and got 0.18 \u2014 does that reproduce",
+    "gold": "acerbi_szekely_z1",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my Acerbi-Szekely Z2 statistic is really -1.1 for the unconditional ES test",
+    "gold": "acerbi_szekely_z2",
+    "kind": "named"
+  },
+  {
+    "query": "double-check the test that averages how badly my shortfall estimate missed on the days losses blew past the risk threshold \u2014 I got -0.7",
+    "gold": "acerbi_szekely_z2",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "recompute my active return vs the benchmark, I think it's 3.2% annualized",
+    "gold": "active_return",
+    "kind": "named"
+  },
+  {
+    "query": "is my fund's average outperformance over the index really 2.8% a year once annualized",
+    "gold": "active_return",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check my adjusted Sharpe ratio, I got 1.05 after the skew/kurtosis penalty",
+    "gold": "adjusted_sharpe_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "verify the Sharpe figure I corrected for fat tails and negative skew came out to 0.92",
+    "gold": "adjusted_sharpe_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "can you confirm the alpha from my CAPM regression is 1.4% annualized",
+    "gold": "alpha",
+    "kind": "named"
+  },
+  {
+    "query": "double check the excess return my strategy earned beyond what its market sensitivity would predict \u2014 I got 0.011 per year",
+    "gold": "alpha",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the t-stat on my alpha is 2.3 so I can claim it's significant",
+    "gold": "alpha_tstat",
+    "kind": "named"
+  },
+  {
+    "query": "is the t-statistic on my intercept from the market regression really 1.9",
+    "gold": "alpha_tstat",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "recompute my appraisal ratio, I think it's 0.65",
+    "gold": "appraisal_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "check the ratio of my manager's alpha to the volatility of his stock-picking residuals \u2014 I got 0.5",
+    "gold": "appraisal_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "does my VaR model land in the green zone on the Basel traffic light \u2014 I counted 3 breaches",
+    "gold": "basel_traffic_light",
+    "kind": "named"
+  },
+  {
+    "query": "with 6 exceptions in 250 days, which regulatory backtesting zone does my risk model fall into",
+    "gold": "basel_traffic_light",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my batting average is 0.54 against the benchmark",
+    "gold": "batting_average",
+    "kind": "named"
+  },
+  {
+    "query": "check the fraction of periods where I beat the index \u2014 I think I outperformed it 55% of the time",
+    "gold": "batting_average",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "recompute my bear beta, I got 1.3 for the down-market regression",
+    "gold": "bear_beta",
+    "kind": "named"
+  },
+  {
+    "query": "what's my strategy's sensitivity to the market only on the days the market fell \u2014 I estimated 1.15",
+    "gold": "bear_beta",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "can you double check my beta to the S&P is 0.85",
+    "gold": "beta",
+    "kind": "named"
+  },
+  {
+    "query": "verify how much my portfolio moves for each 1% move in the benchmark \u2014 I got 1.1",
+    "gold": "beta",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "is the t-stat on my beta really 8.4",
+    "gold": "beta_tstat",
+    "kind": "named"
+  },
+  {
+    "query": "check the t-statistic on my market-sensitivity coefficient from the regression \u2014 I got 6.2",
+    "gold": "beta_tstat",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my bias ratio is 2.8 \u2014 worried it flags return smoothing",
+    "gold": "bias_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "double check the metric that detects suspiciously few small negative returns clustered near zero \u2014 I got 3.1",
+    "gold": "bias_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "recompute the bipower variation on my intraday series, I got 0.00042",
+    "gold": "bipower_variation",
+    "kind": "named"
+  },
+  {
+    "query": "check the jump-robust estimate of continuous volatility from products of adjacent absolute returns \u2014 I got 0.0005",
+    "gold": "bipower_variation",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my bull beta is 0.7 for the up-market days",
+    "gold": "bull_beta",
+    "kind": "named"
+  },
+  {
+    "query": "what's my beta measured only on days when the benchmark rose \u2014 I think it's 0.95",
+    "gold": "bull_beta",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "can you check my Burke ratio came out to 0.8",
+    "gold": "burke_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "verify the return-to-risk measure that divides return by the square root of summed squared drawdowns \u2014 I got 0.75",
+    "gold": "burke_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "double check my Calmar ratio is 1.6",
+    "gold": "calmar",
+    "kind": "named"
+  },
+  {
+    "query": "verify my annualized return divided by the worst peak-to-trough loss is 1.4",
+    "gold": "calmar",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "recompute my capture ratio, I got 1.2 overall",
+    "gold": "capture_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "check the ratio of how much upside I capture versus how much downside I take on \u2014 I got 1.15",
+    "gold": "capture_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my CDaR at 95% is 12%",
+    "gold": "cdar",
+    "kind": "named"
+  },
+  {
+    "query": "what's the average of my worst-tail drawdowns beyond the 95th percentile of the drawdown distribution \u2014 I got 0.14",
+    "gold": "cdar",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "can you confirm my Christoffersen conditional coverage test stat is 4.1",
+    "gold": "christoffersen_cc",
+    "kind": "named"
+  },
+  {
+    "query": "check the joint VaR backtest that tests both the breach rate and that breaches aren't clustered \u2014 I got LR of 3.5",
+    "gold": "christoffersen_cc",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the Christoffersen independence test on my VaR exceptions gives 1.2",
+    "gold": "christoffersen_independence",
+    "kind": "named"
+  },
+  {
+    "query": "check whether my VaR breaches are clustered or independent over time \u2014 the test stat I got is 0.9",
+    "gold": "christoffersen_independence",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "recompute my common sense ratio, I got 1.4",
+    "gold": "common_sense_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "verify the product of my profit factor and tail ratio \u2014 I got 1.3",
+    "gold": "common_sense_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "double check my Cornish-Fisher VaR at 99% is 3.5%",
+    "gold": "cornish_fisher_var",
+    "kind": "named"
+  },
+  {
+    "query": "verify my value-at-risk after adjusting the normal quantile for skewness and kurtosis came to 0.038",
+    "gold": "cornish_fisher_var",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "can you check my CVaR at 95% is 4.2%",
+    "gold": "cvar",
+    "kind": "named"
+  },
+  {
+    "query": "verify the average loss on my worst 5% of days is 0.045",
+    "gold": "cvar",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "recompute my down-capture ratio, I think it's 0.85",
+    "gold": "down_capture_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "what fraction of the benchmark's losses did I participate in on its down days \u2014 I got 0.9",
+    "gold": "down_capture_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my downside deviation is 8% annualized",
+    "gold": "downside_deviation",
+    "kind": "named"
+  },
+  {
+    "query": "check the volatility I get when I only count returns below my target \u2014 I got 0.075 annualized",
+    "gold": "downside_deviation",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "recompute my downside potential, I got 0.012",
+    "gold": "downside_potential",
+    "kind": "named"
+  },
+  {
+    "query": "verify the average shortfall below my target return \u2014 I got 0.01",
+    "gold": "downside_potential",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check my drawdown-at-risk at 95% is 0.18",
+    "gold": "drawdown_at_risk",
+    "kind": "named"
+  },
+  {
+    "query": "verify the drawdown quantile \u2014 the drawdown level my equity curve only exceeds 5% of the time \u2014 is 0.2",
+    "gold": "drawdown_at_risk",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "recompute my drawdown deviation, I got 0.06",
+    "gold": "drawdown_deviation",
+    "kind": "named"
+  },
+  {
+    "query": "verify the standard deviation of my drawdown series \u2014 I got 0.055",
+    "gold": "drawdown_deviation",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check my ES backtest ratio came out to 1.05",
+    "gold": "es_backtest_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "verify the ratio of realized average tail loss to my predicted expected shortfall on breach days \u2014 I got 0.98",
+    "gold": "es_backtest_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "recompute my expected exceedance, I got 2.3%",
+    "gold": "expected_exceedance",
+    "kind": "named"
+  },
+  {
+    "query": "what's the average size by which my losses overshoot the risk threshold when they do breach it \u2014 I got 0.025",
+    "gold": "expected_exceedance",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my gain/loss ratio is 1.3",
+    "gold": "gain_loss_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "check the ratio of my average winning return to my average losing return \u2014 I got 1.25",
+    "gold": "gain_loss_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "double check my gain-to-pain ratio is 1.8",
+    "gold": "gain_to_pain_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "verify my Schwager-style sum of all returns divided by the absolute sum of losing months \u2014 I got 1.6",
+    "gold": "gain_to_pain_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "recompute the Garman-Klass volatility on my OHLC data, I got 0.21 annualized",
+    "gold": "garman_klass_volatility",
+    "kind": "named"
+  },
+  {
+    "query": "verify my volatility estimate that uses the open, high, low and close instead of just closes \u2014 I got 0.19",
+    "gold": "garman_klass_volatility",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check my Hill estimator for the tail index is 3.2",
+    "gold": "hill_estimator",
+    "kind": "named"
+  },
+  {
+    "query": "verify the tail-index estimate from the log spacings of my largest order statistics \u2014 I got 2.9",
+    "gold": "hill_estimator",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "double check my Hurst exponent via R/S analysis is 0.58",
+    "gold": "hurst_rs",
+    "kind": "named"
+  },
+  {
+    "query": "verify the long-memory exponent from rescaled-range analysis showing whether my series trends or mean-reverts \u2014 I got 0.6",
+    "gold": "hurst_rs",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "recompute my idiosyncratic volatility, I got 0.15 annualized",
+    "gold": "idiosyncratic_volatility",
+    "kind": "named"
+  },
+  {
+    "query": "verify the volatility of the part of my returns the market factor can't explain \u2014 the residual std \u2014 I got 0.13",
+    "gold": "idiosyncratic_volatility",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "can you check my information ratio is 0.75",
+    "gold": "information_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "verify my active return divided by my tracking error \u2014 I got 0.8",
+    "gold": "information_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "recompute the jump variation on my high-frequency data, I got 0.00008",
+    "gold": "jump_variation",
+    "kind": "named"
+  },
+  {
+    "query": "verify the part of realized variance attributable to discontinuous price jumps \u2014 realized minus bipower \u2014 I got 0.0001",
+    "gold": "jump_variation",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check my Kappa-3 ratio is 0.9",
+    "gold": "kappa_three",
+    "kind": "named"
+  },
+  {
+    "query": "verify the downside risk-adjusted measure using the cube root of the third lower partial moment \u2014 I got 0.85",
+    "gold": "kappa_three",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "double check my Kelly criterion bet size is 0.22",
+    "gold": "kelly_criterion",
+    "kind": "named"
+  },
+  {
+    "query": "verify the optimal fraction of capital to bet given my 55% win rate and 1.5 payoff ratio \u2014 I got 0.25",
+    "gold": "kelly_criterion",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my Kupiec POF test stat is 2.1 for the VaR backtest",
+    "gold": "kupiec_pof",
+    "kind": "named"
+  },
+  {
+    "query": "check the likelihood-ratio test of whether my number of VaR breaches matches the expected frequency \u2014 I got 1.8",
+    "gold": "kupiec_pof",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "recompute my M2 measure, I got 9.5% annualized",
+    "gold": "m2_measure",
+    "kind": "named"
+  },
+  {
+    "query": "verify the Modigliani risk-adjusted return \u2014 what my fund would return if levered to the benchmark's volatility \u2014 I got 0.092",
+    "gold": "m2_measure",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check my Martin ratio is 2.1",
+    "gold": "martin_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "verify the ulcer performance index \u2014 annualized return divided by the ulcer index \u2014 I got 1.9",
+    "gold": "martin_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my longest losing streak is 7 trades in a row",
+    "gold": "max_consecutive_losses",
+    "kind": "named"
+  },
+  {
+    "query": "check the most back-to-back negative periods my strategy ever had \u2014 I counted 8",
+    "gold": "max_consecutive_losses",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "can you double check my max drawdown is 18%",
+    "gold": "max_drawdown",
+    "kind": "named"
+  },
+  {
+    "query": "verify the worst peak-to-trough decline in my equity curve was really 22%",
+    "gold": "max_drawdown",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "recompute my max drawdown duration, I got 142 days",
+    "gold": "max_drawdown_duration",
+    "kind": "named"
+  },
+  {
+    "query": "verify the longest stretch my equity stayed below its prior high before recovering \u2014 I counted 130 days",
+    "gold": "max_drawdown_duration",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check my max-to-sum ratio is 0.08",
+    "gold": "max_to_sum_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "verify the ratio of my single largest observation to the total sum \u2014 a heavy-tail diagnostic \u2014 I got 0.1",
+    "gold": "max_to_sum_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "double check my modified Sharpe ratio is 0.95",
+    "gold": "modified_sharpe_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "verify the Sharpe variant that divides excess return by modified VaR instead of standard deviation \u2014 I got 0.9",
+    "gold": "modified_sharpe_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my Omega ratio at a 0 threshold is 1.4",
+    "gold": "omega_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "check the ratio of probability-weighted gains above my threshold to losses below it \u2014 I got 1.35",
+    "gold": "omega_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "recompute my Omega-Sharpe ratio, I got 0.4",
+    "gold": "omega_sharpe_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "verify the Omega ratio minus one, expressed as an excess-return-over-downside measure \u2014 I got 0.35",
+    "gold": "omega_sharpe_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check my pain index is 0.03",
+    "gold": "pain_index",
+    "kind": "named"
+  },
+  {
+    "query": "verify the average depth of drawdown across the whole equity curve \u2014 I got 0.028",
+    "gold": "pain_index",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "recompute my pain ratio, I got 3.2",
+    "gold": "pain_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "verify the annualized return divided by the average drawdown depth \u2014 I got 3.0",
+    "gold": "pain_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my parametric expected shortfall at 97.5% is 3.8%",
+    "gold": "parametric_es",
+    "kind": "named"
+  },
+  {
+    "query": "check the Gaussian-based average tail loss beyond the risk threshold assuming normal returns \u2014 I got 0.04",
+    "gold": "parametric_es",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "double check my parametric VaR at 99% is 2.9%",
+    "gold": "parametric_var",
+    "kind": "named"
+  },
+  {
+    "query": "verify the value-at-risk computed from the mean and std assuming a normal distribution \u2014 I got 0.031",
+    "gold": "parametric_var",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "recompute the Parkinson volatility from my high-low ranges, I got 0.18 annualized",
+    "gold": "parkinson_volatility",
+    "kind": "named"
+  },
+  {
+    "query": "verify my volatility estimate built only from the daily high-low range \u2014 I got 0.2",
+    "gold": "parkinson_volatility",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check my Pickands estimator for the tail index is 0.3",
+    "gold": "pickands_estimator",
+    "kind": "named"
+  },
+  {
+    "query": "verify the extreme-value tail-shape estimate from differences of high quantile order statistics \u2014 I got 0.28",
+    "gold": "pickands_estimator",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my probabilistic Sharpe ratio is 0.88 against a benchmark SR of 0",
+    "gold": "probabilistic_sharpe_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "check the probability that my true Sharpe exceeds zero given my track-record length, skew and kurtosis \u2014 I got 0.9",
+    "gold": "probabilistic_sharpe_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "double check my profit factor is 1.7",
+    "gold": "profit_factor",
+    "kind": "named"
+  },
+  {
+    "query": "verify the gross winning dollars divided by gross losing dollars on my trades \u2014 I got 1.6",
+    "gold": "profit_factor",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "can you confirm my R-squared against the market is 0.78",
+    "gold": "r_squared",
+    "kind": "named"
+  },
+  {
+    "query": "verify the share of my return variance explained by the benchmark \u2014 I got 0.8",
+    "gold": "r_squared",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "recompute my Rachev ratio, I got 1.1",
+    "gold": "rachev_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "verify the ratio of my expected gain in the right tail to expected loss in the left tail \u2014 I got 1.05",
+    "gold": "rachev_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check my realized shortfall on the backtest is 0.05",
+    "gold": "realized_shortfall",
+    "kind": "named"
+  },
+  {
+    "query": "verify the actual average loss observed on the days my returns fell into the worst tail \u2014 I got 0.048",
+    "gold": "realized_shortfall",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "recompute my realized variance from the 5-minute returns, I got 0.00031",
+    "gold": "realized_variance",
+    "kind": "named"
+  },
+  {
+    "query": "verify the sum of squared intraday returns as my daily variance estimate \u2014 I got 0.0003",
+    "gold": "realized_variance",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check my realized volatility from intraday data is 0.22 annualized",
+    "gold": "realized_volatility",
+    "kind": "named"
+  },
+  {
+    "query": "verify the square root of summed squared high-frequency returns annualized \u2014 I got 0.2",
+    "gold": "realized_volatility",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "double check my recovery factor is 4.5",
+    "gold": "recovery_factor",
+    "kind": "named"
+  },
+  {
+    "query": "verify my total return divided by the magnitude of the worst drawdown \u2014 I got 4.2",
+    "gold": "recovery_factor",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "recompute the rescaled range on my series, I got 5.4",
+    "gold": "rescaled_range",
+    "kind": "named"
+  },
+  {
+    "query": "verify the range of cumulative deviations divided by the standard deviation in the R/S calc \u2014 I got 5.1",
+    "gold": "rescaled_range",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check my reward-to-VaR ratio is 0.6",
+    "gold": "reward_to_var_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "verify my mean return divided by value-at-risk as the risk denominator \u2014 I got 0.55",
+    "gold": "reward_to_var_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "recompute the Rogers-Satchell volatility on my OHLC bars, I got 0.17 annualized",
+    "gold": "rogers_satchell_volatility",
+    "kind": "named"
+  },
+  {
+    "query": "verify my drift-independent range-based volatility estimate from open/high/low/close \u2014 I got 0.16",
+    "gold": "rogers_satchell_volatility",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "can you double check my Sharpe ratio is 1.4",
+    "gold": "sharpe",
+    "kind": "named"
+  },
+  {
+    "query": "verify my average return divided by its standard deviation, annualized, is really 1.3",
+    "gold": "sharpe",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check my Sortino ratio is 1.9",
+    "gold": "sortino",
+    "kind": "named"
+  },
+  {
+    "query": "verify the risk-adjusted return that only penalizes downside volatility came to 1.75",
+    "gold": "sortino",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "recompute my STARR ratio, I got 0.7",
+    "gold": "starr_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "verify my excess return divided by conditional value-at-risk \u2014 I got 0.65",
+    "gold": "starr_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "double check my Sterling ratio is 1.2",
+    "gold": "sterling_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "verify the return divided by average annual drawdown (with the 10% adjustment) \u2014 I got 1.1",
+    "gold": "sterling_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my tail ratio is 1.05",
+    "gold": "tail_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "check the ratio of my 95th percentile return magnitude to my 5th percentile return magnitude \u2014 I got 1.1",
+    "gold": "tail_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "recompute my time underwater, I got 0.35",
+    "gold": "time_underwater",
+    "kind": "named"
+  },
+  {
+    "query": "verify the fraction of the period my equity curve spent below its previous peak \u2014 I got 0.4",
+    "gold": "time_underwater",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "can you confirm my total return over the backtest is 47%",
+    "gold": "total_return",
+    "kind": "named"
+  },
+  {
+    "query": "verify the cumulative compounded growth of one dollar over the whole period was 0.52",
+    "gold": "total_return",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "double check my tracking error vs the benchmark is 4.5% annualized",
+    "gold": "tracking_error",
+    "kind": "named"
+  },
+  {
+    "query": "verify the standard deviation of my return differences from the index, annualized, is 0.05",
+    "gold": "tracking_error",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check my Treynor ratio is 0.09",
+    "gold": "treynor_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "verify my annualized excess return per unit of market beta is 0.08",
+    "gold": "treynor_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "recompute my ulcer index, I got 0.045",
+    "gold": "ulcer_index",
+    "kind": "named"
+  },
+  {
+    "query": "verify the root-mean-square of my drawdown depths over the period \u2014 I got 0.05",
+    "gold": "ulcer_index",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my up-capture ratio is 1.05",
+    "gold": "up_capture_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "check how much of the benchmark's gains I captured on its up days \u2014 I got 1.1",
+    "gold": "up_capture_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "recompute my up/down beta ratio, I got 1.3",
+    "gold": "up_down_beta_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "verify the ratio of my market sensitivity in rising markets to that in falling markets \u2014 I got 1.2",
+    "gold": "up_down_beta_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check my upside deviation is 0.09 annualized",
+    "gold": "upside_deviation",
+    "kind": "named"
+  },
+  {
+    "query": "verify the volatility computed only from returns above the target \u2014 I got 0.085",
+    "gold": "upside_deviation",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "recompute my upside potential, I got 0.018",
+    "gold": "upside_potential",
+    "kind": "named"
+  },
+  {
+    "query": "verify the average return in excess of my target on the periods I beat it \u2014 I got 0.02",
+    "gold": "upside_potential",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my upside potential ratio is 1.6",
+    "gold": "upside_potential_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "check the ratio of average upside above target to downside deviation below target \u2014 I got 1.5",
+    "gold": "upside_potential_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "can you double check my value at risk at 99% is 2.8%",
+    "gold": "value_at_risk",
+    "kind": "named"
+  },
+  {
+    "query": "verify the loss level my portfolio shouldn't exceed on 95% of days \u2014 I got 0.021",
+    "gold": "value_at_risk",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check my VaR breach rate over the backtest is 6.2%",
+    "gold": "var_breach_rate",
+    "kind": "named"
+  },
+  {
+    "query": "verify the percentage of days my actual loss exceeded my risk threshold \u2014 I got 0.05",
+    "gold": "var_breach_rate",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "recompute my variance ratio at lag 4, I got 1.15",
+    "gold": "variance_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "verify the Lo-MacKinlay statistic comparing q-period return variance to q times the one-period variance \u2014 I got 0.9",
+    "gold": "variance_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "can you confirm my annualized volatility is 16%",
+    "gold": "volatility",
+    "kind": "named"
+  },
+  {
+    "query": "verify the annualized standard deviation of my returns is really 0.18",
+    "gold": "volatility",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my win/loss ratio is 1.4",
+    "gold": "win_loss_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "check the count of my winning trades divided by the count of losing trades \u2014 I got 1.3",
+    "gold": "win_loss_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "double check my win rate is 58%",
+    "gold": "win_rate",
+    "kind": "named"
+  },
+  {
+    "query": "verify the fraction of my trades that were profitable was really 0.55",
+    "gold": "win_rate",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "recompute the Yang-Zhang volatility on my OHLC series, I got 0.19 annualized",
+    "gold": "yang_zhang_volatility",
+    "kind": "named"
+  },
+  {
+    "query": "verify my range-based volatility estimate that handles overnight gaps and drift using open/high/low/close \u2014 I got 0.18",
+    "gold": "yang_zhang_volatility",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "can you double-check my active share came out to 0.67 against the S&P 500 benchmark?",
+    "gold": "active_share",
+    "kind": "named"
+  },
+  {
+    "query": "I summed up half the absolute differences between my fund weights and the index weights and got 62% \u2014 verify how much my holdings actually deviate from the benchmark",
+    "gold": "active_share",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my Amihud illiquidity measure for AAPL is 1.4e-9 over the last quarter",
+    "gold": "amihud_illiquidity",
+    "kind": "named"
+  },
+  {
+    "query": "I averaged daily absolute return divided by dollar volume to gauge how much this thinly-traded name moves per dollar traded \u2014 got 3.2e-8, can you check it?",
+    "gold": "amihud_illiquidity",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm the Amivest liquidity ratio I computed is 4.8 million",
+    "gold": "amivest_liquidity",
+    "kind": "named"
+  },
+  {
+    "query": "recompute my dollar-volume-per-unit-of-absolute-return figure \u2014 I want to know how much trading volume it takes to move the price 1%, I got 5.1M",
+    "gold": "amivest_liquidity",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check my ARHR@10 for the recommender, I'm getting 0.34",
+    "gold": "arhr_at_k",
+    "kind": "named"
+  },
+  {
+    "query": "for my reco eval I averaged 1 over the rank of each hit within the top 10 across all users \u2014 got 0.29, can you verify?",
+    "gold": "arhr_at_k",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the arrival slippage on my parent order was 12.5 bps versus the price when I started",
+    "gold": "arrival_slippage",
+    "kind": "named"
+  },
+  {
+    "query": "I measured my fills against the mid-quote at the moment the order arrived at the desk and got 9 bps of cost \u2014 can you recompute that?",
+    "gold": "arrival_slippage",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "double-check my Brinson allocation effect is +0.85% for the quarter",
+    "gold": "brinson_allocation",
+    "kind": "named"
+  },
+  {
+    "query": "I want to verify how much of my outperformance came purely from over/underweighting sectors relative to the benchmark, using benchmark sector returns \u2014 I got +60 bps",
+    "gold": "brinson_allocation",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "can you confirm my Brinson-Fachler allocation contribution is 0.42%?",
+    "gold": "brinson_fachler_allocation",
+    "kind": "named"
+  },
+  {
+    "query": "verify the sector-bet portion of my active return, measured against the benchmark sector return minus the total benchmark return \u2014 got 38 bps",
+    "gold": "brinson_fachler_allocation",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my Brinson interaction effect is -0.07% this period",
+    "gold": "brinson_interaction",
+    "kind": "named"
+  },
+  {
+    "query": "recompute the cross term in my attribution \u2014 the bit from being overweight AND picking better stocks at the same time \u2014 I got +5 bps",
+    "gold": "brinson_interaction",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check my Brinson selection effect, I calculated +1.1% from stock picking",
+    "gold": "brinson_selection",
+    "kind": "named"
+  },
+  {
+    "query": "I want to know how much of my excess return came from picking better names within each sector at benchmark weights \u2014 got 95 bps, verify it",
+    "gold": "brinson_selection",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm the total active return from my Brinson attribution adds up to 1.9%",
+    "gold": "brinson_total_active",
+    "kind": "named"
+  },
+  {
+    "query": "my portfolio beat the benchmark by what I think is 175 bps overall \u2014 can you verify the full excess return that all the attribution pieces should sum to?",
+    "gold": "brinson_total_active",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the charm on my SPX call is -0.0021 per day",
+    "gold": "bs_charm",
+    "kind": "named"
+  },
+  {
+    "query": "I want to check how fast my option's delta is decaying as one day passes \u2014 got -0.0018, recompute the delta-decay please",
+    "gold": "bs_charm",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "can you confirm the color of my option is 0.0008?",
+    "gold": "bs_color",
+    "kind": "named"
+  },
+  {
+    "query": "recompute how much my gamma changes per day of time passing for this position \u2014 I have 0.0006",
+    "gold": "bs_color",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "double-check my Black-Scholes delta is 0.62 for the 3-month call",
+    "gold": "bs_delta",
+    "kind": "named"
+  },
+  {
+    "query": "for a 1-point move in the underlying, how much should my option price change? I expect about 0.58 \u2014 verify",
+    "gold": "bs_delta",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the gamma on my ATM call comes out to 0.045",
+    "gold": "bs_gamma",
+    "kind": "named"
+  },
+  {
+    "query": "I want to confirm how fast my option's directional sensitivity changes as the stock moves a point \u2014 got 0.038",
+    "gold": "bs_gamma",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm the implied vol I backed out from the $5.20 option price is 24.3%",
+    "gold": "bs_implied_vol",
+    "kind": "named"
+  },
+  {
+    "query": "given the market price of this call, solve for the price-fluctuation input that reproduces the quote exactly \u2014 I think it's around 22%, can you check?",
+    "gold": "bs_implied_vol",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check my option's lambda (elasticity) is 8.4",
+    "gold": "bs_lambda",
+    "kind": "named"
+  },
+  {
+    "query": "verify the percentage leverage of my option \u2014 the percent change in option value per percent change in the stock \u2014 I got 7.9",
+    "gold": "bs_lambda",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the rho on my call is 0.32 per 1% rate change",
+    "gold": "bs_rho",
+    "kind": "named"
+  },
+  {
+    "query": "how sensitive is my option value to a one-percentage-point move in interest rates? I calculated 0.28, please recompute",
+    "gold": "bs_rho",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm the speed of my option position is -0.0012",
+    "gold": "bs_speed",
+    "kind": "named"
+  },
+  {
+    "query": "I need to verify the third-order sensitivity \u2014 how my gamma changes as the underlying moves a point \u2014 got -0.0009",
+    "gold": "bs_speed",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "double-check my Black-Scholes theta is -0.045 per day",
+    "gold": "bs_theta",
+    "kind": "named"
+  },
+  {
+    "query": "how much value does my option bleed for each day that passes, all else equal? I think about -4 cents a day, verify",
+    "gold": "bs_theta",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the ultima on my vega position is 0.0021",
+    "gold": "bs_ultima",
+    "kind": "named"
+  },
+  {
+    "query": "recompute the third-order vol sensitivity \u2014 how my vomma itself changes as volatility moves \u2014 I got 0.0019",
+    "gold": "bs_ultima",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm my Black-Scholes call price is $5.18 with these inputs",
+    "gold": "bs_value",
+    "kind": "named"
+  },
+  {
+    "query": "given spot 100, strike 105, 90 days, 25% vol and 4% rate, what's the fair theoretical price of this European call? I got 3.40",
+    "gold": "bs_value",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the vanna on my option is 0.014",
+    "gold": "bs_vanna",
+    "kind": "named"
+  },
+  {
+    "query": "check how much my delta shifts when implied volatility moves a point \u2014 equivalently how vega changes with spot \u2014 I got 0.011",
+    "gold": "bs_vanna",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "double-check my option vega is 0.18 per vol point",
+    "gold": "bs_vega",
+    "kind": "named"
+  },
+  {
+    "query": "how much does my option's price move for each one-point change in volatility? I'm getting about 0.15, verify",
+    "gold": "bs_vega",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm the veta on my position is -0.0034",
+    "gold": "bs_veta",
+    "kind": "named"
+  },
+  {
+    "query": "recompute how my vol sensitivity decays per day of time passing \u2014 got -0.0029",
+    "gold": "bs_veta",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my volga (vomma) is 0.052",
+    "gold": "bs_volga",
+    "kind": "named"
+  },
+  {
+    "query": "I want to check how much my vega itself changes per point of volatility \u2014 the convexity of value with respect to vol \u2014 got 0.048",
+    "gold": "bs_volga",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check the zomma on my book is 0.0007",
+    "gold": "bs_zomma",
+    "kind": "named"
+  },
+  {
+    "query": "recompute how my gamma changes per one-point move in implied volatility \u2014 I have 0.0005",
+    "gold": "bs_zomma",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my effective number of bets is 6.3 for this multi-asset portfolio",
+    "gold": "effective_number_of_bets",
+    "kind": "named"
+  },
+  {
+    "query": "after decorrelating my positions into independent risk factors, how many truly diversified independent positions do I actually have? I got about 5.5",
+    "gold": "effective_number_of_bets",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm my effective spread is 8.2 bps on these executions",
+    "gold": "effective_spread_bps",
+    "kind": "named"
+  },
+  {
+    "query": "verify the actual round-trip transaction cost in basis points, twice the gap between my fill price and the mid at trade time \u2014 I got 7 bps",
+    "gold": "effective_spread_bps",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check my ERR@10 for the search ranker is 0.41",
+    "gold": "err_at_k",
+    "kind": "named"
+  },
+  {
+    "query": "I computed the expected reciprocal rank where a user keeps scanning until satisfied, with graded relevance, over the top 10 \u2014 got 0.37, verify",
+    "gold": "err_at_k",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my exact match score on the QA set is 0.78",
+    "gold": "exact_match",
+    "kind": "named"
+  },
+  {
+    "query": "after lowercasing and stripping articles and punctuation, what fraction of my model's answers are identical to the gold answer? I think 0.74",
+    "gold": "exact_match",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "double-check my F1@10 for retrieval is 0.55",
+    "gold": "f1_at_k",
+    "kind": "named"
+  },
+  {
+    "query": "verify the harmonic mean of precision and recall over my top-10 retrieved docs \u2014 I got 0.51",
+    "gold": "f1_at_k",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm my fallout@20 is 0.12",
+    "gold": "fallout_at_k",
+    "kind": "named"
+  },
+  {
+    "query": "I want to check the fraction of irrelevant documents that slipped into my top 20 results out of all the irrelevant ones \u2014 got 0.15",
+    "gold": "fallout_at_k",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my geometric excess return over the benchmark is 2.4%",
+    "gold": "geometric_excess_return",
+    "kind": "named"
+  },
+  {
+    "query": "instead of just subtracting, compute my outperformance as the ratio of (1+portfolio) over (1+benchmark) minus one \u2014 I got 2.1%",
+    "gold": "geometric_excess_return",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check my gross exposure is 185% of NAV",
+    "gold": "gross_exposure",
+    "kind": "named"
+  },
+  {
+    "query": "add up the absolute value of all my long and short positions as a share of capital \u2014 I get 190%, verify the total market footprint",
+    "gold": "gross_exposure",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the implementation shortfall on this trade is 18 bps",
+    "gold": "implementation_shortfall",
+    "kind": "named"
+  },
+  {
+    "query": "compare what I actually realized after all fills and fees to the paper value at my decision price \u2014 the total slippage from idea to execution \u2014 I got 22 bps",
+    "gold": "implementation_shortfall",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm my Kyle's lambda is 2.3e-6 for this stock",
+    "gold": "kyle_lambda",
+    "kind": "named"
+  },
+  {
+    "query": "I regressed price changes on signed order flow to estimate how much the price moves per unit of net trading \u2014 got 1.9e-6, verify the price impact coefficient",
+    "gold": "kyle_lambda",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check that my largest position is 8.5% of the book",
+    "gold": "largest_position",
+    "kind": "named"
+  },
+  {
+    "query": "what's the single biggest single-name weight I'm carrying as a share of the portfolio? I think it's 9.1%, verify",
+    "gold": "largest_position",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my liquidity coverage is 92% \u2014 that share of the book I can exit in a day",
+    "gold": "liquidity_coverage",
+    "kind": "named"
+  },
+  {
+    "query": "what fraction of my portfolio could I liquidate within one trading day at normal volumes? I estimate 88%, recompute",
+    "gold": "liquidity_coverage",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm my long exposure is 120% of NAV",
+    "gold": "long_exposure",
+    "kind": "named"
+  },
+  {
+    "query": "sum up just the positions I'm betting will go up as a percentage of capital \u2014 I get 115%, verify",
+    "gold": "long_exposure",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check my long/short ratio is 1.8",
+    "gold": "long_short_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "compare the dollar size of my bullish book against my bearish book \u2014 I got 1.6 to 1, verify",
+    "gold": "long_short_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my MAP@10 for the retrieval system is 0.48",
+    "gold": "map_at_k",
+    "kind": "named"
+  },
+  {
+    "query": "for each query I averaged precision at every relevant hit within the top 10 then averaged across queries \u2014 got 0.44, can you check?",
+    "gold": "map_at_k",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm my mean average precision across the full result lists is 0.52",
+    "gold": "mean_average_precision",
+    "kind": "named"
+  },
+  {
+    "query": "for each query I scored every correct hit by how clean the ranking was up to it, combined those, then took the typical value over all queries with no cutoff \u2014 got 0.49, verify",
+    "gold": "mean_average_precision",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "double-check my MRR is 0.71 on the search benchmark",
+    "gold": "mrr",
+    "kind": "named"
+  },
+  {
+    "query": "I took one over the rank of the first correct result for each query and averaged it \u2014 got 0.68, verify the reciprocal-rank average",
+    "gold": "mrr",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my NDCG@10 is 0.83 for the ranker",
+    "gold": "ndcg_at_k",
+    "kind": "named"
+  },
+  {
+    "query": "compute my discounted gain over the top 10, with graded relevance and a log position discount, normalized by the ideal ordering \u2014 I got 0.79",
+    "gold": "ndcg_at_k",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check my net exposure is 65% long",
+    "gold": "net_exposure",
+    "kind": "named"
+  },
+  {
+    "query": "subtract my short book from my long book as a percent of capital to see my directional tilt \u2014 I got 60%, verify",
+    "gold": "net_exposure",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my participation rate on this order was 14% of volume",
+    "gold": "participation_rate",
+    "kind": "named"
+  },
+  {
+    "query": "what share of the total traded volume during my execution window was my own order? I think about 12%, recompute",
+    "gold": "participation_rate",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm my pass@10 for the code model is 0.62",
+    "gold": "pass_at_k",
+    "kind": "named"
+  },
+  {
+    "query": "given how many of my sampled solutions per problem cleared the unit tests, estimate the chance at least one of 10 draws is correct \u2014 I got 0.58, verify",
+    "gold": "pass_at_k",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my model's perplexity on the held-out set is 18.4",
+    "gold": "perplexity",
+    "kind": "named"
+  },
+  {
+    "query": "take the exponential of the negative mean log-likelihood per token to see how surprised my LM is by the test text \u2014 I got 21.0, check it",
+    "gold": "perplexity",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "double-check my portfolio turnover is 45% for the month",
+    "gold": "portfolio_turnover",
+    "kind": "named"
+  },
+  {
+    "query": "verify how much of the book I traded over the period as a fraction of average assets \u2014 the min of buys and sells over average value \u2014 I got 40%",
+    "gold": "portfolio_turnover",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my precision@5 for the retriever is 0.6",
+    "gold": "precision_at_k",
+    "kind": "named"
+  },
+  {
+    "query": "of the top 5 documents I returned, what fraction were actually relevant, averaged over queries? I got 0.66, recompute",
+    "gold": "precision_at_k",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm my R-precision is 0.47 on this collection",
+    "gold": "r_precision",
+    "kind": "named"
+  },
+  {
+    "query": "for each query I cut the ranking at the number of known relevant docs and measured what fraction of those were correct \u2014 got 0.43, verify",
+    "gold": "r_precision",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check my RBP at p=0.8 is 0.58",
+    "gold": "rbp",
+    "kind": "named"
+  },
+  {
+    "query": "I weighted each ranked result by a geometrically decaying user-persistence factor and summed the relevance \u2014 the rank-biased precision \u2014 got 0.54, verify",
+    "gold": "rbp",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my recall@10 for the retrieval pipeline is 0.82",
+    "gold": "recall_at_k",
+    "kind": "named"
+  },
+  {
+    "query": "out of all the relevant documents that exist for each query, what fraction did my top 10 capture? I got 0.78, can you recompute",
+    "gold": "recall_at_k",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm my relative spread is 6.4 bps on this name",
+    "gold": "relative_spread",
+    "kind": "named"
+  },
+  {
+    "query": "divide the bid-ask gap by the midpoint to express the quote width in percentage terms \u2014 I got 5.8 bps, verify",
+    "gold": "relative_spread",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the Roll spread estimate for this stock is 11 bps",
+    "gold": "roll_spread",
+    "kind": "named"
+  },
+  {
+    "query": "I backed out the implied bid-ask gap from the negative serial covariance of price changes \u2014 got 9 bps, recompute that estimate",
+    "gold": "roll_spread",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check my short exposure is 55% of NAV",
+    "gold": "short_exposure",
+    "kind": "named"
+  },
+  {
+    "query": "total up just the positions I'm betting will fall as a percent of capital \u2014 I get 50%, verify",
+    "gold": "short_exposure",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my success@5 is 0.74 for the retriever",
+    "gold": "success_at_k",
+    "kind": "named"
+  },
+  {
+    "query": "for what fraction of queries did at least one relevant doc show up in my top 5? I got 0.70, recompute",
+    "gold": "success_at_k",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm my token Dice score between prediction and reference is 0.66",
+    "gold": "token_dice",
+    "kind": "named"
+  },
+  {
+    "query": "verify the word-overlap as twice the shared-word count over the sum of the two word-bag sizes \u2014 I got 0.62",
+    "gold": "token_dice",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check my token F1 on the QA answers is 0.81",
+    "gold": "token_f1",
+    "kind": "named"
+  },
+  {
+    "query": "compute the harmonic mean of the shared-word precision and recall between my answer and the gold answer \u2014 I got 0.77, verify",
+    "gold": "token_f1",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my token Jaccard similarity is 0.49",
+    "gold": "token_jaccard",
+    "kind": "named"
+  },
+  {
+    "query": "I measured the word-set overlap as intersection over union between prediction and reference \u2014 got 0.45, can you check?",
+    "gold": "token_jaccard",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "confirm my top-5 accuracy on the classifier is 0.93",
+    "gold": "top_k_accuracy",
+    "kind": "named"
+  },
+  {
+    "query": "for what fraction of examples was the true label among my model's 5 highest-scoring predictions? I got 0.90, verify",
+    "gold": "top_k_accuracy",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my VWAP for the session was $101.37",
+    "gold": "vwap",
+    "kind": "named"
+  },
+  {
+    "query": "I weighted each trade price by its share volume over the day to get the volume-weighted average price \u2014 got 101.20, recompute",
+    "gold": "vwap",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "check my VWAP slippage on the order was 4.5 bps",
+    "gold": "vwap_slippage",
+    "kind": "named"
+  },
+  {
+    "query": "compare my average fill price to the volume-weighted average market price over the execution window \u2014 how far off the benchmark I traded \u2014 I got 3 bps",
+    "gold": "vwap_slippage",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my WER on the ASR transcripts is 0.14",
+    "gold": "wer",
+    "kind": "named"
+  },
+  {
+    "query": "count the substitutions, insertions and deletions needed to fix my transcript divided by the reference word count \u2014 the word error rate \u2014 I got 0.11, check it",
+    "gold": "wer",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "my regression reports an adjusted R-squared of 0.83 across 12 predictors, can you confirm that's right?",
+    "gold": "adjusted_r2",
+    "kind": "named"
+  },
+  {
+    "query": "I want to check the goodness-of-fit number that penalizes my model for the number of features it uses, supposedly came out to 0.81",
+    "gold": "adjusted_r2",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "is the AIC for my fitted ARIMA actually 1843.2?",
+    "gold": "aic",
+    "kind": "named"
+  },
+  {
+    "query": "verify the information-criterion score that trades off likelihood against parameter count came out to 1843 for my model",
+    "gold": "aic",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "can you double-check my AICc value of 1851.7 on this small sample?",
+    "gold": "aicc",
+    "kind": "named"
+  },
+  {
+    "query": "I used the small-sample-corrected version of that model-selection criterion and got 1851, please recompute",
+    "gold": "aicc",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "our Apdex score came back as 0.94 with a 500ms threshold, is that correct?",
+    "gold": "apdex",
+    "kind": "named"
+  },
+  {
+    "query": "recompute the user-satisfaction index where requests under 500ms count as happy and under 2s as merely tolerable; we got 0.94",
+    "gold": "apdex",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "the dashboard says our service availability was 99.95% last month, can you verify?",
+    "gold": "availability",
+    "kind": "named"
+  },
+  {
+    "query": "confirm what fraction of the time the system was actually up and serving, we reported 99.95 percent",
+    "gold": "availability",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "double check the BIC of 1872.4 from my model fit please",
+    "gold": "bic",
+    "kind": "named"
+  },
+  {
+    "query": "I need the Bayesian model-selection score that penalizes parameters more harshly with sample size, claimed 1872",
+    "gold": "bic",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "is our cache hit rate really 0.87 from these request logs?",
+    "gold": "cache_hit_rate",
+    "kind": "named"
+  },
+  {
+    "query": "verify the fraction of lookups that were served from the in-memory store rather than a miss, we got 87%",
+    "gold": "cache_hit_rate",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "the compression ratio on this dataset is reported as 4.2x, can you check?",
+    "gold": "compression_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "confirm how many times smaller the file got after we packed it down, claim is 4.2 to 1",
+    "gold": "compression_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "is Lin's concordance correlation coefficient between predicted and observed really 0.91?",
+    "gold": "concordance_correlation",
+    "kind": "named"
+  },
+  {
+    "query": "recompute the agreement statistic that combines correlation and how close points fall to the 45-degree line; we got 0.91",
+    "gold": "concordance_correlation",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "my 90% prediction intervals show a coverage deviation of -0.06, is that right?",
+    "gold": "coverage_deviation",
+    "kind": "named"
+  },
+  {
+    "query": "check the gap between my nominal 90% interval and how often the truth actually fell inside, I think it's off by 6 points",
+    "gold": "coverage_deviation",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "the cumulative forecast error over the horizon came out to 412 units, can you verify?",
+    "gold": "cumulative_forecast_error",
+    "kind": "named"
+  },
+  {
+    "query": "add up all my running forecast misses across the period and tell me if the total is really 412",
+    "gold": "cumulative_forecast_error",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "is the D2 absolute error score for my model 0.62?",
+    "gold": "d2_absolute_error",
+    "kind": "named"
+  },
+  {
+    "query": "verify the R2-style score based on absolute deviations instead of squared ones; got 0.62",
+    "gold": "d2_absolute_error",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "can you confirm my D2 Tweedie score of 0.55?",
+    "gold": "d2_tweedie_score",
+    "kind": "named"
+  },
+  {
+    "query": "recompute the deviance-based explained-fraction score using a Tweedie loss; I have 0.55",
+    "gold": "d2_tweedie_score",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "the Durbin-Watson statistic on my residuals is 1.97, is that correct?",
+    "gold": "durbin_watson",
+    "kind": "named"
+  },
+  {
+    "query": "check whether my regression residuals are autocorrelated; the test value near 2 supposedly came out 1.97",
+    "gold": "durbin_watson",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "our error budget burn rate is reported at 2.3x, verify against the SLO?",
+    "gold": "error_budget_burn",
+    "kind": "named"
+  },
+  {
+    "query": "confirm how fast we're eating through the allowed-failures allowance relative to plan; we said 2.3 times the sustainable pace",
+    "gold": "error_budget_burn",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "is our request error rate really 0.4% from these logs?",
+    "gold": "error_rate",
+    "kind": "named"
+  },
+  {
+    "query": "what share of requests returned a failure status; we measured 0.4 percent and I want it checked",
+    "gold": "error_rate",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "the explained variance score of my model is 0.88, can you recompute?",
+    "gold": "explained_variance",
+    "kind": "named"
+  },
+  {
+    "query": "verify the fraction of the target's variance my predictions account for, ignoring any systematic bias; reported 0.88",
+    "gold": "explained_variance",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "my forecast bias came out to -0.03, is the model under-predicting like that?",
+    "gold": "forecast_bias",
+    "kind": "named"
+  },
+  {
+    "query": "check whether my predictions systematically run high or low relative to actuals; I got a 3% tilt downward",
+    "gold": "forecast_bias",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "is the gamma deviance for my GLM 318.5?",
+    "gold": "gamma_deviance",
+    "kind": "named"
+  },
+  {
+    "query": "recompute the deviance loss assuming a gamma-distributed target; my value is 318.5",
+    "gold": "gamma_deviance",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "the geometric mean absolute error for my forecasts is 2.7, can you verify?",
+    "gold": "geometric_mean_absolute_error",
+    "kind": "named"
+  },
+  {
+    "query": "confirm the typical absolute miss computed as a multiplicative average of errors instead of a plain average; got 2.7",
+    "gold": "geometric_mean_absolute_error",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "double-check the HQIC of 1860.1 from my model selection",
+    "gold": "hqic",
+    "kind": "named"
+  },
+  {
+    "query": "I used the Hannan-Quinn flavored information criterion and got 1860, recompute it for me",
+    "gold": "hqic",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "is the Huber loss on my regression 0.34 with delta 1.0?",
+    "gold": "huber_loss",
+    "kind": "named"
+  },
+  {
+    "query": "verify the robust regression loss that's squared for small errors but linear for big outliers; I have 0.34",
+    "gold": "huber_loss",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "my 95% interval coverage is 0.93, is that close enough to nominal?",
+    "gold": "interval_coverage",
+    "kind": "named"
+  },
+  {
+    "query": "what fraction of the actuals actually landed inside my prediction bands; I measured 93 percent",
+    "gold": "interval_coverage",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "our network jitter is reported at 8ms, can you check the timing samples?",
+    "gold": "jitter",
+    "kind": "named"
+  },
+  {
+    "query": "verify how much the packet inter-arrival delays vary around their average; we said about 8 milliseconds of variation",
+    "gold": "jitter",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "is the Kling-Gupta efficiency of my hydrology model 0.79?",
+    "gold": "kling_gupta_efficiency",
+    "kind": "named"
+  },
+  {
+    "query": "recompute the skill score that blends correlation, bias ratio, and variability ratio into one; I got 0.79",
+    "gold": "kling_gupta_efficiency",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "is my p50 latency really 42ms from these request durations?",
+    "gold": "latency_p50",
+    "kind": "named"
+  },
+  {
+    "query": "confirm the median response time across all these calls; I measured 42 milliseconds",
+    "gold": "latency_p50",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify our p75 latency of 88ms from the trace data",
+    "gold": "latency_p75",
+    "kind": "named"
+  },
+  {
+    "query": "what response time were three-quarters of requests faster than; we got 88ms",
+    "gold": "latency_p75",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "is the p90 latency 130ms like the report says?",
+    "gold": "latency_p90",
+    "kind": "named"
+  },
+  {
+    "query": "confirm the response time that 90 percent of requests came in under; claim is 130 milliseconds",
+    "gold": "latency_p90",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "can you check whether our p95 latency is actually 180ms?",
+    "gold": "latency_p95",
+    "kind": "named"
+  },
+  {
+    "query": "the slowest 5 percent of requests start above what duration; we said 180ms, please verify",
+    "gold": "latency_p95",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "is my p99 latency really 240ms from this sample?",
+    "gold": "latency_p99",
+    "kind": "named"
+  },
+  {
+    "query": "only the worst 1 percent of calls are slower than the number I'm reporting, 240 milliseconds, recompute it",
+    "gold": "latency_p99",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify our p999 latency came out to 520ms",
+    "gold": "latency_p999",
+    "kind": "named"
+  },
+  {
+    "query": "what duration bounds all but the worst one-in-a-thousand requests; I measured 520ms",
+    "gold": "latency_p999",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "the standard deviation of our latency is 31ms, is that right?",
+    "gold": "latency_stddev",
+    "kind": "named"
+  },
+  {
+    "query": "check how spread out my response times are around the mean; I got about 31 milliseconds of dispersion",
+    "gold": "latency_stddev",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "is the Gaussian log-likelihood of my fit -1024.6?",
+    "gold": "log_likelihood_gaussian",
+    "kind": "named"
+  },
+  {
+    "query": "recompute the log-likelihood of my residuals under a normal-errors assumption; I have -1024.6",
+    "gold": "log_likelihood_gaussian",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "my model's MAE is 3.2, can you verify against the actuals?",
+    "gold": "mae",
+    "kind": "named"
+  },
+  {
+    "query": "confirm the average size of my prediction errors without squaring them; I got 3.2",
+    "gold": "mae",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "is my MAPE really 7.4% on the test set?",
+    "gold": "mape",
+    "kind": "named"
+  },
+  {
+    "query": "check the average percent by which my forecasts miss the actual values; reported 7.4 percent",
+    "gold": "mape",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the MASE of 0.82 for my forecast model",
+    "gold": "mase",
+    "kind": "named"
+  },
+  {
+    "query": "confirm my forecast error scaled against a naive same-as-last-season baseline; I got 0.82, so better than naive",
+    "gold": "mase",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "is the max error of my regression 14.6?",
+    "gold": "max_error",
+    "kind": "named"
+  },
+  {
+    "query": "what was the single worst prediction miss in the whole set; I think the largest residual was 14.6",
+    "gold": "max_error",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "my MAAPE came out to 0.11, can you check?",
+    "gold": "mean_arctangent_ape",
+    "kind": "named"
+  },
+  {
+    "query": "recompute the percentage-error metric that takes the arctangent of each ratio to stay bounded near zero actuals; got 0.11",
+    "gold": "mean_arctangent_ape",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "is my mean directional accuracy 0.68 for these forecasts?",
+    "gold": "mean_directional_accuracy",
+    "kind": "named"
+  },
+  {
+    "query": "verify how often my model called the up-or-down move correctly versus actual; I got 68 percent of the directions right",
+    "gold": "mean_directional_accuracy",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "the mean interval width of my prediction bands is 12.4, is that right?",
+    "gold": "mean_interval_width",
+    "kind": "named"
+  },
+  {
+    "query": "confirm the average distance between the upper and lower bounds of my forecast intervals; reported 12.4",
+    "gold": "mean_interval_width",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "is my mean percentage error -2.1%, suggesting overprediction?",
+    "gold": "mean_percentage_error",
+    "kind": "named"
+  },
+  {
+    "query": "check the average signed percent deviation of forecasts from actuals to see the directional tilt; I have -2.1%",
+    "gold": "mean_percentage_error",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the MSE of my model came out to 18.7",
+    "gold": "mean_squared_error",
+    "kind": "named"
+  },
+  {
+    "query": "recompute the average of the squared prediction errors; I got 18.7",
+    "gold": "mean_squared_error",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "is the mean Tweedie deviance 2.34 for my model with power 1.5?",
+    "gold": "mean_tweedie_deviance",
+    "kind": "named"
+  },
+  {
+    "query": "confirm the average deviance loss under a Tweedie distribution with power parameter 1.5; I have 2.34",
+    "gold": "mean_tweedie_deviance",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "my median absolute error is 2.1, can you verify?",
+    "gold": "medae",
+    "kind": "named"
+  },
+  {
+    "query": "what's the middle value of my absolute residuals, the typical-miss that ignores outliers; I got 2.1",
+    "gold": "medae",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "is my median absolute percentage error 5.8%?",
+    "gold": "median_absolute_percentage_error",
+    "kind": "named"
+  },
+  {
+    "query": "confirm the middle of my percent errors rather than the average, so outlier misses don't dominate; got 5.8%",
+    "gold": "median_absolute_percentage_error",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "the MSLE of my model is 0.045, can you check?",
+    "gold": "msle",
+    "kind": "named"
+  },
+  {
+    "query": "recompute the squared error computed on log-transformed predictions and actuals; I have 0.045",
+    "gold": "msle",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "is our MTBF really 1,240 hours from the failure logs?",
+    "gold": "mtbf",
+    "kind": "named"
+  },
+  {
+    "query": "verify the average time the system runs between two consecutive breakdowns; we estimated 1240 hours",
+    "gold": "mtbf",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "my Nash-Sutcliffe efficiency is 0.84, can you confirm?",
+    "gold": "nash_sutcliffe_efficiency",
+    "kind": "named"
+  },
+  {
+    "query": "check whether my model beats just predicting the mean, on that 1-minus-error-ratio skill score; I got 0.84",
+    "gold": "nash_sutcliffe_efficiency",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "is my NRMSE 0.09 after normalizing by the range?",
+    "gold": "nrmse",
+    "kind": "named"
+  },
+  {
+    "query": "confirm my root-mean-square error divided by the spread of the data so it's unit-free; got 0.09",
+    "gold": "nrmse",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "our peak memory usage was 2.3 GB, is that the max from the samples?",
+    "gold": "peak_memory",
+    "kind": "named"
+  },
+  {
+    "query": "verify the highest RAM the process ever touched during the run; I logged a top of 2.3 gigabytes",
+    "gold": "peak_memory",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "is the pinball loss at the 0.9 quantile 1.42 for my model?",
+    "gold": "pinball_loss",
+    "kind": "named"
+  },
+  {
+    "query": "recompute the asymmetric quantile-regression loss for my 90th-percentile forecast; I got 1.42",
+    "gold": "pinball_loss",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify the Poisson deviance of 287.3 from my count model",
+    "gold": "poisson_deviance",
+    "kind": "named"
+  },
+  {
+    "query": "confirm the deviance loss for count data assuming a Poisson distribution; I have 287.3",
+    "gold": "poisson_deviance",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "is the R2 of my regression really 0.86?",
+    "gold": "r2",
+    "kind": "named"
+  },
+  {
+    "query": "check the fraction of the target's variation that my model explains; reported as 0.86",
+    "gold": "r2",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "my relative absolute error is 0.41, can you confirm?",
+    "gold": "relative_absolute_error",
+    "kind": "named"
+  },
+  {
+    "query": "verify my total absolute error divided by the naive mean-predictor's total absolute error; I got 0.41",
+    "gold": "relative_absolute_error",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "is the relative squared error of my model 0.18?",
+    "gold": "relative_squared_error",
+    "kind": "named"
+  },
+  {
+    "query": "confirm my squared error relative to what just predicting the average would give; got 0.18",
+    "gold": "relative_squared_error",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "my RMSE came out to 4.3, can you verify against the actuals?",
+    "gold": "rmse",
+    "kind": "named"
+  },
+  {
+    "query": "recompute the square root of the average squared prediction errors; I have 4.3",
+    "gold": "rmse",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "is my RMSLE 0.21 on this dataset?",
+    "gold": "rmsle",
+    "kind": "named"
+  },
+  {
+    "query": "confirm the root-mean-square error computed on log-scaled values so big and small targets weigh proportionally; got 0.21",
+    "gold": "rmsle",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "verify my RMSSE of 0.74 for the M5-style forecast",
+    "gold": "rmsse",
+    "kind": "named"
+  },
+  {
+    "query": "check my squared-error forecast accuracy scaled by the in-sample naive one-step error; I got 0.74",
+    "gold": "rmsse",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "our SLO attainment is reported as 99.2%, can you verify?",
+    "gold": "slo_attainment",
+    "kind": "named"
+  },
+  {
+    "query": "confirm what percentage of requests met our latency objective target; we said 99.2 percent",
+    "gold": "slo_attainment",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "is the speedup ratio really 2.3x from the before and after timings?",
+    "gold": "speedup_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "confirm the new version is 2.3 times faster than the old one using these raw timing runs",
+    "gold": "speedup_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "our tail latency ratio (p99/p50) is 5.7, is that correct?",
+    "gold": "tail_latency_ratio",
+    "kind": "named"
+  },
+  {
+    "query": "verify how much worse the slowest 1 percent of calls are compared to the typical call; I got a ratio of about 5.7",
+    "gold": "tail_latency_ratio",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "my test coverage is reported at 87.4%, can you recompute from the hit counts?",
+    "gold": "test_coverage",
+    "kind": "named"
+  },
+  {
+    "query": "verify what fraction of source lines were actually exercised by the test suite; we got 87.4 percent",
+    "gold": "test_coverage",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "is Theil's U1 statistic 0.08 for my forecast?",
+    "gold": "theil_u1",
+    "kind": "named"
+  },
+  {
+    "query": "recompute the bounded forecast-accuracy index that sits between 0 and 1, where 0 is a perfect fit; got 0.08",
+    "gold": "theil_u1",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "is Theil's U2 0.91 versus the naive forecast?",
+    "gold": "theil_u2",
+    "kind": "named"
+  },
+  {
+    "query": "confirm my forecast error relative to a naive no-change baseline, where below 1 means I beat naive; I got 0.91",
+    "gold": "theil_u2",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "our throughput is 1,450 requests per second, can you verify from the durations?",
+    "gold": "throughput",
+    "kind": "named"
+  },
+  {
+    "query": "confirm how many operations the system completed per second over this run; we measured about 1450",
+    "gold": "throughput",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "my tracking signal is 3.8, is the forecast drifting out of control?",
+    "gold": "tracking_signal",
+    "kind": "named"
+  },
+  {
+    "query": "check the running sum of forecast errors divided by the mean absolute deviation to spot persistent bias; I got 3.8",
+    "gold": "tracking_signal",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "is our uptime really 99.98% for the quarter?",
+    "gold": "uptime_pct",
+    "kind": "named"
+  },
+  {
+    "query": "verify the percentage of intervals the service was reachable and healthy; we reported 99.98",
+    "gold": "uptime_pct",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "my WAPE came out to 6.2%, can you confirm?",
+    "gold": "wape",
+    "kind": "named"
+  },
+  {
+    "query": "verify the total absolute forecast error as a percentage of total actual volume; I got 6.2 percent",
+    "gold": "wape",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "is Willmott's index of agreement 0.93 for my model?",
+    "gold": "willmott_index",
+    "kind": "named"
+  },
+  {
+    "query": "recompute the agreement index that scales error against the potential error around the observed mean, 1 being perfect; got 0.93",
+    "gold": "willmott_index",
+    "kind": "paraphrase"
+  },
+  {
+    "query": "the Winkler score for my 90% intervals is 14.8, is that right?",
+    "gold": "winkler_score",
+    "kind": "named"
+  },
+  {
+    "query": "confirm the interval-forecast score that adds a penalty whenever the actual falls outside the predicted band; I have 14.8",
+    "gold": "winkler_score",
+    "kind": "paraphrase"
+  }
+]

@@ -1,0 +1,5826 @@
+{
+  "accuracy": {
+    "family": "classification",
+    "required_tags": [
+      "label",
+      "prediction"
+    ],
+    "definition": "mean(pred == label)",
+    "kernels": [
+      "accuracy"
+    ],
+    "existing_aliases": [
+      "accuracy"
+    ]
+  },
+  "accuracy_parity_difference": {
+    "family": "classification",
+    "required_tags": [
+      "prediction",
+      "label",
+      "group"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "acerbi_szekely_z1": {
+    "family": "quant",
+    "required_tags": [
+      "return",
+      "var",
+      "es"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "acerbi_szekely_z2": {
+    "family": "quant",
+    "required_tags": [
+      "return",
+      "var",
+      "es"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "active_return": {
+    "family": "quant",
+    "required_tags": [
+      "return",
+      "benchmark"
+    ],
+    "definition": "mean(r\u2212b) \u00d7 periods",
+    "kernels": [
+      "active_return"
+    ],
+    "existing_aliases": []
+  },
+  "active_share": {
+    "family": "portfolio",
+    "required_tags": [
+      "port_weight",
+      "bench_weight"
+    ],
+    "definition": "",
+    "kernels": [
+      "active_share"
+    ],
+    "existing_aliases": []
+  },
+  "adjusted_r2": {
+    "family": "regression",
+    "required_tags": [
+      "prediction",
+      "target"
+    ],
+    "definition": "1-(1-R2)(n-1)/(n-p-1); no predictor count -> degenerate",
+    "kernels": [
+      "adjusted_r2"
+    ],
+    "existing_aliases": [
+      "adjusted r2",
+      "adj r2",
+      "adjusted r^2"
+    ]
+  },
+  "adjusted_rand_index": {
+    "family": "classification",
+    "required_tags": [
+      "labels_true",
+      "labels_pred"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "adjusted_sharpe_ratio": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "SR\u00b7(1+(S/6)SR\u2212(K/24)SR\u00b2) per-period (P\u00e9zier-White)",
+    "kernels": [
+      "adjusted_sharpe_ratio"
+    ],
+    "existing_aliases": []
+  },
+  "aic": {
+    "family": "regression",
+    "required_tags": [
+      "residual"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "aicc": {
+    "family": "regression",
+    "required_tags": [
+      "residual"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "alpha": {
+    "family": "quant",
+    "required_tags": [
+      "return",
+      "benchmark"
+    ],
+    "definition": "cov/var (ddof=1); alpha = (mean r - beta mean b) x P, rf=0",
+    "kernels": [
+      "alpha"
+    ],
+    "existing_aliases": [
+      "alpha"
+    ]
+  },
+  "alpha_tstat": {
+    "family": "quant",
+    "required_tags": [
+      "return",
+      "benchmark"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "altman_z": {
+    "family": "credit",
+    "required_tags": [
+      "x1",
+      "x2",
+      "x3",
+      "x4",
+      "x5"
+    ],
+    "definition": "",
+    "kernels": [
+      "altman_z"
+    ],
+    "existing_aliases": []
+  },
+  "altman_z_prime": {
+    "family": "credit",
+    "required_tags": [
+      "x1",
+      "x2",
+      "x3",
+      "x4"
+    ],
+    "definition": "",
+    "kernels": [
+      "altman_z_prime"
+    ],
+    "existing_aliases": []
+  },
+  "amihud_illiquidity": {
+    "family": "liquidity",
+    "required_tags": [
+      "return",
+      "dollar_volume"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "amivest_liquidity": {
+    "family": "liquidity",
+    "required_tags": [
+      "return",
+      "dollar_volume"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "anderson_darling": {
+    "family": "stats",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [
+      "anderson_darling"
+    ],
+    "existing_aliases": []
+  },
+  "annuity_factor": {
+    "family": "finance",
+    "required_tags": [
+      "zero_rate",
+      "time"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "anova": {
+    "family": "stats",
+    "required_tags": [
+      "group",
+      "value"
+    ],
+    "definition": "one-way F from raw rows; p via deterministic incomplete beta (scipy f_oneway)",
+    "kernels": [
+      "anova_p"
+    ],
+    "existing_aliases": [
+      "anova",
+      "f-test"
+    ]
+  },
+  "ansari_bradley": {
+    "family": "stats",
+    "required_tags": [
+      "sample_a",
+      "sample_b"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "apdex": {
+    "family": "engineering",
+    "required_tags": [
+      "duration"
+    ],
+    "definition": "(satisfied + tolerating/2)/n; satisfied <= T, tolerating <= 4T",
+    "kernels": [
+      "apdex"
+    ],
+    "existing_aliases": [
+      "apdex"
+    ]
+  },
+  "appraisal_ratio": {
+    "family": "quant",
+    "required_tags": [
+      "return",
+      "benchmark"
+    ],
+    "definition": "",
+    "kernels": [
+      "appraisal_ratio"
+    ],
+    "existing_aliases": []
+  },
+  "arch_lm": {
+    "family": "stats",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [
+      "arch_lm"
+    ],
+    "existing_aliases": []
+  },
+  "arhr_at_k": {
+    "family": "retrieval",
+    "required_tags": [
+      "query",
+      "rank",
+      "relevance"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "arrival_slippage": {
+    "family": "execution",
+    "required_tags": [
+      "exec_price",
+      "arrival_price",
+      "quantity"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "asrf_capital_requirement": {
+    "family": "credit",
+    "required_tags": [
+      "pd",
+      "lgd",
+      "ead"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "asrf_rwa": {
+    "family": "credit",
+    "required_tags": [
+      "pd",
+      "lgd",
+      "ead"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "asset_turnover": {
+    "family": "finance",
+    "required_tags": [
+      "revenue",
+      "assets"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "atkinson_index": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "auc": {
+    "family": "classification",
+    "required_tags": [
+      "label",
+      "score"
+    ],
+    "definition": "Mann-Whitney with tie=0.5 + DeLong SE",
+    "kernels": [
+      "auc",
+      "auc_delong_se"
+    ],
+    "existing_aliases": [
+      "auc"
+    ]
+  },
+  "autocorrelation": {
+    "family": "stats",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "biased ACF at lag (statsmodels)",
+    "kernels": [
+      "autocorrelation"
+    ],
+    "existing_aliases": [
+      "autocorrelation",
+      "acf"
+    ]
+  },
+  "availability": {
+    "family": "engineering",
+    "required_tags": [
+      "uptime",
+      "downtime"
+    ],
+    "definition": "",
+    "kernels": [
+      "availability"
+    ],
+    "existing_aliases": []
+  },
+  "average_treatment_effect": {
+    "family": "stats",
+    "required_tags": [
+      "treatment",
+      "control"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "balanced_accuracy": {
+    "family": "classification",
+    "required_tags": [
+      "prediction",
+      "label"
+    ],
+    "definition": "mean per-class recall (sklearn); (po-pe)/(1-pe) exact marginals",
+    "kernels": [
+      "balanced_accuracy"
+    ],
+    "existing_aliases": [
+      "balanced accuracy"
+    ]
+  },
+  "bartlett": {
+    "family": "stats",
+    "required_tags": [
+      "group",
+      "value"
+    ],
+    "definition": "",
+    "kernels": [
+      "bartlett"
+    ],
+    "existing_aliases": []
+  },
+  "basel_traffic_light": {
+    "family": "quant",
+    "required_tags": [
+      "return",
+      "var"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "batting_average": {
+    "family": "quant",
+    "required_tags": [
+      "return",
+      "benchmark"
+    ],
+    "definition": "",
+    "kernels": [
+      "batting_average"
+    ],
+    "existing_aliases": []
+  },
+  "bcubed_f1": {
+    "family": "classification",
+    "required_tags": [
+      "prediction",
+      "label"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "bcubed_precision": {
+    "family": "classification",
+    "required_tags": [
+      "prediction",
+      "label"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "bcubed_recall": {
+    "family": "classification",
+    "required_tags": [
+      "prediction",
+      "label"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "bear_beta": {
+    "family": "quant",
+    "required_tags": [
+      "return",
+      "benchmark"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "benjamini_yekutieli": {
+    "family": "stats",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "berger_parker": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [
+      "berger_parker"
+    ],
+    "existing_aliases": []
+  },
+  "beta": {
+    "family": "quant",
+    "required_tags": [
+      "return",
+      "benchmark"
+    ],
+    "definition": "cov/var (ddof=1); alpha = (mean r - beta mean b) x P, rf=0",
+    "kernels": [
+      "beta"
+    ],
+    "existing_aliases": [
+      "beta"
+    ]
+  },
+  "beta_tstat": {
+    "family": "quant",
+    "required_tags": [
+      "return",
+      "benchmark"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "bh_rejections": {
+    "family": "stats",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [
+      "bh_rejections"
+    ],
+    "existing_aliases": []
+  },
+  "bhattacharyya_distance": {
+    "family": "stats",
+    "required_tags": [
+      "p",
+      "q"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "bias_ratio": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "",
+    "kernels": [
+      "bias_ratio"
+    ],
+    "existing_aliases": []
+  },
+  "bic": {
+    "family": "regression",
+    "required_tags": [
+      "residual"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "bipower_variation": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "bond_price": {
+    "family": "finance",
+    "required_tags": [
+      "cashflow",
+      "time"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "bonferroni_rejections": {
+    "family": "stats",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "bowley_skewness": {
+    "family": "stats",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "box_pierce": {
+    "family": "stats",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [
+      "box_pierce"
+    ],
+    "existing_aliases": []
+  },
+  "brennan_prediger": {
+    "family": "classification",
+    "required_tags": [
+      "rater_a",
+      "rater_b"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "brier": {
+    "family": "classification",
+    "required_tags": [
+      "prob",
+      "label"
+    ],
+    "definition": "mean((p-y)^2)",
+    "kernels": [
+      "brier"
+    ],
+    "existing_aliases": [
+      "brier"
+    ]
+  },
+  "brier_reliability": {
+    "family": "classification",
+    "required_tags": [
+      "probability",
+      "label"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "brier_resolution": {
+    "family": "classification",
+    "required_tags": [
+      "probability",
+      "label"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "brier_skill_score": {
+    "family": "classification",
+    "required_tags": [
+      "probability",
+      "label"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "brinson_allocation": {
+    "family": "portfolio",
+    "required_tags": [
+      "port_weight",
+      "bench_weight",
+      "bench_return"
+    ],
+    "definition": "",
+    "kernels": [
+      "brinson_allocation"
+    ],
+    "existing_aliases": []
+  },
+  "brinson_fachler_allocation": {
+    "family": "portfolio",
+    "required_tags": [
+      "port_weight",
+      "bench_weight",
+      "bench_return"
+    ],
+    "definition": "",
+    "kernels": [
+      "brinson_fachler_allocation"
+    ],
+    "existing_aliases": []
+  },
+  "brinson_interaction": {
+    "family": "portfolio",
+    "required_tags": [
+      "port_weight",
+      "bench_weight",
+      "port_return",
+      "bench_return"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "brinson_selection": {
+    "family": "portfolio",
+    "required_tags": [
+      "bench_weight",
+      "port_return",
+      "bench_return"
+    ],
+    "definition": "",
+    "kernels": [
+      "brinson_selection"
+    ],
+    "existing_aliases": []
+  },
+  "brinson_total_active": {
+    "family": "portfolio",
+    "required_tags": [
+      "port_weight",
+      "bench_weight",
+      "port_return",
+      "bench_return"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "brunner_munzel": {
+    "family": "stats",
+    "required_tags": [
+      "sample_a",
+      "sample_b"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "bs_charm": {
+    "family": "derivatives",
+    "required_tags": [
+      "spot",
+      "strike",
+      "time",
+      "vol",
+      "rate",
+      "quantity"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "bs_color": {
+    "family": "derivatives",
+    "required_tags": [
+      "spot",
+      "strike",
+      "time",
+      "vol",
+      "rate",
+      "quantity"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "bs_delta": {
+    "family": "derivatives",
+    "required_tags": [
+      "spot",
+      "strike",
+      "time",
+      "vol",
+      "rate",
+      "quantity"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "bs_gamma": {
+    "family": "derivatives",
+    "required_tags": [
+      "spot",
+      "strike",
+      "time",
+      "vol",
+      "rate",
+      "quantity"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "bs_implied_vol": {
+    "family": "derivatives",
+    "required_tags": [
+      "spot",
+      "strike",
+      "time",
+      "rate",
+      "price"
+    ],
+    "definition": "",
+    "kernels": [
+      "bs_implied_vol"
+    ],
+    "existing_aliases": []
+  },
+  "bs_lambda": {
+    "family": "derivatives",
+    "required_tags": [
+      "spot",
+      "strike",
+      "time",
+      "vol",
+      "rate",
+      "quantity"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "bs_rho": {
+    "family": "derivatives",
+    "required_tags": [
+      "spot",
+      "strike",
+      "time",
+      "vol",
+      "rate",
+      "quantity"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "bs_speed": {
+    "family": "derivatives",
+    "required_tags": [
+      "spot",
+      "strike",
+      "time",
+      "vol",
+      "rate",
+      "quantity"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "bs_theta": {
+    "family": "derivatives",
+    "required_tags": [
+      "spot",
+      "strike",
+      "time",
+      "vol",
+      "rate",
+      "quantity"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "bs_ultima": {
+    "family": "derivatives",
+    "required_tags": [
+      "spot",
+      "strike",
+      "time",
+      "vol",
+      "rate",
+      "quantity"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "bs_value": {
+    "family": "derivatives",
+    "required_tags": [
+      "spot",
+      "strike",
+      "time",
+      "vol",
+      "rate",
+      "quantity"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "bs_vanna": {
+    "family": "derivatives",
+    "required_tags": [
+      "spot",
+      "strike",
+      "time",
+      "vol",
+      "rate",
+      "quantity"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "bs_vega": {
+    "family": "derivatives",
+    "required_tags": [
+      "spot",
+      "strike",
+      "time",
+      "vol",
+      "rate",
+      "quantity"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "bs_veta": {
+    "family": "derivatives",
+    "required_tags": [
+      "spot",
+      "strike",
+      "time",
+      "vol",
+      "rate",
+      "quantity"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "bs_volga": {
+    "family": "derivatives",
+    "required_tags": [
+      "spot",
+      "strike",
+      "time",
+      "vol",
+      "rate",
+      "quantity"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "bs_zomma": {
+    "family": "derivatives",
+    "required_tags": [
+      "spot",
+      "strike",
+      "time",
+      "vol",
+      "rate",
+      "quantity"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "bull_beta": {
+    "family": "quant",
+    "required_tags": [
+      "return",
+      "benchmark"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "burke_ratio": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "cache_hit_rate": {
+    "family": "engineering",
+    "required_tags": [
+      "flag"
+    ],
+    "definition": "nonzero flags / n",
+    "kernels": [
+      "ratio_share"
+    ],
+    "existing_aliases": [
+      "cache hit"
+    ]
+  },
+  "cagr": {
+    "family": "finance",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "(last/first)^(1/years) - 1; years = (n-1)/periods_per_year",
+    "kernels": [
+      "cagr"
+    ],
+    "existing_aliases": [
+      "cagr"
+    ]
+  },
+  "calibration_in_the_large": {
+    "family": "classification",
+    "required_tags": [
+      "probability",
+      "label"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "called_pct": {
+    "family": "finance",
+    "required_tags": [
+      "contribution"
+    ],
+    "definition": "",
+    "kernels": [
+      "called_pct"
+    ],
+    "existing_aliases": []
+  },
+  "calmar": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "CAGR-style annualized return / \\|max drawdown\\| (path-dependent)",
+    "kernels": [
+      "calmar"
+    ],
+    "existing_aliases": [
+      "calmar"
+    ]
+  },
+  "capture_ratio": {
+    "family": "quant",
+    "required_tags": [
+      "return",
+      "benchmark"
+    ],
+    "definition": "up-capture / down-capture",
+    "kernels": [
+      "capture_ratio"
+    ],
+    "existing_aliases": []
+  },
+  "carried_interest": {
+    "family": "finance",
+    "required_tags": [
+      "contribution",
+      "distribution"
+    ],
+    "definition": "",
+    "kernels": [
+      "carried_interest"
+    ],
+    "existing_aliases": []
+  },
+  "cdar": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "mean of drawdowns at/beyond the (1\u2212level) drawdown quantile (Chekhlov-Uryasev)",
+    "kernels": [
+      "cdar"
+    ],
+    "existing_aliases": []
+  },
+  "chi_square": {
+    "family": "stats",
+    "required_tags": [
+      "group",
+      "outcome"
+    ],
+    "definition": "statistic \\| p-no-yates \\| statistic-no-yates | independence test from RAW observation pairs; Yates only when df==1 (scipy)",
+    "kernels": [
+      "chi_square"
+    ],
+    "existing_aliases": [
+      "chi-square",
+      "chi-squared",
+      "chi2",
+      "chi square"
+    ]
+  },
+  "chi_square_distance": {
+    "family": "stats",
+    "required_tags": [
+      "p",
+      "q"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "christoffersen_cc": {
+    "family": "quant",
+    "required_tags": [
+      "flag"
+    ],
+    "definition": "",
+    "kernels": [
+      "christoffersen_cc"
+    ],
+    "existing_aliases": []
+  },
+  "christoffersen_independence": {
+    "family": "quant",
+    "required_tags": [
+      "flag"
+    ],
+    "definition": "",
+    "kernels": [
+      "christoffersen_independence"
+    ],
+    "existing_aliases": []
+  },
+  "churn_rate": {
+    "family": "finance",
+    "required_tags": [
+      "flag"
+    ],
+    "definition": "retention | churned/total from raw flags; retention = 1 - churn",
+    "kernels": [
+      "churn_rate"
+    ],
+    "existing_aliases": [
+      "churn",
+      "retention"
+    ]
+  },
+  "cliffs_delta": {
+    "family": "stats",
+    "required_tags": [
+      "sample_a",
+      "sample_b"
+    ],
+    "definition": "(#(a>b)\u2212#(a<b))/(n\u2090n_b) ordinal effect size",
+    "kernels": [
+      "cliffs_delta"
+    ],
+    "existing_aliases": []
+  },
+  "coefficient_of_variation": {
+    "family": "stats",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": [
+      "coefficient of variation",
+      "relative std"
+    ]
+  },
+  "cohen_kappa": {
+    "family": "classification",
+    "required_tags": [
+      "prediction",
+      "label"
+    ],
+    "definition": "mean per-class recall (sklearn); (po-pe)/(1-pe) exact marginals",
+    "kernels": [
+      "cohen_kappa"
+    ],
+    "existing_aliases": [
+      "kappa"
+    ]
+  },
+  "cohens_h": {
+    "family": "stats",
+    "required_tags": [
+      "sample_a",
+      "sample_b"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "column_max": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "min / max / sample std",
+    "kernels": [
+      "col_max"
+    ],
+    "existing_aliases": [
+      "maximum"
+    ]
+  },
+  "column_mean": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "fsum / fsum/n / n",
+    "kernels": [
+      "col_mean"
+    ],
+    "existing_aliases": [
+      "mean",
+      "average"
+    ]
+  },
+  "column_median": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "numpy 'linear' quantile at q=0.5",
+    "kernels": [
+      "quantile"
+    ],
+    "existing_aliases": [
+      "median"
+    ]
+  },
+  "column_min": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "min / max / sample std",
+    "kernels": [
+      "col_min"
+    ],
+    "existing_aliases": [
+      "minimum"
+    ]
+  },
+  "column_std": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "min / max / sample std",
+    "kernels": [
+      "col_std"
+    ],
+    "existing_aliases": [
+      "standard deviation",
+      "std dev",
+      "stdev"
+    ]
+  },
+  "column_sum": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "fsum / fsum/n / n",
+    "kernels": [
+      "col_sum"
+    ],
+    "existing_aliases": [
+      "sum",
+      "total",
+      "revenue"
+    ]
+  },
+  "common_language_effect_size": {
+    "family": "stats",
+    "required_tags": [
+      "sample_a",
+      "sample_b"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "common_sense_ratio": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "completeness_score": {
+    "family": "classification",
+    "required_tags": [
+      "labels_true",
+      "labels_pred"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "comprehensive_concentration_index": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "compression_ratio": {
+    "family": "engineering",
+    "required_tags": [
+      "original",
+      "compressed"
+    ],
+    "definition": "",
+    "kernels": [
+      "compression_ratio"
+    ],
+    "existing_aliases": []
+  },
+  "concentration_ratio": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [
+      "concentration_ratio"
+    ],
+    "existing_aliases": []
+  },
+  "concordance_correlation": {
+    "family": "regression",
+    "required_tags": [
+      "prediction",
+      "target"
+    ],
+    "definition": "",
+    "kernels": [
+      "concordance_correlation"
+    ],
+    "existing_aliases": []
+  },
+  "concordance_index": {
+    "family": "stats",
+    "required_tags": [
+      "time",
+      "score",
+      "event"
+    ],
+    "definition": "",
+    "kernels": [
+      "concordance_index"
+    ],
+    "existing_aliases": []
+  },
+  "confidence_interval": {
+    "family": "stats",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "CI half-width of the mean: crit * s/sqrt(n)",
+    "kernels": [
+      "ci_half_width"
+    ],
+    "existing_aliases": [
+      "confidence interval",
+      "margin of error",
+      "ci"
+    ]
+  },
+  "convexity": {
+    "family": "finance",
+    "required_tags": [
+      "cashflow",
+      "time"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "cornish_fisher_var": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "Gaussian VaR with the Cornish-Fisher skew/kurtosis z-expansion",
+    "kernels": [
+      "cornish_fisher_var"
+    ],
+    "existing_aliases": []
+  },
+  "correlation": {
+    "family": "stats",
+    "required_tags": [
+      "x",
+      "y"
+    ],
+    "definition": "spearman | fsum-centered Pearson; Spearman = Pearson on midranks (ties averaged)",
+    "kernels": [
+      "pearson_r",
+      "spearman_r"
+    ],
+    "existing_aliases": [
+      "correlation",
+      "pearson",
+      "spearman"
+    ]
+  },
+  "covariance": {
+    "family": "analytics",
+    "required_tags": [
+      "x",
+      "y"
+    ],
+    "definition": "",
+    "kernels": [
+      "covariance"
+    ],
+    "existing_aliases": []
+  },
+  "coverage_deviation": {
+    "family": "forecasting",
+    "required_tags": [
+      "lower",
+      "upper",
+      "actual"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "cramers_v": {
+    "family": "stats",
+    "required_tags": [
+      "group",
+      "outcome"
+    ],
+    "definition": "sqrt(chi2_nc/(n min(r-1,c-1)))",
+    "kernels": [
+      "cramers_v"
+    ],
+    "existing_aliases": [
+      "cramer",
+      "cram\u00e9rs v"
+    ]
+  },
+  "cumulative_forecast_error": {
+    "family": "forecasting",
+    "required_tags": [
+      "prediction",
+      "target"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "cuped_ate": {
+    "family": "stats",
+    "required_tags": [
+      "value",
+      "covariate",
+      "group"
+    ],
+    "definition": "",
+    "kernels": [
+      "cuped_ate"
+    ],
+    "existing_aliases": []
+  },
+  "current_ratio": {
+    "family": "credit",
+    "required_tags": [
+      "current_assets",
+      "current_liabilities"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "curve_pv": {
+    "family": "finance",
+    "required_tags": [
+      "cashflow",
+      "zero_rate",
+      "time"
+    ],
+    "definition": "",
+    "kernels": [
+      "curve_pv"
+    ],
+    "existing_aliases": []
+  },
+  "cvar": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "historical: -quantile(r, 1-level); CVaR = -mean(tail). Loss-positive",
+    "kernels": [
+      "cvar"
+    ],
+    "existing_aliases": [
+      "cvar",
+      "expected shortfall"
+    ]
+  },
+  "d2_absolute_error": {
+    "family": "regression",
+    "required_tags": [
+      "prediction",
+      "target"
+    ],
+    "definition": "",
+    "kernels": [
+      "d2_absolute_error"
+    ],
+    "existing_aliases": []
+  },
+  "d2_tweedie_score": {
+    "family": "regression",
+    "required_tags": [
+      "prediction",
+      "target"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "days_sales_outstanding": {
+    "family": "finance",
+    "required_tags": [
+      "receivables",
+      "revenue"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "debt_to_ebitda": {
+    "family": "credit",
+    "required_tags": [
+      "debt",
+      "ebitda"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "debt_to_equity": {
+    "family": "credit",
+    "required_tags": [
+      "debt",
+      "equity"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "demographic_parity_difference": {
+    "family": "classification",
+    "required_tags": [
+      "prediction",
+      "label",
+      "group"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "demographic_parity_ratio": {
+    "family": "classification",
+    "required_tags": [
+      "prediction",
+      "label",
+      "group"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "diagnostic_odds_ratio": {
+    "family": "classification",
+    "required_tags": [
+      "prediction",
+      "label"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "direct_alpha": {
+    "family": "finance",
+    "required_tags": [
+      "contribution",
+      "distribution",
+      "index"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "distance_correlation": {
+    "family": "stats",
+    "required_tags": [
+      "x",
+      "y"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "distinct_count": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "include_null | distinct stripped cells (pandas nunique)",
+    "kernels": [
+      "distinct_count"
+    ],
+    "existing_aliases": [
+      "distinct",
+      "unique"
+    ]
+  },
+  "dividend_payout_ratio": {
+    "family": "finance",
+    "required_tags": [
+      "dividends",
+      "net_income"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "down_capture_ratio": {
+    "family": "quant",
+    "required_tags": [
+      "return",
+      "benchmark"
+    ],
+    "definition": "mean(r\\|b>0)/mean(b\\|b>0) ; mean(r\\|b<0)/mean(b\\|b<0)",
+    "kernels": [
+      "down_capture_ratio"
+    ],
+    "existing_aliases": []
+  },
+  "downside_deviation": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "std (ddof=1) x sqrt(P); downside uses sqrt(mean(min(r,0)^2))",
+    "kernels": [
+      "downside_deviation"
+    ],
+    "existing_aliases": [
+      "downside deviation"
+    ]
+  },
+  "downside_potential": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "dpi": {
+    "family": "finance",
+    "required_tags": [
+      "contribution",
+      "distribution"
+    ],
+    "definition": "",
+    "kernels": [
+      "dpi"
+    ],
+    "existing_aliases": []
+  },
+  "drawdown_at_risk": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "",
+    "kernels": [
+      "drawdown_at_risk"
+    ],
+    "existing_aliases": []
+  },
+  "drawdown_deviation": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "",
+    "kernels": [
+      "drawdown_deviation"
+    ],
+    "existing_aliases": []
+  },
+  "duplicate_count": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "rows duplicating an earlier row (pandas duplicated keep='first')",
+    "kernels": [
+      "duplicate_count"
+    ],
+    "existing_aliases": [
+      "duplicates",
+      "duplicate"
+    ]
+  },
+  "durbin_watson": {
+    "family": "regression",
+    "required_tags": [
+      "prediction",
+      "target"
+    ],
+    "definition": "sum((e_t-e_{t-1})^2)/sum(e^2) on residuals (statsmodels)",
+    "kernels": [
+      "durbin_watson"
+    ],
+    "existing_aliases": [
+      "durbin"
+    ]
+  },
+  "dv01": {
+    "family": "finance",
+    "required_tags": [
+      "cashflow",
+      "time"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "ebitda_margin": {
+    "family": "credit",
+    "required_tags": [
+      "ebitda",
+      "revenue"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "ece": {
+    "family": "classification",
+    "required_tags": [
+      "prob",
+      "label"
+    ],
+    "definition": "Guo et al. equal-width (lo,hi] bins, sum (n_b/n)\\|acc_b - conf_b\\|",
+    "kernels": [
+      "ece"
+    ],
+    "existing_aliases": [
+      "calibration error",
+      "ece"
+    ]
+  },
+  "effect_size": {
+    "family": "stats",
+    "required_tags": [
+      "sample_a",
+      "sample_b"
+    ],
+    "definition": "hedges_g \\| glass_delta | pooled-SD d; Hedges' exact-gamma J; Glass = control SD",
+    "kernels": [
+      "cohen_d"
+    ],
+    "existing_aliases": [
+      "effect size",
+      "cohen's d",
+      "cohens d",
+      "hedges"
+    ]
+  },
+  "effective_convexity": {
+    "family": "finance",
+    "required_tags": [
+      "cashflow",
+      "time"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "effective_duration": {
+    "family": "finance",
+    "required_tags": [
+      "cashflow",
+      "time"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "effective_number_of_bets": {
+    "family": "portfolio",
+    "required_tags": [
+      "weight"
+    ],
+    "definition": "",
+    "kernels": [
+      "effective_number_of_bets"
+    ],
+    "existing_aliases": []
+  },
+  "effective_spread_bps": {
+    "family": "execution",
+    "required_tags": [
+      "exec_price",
+      "mid_price",
+      "quantity"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "energy_distance": {
+    "family": "stats",
+    "required_tags": [
+      "sample_a",
+      "sample_b"
+    ],
+    "definition": "",
+    "kernels": [
+      "energy_distance"
+    ],
+    "existing_aliases": []
+  },
+  "entropy": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "Shannon entropy of value counts",
+    "kernels": [
+      "cat_entropy"
+    ],
+    "existing_aliases": [
+      "entropy"
+    ]
+  },
+  "equal_opportunity_difference": {
+    "family": "classification",
+    "required_tags": [
+      "prediction",
+      "label",
+      "group"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "equalized_odds_difference": {
+    "family": "classification",
+    "required_tags": [
+      "prediction",
+      "label",
+      "group"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "equalized_odds_ratio": {
+    "family": "classification",
+    "required_tags": [
+      "prediction",
+      "label",
+      "group"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "err_at_k": {
+    "family": "retrieval",
+    "required_tags": [
+      "query",
+      "rank",
+      "relevance"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "error_budget_burn": {
+    "family": "engineering",
+    "required_tags": [
+      "flag"
+    ],
+    "definition": "",
+    "kernels": [
+      "error_budget_burn"
+    ],
+    "existing_aliases": []
+  },
+  "error_rate": {
+    "family": "engineering",
+    "required_tags": [
+      "flag"
+    ],
+    "definition": "http4xx \\| http5xx | failures / total",
+    "kernels": [
+      "error_rate"
+    ],
+    "existing_aliases": [
+      "error rate",
+      "failure rate"
+    ]
+  },
+  "es_backtest_ratio": {
+    "family": "quant",
+    "required_tags": [
+      "return",
+      "var",
+      "es"
+    ],
+    "definition": "",
+    "kernels": [
+      "es_backtest_ratio"
+    ],
+    "existing_aliases": []
+  },
+  "eta_squared": {
+    "family": "stats",
+    "required_tags": [
+      "group",
+      "value"
+    ],
+    "definition": "SS_between / SS_total (one-way)",
+    "kernels": [
+      "eta_squared"
+    ],
+    "existing_aliases": []
+  },
+  "exact_match": {
+    "family": "llm-eval",
+    "required_tags": [
+      "prediction",
+      "reference"
+    ],
+    "definition": "prediction *(string)* vs reference *(string)*; normalized = SQuAD (lower/punct/articles/whitespace)",
+    "kernels": [
+      "exact_match"
+    ],
+    "existing_aliases": [
+      "exact match",
+      "exact-match"
+    ]
+  },
+  "expected_exceedance": {
+    "family": "quant",
+    "required_tags": [
+      "return",
+      "var"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "expected_loss": {
+    "family": "credit",
+    "required_tags": [
+      "pd",
+      "lgd",
+      "ead"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "expected_loss_rate": {
+    "family": "credit",
+    "required_tags": [
+      "pd",
+      "lgd",
+      "ead"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "explained_variance": {
+    "family": "regression",
+    "required_tags": [
+      "prediction",
+      "target"
+    ],
+    "definition": "sklearn median_absolute_error / max_error / explained_variance_score",
+    "kernels": [
+      "explained_variance"
+    ],
+    "existing_aliases": [
+      "explained variance"
+    ]
+  },
+  "exponential_loss": {
+    "family": "classification",
+    "required_tags": [
+      "score",
+      "label"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "exposure_weighted_maturity": {
+    "family": "credit",
+    "required_tags": [
+      "maturity",
+      "ead"
+    ],
+    "definition": "",
+    "kernels": [
+      "weighted_mean"
+    ],
+    "existing_aliases": []
+  },
+  "exposure_weighted_pd": {
+    "family": "credit",
+    "required_tags": [
+      "pd",
+      "ead"
+    ],
+    "definition": "",
+    "kernels": [
+      "weighted_mean"
+    ],
+    "existing_aliases": []
+  },
+  "f1": {
+    "family": "classification",
+    "required_tags": [
+      "prediction",
+      "label"
+    ],
+    "definition": "binary 0/1 confusion counts",
+    "kernels": [
+      "f1"
+    ],
+    "existing_aliases": [
+      "f1"
+    ]
+  },
+  "f1_at_k": {
+    "family": "retrieval",
+    "required_tags": [
+      "query",
+      "rank",
+      "relevance"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "fallout_at_k": {
+    "family": "retrieval",
+    "required_tags": [
+      "query",
+      "rank",
+      "relevance"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "false_discovery_rate": {
+    "family": "classification",
+    "required_tags": [
+      "prediction",
+      "label"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "false_negative_rate": {
+    "family": "classification",
+    "required_tags": [
+      "prediction",
+      "label"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "false_positive_rate": {
+    "family": "classification",
+    "required_tags": [
+      "prediction",
+      "label"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "fbeta": {
+    "family": "classification",
+    "required_tags": [
+      "prediction",
+      "label"
+    ],
+    "definition": "(1+b^2)PR/(b^2 P+R); beta parsed from \"F2\"/\"F0.5\" claims",
+    "kernels": [
+      "fbeta"
+    ],
+    "existing_aliases": [
+      "f2",
+      "f0.5",
+      "f-beta",
+      "fbeta"
+    ]
+  },
+  "fisher_exact": {
+    "family": "stats",
+    "required_tags": [
+      "group",
+      "outcome"
+    ],
+    "definition": "exact two-sided hypergeometric via integer combinatorics (scipy semantics)",
+    "kernels": [
+      "fisher_exact_p"
+    ],
+    "existing_aliases": [
+      "fisher"
+    ]
+  },
+  "fligner": {
+    "family": "stats",
+    "required_tags": [
+      "group",
+      "value"
+    ],
+    "definition": "",
+    "kernels": [
+      "fligner"
+    ],
+    "existing_aliases": []
+  },
+  "forecast_bias": {
+    "family": "forecasting",
+    "required_tags": [
+      "prediction",
+      "target"
+    ],
+    "definition": "sum\\|e\\|/sum\\|a\\|; (sum p - sum a)/sum a",
+    "kernels": [
+      "forecast_bias"
+    ],
+    "existing_aliases": [
+      "forecast bias"
+    ]
+  },
+  "forward_rate": {
+    "family": "finance",
+    "required_tags": [
+      "zero_rate",
+      "time"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "fowlkes_mallows": {
+    "family": "classification",
+    "required_tags": [
+      "prediction",
+      "label"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "fowlkes_mallows_clustering": {
+    "family": "classification",
+    "required_tags": [
+      "labels_true",
+      "labels_pred"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "fpr_parity_difference": {
+    "family": "classification",
+    "required_tags": [
+      "prediction",
+      "label",
+      "group"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "free_cash_flow_margin": {
+    "family": "finance",
+    "required_tags": [
+      "fcf",
+      "revenue"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "g_mean": {
+    "family": "classification",
+    "required_tags": [
+      "prediction",
+      "label"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "g_test": {
+    "family": "stats",
+    "required_tags": [
+      "group",
+      "outcome"
+    ],
+    "definition": "2\u00b7\u03a3 O\u00b7ln(O/E), \u03c7\u00b2((R\u22121)(C\u22121)) (SciPy log-likelihood, no continuity)",
+    "kernels": [
+      "g_test"
+    ],
+    "existing_aliases": []
+  },
+  "gain_loss_ratio": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "mean(r>0)/\\|mean(r<0)\\| ; count(r>0)/count(r<0)",
+    "kernels": [
+      "gain_loss_ratio"
+    ],
+    "existing_aliases": []
+  },
+  "gain_to_pain_ratio": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "sum(r) / \\|sum(r<0)\\| (Schwager)",
+    "kernels": [
+      "gain_to_pain_ratio"
+    ],
+    "existing_aliases": []
+  },
+  "gamma_deviance": {
+    "family": "regression",
+    "required_tags": [
+      "prediction",
+      "target"
+    ],
+    "definition": "",
+    "kernels": [
+      "gamma_deviance"
+    ],
+    "existing_aliases": []
+  },
+  "garman_klass_volatility": {
+    "family": "quant",
+    "required_tags": [
+      "open",
+      "high",
+      "low",
+      "close"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "gastwirth_location": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "generalized_entropy_index": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [
+      "generalized_entropy_index"
+    ],
+    "existing_aliases": []
+  },
+  "geometric_excess_return": {
+    "family": "portfolio",
+    "required_tags": [
+      "port_weight",
+      "bench_weight",
+      "port_return",
+      "bench_return"
+    ],
+    "definition": "",
+    "kernels": [
+      "geometric_excess_return"
+    ],
+    "existing_aliases": []
+  },
+  "geometric_mean": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "geometric_mean_absolute_error": {
+    "family": "forecasting",
+    "required_tags": [
+      "prediction",
+      "target"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "gini_coefficient": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "sorted-rank Gini; sum((x/sum x)^2)",
+    "kernels": [
+      "gini_coefficient"
+    ],
+    "existing_aliases": [
+      "gini coefficient"
+    ]
+  },
+  "gini_mean_difference": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "gini_norm": {
+    "family": "classification",
+    "required_tags": [
+      "score",
+      "label"
+    ],
+    "definition": "max ECDF gap between class score distributions; 2*AUC-1",
+    "kernels": [
+      "gini_norm"
+    ],
+    "existing_aliases": [
+      "gini"
+    ]
+  },
+  "glass_delta": {
+    "family": "stats",
+    "required_tags": [
+      "sample_a",
+      "sample_b"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "goodman_kruskal_gamma": {
+    "family": "stats",
+    "required_tags": [
+      "x",
+      "y"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "gross_exposure": {
+    "family": "exposure",
+    "required_tags": [
+      "exposure"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "groupby_aggregate": {
+    "family": "analytics",
+    "required_tags": [
+      "group",
+      "value"
+    ],
+    "definition": "mean \\| sum:`<group>` \\| mean:`<group>` | per-group fsum/mean; no group label -> degenerate (groups kept in terms)",
+    "kernels": [
+      "groupby_aggregate"
+    ],
+    "existing_aliases": []
+  },
+  "growth_rate": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "total (last/first - 1) | time-ordered column",
+    "kernels": [
+      "growth_rate"
+    ],
+    "existing_aliases": [
+      "growth",
+      "mom",
+      "yoy"
+    ]
+  },
+  "gwet_ac1": {
+    "family": "classification",
+    "required_tags": [
+      "rater_a",
+      "rater_b"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "harmonic_mean": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "hedges_g": {
+    "family": "stats",
+    "required_tags": [
+      "sample_a",
+      "sample_b"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "hellinger_distance": {
+    "family": "stats",
+    "required_tags": [
+      "p",
+      "q"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "hhi": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "sorted-rank Gini; sum((x/sum x)^2)",
+    "kernels": [
+      "hhi"
+    ],
+    "existing_aliases": [
+      "hhi",
+      "herfindahl",
+      "concentration"
+    ]
+  },
+  "hill_estimator": {
+    "family": "quant",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "hill_number": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [
+      "hill_number"
+    ],
+    "existing_aliases": []
+  },
+  "hinge_loss": {
+    "family": "classification",
+    "required_tags": [
+      "score",
+      "label"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "hochberg_rejections": {
+    "family": "stats",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "hodges_lehmann_estimator": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "holm_rejections": {
+    "family": "stats",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [
+      "holm_rejections"
+    ],
+    "existing_aliases": []
+  },
+  "holm_sidak_rejections": {
+    "family": "stats",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "homogeneity_score": {
+    "family": "classification",
+    "required_tags": [
+      "labels_true",
+      "labels_pred"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "hoover_index": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [
+      "hoover_index"
+    ],
+    "existing_aliases": []
+  },
+  "hqic": {
+    "family": "regression",
+    "required_tags": [
+      "residual"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "huber_loss": {
+    "family": "regression",
+    "required_tags": [
+      "prediction",
+      "target"
+    ],
+    "definition": "",
+    "kernels": [
+      "huber_loss"
+    ],
+    "existing_aliases": []
+  },
+  "hurst_rs": {
+    "family": "quant",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [
+      "hurst_rs"
+    ],
+    "existing_aliases": []
+  },
+  "idiosyncratic_volatility": {
+    "family": "quant",
+    "required_tags": [
+      "return",
+      "benchmark"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "implementation_shortfall": {
+    "family": "execution",
+    "required_tags": [
+      "exec_price",
+      "decision_price",
+      "quantity"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "index_of_dispersion": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "information_ratio": {
+    "family": "quant",
+    "required_tags": [
+      "return",
+      "benchmark"
+    ],
+    "definition": "mean(r-b)/std(r-b) x sqrt(P); std(r-b) x sqrt(P)",
+    "kernels": [
+      "information_ratio"
+    ],
+    "existing_aliases": [
+      "information ratio"
+    ]
+  },
+  "information_value": {
+    "family": "stats",
+    "required_tags": [
+      "group",
+      "label"
+    ],
+    "definition": "",
+    "kernels": [
+      "information_value"
+    ],
+    "existing_aliases": []
+  },
+  "interest_coverage": {
+    "family": "credit",
+    "required_tags": [
+      "ebit",
+      "interest_expense"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "interval_coverage": {
+    "family": "forecasting",
+    "required_tags": [
+      "lower",
+      "upper",
+      "actual"
+    ],
+    "definition": "",
+    "kernels": [
+      "interval_coverage"
+    ],
+    "existing_aliases": []
+  },
+  "iqr": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "q75-q25 linear; Tukey-fence count",
+    "kernels": [
+      "iqr"
+    ],
+    "existing_aliases": [
+      "iqr",
+      "interquartile"
+    ]
+  },
+  "irr": {
+    "family": "finance",
+    "required_tags": [
+      "cashflow"
+    ],
+    "definition": "rate where npv=0, deterministic bisection; no sign change -> degenerate",
+    "kernels": [
+      "irr"
+    ],
+    "existing_aliases": [
+      "irr"
+    ]
+  },
+  "jaccard": {
+    "family": "classification",
+    "required_tags": [
+      "prediction",
+      "label"
+    ],
+    "definition": "tn/(tn+fp); tp/(tp+fp+fn)",
+    "kernels": [
+      "jaccard"
+    ],
+    "existing_aliases": [
+      "jaccard",
+      "iou"
+    ]
+  },
+  "jarque_bera": {
+    "family": "stats",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "n/6(S^2+K^2/4); p via chi2(2)",
+    "kernels": [
+      "jarque_bera_p"
+    ],
+    "existing_aliases": [
+      "jarque"
+    ]
+  },
+  "jeffreys_divergence": {
+    "family": "stats",
+    "required_tags": [
+      "p",
+      "q"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "jitter": {
+    "family": "engineering",
+    "required_tags": [
+      "duration"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "join_row_loss": {
+    "family": "analytics",
+    "required_tags": [
+      "left_key",
+      "joined_key"
+    ],
+    "definition": "len(left) - len(joined); 0 = lossless, negative = fan-out; use `left.csv::id` cross-artifact binding",
+    "kernels": [
+      "join_row_loss"
+    ],
+    "existing_aliases": [
+      "merged",
+      "merge",
+      "join",
+      "joined"
+    ]
+  },
+  "js_divergence": {
+    "family": "stats",
+    "required_tags": [
+      "p",
+      "q"
+    ],
+    "definition": "",
+    "kernels": [
+      "js_divergence"
+    ],
+    "existing_aliases": []
+  },
+  "jump_variation": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "kappa_three": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "mean(r) / (mean(max(\u2212r,0)\u00b3))^(1/3) (Kaplan-Knowles)",
+    "kernels": [
+      "kappa_three"
+    ],
+    "existing_aliases": []
+  },
+  "kelly_criterion": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "W \u2212 (1\u2212W)/R ; W=wins/(wins+losses), R=avg win/\\|avg loss\\|",
+    "kernels": [
+      "kelly_criterion"
+    ],
+    "existing_aliases": []
+  },
+  "kendall_tau": {
+    "family": "stats",
+    "required_tags": [
+      "x",
+      "y"
+    ],
+    "definition": "tau-b, tie-corrected concordant/discordant pairs (SciPy kendalltau)",
+    "kernels": [
+      "kendall_tau"
+    ],
+    "existing_aliases": []
+  },
+  "kl_divergence": {
+    "family": "stats",
+    "required_tags": [
+      "p",
+      "q"
+    ],
+    "definition": "",
+    "kernels": [
+      "kl_divergence"
+    ],
+    "existing_aliases": []
+  },
+  "kling_gupta_efficiency": {
+    "family": "forecasting",
+    "required_tags": [
+      "prediction",
+      "target"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "km_median_survival": {
+    "family": "stats",
+    "required_tags": [
+      "duration",
+      "event"
+    ],
+    "definition": "",
+    "kernels": [
+      "km_median_survival"
+    ],
+    "existing_aliases": []
+  },
+  "km_survival_at": {
+    "family": "stats",
+    "required_tags": [
+      "duration",
+      "event"
+    ],
+    "definition": "",
+    "kernels": [
+      "km_survival_at"
+    ],
+    "existing_aliases": []
+  },
+  "kruskal_wallis": {
+    "family": "stats",
+    "required_tags": [
+      "group",
+      "value"
+    ],
+    "definition": "",
+    "kernels": [
+      "kruskal_wallis"
+    ],
+    "existing_aliases": []
+  },
+  "ks_2samp": {
+    "family": "stats",
+    "required_tags": [
+      "sample_a",
+      "sample_b"
+    ],
+    "definition": "",
+    "kernels": [
+      "ks_2samp"
+    ],
+    "existing_aliases": []
+  },
+  "ks_pme": {
+    "family": "finance",
+    "required_tags": [
+      "contribution",
+      "distribution",
+      "index"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "ks_statistic": {
+    "family": "classification",
+    "required_tags": [
+      "score",
+      "label"
+    ],
+    "definition": "max ECDF gap between class score distributions; 2*AUC-1",
+    "kernels": [
+      "ks_statistic"
+    ],
+    "existing_aliases": [
+      "ks statistic"
+    ]
+  },
+  "ks_test": {
+    "family": "stats",
+    "required_tags": [
+      "sample_a",
+      "sample_b"
+    ],
+    "definition": "classical Kolmogorov asymptotic p (kstwobign; documented vs scipy's finite-n refinement)",
+    "kernels": [
+      "ks_p"
+    ],
+    "existing_aliases": [
+      "ks test",
+      "kolmogorov"
+    ]
+  },
+  "kupiec_pof": {
+    "family": "quant",
+    "required_tags": [
+      "flag"
+    ],
+    "definition": "",
+    "kernels": [
+      "kupiec_pof"
+    ],
+    "existing_aliases": []
+  },
+  "kurtosis": {
+    "family": "stats",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "biased g1; biased excess g2 (scipy defaults)",
+    "kernels": [
+      "kurtosis_excess"
+    ],
+    "existing_aliases": [
+      "kurtosis"
+    ]
+  },
+  "kyle_lambda": {
+    "family": "liquidity",
+    "required_tags": [
+      "price_change",
+      "signed_volume"
+    ],
+    "definition": "",
+    "kernels": [
+      "kyle_lambda"
+    ],
+    "existing_aliases": []
+  },
+  "l_cv": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "l_kurtosis": {
+    "family": "stats",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "l_scale": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "l_skewness": {
+    "family": "stats",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "largest_position": {
+    "family": "exposure",
+    "required_tags": [
+      "exposure"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "latency_p50": {
+    "family": "engineering",
+    "required_tags": [
+      "duration"
+    ],
+    "definition": "numpy 'linear' quantile of raw durations",
+    "kernels": [],
+    "existing_aliases": [
+      "p50",
+      "latency"
+    ]
+  },
+  "latency_p75": {
+    "family": "engineering",
+    "required_tags": [
+      "duration"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "latency_p90": {
+    "family": "engineering",
+    "required_tags": [
+      "duration"
+    ],
+    "definition": "linear quantile at 0.90",
+    "kernels": [],
+    "existing_aliases": [
+      "p90"
+    ]
+  },
+  "latency_p95": {
+    "family": "engineering",
+    "required_tags": [
+      "duration"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": [
+      "p95"
+    ]
+  },
+  "latency_p99": {
+    "family": "engineering",
+    "required_tags": [
+      "duration"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": [
+      "p99"
+    ]
+  },
+  "latency_p999": {
+    "family": "engineering",
+    "required_tags": [
+      "duration"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "latency_stddev": {
+    "family": "engineering",
+    "required_tags": [
+      "duration"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "levene": {
+    "family": "stats",
+    "required_tags": [
+      "group",
+      "value"
+    ],
+    "definition": "",
+    "kernels": [
+      "levene"
+    ],
+    "existing_aliases": []
+  },
+  "lift": {
+    "family": "stats",
+    "required_tags": [
+      "sample_a",
+      "sample_b"
+    ],
+    "definition": "absolute | (mb-ma)/ma or mb-ma",
+    "kernels": [
+      "lift"
+    ],
+    "existing_aliases": [
+      "uplift",
+      "lift"
+    ]
+  },
+  "liquidity_coverage": {
+    "family": "exposure",
+    "required_tags": [
+      "weight",
+      "days_to_liquidate"
+    ],
+    "definition": "",
+    "kernels": [
+      "liquidity_coverage"
+    ],
+    "existing_aliases": []
+  },
+  "ljung_box": {
+    "family": "stats",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [
+      "ljung_box"
+    ],
+    "existing_aliases": []
+  },
+  "log_likelihood_gaussian": {
+    "family": "regression",
+    "required_tags": [
+      "residual"
+    ],
+    "definition": "",
+    "kernels": [
+      "log_likelihood_gaussian"
+    ],
+    "existing_aliases": []
+  },
+  "log_loss": {
+    "family": "classification",
+    "required_tags": [
+      "prob",
+      "label"
+    ],
+    "definition": "clip | -mean(y ln p + (1-y) ln(1-p)); exact mode -> inf is degenerate, clip = legacy 1e-15",
+    "kernels": [
+      "log_loss"
+    ],
+    "existing_aliases": [
+      "log loss",
+      "logloss",
+      "cross entropy"
+    ]
+  },
+  "long_exposure": {
+    "family": "exposure",
+    "required_tags": [
+      "exposure"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "long_short_ratio": {
+    "family": "exposure",
+    "required_tags": [
+      "exposure"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "m2_measure": {
+    "family": "quant",
+    "required_tags": [
+      "return",
+      "benchmark"
+    ],
+    "definition": "",
+    "kernels": [
+      "m2_measure"
+    ],
+    "existing_aliases": []
+  },
+  "macaulay_duration": {
+    "family": "finance",
+    "required_tags": [
+      "cashflow",
+      "time"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "macro_f1": {
+    "family": "classification",
+    "required_tags": [
+      "prediction",
+      "label"
+    ],
+    "definition": "multiclass; classes = union(labels, preds); zero_division=0 (sklearn)",
+    "kernels": [
+      "macro_f1"
+    ],
+    "existing_aliases": [
+      "macro f1",
+      "macro-f1"
+    ]
+  },
+  "mae": {
+    "family": "regression",
+    "required_tags": [
+      "prediction",
+      "target"
+    ],
+    "definition": "",
+    "kernels": [
+      "mae"
+    ],
+    "existing_aliases": [
+      "mae"
+    ]
+  },
+  "mann_whitney": {
+    "family": "stats",
+    "required_tags": [
+      "sample_a",
+      "sample_b"
+    ],
+    "definition": "tie-corrected, continuity-corrected asymptotic two-sided p (scipy)",
+    "kernels": [
+      "mann_whitney_p"
+    ],
+    "existing_aliases": [
+      "mann-whitney",
+      "mann whitney",
+      "u test"
+    ]
+  },
+  "map_at_k": {
+    "family": "retrieval",
+    "required_tags": [
+      "query",
+      "rank",
+      "relevance"
+    ],
+    "definition": "AP@k with min(R,k) denominator (documented), zero-relevant skipped",
+    "kernels": [
+      "map_at_k"
+    ],
+    "existing_aliases": [
+      "mean average precision",
+      "map@5",
+      "map@10",
+      "map@20",
+      "map@100"
+    ]
+  },
+  "mape": {
+    "family": "forecasting",
+    "required_tags": [
+      "prediction",
+      "target"
+    ],
+    "definition": "smape | mean(\\|p-a\\|/\\|a\\|); zero actual -> degenerate (no epsilon fudge); smape = mean(2\\|p-a\\|/(\\|p\\|+\\|a\\|))",
+    "kernels": [
+      "mape"
+    ],
+    "existing_aliases": [
+      "smape",
+      "mape"
+    ]
+  },
+  "margin_pct": {
+    "family": "finance",
+    "required_tags": [
+      "value",
+      "cost"
+    ],
+    "definition": "(sum rev - sum cost) / sum rev",
+    "kernels": [
+      "margin_pct"
+    ],
+    "existing_aliases": [
+      "margin"
+    ]
+  },
+  "markedness": {
+    "family": "classification",
+    "required_tags": [
+      "prediction",
+      "label"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "martin_ratio": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "annualized return / ulcer index (Ulcer Performance Index)",
+    "kernels": [
+      "martin_ratio"
+    ],
+    "existing_aliases": []
+  },
+  "mase": {
+    "family": "forecasting",
+    "required_tags": [
+      "prediction",
+      "target"
+    ],
+    "definition": "MAE scaled by in-sample naive-m MAE (Hyndman & Koehler)",
+    "kernels": [
+      "mase"
+    ],
+    "existing_aliases": [
+      "mase"
+    ]
+  },
+  "max_consecutive_losses": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "",
+    "kernels": [
+      "max_consecutive_losses"
+    ],
+    "existing_aliases": []
+  },
+  "max_drawdown": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "worst peak-to-trough of the equity curve (path-dependent)",
+    "kernels": [
+      "max_drawdown"
+    ],
+    "existing_aliases": [
+      "drawdown"
+    ]
+  },
+  "max_drawdown_duration": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "longest consecutive run below the running peak (periods)",
+    "kernels": [
+      "max_drawdown_duration"
+    ],
+    "existing_aliases": []
+  },
+  "max_error": {
+    "family": "regression",
+    "required_tags": [
+      "prediction",
+      "target"
+    ],
+    "definition": "sklearn median_absolute_error / max_error / explained_variance_score",
+    "kernels": [
+      "max_error"
+    ],
+    "existing_aliases": [
+      "max error"
+    ]
+  },
+  "max_to_sum_ratio": {
+    "family": "quant",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [
+      "max_to_sum_ratio"
+    ],
+    "existing_aliases": []
+  },
+  "maximum_calibration_error": {
+    "family": "classification",
+    "required_tags": [
+      "probability",
+      "label"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "mcc": {
+    "family": "classification",
+    "required_tags": [
+      "prediction",
+      "label"
+    ],
+    "definition": "Gorodkin multiclass MCC, exact integer sums; 0.0 on zero denominator (sklearn)",
+    "kernels": [
+      "mcc"
+    ],
+    "existing_aliases": [
+      "mcc",
+      "matthews"
+    ]
+  },
+  "mcnemar": {
+    "family": "stats",
+    "required_tags": [
+      "sample_a",
+      "sample_b"
+    ],
+    "definition": "(\\|n\u2081\u2080\u2212n\u2080\u2081\\|\u22121)\u00b2/(n\u2081\u2080+n\u2080\u2081), \u03c7\u00b2(1) (statsmodels asymptotic)",
+    "kernels": [
+      "mcnemar_p"
+    ],
+    "existing_aliases": []
+  },
+  "mean_abs_deviation": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "mean_arctangent_ape": {
+    "family": "forecasting",
+    "required_tags": [
+      "prediction",
+      "target"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "mean_average_precision": {
+    "family": "retrieval",
+    "required_tags": [
+      "query",
+      "rank",
+      "relevance"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "mean_directional_accuracy": {
+    "family": "forecasting",
+    "required_tags": [
+      "prediction",
+      "target"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "mean_interval_width": {
+    "family": "forecasting",
+    "required_tags": [
+      "lower",
+      "upper"
+    ],
+    "definition": "",
+    "kernels": [
+      "mean_interval_width"
+    ],
+    "existing_aliases": []
+  },
+  "mean_log_deviation": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [
+      "mean_log_deviation"
+    ],
+    "existing_aliases": []
+  },
+  "mean_percentage_error": {
+    "family": "forecasting",
+    "required_tags": [
+      "prediction",
+      "target"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "mean_squared_error": {
+    "family": "regression",
+    "required_tags": [
+      "prediction",
+      "target"
+    ],
+    "definition": "",
+    "kernels": [
+      "mean_squared_error"
+    ],
+    "existing_aliases": []
+  },
+  "mean_tweedie_deviance": {
+    "family": "regression",
+    "required_tags": [
+      "prediction",
+      "target"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "medae": {
+    "family": "regression",
+    "required_tags": [
+      "prediction",
+      "target"
+    ],
+    "definition": "sklearn median_absolute_error / max_error / explained_variance_score",
+    "kernels": [
+      "medae"
+    ],
+    "existing_aliases": [
+      "median absolute error",
+      "medae"
+    ]
+  },
+  "median_abs_deviation": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "median_absolute_percentage_error": {
+    "family": "forecasting",
+    "required_tags": [
+      "prediction",
+      "target"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "merton_distance_to_default": {
+    "family": "credit",
+    "required_tags": [
+      "asset_value",
+      "debt",
+      "drift",
+      "vol",
+      "time"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "merton_pd": {
+    "family": "credit",
+    "required_tags": [
+      "asset_value",
+      "debt",
+      "drift",
+      "vol",
+      "time"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "micro_f1": {
+    "family": "classification",
+    "required_tags": [
+      "prediction",
+      "label"
+    ],
+    "definition": "multiclass; classes = union(labels, preds); zero_division=0 (sklearn)",
+    "kernels": [
+      "micro_f1"
+    ],
+    "existing_aliases": [
+      "micro f1",
+      "micro-f1"
+    ]
+  },
+  "midhinge": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "mode_share": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "most frequent cell share",
+    "kernels": [
+      "mode_share"
+    ],
+    "existing_aliases": [
+      "most common",
+      "mode share"
+    ]
+  },
+  "modified_duration": {
+    "family": "finance",
+    "required_tags": [
+      "cashflow",
+      "time"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "modified_sharpe_ratio": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "mood_test": {
+    "family": "stats",
+    "required_tags": [
+      "sample_a",
+      "sample_b"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "moors_kurtosis": {
+    "family": "stats",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "mrr": {
+    "family": "retrieval",
+    "required_tags": [
+      "query",
+      "rank",
+      "relevance"
+    ],
+    "definition": "",
+    "kernels": [
+      "mrr"
+    ],
+    "existing_aliases": [
+      "mrr"
+    ]
+  },
+  "msle": {
+    "family": "regression",
+    "required_tags": [
+      "prediction",
+      "target"
+    ],
+    "definition": "mean((ln(1+p)-ln(1+a))^2); values <= -1 degrade (sklearn)",
+    "kernels": [
+      "msle"
+    ],
+    "existing_aliases": [
+      "rmsle",
+      "msle"
+    ]
+  },
+  "mtbf": {
+    "family": "engineering",
+    "required_tags": [
+      "flag"
+    ],
+    "definition": "",
+    "kernels": [
+      "mtbf"
+    ],
+    "existing_aliases": []
+  },
+  "mutual_info_score": {
+    "family": "classification",
+    "required_tags": [
+      "labels_true",
+      "labels_pred"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "nash_sutcliffe_efficiency": {
+    "family": "forecasting",
+    "required_tags": [
+      "prediction",
+      "target"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "ndcg_at_k": {
+    "family": "retrieval",
+    "required_tags": [
+      "query",
+      "rank",
+      "relevance"
+    ],
+    "definition": "",
+    "kernels": [
+      "ndcg_at_k"
+    ],
+    "existing_aliases": [
+      "ndcg"
+    ]
+  },
+  "negative_likelihood_ratio": {
+    "family": "classification",
+    "required_tags": [
+      "prediction",
+      "label"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "negative_predictive_value": {
+    "family": "classification",
+    "required_tags": [
+      "prediction",
+      "label"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "nelson_aalen_cumhaz": {
+    "family": "stats",
+    "required_tags": [
+      "duration",
+      "event"
+    ],
+    "definition": "",
+    "kernels": [
+      "nelson_aalen_cumhaz"
+    ],
+    "existing_aliases": []
+  },
+  "net_debt_to_ebitda": {
+    "family": "credit",
+    "required_tags": [
+      "debt",
+      "cash",
+      "ebitda"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "net_exposure": {
+    "family": "exposure",
+    "required_tags": [
+      "exposure"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "net_margin": {
+    "family": "finance",
+    "required_tags": [
+      "net_income",
+      "revenue"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "normalized_hhi": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "normalized_mutual_info": {
+    "family": "classification",
+    "required_tags": [
+      "labels_true",
+      "labels_pred"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "npv": {
+    "family": "finance",
+    "required_tags": [
+      "cashflow"
+    ],
+    "definition": "sum cf_t/(1+r)^t, cf[0] at t=0 (numpy-financial); no rate -> degenerate",
+    "kernels": [
+      "npv"
+    ],
+    "existing_aliases": [
+      "npv"
+    ]
+  },
+  "nrmse": {
+    "family": "regression",
+    "required_tags": [
+      "prediction",
+      "target"
+    ],
+    "definition": "RMSE normalized",
+    "kernels": [
+      "nrmse"
+    ],
+    "existing_aliases": [
+      "nrmse"
+    ]
+  },
+  "null_fraction": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "fraction of \"\"/nan/na/null/none cells",
+    "kernels": [
+      "null_fraction"
+    ],
+    "existing_aliases": [
+      "null",
+      "missing"
+    ]
+  },
+  "number_needed_to_treat": {
+    "family": "stats",
+    "required_tags": [
+      "treatment",
+      "control"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "odds_ratio": {
+    "family": "stats",
+    "required_tags": [
+      "group",
+      "outcome"
+    ],
+    "definition": "ad/bc (zero cell degrades); (a/(a+b))/(c/(c+d))",
+    "kernels": [
+      "odds_ratio_2x2"
+    ],
+    "existing_aliases": [
+      "odds ratio"
+    ]
+  },
+  "omega_ratio": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "count(r>0)/n; sum gains/\\|sum losses\\|; sum max(r-t,0)/sum max(t-r,0)",
+    "kernels": [
+      "omega_ratio"
+    ],
+    "existing_aliases": [
+      "omega"
+    ]
+  },
+  "omega_sharpe_ratio": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "",
+    "kernels": [
+      "omega_sharpe_ratio"
+    ],
+    "existing_aliases": []
+  },
+  "operating_margin": {
+    "family": "finance",
+    "required_tags": [
+      "operating_income",
+      "revenue"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "outlier_count": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "q75-q25 linear; Tukey-fence count",
+    "kernels": [
+      "outlier_count"
+    ],
+    "existing_aliases": [
+      "outliers",
+      "outlier"
+    ]
+  },
+  "p_value": {
+    "family": "stats",
+    "required_tags": [
+      "sample_a",
+      "sample_b"
+    ],
+    "definition": "pooled \\| z | two-sided two-sample p via deterministic incomplete beta / erfc",
+    "kernels": [
+      "t_test_p"
+    ],
+    "existing_aliases": [
+      "p-value",
+      "p value",
+      "pvalue",
+      "significant",
+      "significance",
+      "t-test"
+    ]
+  },
+  "pain_index": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "\u221a(mean(dd\u209c\u00b2)) ; mean(\\|dd\u209c\\|) over the drawdown series",
+    "kernels": [
+      "pain_index"
+    ],
+    "existing_aliases": []
+  },
+  "pain_ratio": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "par_yield": {
+    "family": "finance",
+    "required_tags": [
+      "zero_rate",
+      "time"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "parametric_es": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "Gaussian VaR \u2212(\u03bc+\u03a6\u207b\u00b9(1\u2212\u03b1)\u03c3) ; ES \u2212(\u03bc\u2212\u03c3\u03c6(z)/\u03b1)",
+    "kernels": [
+      "parametric_es"
+    ],
+    "existing_aliases": []
+  },
+  "parametric_var": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "Gaussian VaR \u2212(\u03bc+\u03a6\u207b\u00b9(1\u2212\u03b1)\u03c3) ; ES \u2212(\u03bc\u2212\u03c3\u03c6(z)/\u03b1)",
+    "kernels": [
+      "parametric_var"
+    ],
+    "existing_aliases": []
+  },
+  "parkinson_volatility": {
+    "family": "quant",
+    "required_tags": [
+      "high",
+      "low"
+    ],
+    "definition": "",
+    "kernels": [
+      "parkinson_volatility"
+    ],
+    "existing_aliases": []
+  },
+  "partial_autocorrelation": {
+    "family": "stats",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [
+      "partial_autocorrelation"
+    ],
+    "existing_aliases": []
+  },
+  "participation_rate": {
+    "family": "execution",
+    "required_tags": [
+      "order_volume",
+      "market_volume"
+    ],
+    "definition": "",
+    "kernels": [
+      "participation_rate"
+    ],
+    "existing_aliases": []
+  },
+  "pass_at_k": {
+    "family": "llm-eval",
+    "required_tags": [
+      "problem",
+      "correct"
+    ],
+    "definition": "",
+    "kernels": [
+      "pass_at_k"
+    ],
+    "existing_aliases": [
+      "pass@1",
+      "pass@5",
+      "pass@10",
+      "pass@100",
+      "pass@k"
+    ]
+  },
+  "peak_memory": {
+    "family": "engineering",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "max of sampled series",
+    "kernels": [
+      "peak"
+    ],
+    "existing_aliases": [
+      "peak memory",
+      "memory"
+    ]
+  },
+  "pearson_median_skewness": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "percentage_agreement": {
+    "family": "classification",
+    "required_tags": [
+      "rater_a",
+      "rater_b"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "percentile": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "numpy 'linear' method; no convention -> degenerate",
+    "kernels": [
+      "quantile"
+    ],
+    "existing_aliases": [
+      "p99.9",
+      "p75",
+      "percentile"
+    ]
+  },
+  "percentile_ratio": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [
+      "percentile_ratio"
+    ],
+    "existing_aliases": []
+  },
+  "permutation_entropy": {
+    "family": "stats",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [
+      "permutation_entropy"
+    ],
+    "existing_aliases": []
+  },
+  "perplexity": {
+    "family": "llm-eval",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "exp(-mean(logprob)), natural log; positive logprobs degrade",
+    "kernels": [
+      "perplexity"
+    ],
+    "existing_aliases": [
+      "perplexity",
+      "ppl"
+    ]
+  },
+  "pickands_estimator": {
+    "family": "quant",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "pielou_evenness": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [
+      "pielou_evenness"
+    ],
+    "existing_aliases": []
+  },
+  "pinball_loss": {
+    "family": "forecasting",
+    "required_tags": [
+      "prediction",
+      "target"
+    ],
+    "definition": "mean(max(q(a-p), (q-1)(a-p))) (sklearn mean_pinball_loss)",
+    "kernels": [
+      "pinball"
+    ],
+    "existing_aliases": [
+      "pinball",
+      "quantile loss"
+    ]
+  },
+  "pme_plus_lambda": {
+    "family": "finance",
+    "required_tags": [
+      "contribution",
+      "distribution",
+      "index"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "point_biserial": {
+    "family": "stats",
+    "required_tags": [
+      "binary",
+      "value"
+    ],
+    "definition": "Pearson r between a 0/1 and a continuous column (SciPy pointbiserialr)",
+    "kernels": [
+      "point_biserial"
+    ],
+    "existing_aliases": []
+  },
+  "poisson_deviance": {
+    "family": "regression",
+    "required_tags": [
+      "prediction",
+      "target"
+    ],
+    "definition": "",
+    "kernels": [
+      "poisson_deviance"
+    ],
+    "existing_aliases": []
+  },
+  "portfolio_turnover": {
+    "family": "portfolio",
+    "required_tags": [
+      "prev_weight",
+      "curr_weight"
+    ],
+    "definition": "",
+    "kernels": [
+      "portfolio_turnover"
+    ],
+    "existing_aliases": []
+  },
+  "positive_likelihood_ratio": {
+    "family": "classification",
+    "required_tags": [
+      "prediction",
+      "label"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "pr_auc": {
+    "family": "classification",
+    "required_tags": [
+      "score",
+      "label"
+    ],
+    "definition": "trapezoid | sklearn AP step integral (ties grouped)",
+    "kernels": [
+      "average_precision",
+      "pr_auc_trapezoid"
+    ],
+    "existing_aliases": [
+      "average precision",
+      "pr auc",
+      "pr-auc",
+      "auprc"
+    ]
+  },
+  "precision": {
+    "family": "classification",
+    "required_tags": [
+      "prediction",
+      "label"
+    ],
+    "definition": "binary 0/1 confusion counts",
+    "kernels": [
+      "precision"
+    ],
+    "existing_aliases": [
+      "precision"
+    ]
+  },
+  "precision_at_k": {
+    "family": "retrieval",
+    "required_tags": [
+      "query",
+      "rank",
+      "relevance"
+    ],
+    "definition": "relevant-in-top-k / k, averaged over queries",
+    "kernels": [
+      "precision_at_k"
+    ],
+    "existing_aliases": [
+      "precision@5",
+      "precision@10",
+      "precision@20",
+      "precision@100"
+    ]
+  },
+  "predictive_parity_difference": {
+    "family": "classification",
+    "required_tags": [
+      "prediction",
+      "label",
+      "group"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "probabilistic_sharpe_ratio": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "\u03a6((SR\u2212SR*)\u221a(T\u22121)/\u221a(1\u2212g\u2083SR+((g\u2084\u22121)/4)SR\u00b2)) (Bailey-LdP)",
+    "kernels": [
+      "probabilistic_sharpe_ratio"
+    ],
+    "existing_aliases": []
+  },
+  "profit_factor": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "count(r>0)/n; sum gains/\\|sum losses\\|; sum max(r-t,0)/sum max(t-r,0)",
+    "kernels": [
+      "profit_factor"
+    ],
+    "existing_aliases": [
+      "profit factor"
+    ]
+  },
+  "proportion_z": {
+    "family": "stats",
+    "required_tags": [
+      "sample_a",
+      "sample_b"
+    ],
+    "definition": "pooled two-proportion z, two-sided (statsmodels)",
+    "kernels": [
+      "proportion_z_p"
+    ],
+    "existing_aliases": [
+      "two-proportion",
+      "proportion test"
+    ]
+  },
+  "psi": {
+    "family": "analytics",
+    "required_tags": [
+      "expected",
+      "actual"
+    ],
+    "definition": "",
+    "kernels": [
+      "psi"
+    ],
+    "existing_aliases": []
+  },
+  "purity": {
+    "family": "classification",
+    "required_tags": [
+      "prediction",
+      "label"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "quartile_coefficient_dispersion": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "quick_ratio": {
+    "family": "credit",
+    "required_tags": [
+      "current_assets",
+      "inventory",
+      "current_liabilities"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "r2": {
+    "family": "regression",
+    "required_tags": [
+      "prediction",
+      "target"
+    ],
+    "definition": "",
+    "kernels": [
+      "r2"
+    ],
+    "existing_aliases": [
+      "r2",
+      "r^2"
+    ]
+  },
+  "r_precision": {
+    "family": "retrieval",
+    "required_tags": [
+      "query",
+      "rank",
+      "relevance"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "r_squared": {
+    "family": "quant",
+    "required_tags": [
+      "return",
+      "benchmark"
+    ],
+    "definition": "pearson(r,b)\u00b2",
+    "kernels": [
+      "r_squared"
+    ],
+    "existing_aliases": []
+  },
+  "rachev_ratio": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "",
+    "kernels": [
+      "rachev_ratio"
+    ],
+    "existing_aliases": []
+  },
+  "rand_index": {
+    "family": "classification",
+    "required_tags": [
+      "labels_true",
+      "labels_pred"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "range_value": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "rank_biserial": {
+    "family": "stats",
+    "required_tags": [
+      "sample_a",
+      "sample_b"
+    ],
+    "definition": "1 \u2212 2U/(n\u2081n\u2082) from Mann-Whitney U (Wendt)",
+    "kernels": [
+      "rank_biserial"
+    ],
+    "existing_aliases": []
+  },
+  "ratio_share": {
+    "family": "analytics",
+    "required_tags": [
+      "flag"
+    ],
+    "definition": "fraction of truthy rows",
+    "kernels": [
+      "ratio_share"
+    ],
+    "existing_aliases": [
+      "share"
+    ]
+  },
+  "rbp": {
+    "family": "retrieval",
+    "required_tags": [
+      "query",
+      "rank",
+      "relevance"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "realization_ratio": {
+    "family": "finance",
+    "required_tags": [
+      "distribution"
+    ],
+    "definition": "",
+    "kernels": [
+      "realization_ratio"
+    ],
+    "existing_aliases": []
+  },
+  "realized_shortfall": {
+    "family": "quant",
+    "required_tags": [
+      "return",
+      "var"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "realized_variance": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "realized_volatility": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "recall": {
+    "family": "classification",
+    "required_tags": [
+      "prediction",
+      "label"
+    ],
+    "definition": "binary 0/1 confusion counts",
+    "kernels": [
+      "recall"
+    ],
+    "existing_aliases": [
+      "recall"
+    ]
+  },
+  "recall_at_k": {
+    "family": "retrieval",
+    "required_tags": [
+      "query",
+      "rank",
+      "relevance"
+    ],
+    "definition": "",
+    "kernels": [
+      "recall_at_k"
+    ],
+    "existing_aliases": [
+      "recall@5",
+      "recall@10",
+      "recall@20",
+      "recall@50",
+      "recall@100"
+    ]
+  },
+  "reconciliation_total": {
+    "family": "finance",
+    "required_tags": [
+      "value_a",
+      "value_b"
+    ],
+    "definition": "sum(a) - sum(b); 0 = reconciled; use `ledger.csv::col` cross-artifact binding",
+    "kernels": [
+      "reconciliation_diff"
+    ],
+    "existing_aliases": [
+      "reconciliation",
+      "reconciled",
+      "ledger"
+    ]
+  },
+  "recovery_factor": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "total return / \\|max drawdown\\|",
+    "kernels": [
+      "recovery_factor"
+    ],
+    "existing_aliases": []
+  },
+  "recovery_rate": {
+    "family": "credit",
+    "required_tags": [
+      "recovery",
+      "exposure"
+    ],
+    "definition": "",
+    "kernels": [
+      "recovery_rate"
+    ],
+    "existing_aliases": []
+  },
+  "relative_absolute_error": {
+    "family": "forecasting",
+    "required_tags": [
+      "prediction",
+      "target"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "relative_mean_deviation": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "relative_mean_difference": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "relative_risk": {
+    "family": "stats",
+    "required_tags": [
+      "group",
+      "outcome"
+    ],
+    "definition": "ad/bc (zero cell degrades); (a/(a+b))/(c/(c+d))",
+    "kernels": [
+      "relative_risk_2x2"
+    ],
+    "existing_aliases": [
+      "relative risk",
+      "risk ratio"
+    ]
+  },
+  "relative_risk_reduction": {
+    "family": "stats",
+    "required_tags": [
+      "treatment",
+      "control"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "relative_spread": {
+    "family": "liquidity",
+    "required_tags": [
+      "bid",
+      "ask"
+    ],
+    "definition": "",
+    "kernels": [
+      "relative_spread"
+    ],
+    "existing_aliases": []
+  },
+  "relative_squared_error": {
+    "family": "forecasting",
+    "required_tags": [
+      "prediction",
+      "target"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "rescaled_range": {
+    "family": "quant",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [
+      "rescaled_range"
+    ],
+    "existing_aliases": []
+  },
+  "restricted_mean_survival_time": {
+    "family": "stats",
+    "required_tags": [
+      "duration",
+      "event"
+    ],
+    "definition": "",
+    "kernels": [
+      "arrival_slippage",
+      "effective_spread_bps",
+      "implementation_shortfall",
+      "restricted_mean_survival_time",
+      "vwap_slippage"
+    ],
+    "existing_aliases": []
+  },
+  "return_on_assets": {
+    "family": "finance",
+    "required_tags": [
+      "net_income",
+      "assets"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "return_on_equity": {
+    "family": "finance",
+    "required_tags": [
+      "net_income",
+      "equity"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "return_on_invested_capital": {
+    "family": "finance",
+    "required_tags": [
+      "nopat",
+      "invested_capital"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "reward_to_var_ratio": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "risk_difference": {
+    "family": "stats",
+    "required_tags": [
+      "treatment",
+      "control"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "rmse": {
+    "family": "regression",
+    "required_tags": [
+      "prediction",
+      "target"
+    ],
+    "definition": "",
+    "kernels": [
+      "rmse"
+    ],
+    "existing_aliases": [
+      "rmse"
+    ]
+  },
+  "rmsle": {
+    "family": "regression",
+    "required_tags": [
+      "prediction",
+      "target"
+    ],
+    "definition": "",
+    "kernels": [
+      "msle"
+    ],
+    "existing_aliases": []
+  },
+  "rmsse": {
+    "family": "forecasting",
+    "required_tags": [
+      "prediction",
+      "target"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "rogers_satchell_volatility": {
+    "family": "quant",
+    "required_tags": [
+      "open",
+      "high",
+      "low",
+      "close"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "roll_spread": {
+    "family": "liquidity",
+    "required_tags": [
+      "price"
+    ],
+    "definition": "",
+    "kernels": [
+      "roll_spread"
+    ],
+    "existing_aliases": []
+  },
+  "rosenbluth_index": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "row_count": {
+    "family": "analytics",
+    "required_tags": [],
+    "definition": "fsum / fsum/n / n",
+    "kernels": [],
+    "existing_aliases": [
+      "rows",
+      "row",
+      "count"
+    ]
+  },
+  "runs_test": {
+    "family": "stats",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [
+      "runs_test"
+    ],
+    "existing_aliases": []
+  },
+  "rvpi": {
+    "family": "finance",
+    "required_tags": [
+      "contribution"
+    ],
+    "definition": "",
+    "kernels": [
+      "rvpi"
+    ],
+    "existing_aliases": []
+  },
+  "scott_pi": {
+    "family": "classification",
+    "required_tags": [
+      "rater_a",
+      "rater_b"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "sem": {
+    "family": "stats",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": [
+      "standard error of the mean",
+      "standard error",
+      "sem"
+    ]
+  },
+  "shannon_diversity": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [
+      "shannon_diversity"
+    ],
+    "existing_aliases": []
+  },
+  "sharpe": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "mean/std(ddof=1) * sqrt(periods); near-zero vol degrades",
+    "kernels": [
+      "sharpe",
+      "sharpe_se"
+    ],
+    "existing_aliases": [
+      "sharpe"
+    ]
+  },
+  "sharpness": {
+    "family": "classification",
+    "required_tags": [
+      "probability"
+    ],
+    "definition": "",
+    "kernels": [
+      "sharpness"
+    ],
+    "existing_aliases": []
+  },
+  "short_exposure": {
+    "family": "exposure",
+    "required_tags": [
+      "exposure"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "sidak_rejections": {
+    "family": "stats",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "skewness": {
+    "family": "stats",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "biased g1; biased excess g2 (scipy defaults)",
+    "kernels": [
+      "skewness"
+    ],
+    "existing_aliases": [
+      "skewness",
+      "skew"
+    ]
+  },
+  "slo_attainment": {
+    "family": "engineering",
+    "required_tags": [
+      "duration"
+    ],
+    "definition": "",
+    "kernels": [
+      "slo_attainment"
+    ],
+    "existing_aliases": []
+  },
+  "somers_d": {
+    "family": "stats",
+    "required_tags": [
+      "x",
+      "y"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "sortino": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "mean / downside-dev x sqrt(P), target 0, full-sample denominator",
+    "kernels": [
+      "sortino"
+    ],
+    "existing_aliases": [
+      "sortino"
+    ]
+  },
+  "specificity": {
+    "family": "classification",
+    "required_tags": [
+      "prediction",
+      "label"
+    ],
+    "definition": "tn/(tn+fp); tp/(tp+fp+fn)",
+    "kernels": [
+      "specificity"
+    ],
+    "existing_aliases": [
+      "specificity"
+    ]
+  },
+  "speedup_ratio": {
+    "family": "engineering",
+    "required_tags": [
+      "before",
+      "after"
+    ],
+    "definition": "median | mean(before)/mean(after) from raw timings",
+    "kernels": [
+      "quantile",
+      "speedup_ratio"
+    ],
+    "existing_aliases": [
+      "speedup",
+      "speed-up",
+      "faster"
+    ]
+  },
+  "spiegelhalter_z": {
+    "family": "classification",
+    "required_tags": [
+      "probability",
+      "label"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "spread_duration": {
+    "family": "finance",
+    "required_tags": [
+      "cashflow",
+      "zero_rate",
+      "time"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "spread_dv01": {
+    "family": "finance",
+    "required_tags": [
+      "cashflow",
+      "zero_rate",
+      "time"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "squared_hinge_loss": {
+    "family": "classification",
+    "required_tags": [
+      "score",
+      "label"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "srm_pvalue": {
+    "family": "stats",
+    "required_tags": [
+      "group"
+    ],
+    "definition": "",
+    "kernels": [
+      "f1_at_k",
+      "fallout_at_k",
+      "mean_average_precision",
+      "r_precision",
+      "rbp",
+      "srm_pvalue"
+    ],
+    "existing_aliases": []
+  },
+  "standardized_mean_difference": {
+    "family": "stats",
+    "required_tags": [
+      "treatment",
+      "control"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "starr_ratio": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "sterling_ratio": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "studentized_range": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "success_at_k": {
+    "family": "retrieval",
+    "required_tags": [
+      "query",
+      "rank",
+      "relevance"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "tail_latency_ratio": {
+    "family": "engineering",
+    "required_tags": [
+      "duration"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "tail_ratio": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "\\|p95\\| / \\|p05\\| of returns",
+    "kernels": [
+      "tail_ratio"
+    ],
+    "existing_aliases": []
+  },
+  "test_coverage": {
+    "family": "engineering",
+    "required_tags": [
+      "hits"
+    ],
+    "definition": "lines with hits>0 / lines, from raw per-line hit counts",
+    "kernels": [
+      "coverage_fraction"
+    ],
+    "existing_aliases": [
+      "coverage"
+    ]
+  },
+  "theil_index": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "theil_sen_slope": {
+    "family": "stats",
+    "required_tags": [
+      "x",
+      "y"
+    ],
+    "definition": "median of all pairwise slopes (SciPy theilslopes)",
+    "kernels": [
+      "theil_sen_slope"
+    ],
+    "existing_aliases": []
+  },
+  "theil_u1": {
+    "family": "forecasting",
+    "required_tags": [
+      "prediction",
+      "target"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "theil_u2": {
+    "family": "forecasting",
+    "required_tags": [
+      "prediction",
+      "target"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "threat_score": {
+    "family": "classification",
+    "required_tags": [
+      "prediction",
+      "label"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "throughput": {
+    "family": "engineering",
+    "required_tags": [
+      "duration"
+    ],
+    "definition": "n / fsum(durations) (ops per unit time)",
+    "kernels": [
+      "throughput"
+    ],
+    "existing_aliases": [
+      "throughput",
+      "rps",
+      "qps",
+      "ops/sec",
+      "ops/s"
+    ]
+  },
+  "time_underwater": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "",
+    "kernels": [
+      "time_underwater"
+    ],
+    "existing_aliases": []
+  },
+  "token_dice": {
+    "family": "llm-eval",
+    "required_tags": [
+      "prediction",
+      "reference"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "token_f1": {
+    "family": "llm-eval",
+    "required_tags": [
+      "prediction",
+      "reference"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "token_jaccard": {
+    "family": "llm-eval",
+    "required_tags": [
+      "prediction",
+      "reference"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "top_k_accuracy": {
+    "family": "retrieval",
+    "required_tags": [
+      "query",
+      "rank",
+      "relevance"
+    ],
+    "definition": "",
+    "kernels": [
+      "hit_at_k"
+    ],
+    "existing_aliases": [
+      "top-1",
+      "top-3",
+      "top-5",
+      "top-10",
+      "top-k",
+      "hit rate"
+    ]
+  },
+  "total_return": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "prod(1+r) - 1 (pairwise product)",
+    "kernels": [
+      "total_return"
+    ],
+    "existing_aliases": [
+      "return",
+      "backtest"
+    ]
+  },
+  "total_variation_distance": {
+    "family": "stats",
+    "required_tags": [
+      "p",
+      "q"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "tracking_error": {
+    "family": "quant",
+    "required_tags": [
+      "return",
+      "benchmark"
+    ],
+    "definition": "mean(r-b)/std(r-b) x sqrt(P); std(r-b) x sqrt(P)",
+    "kernels": [
+      "tracking_error"
+    ],
+    "existing_aliases": [
+      "tracking error"
+    ]
+  },
+  "tracking_signal": {
+    "family": "forecasting",
+    "required_tags": [
+      "prediction",
+      "target"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "treynor_ratio": {
+    "family": "quant",
+    "required_tags": [
+      "return",
+      "benchmark"
+    ],
+    "definition": "annualized mean return / \u03b2 (rf=0)",
+    "kernels": [
+      "treynor_ratio"
+    ],
+    "existing_aliases": []
+  },
+  "trimean": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "trimmed_mean": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [
+      "trimmed_mean"
+    ],
+    "existing_aliases": []
+  },
+  "trimmed_std": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "tvpi": {
+    "family": "finance",
+    "required_tags": [
+      "contribution",
+      "distribution"
+    ],
+    "definition": "",
+    "kernels": [
+      "tvpi"
+    ],
+    "existing_aliases": []
+  },
+  "ulcer_index": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "\u221a(mean(dd\u209c\u00b2)) ; mean(\\|dd\u209c\\|) over the drawdown series",
+    "kernels": [
+      "ulcer_index"
+    ],
+    "existing_aliases": []
+  },
+  "unexpected_loss": {
+    "family": "credit",
+    "required_tags": [
+      "pd",
+      "lgd",
+      "ead"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "uniqueness_ratio": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [
+      "uniqueness_ratio"
+    ],
+    "existing_aliases": []
+  },
+  "up_capture_ratio": {
+    "family": "quant",
+    "required_tags": [
+      "return",
+      "benchmark"
+    ],
+    "definition": "mean(r\\|b>0)/mean(b\\|b>0) ; mean(r\\|b<0)/mean(b\\|b<0)",
+    "kernels": [
+      "up_capture_ratio"
+    ],
+    "existing_aliases": []
+  },
+  "up_down_beta_ratio": {
+    "family": "quant",
+    "required_tags": [
+      "return",
+      "benchmark"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "upside_deviation": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "\u221a(mean(max(r,0)\u00b2)) \u00d7 \u221aperiods",
+    "kernels": [
+      "upside_deviation"
+    ],
+    "existing_aliases": []
+  },
+  "upside_potential": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "upside_potential_ratio": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "mean(max(r,0)) / \u221a(mean(min(r,0)\u00b2)) (target 0)",
+    "kernels": [
+      "upside_potential_ratio"
+    ],
+    "existing_aliases": []
+  },
+  "uptime_pct": {
+    "family": "engineering",
+    "required_tags": [
+      "flag"
+    ],
+    "definition": "nonzero flags / n",
+    "kernels": [
+      "ratio_share"
+    ],
+    "existing_aliases": [
+      "uptime",
+      "availability"
+    ]
+  },
+  "v_measure_score": {
+    "family": "classification",
+    "required_tags": [
+      "labels_true",
+      "labels_pred"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "value_at_risk": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "historical: -quantile(r, 1-level); CVaR = -mean(tail). Loss-positive",
+    "kernels": [
+      "value_at_risk"
+    ],
+    "existing_aliases": [
+      "var",
+      "value at risk"
+    ]
+  },
+  "var_breach_rate": {
+    "family": "quant",
+    "required_tags": [
+      "return",
+      "var"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "variance": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "variance_ratio": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "",
+    "kernels": [
+      "variance_ratio"
+    ],
+    "existing_aliases": []
+  },
+  "variance_reduction_cuped": {
+    "family": "stats",
+    "required_tags": [
+      "value",
+      "covariate"
+    ],
+    "definition": "",
+    "kernels": [
+      "variance_reduction_cuped"
+    ],
+    "existing_aliases": []
+  },
+  "vasicek_conditional_pd": {
+    "family": "credit",
+    "required_tags": [
+      "pd"
+    ],
+    "definition": "",
+    "kernels": [
+      "vasicek_conditional_pd"
+    ],
+    "existing_aliases": []
+  },
+  "volatility": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "std (ddof=1) x sqrt(P); downside uses sqrt(mean(min(r,0)^2))",
+    "kernels": [
+      "volatility"
+    ],
+    "existing_aliases": [
+      "volatility"
+    ]
+  },
+  "vwap": {
+    "family": "liquidity",
+    "required_tags": [
+      "price",
+      "volume"
+    ],
+    "definition": "",
+    "kernels": [
+      "vwap"
+    ],
+    "existing_aliases": []
+  },
+  "vwap_slippage": {
+    "family": "execution",
+    "required_tags": [
+      "exec_price",
+      "vwap_price",
+      "quantity"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "wape": {
+    "family": "forecasting",
+    "required_tags": [
+      "prediction",
+      "target"
+    ],
+    "definition": "sum\\|e\\|/sum\\|a\\|; (sum p - sum a)/sum a",
+    "kernels": [
+      "wape"
+    ],
+    "existing_aliases": [
+      "wape"
+    ]
+  },
+  "wasserstein_1d": {
+    "family": "stats",
+    "required_tags": [
+      "sample_a",
+      "sample_b"
+    ],
+    "definition": "",
+    "kernels": [
+      "wasserstein_1d"
+    ],
+    "existing_aliases": []
+  },
+  "weighted_average_life": {
+    "family": "finance",
+    "required_tags": [
+      "cashflow",
+      "time"
+    ],
+    "definition": "",
+    "kernels": [
+      "weighted_average_life"
+    ],
+    "existing_aliases": []
+  },
+  "weighted_f1": {
+    "family": "classification",
+    "required_tags": [
+      "prediction",
+      "label"
+    ],
+    "definition": "support-weighted per-class F1 (sklearn weighted, zero_division=0)",
+    "kernels": [
+      "weighted_f1"
+    ],
+    "existing_aliases": [
+      "weighted f1",
+      "weighted-f1"
+    ]
+  },
+  "weighted_lgd": {
+    "family": "credit",
+    "required_tags": [
+      "lgd",
+      "ead"
+    ],
+    "definition": "",
+    "kernels": [
+      "weighted_lgd"
+    ],
+    "existing_aliases": []
+  },
+  "weighted_mean": {
+    "family": "analytics",
+    "required_tags": [
+      "value",
+      "weight"
+    ],
+    "definition": "",
+    "kernels": [
+      "weighted_mean"
+    ],
+    "existing_aliases": []
+  },
+  "wer": {
+    "family": "llm-eval",
+    "required_tags": [
+      "prediction",
+      "reference"
+    ],
+    "definition": "corpus Levenshtein edits / reference tokens (jiwer)",
+    "kernels": [
+      "wer"
+    ],
+    "existing_aliases": [
+      "word error rate",
+      "wer",
+      "character error rate",
+      "cer"
+    ]
+  },
+  "wilcoxon_signed_rank": {
+    "family": "stats",
+    "required_tags": [
+      "sample_a",
+      "sample_b"
+    ],
+    "definition": "",
+    "kernels": [
+      "wilcoxon_signed_rank"
+    ],
+    "existing_aliases": []
+  },
+  "willmott_index": {
+    "family": "forecasting",
+    "required_tags": [
+      "prediction",
+      "target"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "wilson_lower": {
+    "family": "stats",
+    "required_tags": [
+      "flag"
+    ],
+    "definition": "",
+    "kernels": [
+      "wilson_lower"
+    ],
+    "existing_aliases": []
+  },
+  "wilson_upper": {
+    "family": "stats",
+    "required_tags": [
+      "flag"
+    ],
+    "definition": "",
+    "kernels": [
+      "wilson_upper"
+    ],
+    "existing_aliases": []
+  },
+  "win_loss_ratio": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "mean(r>0)/\\|mean(r<0)\\| ; count(r>0)/count(r<0)",
+    "kernels": [
+      "win_loss_ratio"
+    ],
+    "existing_aliases": []
+  },
+  "win_rate": {
+    "family": "quant",
+    "required_tags": [
+      "return"
+    ],
+    "definition": "count(r>0)/n; sum gains/\\|sum losses\\|; sum max(r-t,0)/sum max(t-r,0)",
+    "kernels": [
+      "win_rate"
+    ],
+    "existing_aliases": [
+      "win rate"
+    ]
+  },
+  "winkler_score": {
+    "family": "forecasting",
+    "required_tags": [
+      "lower",
+      "upper",
+      "actual"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "winsorized_mean": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "winsorized_std": {
+    "family": "analytics",
+    "required_tags": [
+      "value"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "yang_zhang_volatility": {
+    "family": "quant",
+    "required_tags": [
+      "open",
+      "high",
+      "low",
+      "close"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "yield_to_maturity": {
+    "family": "finance",
+    "required_tags": [
+      "cashflow",
+      "time"
+    ],
+    "definition": "",
+    "kernels": [
+      "yield_to_maturity"
+    ],
+    "existing_aliases": []
+  },
+  "youden_j": {
+    "family": "classification",
+    "required_tags": [
+      "prediction",
+      "label"
+    ],
+    "definition": "",
+    "kernels": [],
+    "existing_aliases": []
+  },
+  "z_spread": {
+    "family": "finance",
+    "required_tags": [
+      "cashflow",
+      "zero_rate",
+      "time"
+    ],
+    "definition": "",
+    "kernels": [
+      "z_spread"
+    ],
+    "existing_aliases": []
+  }
+}

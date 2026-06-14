@@ -12,6 +12,27 @@ Binding = semantic tag -> column name. A binding value `other.csv::col` reads fr
 artifact. Tags listed as *string* keep raw cell strings (everything else parses to float).
 `convention` is a plain string on the contract metric; defaults in parentheses.
 
+## Suggester enrichment (REQUIRED when adding any recipe)
+
+Every recipe MUST carry an entry in `assets/recipe_descriptions.json` so it works with
+`calma suggest` (the "did you mean?" surface for an unclear ask). The `metric_id` alone is
+not enough: a user who doesn't remember the exact name (`how unequal is this distribution`,
+`worst peak-to-trough loss`) is matched on this text, not on the id. So for each new recipe add:
+
+```json
+"your_metric_id": {
+  "description": "one concise plain-language sentence (<=16 words) of what it measures",
+  "aliases": ["full spelled-out name", "common abbreviation", "2-5 conceptual paraphrases a user might type"]
+}
+```
+
+Rules: aliases lowercase; include the everyday/paraphrase wording, not just the formal term
+(that is what lifts paraphrase recall). This asset feeds RANKING ONLY - it never touches the
+claim router (`draft_contract.CLAIM_METRIC_HINTS`) or any verdict, so it cannot cause a false
+verification; worst case is a worse suggestion. `tests/test_suggest.py` FAILS if any registered
+recipe is missing this entry or has <2 aliases, and asserts recall@8 floors on the blind gold
+set (`tests/suggest_bench/gold.json`). Measure after editing: `python3 tests/suggest_bench/bench.py`.
+
 ## Trading (3)
 
 | metric_id | binding tags | convention | definition |
