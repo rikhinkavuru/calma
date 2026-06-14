@@ -62,6 +62,22 @@ export const FAMILIES: Family[] = [
         conv: "q=<int>",
       },
       {
+        id: "hurst_rs",
+        name: "Hurst exponent (R/S)",
+        claim: "“Hurst 0.52”",
+        what: "Long-memory read — <0.5 mean-reverting, ~0.5 random walk, >0.5 trending/persistent.",
+        how: "OLS slope of log(mean R/S) on log(window) over dyadic non-overlapping windows.",
+        ref: "Hurst / Mandelbrot R/S analysis",
+      },
+      {
+        id: "rescaled_range",
+        name: "Rescaled range (R/S)",
+        claim: "“R/S 20.7”",
+        what: "Range of the cumulative deviations relative to volatility — the building block of Hurst.",
+        how: "(max − min of mean-adjusted cumulative deviations) / population std.",
+        ref: "Hurst rescaled range",
+      },
+      {
         id: "volatility",
         name: "Volatility",
         claim: "“annualized vol 18%”",

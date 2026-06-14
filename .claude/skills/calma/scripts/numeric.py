@@ -4574,6 +4574,65 @@ def jump_variation(rets):
 
 
 # ======================================================================================
+# Pack HU - Hurst / long-memory. A series column gives the full-sample rescaled range and
+# the R/S Hurst exponent (mean-reversion < 0.5, random walk ~ 0.5, trending > 0.5).
+# Documented closed forms validated against numpy.
+# ======================================================================================
+
+def _rescaled_range(seg):
+    m = fmean(seg)
+    c = 0.0
+    z = []
+    for x in seg:
+        c += x - m
+        z.append(c)
+    s = fstd(seg, 0)
+    if s <= 0:
+        return float("nan")
+    return (max(z) - min(z)) / s
+
+
+def rescaled_range(xs):
+    """Full-sample rescaled range R/S: range of the mean-adjusted cumulative deviations over
+    the (population) standard deviation."""
+    if len(xs) < 2 or _has_nan(xs):
+        return float("nan")
+    return _rescaled_range(xs)
+
+
+def hurst_rs(xs):
+    """R/S Hurst exponent: OLS slope of log(mean R/S) on log(window size) over dyadic,
+    non-overlapping windows (8 .. n/2)."""
+    n = len(xs)
+    if n < 16 or _has_nan(xs):
+        return float("nan")
+    sizes = []
+    w = 8
+    while w <= n // 2:
+        sizes.append(w)
+        w *= 2
+    if len(sizes) < 2:
+        return float("nan")
+    logn, logrs = [], []
+    for sz in sizes:
+        vals = []
+        for i in range(n // sz):
+            rs = _rescaled_range(xs[i * sz:(i + 1) * sz])
+            if rs == rs:
+                vals.append(rs)
+        if vals:
+            logn.append(dlog(sz))
+            logrs.append(dlog(fmean(vals)))
+    if len(logn) < 2:
+        return float("nan")
+    mx, my = fmean(logn), fmean(logrs)
+    sxx = math.fsum((a - mx) ** 2 for a in logn)
+    if sxx == 0:
+        return float("nan")
+    return math.fsum((a - mx) * (b - my) for a, b in zip(logn, logrs)) / sxx
+
+
+# ======================================================================================
 # Pack ML2 - margin classification losses. Decision-score + binary-label (0/1) columns give
 # the hinge, squared-hinge and exponential (AdaBoost) losses. y is mapped to +/-1.
 # Validated against scikit-learn / numpy.

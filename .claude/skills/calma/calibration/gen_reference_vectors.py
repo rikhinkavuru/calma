@@ -1738,6 +1738,35 @@ case("realized_volatility", "realized_volatility", {"rets": rv_rets}, rv_vol, at
 case("bipower_variation", "bipower_variation", {"rets": rv_rets}, rv_bv, atol=1e-12)
 case("jump_variation", "jump_variation", {"rets": rv_rets}, rv_jump, atol=1e-12)
 
+# Pack HU - Hurst / long-memory (numpy recompute of the dyadic R/S procedure)
+hu_x = list(uniforms(3001, 512, -0.03, 0.03))
+
+
+def _hu_rs(seg):
+    m = np.mean(seg)
+    z = np.cumsum(np.array(seg) - m)
+    s = np.std(seg)
+    return (z.max() - z.min()) / s if s > 0 else float("nan")
+
+
+hu_rr = float(_hu_rs(hu_x))
+_hu_sizes = []
+_hw = 8
+while _hw <= len(hu_x) // 2:
+    _hu_sizes.append(_hw)
+    _hw *= 2
+_hu_logn, _hu_logrs = [], []
+for _sz in _hu_sizes:
+    _vals = [_hu_rs(hu_x[i * _sz:(i + 1) * _sz]) for i in range(len(hu_x) // _sz)]
+    _vals = [v for v in _vals if v == v]
+    _hu_logn.append(np.log(_sz))
+    _hu_logrs.append(np.log(np.mean(_vals)))
+_hln, _hlr = np.array(_hu_logn), np.array(_hu_logrs)
+_hmx = _hln.mean()
+hu_hurst = float(np.sum((_hln - _hmx) * (_hlr - _hlr.mean())) / np.sum((_hln - _hmx) ** 2))
+case("rescaled_range", "rescaled_range", {"xs": hu_x}, hu_rr, atol=1e-10)
+case("hurst_rs", "hurst_rs", {"xs": hu_x}, hu_hurst, atol=1e-10)
+
 # Pack ML2 - margin classification losses (sklearn hinge; numpy squared-hinge / exponential)
 from sklearn.metrics import hinge_loss as _sk_hinge  # noqa: E402
 

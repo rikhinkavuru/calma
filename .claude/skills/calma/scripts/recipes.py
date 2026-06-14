@@ -2115,6 +2115,22 @@ for _mid in ("realized_variance", "realized_volatility", "bipower_variation", "j
 
 
 # ======================================================================================
+# Pack HU - Hurst / long-memory. A series column.
+# ======================================================================================
+
+@register("rescaled_range", family="quant", required_tags=["value"], set_maturity="reviewed")
+def rescaled_range(cols, binding, convention=None):
+    xs = cols[binding["value"]]
+    return _result(N.rescaled_range(xs), {"n": len(xs)})
+
+
+@register("hurst_rs", family="quant", required_tags=["value"], set_maturity="reviewed")
+def hurst_rs(cols, binding, convention=None):
+    xs = cols[binding["value"]]
+    return _result(N.hurst_rs(xs), {"n": len(xs)})
+
+
+# ======================================================================================
 # Pack ML2 - margin classification losses. Decision-score + binary-label columns.
 # ======================================================================================
 
