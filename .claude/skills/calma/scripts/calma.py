@@ -383,7 +383,7 @@ def _assemble_ledger(contract, diff, run_res, claim_text=None):
             # the findings + the claim scope (INVALIDATED / CAN'T-CONFIRM / CAVEAT). Never manufactures
             # REFUTED - that stays the gap-gated recompute path (+ the leakage-corrected re-run, Step 4).
             findings.extend(LC.run_checks(contract, _base, claims[0]["id"]))
-            LC.apply_validity(claims, findings, contract, claim_text)
+            LC.apply_validity(claims, findings, contract, claim_text, base=_base)
             leak_fam = LC.family_status(contract, findings)
     metric_ids = [m["metric_id"] for m in diff["metrics"]]
     # surface which binding was auto-picked (the one surface the producer influences)

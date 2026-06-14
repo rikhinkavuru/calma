@@ -343,11 +343,71 @@ def oos_status(contract, claim_text):
     return "indeterminate"
 
 
-def apply_validity(claims, findings, contract, claim_text):
+def corrected_recompute(contract, base, head):
+    """The leakage RE-RUN differentiator. When a row/id overlap is CORRECTABLE from the bound artifact -
+    the headline metric is computed on the test split itself, so the contaminated eval rows are
+    identifiable - recompute the SAME recipe on the de-contaminated eval rows. Returns
+    (corrected_value, kept, dropped) or None when correction isn't feasible (no localizable rows,
+    metric not on the test file, or the recompute degenerates). No full re-execution - an artifact
+    subset recompute."""
+    import recipes as RCP  # lazy: avoids any import-time coupling
+    sp = contract.get("split") or {}
+    if not sp.get("test") or not head:
+        return None
+    if os.path.basename(str(head.get("artifact", ""))) != os.path.basename(str(sp.get("test", ""))):
+        return None  # contamination can't be localized to the eval rows the metric is computed on
+    d = _load_split(contract, base)
+    if not d or not d["test"]:
+        return None
+    fn = RCP.get(head.get("metric_id"))
+    binding = head.get("binding") or {}
+    if not fn or not binding:
+        return None
+    excl = (d["split_col"],) if d["split_col"] else ()
+    train_hashes = set(_canon_hash(d["train_h"], d["train"], excl))
+    test_hashes = _canon_hash(d["test_h"], d["test"], excl)
+    idcol = (contract.get("keys") or {}).get("id")
+    train_ids = set(_col(d["train_h"], d["train"], idcol)) if idcol and idcol in d["train_h"] else set()
+    id_i = d["test_h"].index(idcol) if (idcol and idcol in d["test_h"]) else None
+    keep = []
+    for i, r in enumerate(d["test"]):
+        bad = test_hashes[i] in train_hashes
+        if not bad and train_ids and id_i is not None:
+            bad = (r[id_i] if id_i < len(r) else None) in train_ids
+        if not bad:
+            keep.append(i)
+    dropped = len(d["test"]) - len(keep)
+    if dropped == 0 or not keep:
+        return None
+    cols = {}
+    for cname in binding.values():
+        if cname in d["test_h"]:
+            ci = d["test_h"].index(cname)
+            vals = []
+            for i in keep:
+                try:
+                    vals.append(float(d["test"][i][ci]))
+                except (ValueError, IndexError):
+                    vals.append(float("nan"))
+            cols[cname] = vals
+    try:
+        res = fn(cols, binding, head.get("convention"))
+        val = res.get("value")
+    except (ValueError, KeyError, TypeError, ZeroDivisionError, OverflowError):
+        return None
+    if not (isinstance(val, float) and val == val and val not in (float("inf"), float("-inf"))):
+        return None
+    return val, len(keep), dropped
+
+
+def apply_validity(claims, findings, contract, claim_text, base=None):
     """Promote the headline claim's verdict per the leakage findings + the claim scope. Mutates the
     headline claim's verdict_inputs (and re-derives the label) and, for the in-sample path, demotes the
     authoritative findings to a caveat severity. Conservative: only a REPRODUCED number (CONFIRMED/
-    CAVEATS) is ever promoted, and only ever DOWN (to INVALIDATED / CAN'T-CONFIRM / CAVEAT)."""
+    CAVEATS) is ever promoted. On an out-of-sample claim with a CORRECTABLE overlap, the leakage-
+    corrected recompute is attempted: if the de-contaminated number falls outside budget the claim is
+    REFUTED via the ordinary gap-gated path (driving_dimension=leakage); otherwise it degrades to
+    INVALIDATED, reporting that the held-out number survives correction but the split was contaminated."""
     leak = [f for f in findings if f.get("dimension") == "leakage"]
     if not leak or not claims:
         return
@@ -356,10 +416,37 @@ def apply_validity(claims, findings, contract, claim_text):
         return  # the number didn't reproduce; leakage findings stay additive, no promotion
     auth = [f for f in leak if f.get("validity_class") == "authoritative"]
     soft = [f for f in leak if f.get("validity_class") == "soft"]
+    correctable = [f for f in auth if f.get("leakage_kind") in ("row-overlap", "id-overlap")]
     vi = head.get("verdict_inputs") or {}
     if auth:
         status = oos_status(contract, claim_text)
         if status == "oos":
+            # the leakage RE-RUN: try the de-contaminated recompute before settling on a verdict.
+            corrected = corrected_recompute(contract, base, _headline_metric(contract)) \
+                if (base and correctable) else None
+            claimed = head.get("claimed_value")
+            budget = vi.get("effective_budget") or 0.0
+            if corrected is not None and claimed is not None:
+                cval, kept, dropped = corrected
+                tag = (" - claimed %s -> leakage-corrected %s (dropped %d contaminated of %d eval rows)"
+                       % (claimed, round(cval, 6), dropped, kept + dropped))
+                for f in correctable:
+                    f["claim_id"] = head["id"]
+                    f["locator"] = f.get("locator", "") + tag
+                if abs(cval - claimed) > budget:
+                    # the held-out number, de-contaminated, no longer holds -> REFUTED (gap-gated path)
+                    vi["gap"] = abs(cval - claimed)
+                    vi["claim_outside_ci"] = True
+                    head["recomputed_value"] = cval
+                    head["driving_dimension"] = "leakage"
+                    head["reproduction_or_reverify"] = {
+                        "kind": "artifact-recheck", "source": "rows",
+                        "expected": "recompute on the de-contaminated eval set differs from the claim beyond budget"}
+                    head["verdict_inputs"] = vi
+                    head["verdict"] = V.verdict(vi)
+                    head["headline_confidence"] = V.confidence(vi, head["verdict"])
+                    return
+                # survives correction: still an invalid OOS claim (the held-out set was contaminated)
             vi["validity_invalidated"] = True
             vi["oos_claim_asserted"] = True
             head["driving_dimension"] = "leakage"

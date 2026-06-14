@@ -222,6 +222,67 @@ LC.apply_validity(clE, [], cC, "auc 0.94 held-out")
 truth(clE[0]["verdict"] == V.CONFIRMED, "no leakage findings -> headline verdict unchanged")
 
 # ====================================================================================
+# Step 4: the leakage-corrected recompute (the differentiator). Correctable overlap -> recompute the
+# same recipe on the de-contaminated eval rows; outside budget -> REFUTED (gap-gated), else INVALIDATED.
+# ====================================================================================
+import numeric as N  # noqa: E402
+
+# REFUTED fixture: 30 contaminated rows are "easy" (score==label), the clean 70 are pure ties (AUC 0.5),
+# so the contaminated full AUC is materially inflated vs the de-contaminated AUC.
+dRef = tempfile.mkdtemp()
+_trRef = [[i, float(i % 2), i % 2] for i in range(100)]            # train: separable
+_cleanRef = [[1000 + i, 0.5, i % 2] for i in range(70)]           # clean eval: constant score -> AUC 0.5
+_testRef = _cleanRef + [_trRef[i][:] for i in range(30)]          # + 30 exact-duplicate "easy" rows
+_write(os.path.join(dRef, "train.csv"), ["id", "score", "y_true"], _trRef)
+_write(os.path.join(dRef, "test.csv"), ["id", "score", "y_true"], _testRef)
+_full_auc = N.auc([r[1] for r in _testRef], [r[2] for r in _testRef])
+_clean_auc = N.auc([r[1] for r in _cleanRef], [r[2] for r in _cleanRef])
+truth(abs(_clean_auc - 0.5) < 1e-9, "de-contaminated subset AUC is 0.5 (constant score)")
+truth(_full_auc > _clean_auc + 0.05, "contamination materially inflates the full AUC (%.3f > %.3f)"
+      % (_full_auc, _clean_auc))
+_cRef = {"split": {"train": "train.csv", "test": "test.csv"}, "keys": {"id": "id", "target": "y_true"},
+         "features": [], "artifacts": [],
+         "metrics": [{"metric_id": "auc", "artifact": "test.csv", "headline": True, "claimed_value": _full_auc,
+                      "binding": {"score": "score", "label": "y_true"}}]}
+_cr = LC.corrected_recompute(_cRef, dRef, _cRef["metrics"][0])
+truth(_cr is not None and abs(_cr[0] - _clean_auc) < 1e-9 and _cr[2] == 30,
+      "corrected_recompute drops the 30 contaminated rows and recomputes the de-contaminated AUC")
+
+_clRef = _confirmed_claim()
+_clRef["claimed_value"] = _full_auc
+_clRef["recomputed_value"] = _full_auc
+_clRef["verdict_inputs"]["effective_budget"] = 0.02  # smaller than the corrected gap
+_fdRef = LC.run_checks(_cRef, dRef, "c1")
+LC.apply_validity([_clRef], _fdRef, _cRef, "auc on the held-out test set", base=dRef)
+truth(_clRef["verdict"] == V.REFUTED, "correctable contamination + corrected number outside budget -> REFUTED (got %s)"
+      % _clRef["verdict"])
+truth(abs(_clRef["recomputed_value"] - _clean_auc) < 1e-9, "the report's recompute IS the leakage-corrected number")
+truth(_clRef.get("driving_dimension") == "leakage", "leakage-corrected REFUTED driving_dimension = leakage")
+truth(any("leakage-corrected" in (f.get("locator") or "") for f in _fdRef), "the finding shows claimed -> leakage-corrected")
+_ledRef = _ledger([_clRef], _fdRef)
+truth(L.validate_obj(_ledRef)[0] == 1 and _ledRef["repo_verdict"] == V.REFUTED,
+      "the leakage-corrected REFUTED ledger validates (linked blocker + reproduction + re-derives)")
+
+# SURVIVES-correction fixture: removing the contamination barely moves the metric -> INVALIDATED
+# (the held-out set was still contaminated), reporting that the corrected number survives.
+dSur = tempfile.mkdtemp()
+_trS = [[i, float(i % 2), i % 2] for i in range(100)]
+_testS = [[1000 + i, float(i % 2), i % 2] for i in range(70)] + [_trS[i][:] for i in range(30)]  # all separable
+_write(os.path.join(dSur, "train.csv"), ["id", "score", "y_true"], _trS)
+_write(os.path.join(dSur, "test.csv"), ["id", "score", "y_true"], _testS)
+_fullS = N.auc([r[1] for r in _testS], [r[2] for r in _testS])
+_cS = dict(_cRef, metrics=[dict(_cRef["metrics"][0], claimed_value=_fullS)])
+_clS = _confirmed_claim()
+_clS["claimed_value"] = _fullS
+_clS["recomputed_value"] = _fullS
+_clS["verdict_inputs"]["effective_budget"] = 0.05
+_fdS = LC.run_checks(_cS, dSur, "c1")
+LC.apply_validity([_clS], _fdS, _cS, "auc on the held-out test set", base=dSur)
+truth(_clS["verdict"] == V.INVALIDATED, "contamination that survives correction -> INVALIDATED (got %s)" % _clS["verdict"])
+truth(any("leakage-corrected" in (f.get("locator") or "") for f in _fdS),
+      "even when it survives, the corrected number is reported")
+
+# ====================================================================================
 # end-to-end through calma._assemble_ledger (the real wiring: LC.run_checks + apply_validity +
 # families + _not_verified), reusing the 30%-row-overlap fixture dir (dR).
 # ====================================================================================

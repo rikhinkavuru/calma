@@ -36,13 +36,22 @@ need. Serial, leakage-first; each step keeps the full suite green.
   → LABELED HEURISTIC). Wired into `_assemble_ledger` beside `backtest_checks`. The verdict follows the
   claim's scope (`apply_validity` + `oos_status`): authoritative contamination on an **out-of-sample**
   claim → INVALIDATED; **in-sample** or heuristic → CONFIRMED-WITH-CAVEATS (exit 0); **indeterminate**
-  scope → CAN'T-CONFIRM ("declare whether out-of-sample"). REFUTED is never manufactured here. The
-  honest "did NOT assess" list drops leakage once it runs (overfitting stays roadmap).
+  scope → CAN'T-CONFIRM ("declare whether out-of-sample"). The honest "did NOT assess" list drops
+  leakage once it runs (overfitting stays roadmap).
+- **Leakage-corrected recompute** (the differentiator) — when a row/id overlap is *correctable* from the
+  bound artifact (the headline metric is computed on the test split, so the contaminated eval rows are
+  identifiable), Calma recomputes the SAME recipe on the de-contaminated eval rows. If the corrected
+  number falls outside budget the claim is REFUTED through the ordinary **gap-gated** path
+  (`driving_dimension=leakage`), reporting "claimed 0.755 → leakage-corrected 0.5 (dropped 30
+  contaminated of 100 eval rows)"; if it survives correction the result stays INVALIDATED (the held-out
+  set was still contaminated) and the surviving number is reported. An artifact subset recompute — no
+  full re-execution. REFUTED is still never manufactured by a finding alone.
 - Tests: +14 `test_verdict`, +12 `test_ledger`, +3 `test_registry` (attest→registry round-trip), incl. a
   fail-closed unknown-verdict property; +17 `test_draft` (split/keys/features detection + validation);
-  +43 `test_leakage_checks` (five detectors with exact magnitudes, the OOS scope-guard, the full verdict
-  lattice through real ledgers, and an end-to-end `_assemble_ledger` wiring check). Kernels and reference
-  vectors land in the following steps. Design of record: `.claude/skills/calma/PLAN.md`.
+  +53 `test_leakage_checks` (five detectors with exact magnitudes, the OOS scope-guard, the full verdict
+  lattice through real ledgers, the leakage-corrected recompute → REFUTED/INVALIDATED, and an end-to-end
+  `_assemble_ledger` wiring check). Kernels and reference vectors land in the following steps. Design of
+  record: `.claude/skills/calma/PLAN.md`.
 
 ## 0.9.1 — 2026-06-14
 
