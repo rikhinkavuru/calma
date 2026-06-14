@@ -2527,6 +2527,17 @@ case("mean_arctangent_ape", "mean_arctangent_ape", fc2_args, fc2_maape, atol=1e-
 case("geometric_mean_absolute_error", "geometric_mean_absolute_error", fc2_args, fc2_gmae, atol=1e-11)
 case("cumulative_forecast_error", "cumulative_forecast_error", fc2_args, fc2_cfe, atol=1e-11)
 
+# Pack FE3 - forecast-skill scores (numpy recompute)
+_f3ab = float(_f2a.mean())
+fe3_nse = 1.0 - float(np.sum((_f2a - _f2p) ** 2)) / float(np.sum((_f2a - _f3ab) ** 2))
+fe3_will = 1.0 - float(np.sum((_f2p - _f2a) ** 2)) / float(np.sum((np.abs(_f2p - _f3ab) + np.abs(_f2a - _f3ab)) ** 2))
+_f3r = float(np.corrcoef(_f2p, _f2a)[0, 1])
+fe3_kge = 1.0 - _opt_m.sqrt((_f3r - 1.0) ** 2 + (float(_f2p.std(ddof=1)) / float(_f2a.std(ddof=1)) - 1.0) ** 2
+                            + (float(_f2p.mean()) / float(_f2a.mean()) - 1.0) ** 2)
+case("nash_sutcliffe_efficiency", "nash_sutcliffe_efficiency", fc2_args, fe3_nse, atol=1e-12)
+case("willmott_index", "willmott_index", fc2_args, fe3_will, atol=1e-12)
+case("kling_gupta_efficiency", "kling_gupta_efficiency", fc2_args, fe3_kge, atol=1e-11)
+
 # ============================ Pack DV - diversity / breadth indices ============================
 # Independent reference: numpy recompute of the Shannon diversity, Hill number of order q,
 # Pielou evenness and Berger-Parker dominance over a deterministic abundance vector.

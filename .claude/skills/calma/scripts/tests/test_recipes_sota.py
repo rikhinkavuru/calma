@@ -562,6 +562,9 @@ KINDS = {
     "mean_arctangent_ape": lambda a: N.mean_arctangent_ape(a["pred"], a["actual"]),
     "geometric_mean_absolute_error": lambda a: N.geometric_mean_absolute_error(a["pred"], a["actual"]),
     "cumulative_forecast_error": lambda a: N.cumulative_forecast_error(a["pred"], a["actual"]),
+    "nash_sutcliffe_efficiency": lambda a: N.nash_sutcliffe_efficiency(a["pred"], a["actual"]),
+    "willmott_index": lambda a: N.willmott_index(a["pred"], a["actual"]),
+    "kling_gupta_efficiency": lambda a: N.kling_gupta_efficiency(a["pred"], a["actual"]),
     # pack DV - diversity / breadth indices
     "shannon_diversity": lambda a: N.shannon_diversity(a["xs"]),
     "hill_number": lambda a: N.hill_number(a["xs"], a["q"]),
@@ -786,6 +789,8 @@ EXPECTED = {
     "time_underwater", "drawdown_deviation", "drawdown_at_risk",
     # pack FC2 - forecasting accuracy depth (3)
     "mean_arctangent_ape", "geometric_mean_absolute_error", "cumulative_forecast_error",
+    # pack FE3 - forecast-skill scores (3)
+    "nash_sutcliffe_efficiency", "willmott_index", "kling_gupta_efficiency",
     # pack DV - diversity / breadth indices (4)
     "shannon_diversity", "hill_number", "pielou_evenness", "berger_parker",
     # pack WIN - winsorized / trimmed robust statistics (3)
@@ -797,7 +802,7 @@ EXPECTED = {
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 479 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 482 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

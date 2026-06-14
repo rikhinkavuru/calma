@@ -2898,7 +2898,8 @@ def _fc2_recipe(fn):
     return recipe
 
 
-for _mid in ("mean_arctangent_ape", "geometric_mean_absolute_error", "cumulative_forecast_error"):
+for _mid in ("mean_arctangent_ape", "geometric_mean_absolute_error", "cumulative_forecast_error",
+             "nash_sutcliffe_efficiency", "willmott_index", "kling_gupta_efficiency"):
     register(_mid, family="forecasting", required_tags=["prediction", "target"],
              set_maturity="reviewed")(_fc2_recipe(getattr(N, _mid)))
 

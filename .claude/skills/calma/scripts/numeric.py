@@ -6387,6 +6387,46 @@ def cumulative_forecast_error(pred, actual):
 
 
 # ======================================================================================
+# Pack FE3 - forecast-skill scores. Prediction + actual columns give the Nash-Sutcliffe
+# efficiency, the Kling-Gupta efficiency and the Willmott index of agreement (model-skill
+# measures vs a mean / climatology baseline). Definitional; validated against numpy.
+# ======================================================================================
+
+def nash_sutcliffe_efficiency(pred, actual):
+    """Nash-Sutcliffe efficiency: 1 - sum(a-p)^2 / sum(a-mean(a))^2 (R^2-style skill vs the mean)."""
+    if not _fc2_ok(pred, actual):
+        return float("nan")
+    ab = fmean(actual)
+    den = math.fsum((a - ab) ** 2 for a in actual)
+    if den == 0:
+        return float("nan")
+    return 1.0 - math.fsum((a - p) ** 2 for p, a in zip(pred, actual)) / den
+
+
+def willmott_index(pred, actual):
+    """Willmott index of agreement d: 1 - sum(p-a)^2 / sum((|p-abar|+|a-abar|)^2), in [0,1]."""
+    if not _fc2_ok(pred, actual):
+        return float("nan")
+    ab = fmean(actual)
+    den = math.fsum((abs(p - ab) + abs(a - ab)) ** 2 for p, a in zip(pred, actual))
+    if den == 0:
+        return float("nan")
+    return 1.0 - math.fsum((p - a) ** 2 for p, a in zip(pred, actual)) / den
+
+
+def kling_gupta_efficiency(pred, actual):
+    """Kling-Gupta efficiency: 1 - sqrt((r-1)^2 + (sigma_p/sigma_a - 1)^2 + (mu_p/mu_a - 1)^2)."""
+    if not _fc2_ok(pred, actual) or len(pred) < 2:
+        return float("nan")
+    r = pearson_r(pred, actual)
+    mp, ma = fmean(pred), fmean(actual)
+    sp, sa = fstd(pred, 1), fstd(actual, 1)
+    if r != r or sa == 0 or ma == 0:
+        return float("nan")
+    return 1.0 - math.sqrt((r - 1.0) ** 2 + (sp / sa - 1.0) ** 2 + (mp / ma - 1.0) ** 2)
+
+
+# ======================================================================================
 # Pack DV - diversity / breadth indices. A non-negative amounts column (portfolio weights /
 # abundances) gives the Shannon diversity, the Hill number of order q (the unifying
 # effective-diversity framework), Pielou evenness and the Berger-Parker dominance.
