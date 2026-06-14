@@ -3844,6 +3844,77 @@ def yield_to_maturity(cashflows, times, price):
 
 
 # ======================================================================================
+# Pack TS2 - time-series diagnostics depth. A series column gives the Box-Pierce Q
+# statistic, the Bandt-Pompe permutation entropy (ordinal complexity) and the partial
+# autocorrelation at a lag (Durbin-Levinson on the biased ACF). Validated against statsmodels.
+# ======================================================================================
+
+def _ts2_acf(xs, lag):
+    """Biased autocorrelations rho_0..rho_lag, or None if degenerate."""
+    n = len(xs)
+    xb = fmean(xs)
+    denom = math.fsum((x - xb) ** 2 for x in xs)
+    if denom == 0:
+        return None
+    rho = [1.0]
+    for k in range(1, lag + 1):
+        rho.append(math.fsum((xs[i] - xb) * (xs[i - k] - xb) for i in range(k, n)) / denom)
+    return rho
+
+
+def box_pierce(xs, lags):
+    """Box-Pierce Q statistic: n * sum_{k=1..m} rho_k^2 (statsmodels acorr_ljungbox boxpierce)."""
+    n = len(xs)
+    if n < 2 or _has_nan(xs) or lags < 1 or lags >= n:
+        return float("nan")
+    rho = _ts2_acf(xs, lags)
+    if rho is None:
+        return float("nan")
+    return n * math.fsum(rho[k] * rho[k] for k in range(1, lags + 1))
+
+
+def permutation_entropy(xs, order):
+    """Normalized Bandt-Pompe permutation entropy (ordinal complexity) in [0, 1], order >= 2."""
+    n = len(xs)
+    if n < order + 1 or _has_nan(xs) or order < 2:
+        return float("nan")
+    counts = {}
+    for i in range(n - order + 1):
+        w = xs[i:i + order]
+        perm = tuple(sorted(range(order), key=lambda j: w[j]))
+        counts[perm] = counts.get(perm, 0) + 1
+    tot = sum(counts.values())
+    h = -math.fsum((c / tot) * dlog(c / tot) for c in counts.values())
+    fact = 1
+    for j in range(2, order + 1):
+        fact *= j
+    return h / dlog(fact)
+
+
+def partial_autocorrelation(xs, lag):
+    """Partial autocorrelation at `lag` via Durbin-Levinson on the biased ACF
+    (statsmodels pacf method='ywm')."""
+    n = len(xs)
+    if n < lag + 1 or _has_nan(xs) or lag < 1:
+        return float("nan")
+    rho = _ts2_acf(xs, lag)
+    if rho is None:
+        return float("nan")
+    if lag == 1:
+        return rho[1]
+    phi = [[0.0] * (lag + 1) for _ in range(lag + 1)]
+    phi[1][1] = rho[1]
+    for k in range(2, lag + 1):
+        den = 1.0 - math.fsum(phi[k - 1][j] * rho[j] for j in range(1, k))
+        if den == 0:
+            return float("nan")
+        phi[k][k] = (rho[k] - math.fsum(phi[k - 1][j] * rho[k - j] for j in range(1, k))) / den
+        for j in range(1, k):
+            phi[k][j] = phi[k - 1][j] - phi[k][k] * phi[k - 1][k - j]
+    return phi[lag][lag]
+
+
+# ======================================================================================
 # Pack OPT - Black-Scholes option pricing & Greeks (analytic, non-dividend; q=0).
 # Per-position columns S (spot), K (strike), T (years), sigma (vol), r (rate) and a
 # signed quantity; each recipe returns the portfolio aggregate book value / book Greek

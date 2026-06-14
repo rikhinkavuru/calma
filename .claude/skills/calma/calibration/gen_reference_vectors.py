@@ -2375,6 +2375,31 @@ case("spread_dv01", "spread_dv01", bd_args, bd_dv01, atol=1e-12)
 case("z_spread", "z_spread", {"cashflow": bd_cf, "zero": bd_zero, "time": bd_time, "price": bd_target},
      bd_z, atol=1e-9)
 
+# ============================ Pack TS2 - time-series diagnostics depth ============================
+# Independent reference: statsmodels acorr_ljungbox (Box-Pierce) and pacf (Yule-Walker MLE);
+# numpy for the Bandt-Pompe permutation entropy.
+
+from statsmodels.stats.diagnostic import acorr_ljungbox as _aljb  # noqa: E402
+from statsmodels.tsa.stattools import pacf as _pacf  # noqa: E402
+
+ts2_x = list(uniforms(8201, 130, -0.03, 0.03))
+ts2_lags = 8
+ts2_order = 3
+ts2_lag = 5
+ts2_bp = float(_aljb(np.array(ts2_x), lags=[ts2_lags], boxpierce=True)["bp_stat"].iloc[0])
+ts2_pacf = float(_pacf(np.array(ts2_x), nlags=ts2_lag, method="ywm")[ts2_lag])
+_pcounts = {}
+for _i in range(len(ts2_x) - ts2_order + 1):
+    _w = ts2_x[_i:_i + ts2_order]
+    _perm = tuple(sorted(range(ts2_order), key=lambda j: _w[j]))
+    _pcounts[_perm] = _pcounts.get(_perm, 0) + 1
+_ptot = sum(_pcounts.values())
+ts2_pe = float(-np.sum([(c / _ptot) * np.log(c / _ptot) for c in _pcounts.values()])
+               / np.log(_opt_m.factorial(ts2_order)))
+case("box_pierce", "box_pierce", {"xs": ts2_x, "lags": ts2_lags}, ts2_bp, atol=1e-9)
+case("permutation_entropy", "permutation_entropy", {"xs": ts2_x, "order": ts2_order}, ts2_pe, atol=1e-12)
+case("partial_autocorrelation", "partial_autocorrelation", {"xs": ts2_x, "lag": ts2_lag}, ts2_pacf, atol=1e-9)
+
 # ============================ write ============================
 
 doc = {

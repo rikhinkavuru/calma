@@ -2841,3 +2841,31 @@ def z_spread(cols, binding, convention=None):
     cf, z, t = cols[binding["cashflow"]], cols[binding["zero_rate"]], cols[binding["time"]]
     price = _conv_float(convention, "price", 100.0)
     return _result(N.z_spread(cf, z, t, price), {"n": len(cf), "price": price})
+
+
+# ======================================================================================
+# Pack TS2 - time-series diagnostics depth. A value/series column; the lag/order convention.
+# ======================================================================================
+
+@register("box_pierce", family="stats", required_tags=["value"],
+          set_maturity="reviewed", accepted_conventions=["lags=<int>"])
+def box_pierce(cols, binding, convention=None):
+    xs = cols[binding["value"]]
+    lags = _conv_int(convention, "lags", 10)
+    return _result(N.box_pierce(xs, lags), {"n": len(xs), "lags": lags})
+
+
+@register("permutation_entropy", family="stats", required_tags=["value"],
+          set_maturity="reviewed", accepted_conventions=["order=<int>"])
+def permutation_entropy(cols, binding, convention=None):
+    xs = cols[binding["value"]]
+    order = _conv_int(convention, "order", 3)
+    return _result(N.permutation_entropy(xs, order), {"n": len(xs), "order": order})
+
+
+@register("partial_autocorrelation", family="stats", required_tags=["value"],
+          set_maturity="reviewed", accepted_conventions=["lag=<int>"])
+def partial_autocorrelation(cols, binding, convention=None):
+    xs = cols[binding["value"]]
+    lag = _conv_int(convention, "lag", 1)
+    return _result(N.partial_autocorrelation(xs, lag), {"n": len(xs), "lag": lag})
