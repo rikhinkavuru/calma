@@ -4414,6 +4414,48 @@ def bcubed_f1(pred, label):
 
 
 # ======================================================================================
+# Pack PERF2 - consistency & operational-due-diligence flags. A return column (vs benchmark)
+# gives the batting average, the Abdulali bias ratio (a return-smoothing / mark-management
+# flag) and the longest losing streak. Definitional; validated against numpy.
+# ======================================================================================
+
+def batting_average(rets, bench):
+    """Batting average: fraction of periods the return beats the benchmark."""
+    if len(rets) != len(bench) or not rets or _has_nan(rets) or _has_nan(bench):
+        return float("nan")
+    return sum(1 for r, b in zip(rets, bench) if r > b) / len(rets)
+
+
+def bias_ratio(rets):
+    """Abdulali (2006) bias ratio: count(0 <= r <= sigma) / count(-sigma <= r < 0). A value
+    far above 1 flags suppressed small losses (smoothed / managed marks)."""
+    if not rets or _has_nan(rets) or len(rets) < 2:
+        return float("nan")
+    sd = fstd(rets, 1)
+    if sd <= 0:
+        return float("nan")
+    num = sum(1 for r in rets if 0.0 <= r <= sd)
+    den = sum(1 for r in rets if -sd <= r < 0.0)
+    if den == 0:
+        return float("nan")
+    return num / den
+
+
+def max_consecutive_losses(rets):
+    """Longest run of consecutive negative-return periods."""
+    if not rets or _has_nan(rets):
+        return float("nan")
+    best = cur = 0
+    for r in rets:
+        if r < 0:
+            cur += 1
+            best = max(best, cur)
+        else:
+            cur = 0
+    return float(best)
+
+
+# ======================================================================================
 # Pack PA - portfolio construction & attribution. Per-segment portfolio/benchmark weight
 # and return columns drive Brinson-Hood-Beebower attribution; weight vectors drive active
 # share, turnover and the effective number of bets. All definitional weighted sums.

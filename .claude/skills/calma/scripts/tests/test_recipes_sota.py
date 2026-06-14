@@ -375,6 +375,9 @@ KINDS = {
     "bcubed_precision": lambda a: N.bcubed_precision(a["pred"], a["label"]),
     "bcubed_recall": lambda a: N.bcubed_recall(a["pred"], a["label"]),
     "bcubed_f1": lambda a: N.bcubed_f1(a["pred"], a["label"]),
+    "batting_average": lambda a: N.batting_average(a["rets"], a["bench"]),
+    "bias_ratio": lambda a: N.bias_ratio(a["rets"]),
+    "max_consecutive_losses": lambda a: N.max_consecutive_losses(a["rets"]),
     # pack PA - portfolio construction & attribution
     "brinson_allocation": lambda a: N.brinson_allocation(a["wp"], a["wb"], a["rb"]),
     "brinson_selection": lambda a: N.brinson_selection(a["wb"], a["rp"], a["rb"]),
@@ -669,6 +672,8 @@ EXPECTED = {
     "asrf_capital_requirement", "asrf_rwa", "vasicek_conditional_pd",
     # pack CLU - clustering agreement depth (4)
     "purity", "bcubed_precision", "bcubed_recall", "bcubed_f1",
+    # pack PERF2 - consistency & ODD-flag metrics (3)
+    "batting_average", "bias_ratio", "max_consecutive_losses",
     # pack PA - portfolio construction & attribution (7)
     "brinson_allocation", "brinson_selection", "brinson_interaction", "brinson_total_active",
     "active_share", "portfolio_turnover", "effective_number_of_bets",
@@ -749,7 +754,7 @@ EXPECTED = {
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 450 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 453 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

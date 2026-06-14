@@ -2031,6 +2031,29 @@ for _mid in ("purity", "bcubed_precision", "bcubed_recall", "bcubed_f1"):
 
 
 # ======================================================================================
+# Pack PERF2 - consistency & ODD-flag metrics. A return column (+ benchmark for batting avg).
+# ======================================================================================
+
+@register("batting_average", family="quant", required_tags=["return", "benchmark"],
+          set_maturity="reviewed")
+def batting_average(cols, binding, convention=None):
+    r, b = cols[binding["return"]], cols[binding["benchmark"]]
+    return _result(N.batting_average(r, b), {"n": len(r)})
+
+
+@register("bias_ratio", family="quant", required_tags=["return"], set_maturity="reviewed")
+def bias_ratio(cols, binding, convention=None):
+    r = cols[binding["return"]]
+    return _result(N.bias_ratio(r), {"n": len(r)})
+
+
+@register("max_consecutive_losses", family="quant", required_tags=["return"], set_maturity="reviewed")
+def max_consecutive_losses(cols, binding, convention=None):
+    r = cols[binding["return"]]
+    return _result(N.max_consecutive_losses(r), {"n": len(r)}, path_dependent=True)
+
+
+# ======================================================================================
 # Pack PA - portfolio construction & attribution. Per-segment portfolio/benchmark weight
 # and return columns drive Brinson attribution; weight vectors drive active share,
 # turnover and the effective number of bets.

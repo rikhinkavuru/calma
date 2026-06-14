@@ -1652,6 +1652,26 @@ case("bcubed_precision", "bcubed_precision", clu_args, clu_bp, atol=1e-12)
 case("bcubed_recall", "bcubed_recall", clu_args, clu_br, atol=1e-12)
 case("bcubed_f1", "bcubed_f1", clu_args, clu_bf, atol=1e-12)
 
+# Pack PERF2 - consistency & ODD-flag metrics (numpy recompute)
+p2_rets = list(uniforms(2401, 180, -0.05, 0.06))
+p2_bench = list(uniforms(2402, 180, -0.04, 0.05))
+p2_bat = float(np.mean([1.0 if r > b else 0.0 for r, b in zip(p2_rets, p2_bench)]))
+_p2sd = float(np.std(p2_rets, ddof=1))
+_p2num = sum(1 for r in p2_rets if 0.0 <= r <= _p2sd)
+_p2den = sum(1 for r in p2_rets if -_p2sd <= r < 0.0)
+p2_bias = _p2num / _p2den
+_p2best = _p2cur = 0
+for _r in p2_rets:
+    if _r < 0:
+        _p2cur += 1
+        _p2best = max(_p2best, _p2cur)
+    else:
+        _p2cur = 0
+p2_mcl = float(_p2best)
+case("batting_average", "batting_average", {"rets": p2_rets, "bench": p2_bench}, p2_bat, atol=1e-12)
+case("bias_ratio", "bias_ratio", {"rets": p2_rets}, p2_bias, atol=1e-12)
+case("max_consecutive_losses", "max_consecutive_losses", {"rets": p2_rets}, p2_mcl, atol=1e-12)
+
 # ============================ Pack PA - portfolio construction & attribution ============================
 # Independent reference: vectorized numpy recompute of Brinson-Hood-Beebower attribution
 # and the weight-based metrics over a deterministic 6-segment book.
