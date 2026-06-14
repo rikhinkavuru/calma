@@ -702,6 +702,32 @@ def validate_contract(contract):
             if not isinstance(m, dict) or not m.get("metric_id") or not m.get("artifact") \
                     or not isinstance(m.get("binding"), dict):
                 errs.append("metrics[%d] needs metric_id + artifact + binding" % k)
+    # WS-leakage: optional split / keys / features. All absent is fine (leakage -> NOT-APPLICABLE);
+    # only their SHAPE is checked when present, so a malformed declaration fails loudly instead of
+    # being silently ignored by the leakage detector.
+    sp = contract.get("split")
+    if sp is not None:
+        if not isinstance(sp, dict):
+            errs.append("split must be a mapping ({train, test} paths or {file, column})")
+        else:
+            has_pair = isinstance(sp.get("train"), str) and isinstance(sp.get("test"), str)
+            has_file = isinstance(sp.get("file"), str)
+            if not (has_pair or has_file):
+                errs.append("split needs either {train, test} paths or {file, column}")
+            for k in ("column", "test_value", "embargo"):
+                if sp.get(k) is not None and not isinstance(sp[k], (str, int, float)):
+                    errs.append("split.%s must be a scalar" % k)
+    ky = contract.get("keys")
+    if ky is not None:
+        if not isinstance(ky, dict):
+            errs.append("keys must be a mapping ({id, time, target})")
+        else:
+            for k in ("id", "time", "target"):
+                if k in ky and not isinstance(ky[k], str):
+                    errs.append("keys.%s must be a column name (string)" % k)
+    ft = contract.get("features")
+    if ft is not None and not (isinstance(ft, list) and all(isinstance(x, str) for x in ft)):
+        errs.append("features must be a list of column names")
     return errs
 
 
@@ -957,6 +983,83 @@ def _pick_metric(arts, forced=None, target=None):
     return mid, art, binding, worst
 
 
+# WS-leakage auto-detect: a column whose NAME marks the train/test partition, and id columns.
+_SPLIT_COL = re.compile(r"^(split|fold|partition|subset|is_?train|is_?test)$", re.I)
+_ID_COL = re.compile(r"(^id$|^idx$|^index$|_id$|uuid|guid|^key$|sample_?id|row_?id|entity)", re.I)
+# columns that are NEVER features (they are the keys / outputs, not model inputs)
+_NON_FEATURE_TAGS = {"timestamp", "target", "label", "prediction", "score", "prob", "benchmark"}
+
+
+def _split_artifacts(split, arts):
+    """The artifact rel-paths a split references (train/test/file), in scan order."""
+    if not split:
+        return [a["path"] for a in arts]
+    rels = [split[k] for k in ("train", "test", "file") if split.get(k)]
+    return rels or [a["path"] for a in arts]
+
+
+def _detect_split(arts):
+    """Detect a train/test split: a train.csv+test.csv (or *_train+*_test) file pair, else a single
+    CSV carrying a split/fold column. Returns a `split` dict or None (None -> leakage NOT-APPLICABLE -
+    an honest abstention, never a false pass)."""
+    paths = [a["path"] for a in arts]
+    base = {os.path.basename(p).lower(): p for p in paths}
+    if "train.csv" in base and "test.csv" in base:
+        return {"train": base["train.csv"], "test": base["test.csv"]}
+    for p in paths:  # *_train.csv / *_test.csv with a shared stem
+        b = os.path.basename(p).lower()
+        if b.endswith("_train.csv"):
+            stem = b[:-len("_train.csv")]
+            mate = next((q for q in paths if os.path.basename(q).lower() == stem + "_test.csv"), None)
+            if mate:
+                return {"train": p, "test": mate}
+    for a in arts:  # single file with a split/fold column
+        col = next((c for c in a["columns"] if _SPLIT_COL.search(c)), None)
+        if col:
+            return {"file": a["path"], "column": col}
+    return None
+
+
+def _cols_for(split, arts):
+    """Union of {col: spec} across the split's artifact(s) (or all artifacts when no split)."""
+    rels = set(_split_artifacts(split, arts))
+    cols = {}
+    for a in arts:
+        if a["path"] in rels:
+            cols.update(a["columns"])
+    return cols
+
+
+def _detect_keys(split, arts):
+    """Detect id / time / target columns from the split's artifact(s). Only keys actually found are
+    returned (possibly empty); each gates a specific leakage detector downstream."""
+    cols = _cols_for(split, arts)
+    keys = {}
+    idc = next((c for c in cols if _ID_COL.search(c)), None)
+    if idc:
+        keys["id"] = idc
+    timec = next((c for c, s in cols.items() if s.get("tag") == "timestamp"), None)
+    if timec:
+        keys["time"] = timec
+    tgt = next((c for c, s in cols.items() if s.get("tag") in ("target", "label")), None)
+    if tgt:
+        keys["target"] = tgt
+    return keys
+
+
+def _detect_features(split, arts, keys):
+    """Feature columns = columns that are not keys/outputs (id/time/split/target/label/prediction/
+    score). The target-leakage detector tests each against the target. Returns a list (possibly empty)."""
+    cols = _cols_for(split, arts)
+    blocked = set(keys.values()) | {v for v in (split or {}).values() if isinstance(v, str)}
+    feats = []
+    for c, s in cols.items():
+        if c in blocked or s.get("tag") in _NON_FEATURE_TAGS or _ID_COL.search(c) or _SPLIT_COL.search(c):
+            continue
+        feats.append(c)
+    return feats
+
+
 def draft(target, claim=None, metric=None):
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     claim_value, hint = parse_claim(claim)
@@ -1008,6 +1111,21 @@ def draft(target, claim=None, metric=None):
             "claim_confirmed": target_confirmed,
             "binding_source": "named-in-claim" if (metric is not None) else "auto-detected",
         })
+    # WS-leakage: declare split / keys / features ONLY when there is a real leakage context - a
+    # train/test split (row/id/temporal overlap), or a detected target (target-leakage on one file).
+    # Otherwise the leakage family is NOT-APPLICABLE (an honest abstention), never a false pass, and an
+    # ordinary single-metric artifact stays clean (no noisy keys/features).
+    split = _detect_split(arts)
+    keys = _detect_keys(split, arts)
+    applicable = bool(split) or bool(keys.get("target"))
+    if split:
+        contract["split"] = split
+    if applicable and keys:
+        contract["keys"] = keys
+    if applicable:
+        feats = _detect_features(split, arts, keys)
+        if feats:
+            contract["features"] = feats
     contract["_draft_notes"] = {
         "artifacts_found": len(arts),
         "claim_metric_hint": hint,

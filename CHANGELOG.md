@@ -24,9 +24,15 @@ need. Serial, leakage-first; each step keeps the full suite green.
 - **Registry/attestation: no schema change.** An INVALIDATED bundle verifies (the embedded ledger
   re-derives the label byte-for-byte) and the redacted, hash-chained registry entry records the verdict
   string verbatim — never serialized as a CONFIRMED-anything.
+- **Contract surface for leakage** — three new optional `verify.yaml` keys, auto-detected by
+  `draft_contract.draft()` and shape-validated by `validate_contract`: `split` ({train,test} paths,
+  `*_train`/`*_test` pairs, or a single file + a `split`/`fold` column), `keys` ({id, time, target}),
+  and `features` (the model-input columns). All absent → the leakage family is NOT-APPLICABLE (an honest
+  abstention, never a false pass); an ordinary single-metric artifact stays clean (no noisy keys).
 - Tests: +14 `test_verdict`, +12 `test_ledger`, +3 `test_registry` (attest→registry round-trip), incl. a
-  fail-closed unknown-verdict property. Detectors, contract surface, kernels, and reference vectors land
-  in the following steps. Design of record: `.claude/skills/calma/PLAN.md`.
+  fail-closed unknown-verdict property; +17 `test_draft` (split/keys/features detection + validation).
+  Detectors, kernels, and reference vectors land in the following steps. Design of record:
+  `.claude/skills/calma/PLAN.md`.
 
 ## 0.9.1 — 2026-06-14
 

@@ -82,5 +82,60 @@ truth(_c1["metrics"] and _c1["metrics"][0]["binding"]["return"] == "buyhold_retu
 _c2 = DC.draft(_d, claim="the backtest returned +20%")
 truth(_c2["metrics"] and _c2["metrics"][0]["binding"]["return"] == "strat_return",
       "a strategy claim still binds the strategy column")
+# --- WS-leakage contract surface (Step 2): optional split / keys / features auto-detect ---
+# (A) a train.csv + test.csv pair -> split{train,test}; keys id/time/target; features = the rest
+dA = tempfile.mkdtemp()
+open(os.path.join(dA, "noop.py"), "w").write("pass\n")
+for _fn in ("train.csv", "test.csv"):
+    with open(os.path.join(dA, _fn), "w") as fh:
+        fh.write("id,date,score,y_true,x1\n")
+        for i in range(6):
+            fh.write("%d,2020-01-%02d,0.%d,%d,%.2f\n" % (i, i + 1, i % 9, i % 2, i * 1.5))
+cA = DC.draft(dA, claim="auc 0.9", metric="auc")
+truth(cA.get("split") == {"train": "train.csv", "test": "test.csv"},
+      "train.csv/test.csv pair -> split (got %r)" % cA.get("split"))
+truth(cA.get("keys", {}).get("id") == "id" and cA.get("keys", {}).get("time") == "date"
+      and cA.get("keys", {}).get("target") == "y_true", "keys id/time/target detected (got %r)" % cA.get("keys"))
+truth(cA.get("features") == ["x1"], "features = non-key/non-output columns (got %r)" % cA.get("features"))
+truth(not DC.validate_contract(cA), "a drafted split/keys/features contract validates")
+
+# (B) *_train.csv / *_test.csv (shared stem) -> split{train,test}
+dB = tempfile.mkdtemp()
+for _fn in ("data_train.csv", "data_test.csv"):
+    with open(os.path.join(dB, _fn), "w") as fh:
+        fh.write("id,y_true,x1\n0,1,2.0\n1,0,3.0\n")
+cB = DC.draft(dB)
+truth(cB.get("split") == {"train": "data_train.csv", "test": "data_test.csv"},
+      "*_train/*_test pair -> split (got %r)" % cB.get("split"))
+
+# (C) a single CSV with a split/fold column -> split{file,column}
+dC = tempfile.mkdtemp()
+with open(os.path.join(dC, "data.csv"), "w") as fh:
+    fh.write("id,fold,y_true,x1\n0,train,1,2.0\n1,test,0,3.0\n2,train,1,4.0\n")
+cC = DC.draft(dC)
+truth(cC.get("split") == {"file": "data.csv", "column": "fold"},
+      "split/fold column -> split (got %r)" % cC.get("split"))
+truth(cC.get("keys", {}).get("target") == "y_true", "target detected for a single-file split")
+
+# (D) NOT-APPLICABLE: no split + no target -> no leakage context declared (honest abstention)
+truth("split" not in c2 and "keys" not in c2 and "features" not in c2,
+      "untagged single CSV -> no split/keys/features (leakage NOT-APPLICABLE)")
+truth("split" not in c, "BTC (no train/test, no target) -> no split declared")
+truth("keys" not in c, "BTC (time-only, no split/target) -> no leakage keys (NOT-APPLICABLE)")
+
+# (E) validate_contract shape-checks the new optional keys (absent is fine; malformed fails loudly)
+_base = {"run": {"entrypoint": "main.py"},
+         "artifacts": [{"path": "x.csv", "columns": {"v": {"tag": "value"}}}], "metrics": []}
+truth(not DC.validate_contract(dict(_base, split={"train": "a.csv", "test": "b.csv"},
+                                    keys={"id": "id", "time": "t", "target": "y"}, features=["x1", "x2"])),
+      "well-formed split/keys/features validates")
+truth(not DC.validate_contract(dict(_base, split={"file": "d.csv", "column": "fold"})),
+      "single-file split form validates")
+truth(DC.validate_contract(dict(_base, split="nope")), "non-dict split rejected")
+truth(DC.validate_contract(dict(_base, split={"train": "a.csv"})), "split without test/file rejected")
+truth(DC.validate_contract(dict(_base, keys={"id": 123})), "non-string key column rejected")
+truth(DC.validate_contract(dict(_base, features="x1")), "non-list features rejected")
+truth(DC.validate_contract(dict(_base, features=[1, 2])), "non-string feature names rejected")
+
 print("draft_contract: %d checks, %d failures" % (_n, _fail))
 sys.exit(1 if _fail else 0)
