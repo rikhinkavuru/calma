@@ -4104,3 +4104,105 @@ def es_backtest_ratio(rets, var, es):
     if den <= 0:
         return float("nan")
     return math.fsum(-rets[i] for i in exc) / den
+
+
+# ======================================================================================
+# Pack CR - credit / default risk (analytic). Portfolio expected / unexpected loss from
+# per-name PD/LGD/EAD columns; Altman bankruptcy Z-scores from the financial ratios;
+# Merton structural distance-to-default and its implied PD. Validated against numpy dot
+# products, the definitional Altman weights, and a scipy.stats.norm Merton recompute.
+# ======================================================================================
+
+def _cr_ok(*cols):
+    n = len(cols[0])
+    return n > 0 and all(len(c) == n for c in cols) and not any(_has_nan(c) for c in cols)
+
+
+def expected_loss(pd, lgd, ead):
+    """Portfolio expected loss: sum_i PD_i * LGD_i * EAD_i."""
+    if not _cr_ok(pd, lgd, ead):
+        return float("nan")
+    return math.fsum(p * l * e for p, l, e in zip(pd, lgd, ead))
+
+
+def expected_loss_rate(pd, lgd, ead):
+    """Portfolio EL as a fraction of exposure: sum(PD*LGD*EAD) / sum(EAD)."""
+    if not _cr_ok(pd, lgd, ead):
+        return float("nan")
+    tot = math.fsum(ead)
+    if tot == 0:
+        return float("nan")
+    return math.fsum(p * l * e for p, l, e in zip(pd, lgd, ead)) / tot
+
+
+def weighted_lgd(lgd, ead):
+    """Exposure-weighted loss-given-default: sum(LGD*EAD) / sum(EAD)."""
+    if not _cr_ok(lgd, ead):
+        return float("nan")
+    tot = math.fsum(ead)
+    if tot == 0:
+        return float("nan")
+    return math.fsum(l * e for l, e in zip(lgd, ead)) / tot
+
+
+def unexpected_loss(pd, lgd, ead):
+    """Sum of standalone unexpected losses: sum_i EAD_i*LGD_i*sqrt(PD_i*(1-PD_i)) -
+    a diversification-free (zero default-correlation) aggregate."""
+    if not _cr_ok(pd, lgd, ead):
+        return float("nan")
+    parts = []
+    for p, l, e in zip(pd, lgd, ead):
+        if not (0.0 <= p <= 1.0):
+            return float("nan")
+        parts.append(e * l * math.sqrt(p * (1.0 - p)))
+    return math.fsum(parts)
+
+
+def altman_z(x1, x2, x3, x4, x5):
+    """Altman (1968) Z-score, decimal-ratio form 1.2X1+1.4X2+3.3X3+0.6X4+1.0X5, averaged
+    over the firms (rows). X1 WC/TA, X2 RE/TA, X3 EBIT/TA, X4 MVE/TL, X5 sales/TA."""
+    if not _cr_ok(x1, x2, x3, x4, x5):
+        return float("nan")
+    zs = [1.2 * a + 1.4 * b + 3.3 * c + 0.6 * d + 1.0 * e
+          for a, b, c, d, e in zip(x1, x2, x3, x4, x5)]
+    return fmean(zs)
+
+
+def altman_z_prime(x1, x2, x3, x4):
+    """Altman Z''-score (emerging-market / non-manufacturing): 6.56X1+3.26X2+6.72X3+1.05X4,
+    averaged over the firms. X4 here is book equity / total liabilities."""
+    if not _cr_ok(x1, x2, x3, x4):
+        return float("nan")
+    zs = [6.56 * a + 3.26 * b + 6.72 * c + 1.05 * d for a, b, c, d in zip(x1, x2, x3, x4)]
+    return fmean(zs)
+
+
+def _merton_dd(v, d, mu, sigma, t):
+    return (dlog(v / d) + (mu - 0.5 * sigma * sigma) * t) / (sigma * math.sqrt(t))
+
+
+def merton_distance_to_default(asset_value, debt, drift, vol, time):
+    """Merton structural distance-to-default, averaged over firms:
+    DD = (ln(V/D) + (mu - 0.5 sigma^2) T) / (sigma sqrt(T))."""
+    cols = (asset_value, debt, drift, vol, time)
+    if not _cr_ok(*cols):
+        return float("nan")
+    dds = []
+    for v, d, mu, s, t in zip(*cols):
+        if v <= 0 or d <= 0 or s <= 0 or t <= 0:
+            return float("nan")
+        dds.append(_merton_dd(v, d, mu, s, t))
+    return fmean(dds)
+
+
+def merton_pd(asset_value, debt, drift, vol, time):
+    """Merton implied default probability, averaged over firms: PD = N(-DD)."""
+    cols = (asset_value, debt, drift, vol, time)
+    if not _cr_ok(*cols):
+        return float("nan")
+    pds = []
+    for v, d, mu, s, t in zip(*cols):
+        if v <= 0 or d <= 0 or s <= 0 or t <= 0:
+            return float("nan")
+        pds.append(_norm_cdf(-_merton_dd(v, d, mu, s, t)))
+    return fmean(pds)

@@ -1935,3 +1935,54 @@ def _es_z(fn):
 for _mid in ("acerbi_szekely_z1", "acerbi_szekely_z2"):
     register(_mid, family="quant", required_tags=["return", "var", "es"],
              set_maturity="reviewed", accepted_conventions=["level=<frac>"])(_es_z(getattr(N, _mid)))
+
+
+# ======================================================================================
+# Pack CR - credit / default risk. Per-name PD/LGD/EAD columns for portfolio loss; the
+# five Altman ratios for the bankruptcy Z-scores; structural asset value/debt/drift/vol/
+# horizon columns for the Merton distance-to-default and its implied PD.
+# ======================================================================================
+
+def _cr_ple(fn):
+    def recipe(cols, binding, convention=None):
+        pd_, lgd, ead = cols[binding["pd"]], cols[binding["lgd"]], cols[binding["ead"]]
+        return _result(fn(pd_, lgd, ead), {"n": len(ead)})
+    return recipe
+
+
+for _mid in ("expected_loss", "expected_loss_rate", "unexpected_loss"):
+    register(_mid, family="credit", required_tags=["pd", "lgd", "ead"],
+             set_maturity="reviewed")(_cr_ple(getattr(N, _mid)))
+
+
+@register("weighted_lgd", family="credit", required_tags=["lgd", "ead"], set_maturity="reviewed")
+def weighted_lgd(cols, binding, convention=None):
+    lgd, ead = cols[binding["lgd"]], cols[binding["ead"]]
+    return _result(N.weighted_lgd(lgd, ead), {"n": len(ead)})
+
+
+@register("altman_z", family="credit", required_tags=["x1", "x2", "x3", "x4", "x5"],
+          set_maturity="reviewed")
+def altman_z(cols, binding, convention=None):
+    a = [cols[binding[k]] for k in ("x1", "x2", "x3", "x4", "x5")]
+    return _result(N.altman_z(*a), {"n": len(a[0])})
+
+
+@register("altman_z_prime", family="credit", required_tags=["x1", "x2", "x3", "x4"],
+          set_maturity="reviewed")
+def altman_z_prime(cols, binding, convention=None):
+    a = [cols[binding[k]] for k in ("x1", "x2", "x3", "x4")]
+    return _result(N.altman_z_prime(*a), {"n": len(a[0])})
+
+
+def _cr_merton(fn):
+    def recipe(cols, binding, convention=None):
+        a = [cols[binding[k]] for k in ("asset_value", "debt", "drift", "vol", "time")]
+        return _result(fn(*a), {"n": len(a[0])})
+    return recipe
+
+
+for _mid in ("merton_distance_to_default", "merton_pd"):
+    register(_mid, family="credit",
+             required_tags=["asset_value", "debt", "drift", "vol", "time"],
+             set_maturity="reviewed")(_cr_merton(getattr(N, _mid)))

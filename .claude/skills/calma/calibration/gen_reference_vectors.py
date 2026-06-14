@@ -1532,6 +1532,52 @@ case("es_backtest_ratio", "es_backtest_ratio", es_rve_args, es_ratio, atol=1e-12
 case("acerbi_szekely_z1", "acerbi_szekely_z1", es_z_args, es_z1, atol=1e-12)
 case("acerbi_szekely_z2", "acerbi_szekely_z2", es_z_args, es_z2, atol=1e-12)
 
+# ============================ Pack CR - credit / default risk ============================
+# Independent reference: numpy dot products for portfolio loss, the definitional Altman
+# weights, and a scipy.stats.norm Merton recompute. _spn (scipy.stats.norm) is imported
+# in the Pack OPT block above.
+
+cr_pd = list(uniforms(7301, 40, 0.005, 0.080))
+cr_lgd = list(uniforms(7302, 40, 0.30, 0.60))
+cr_ead = list(uniforms(7303, 40, 1.0, 5.0))
+_cp, _cl, _ce = np.array(cr_pd), np.array(cr_lgd), np.array(cr_ead)
+cr_el = float((_cp * _cl * _ce).sum())
+cr_elr = float((_cp * _cl * _ce).sum() / _ce.sum())
+cr_wlgd = float((_cl * _ce).sum() / _ce.sum())
+cr_ul = float((_ce * _cl * np.sqrt(_cp * (1.0 - _cp))).sum())
+cr_ple = {"pd": cr_pd, "lgd": cr_lgd, "ead": cr_ead}
+case("expected_loss", "expected_loss", cr_ple, cr_el, atol=1e-12)
+case("expected_loss_rate", "expected_loss_rate", cr_ple, cr_elr, atol=1e-12)
+case("weighted_lgd", "weighted_lgd", {"lgd": cr_lgd, "ead": cr_ead}, cr_wlgd, atol=1e-12)
+case("unexpected_loss", "unexpected_loss", cr_ple, cr_ul, atol=1e-12)
+
+az_x1 = [0.10, 0.25, -0.05]
+az_x2 = [0.30, 0.40, 0.05]
+az_x3 = [0.12, 0.18, -0.02]
+az_x4 = [1.50, 2.00, 0.40]
+az_x5 = [1.10, 0.90, 0.60]
+cr_z = float(np.mean([1.2 * a + 1.4 * b + 3.3 * c + 0.6 * d + 1.0 * e
+                      for a, b, c, d, e in zip(az_x1, az_x2, az_x3, az_x4, az_x5)]))
+cr_zp = float(np.mean([6.56 * a + 3.26 * b + 6.72 * c + 1.05 * d
+                       for a, b, c, d in zip(az_x1, az_x2, az_x3, az_x4)]))
+case("altman_z", "altman_z",
+     {"x1": az_x1, "x2": az_x2, "x3": az_x3, "x4": az_x4, "x5": az_x5}, cr_z, atol=1e-12)
+case("altman_z_prime", "altman_z_prime",
+     {"x1": az_x1, "x2": az_x2, "x3": az_x3, "x4": az_x4}, cr_zp, atol=1e-12)
+
+mt_v = [120.0, 200.0, 90.0]
+mt_d = [100.0, 150.0, 100.0]
+mt_mu = [0.05, 0.03, 0.02]
+mt_sig = [0.25, 0.20, 0.40]
+mt_t = [1.0, 1.0, 2.0]
+mt_dd = [(_opt_m.log(v / d) + (mu - 0.5 * s * s) * t) / (s * _opt_m.sqrt(t))
+         for v, d, mu, s, t in zip(mt_v, mt_d, mt_mu, mt_sig, mt_t)]
+cr_dd = float(np.mean(mt_dd))
+cr_mpd = float(np.mean([_spn.cdf(-x) for x in mt_dd]))
+mt_args = {"v": mt_v, "d": mt_d, "mu": mt_mu, "sigma": mt_sig, "t": mt_t}
+case("merton_distance_to_default", "merton_distance_to_default", mt_args, cr_dd, atol=1e-12)
+case("merton_pd", "merton_pd", mt_args, cr_mpd, atol=1e-12)
+
 # ============================ write ============================
 
 doc = {

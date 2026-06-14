@@ -355,6 +355,15 @@ KINDS = {
     "es_backtest_ratio": lambda a: N.es_backtest_ratio(a["rets"], a["var"], a["es"]),
     "acerbi_szekely_z1": lambda a: N.acerbi_szekely_z1(a["rets"], a["var"], a["es"], a["level"]),
     "acerbi_szekely_z2": lambda a: N.acerbi_szekely_z2(a["rets"], a["var"], a["es"], a["level"]),
+    # pack CR - credit / default risk
+    "expected_loss": lambda a: N.expected_loss(a["pd"], a["lgd"], a["ead"]),
+    "expected_loss_rate": lambda a: N.expected_loss_rate(a["pd"], a["lgd"], a["ead"]),
+    "weighted_lgd": lambda a: N.weighted_lgd(a["lgd"], a["ead"]),
+    "unexpected_loss": lambda a: N.unexpected_loss(a["pd"], a["lgd"], a["ead"]),
+    "altman_z": lambda a: N.altman_z(a["x1"], a["x2"], a["x3"], a["x4"], a["x5"]),
+    "altman_z_prime": lambda a: N.altman_z_prime(a["x1"], a["x2"], a["x3"], a["x4"]),
+    "merton_distance_to_default": lambda a: N.merton_distance_to_default(a["v"], a["d"], a["mu"], a["sigma"], a["t"]),
+    "merton_pd": lambda a: N.merton_pd(a["v"], a["d"], a["mu"], a["sigma"], a["t"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -465,10 +474,13 @@ EXPECTED = {
     # pack ES - expected-shortfall / VaR backtesting (7)
     "var_breach_rate", "realized_shortfall", "expected_exceedance", "basel_traffic_light",
     "es_backtest_ratio", "acerbi_szekely_z1", "acerbi_szekely_z2",
+    # pack CR - credit / default risk (8)
+    "expected_loss", "expected_loss_rate", "weighted_lgd", "unexpected_loss",
+    "altman_z", "altman_z_prime", "merton_distance_to_default", "merton_pd",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 288 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 296 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402
