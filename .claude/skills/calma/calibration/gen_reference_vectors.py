@@ -1657,6 +1657,40 @@ case("carried_interest", "carried_interest",
      {"contribution": fm_contrib, "distribution": fm_dist, "carry": fm_carry}, fm_carried, atol=1e-12)
 case("realization_ratio", "realization_ratio", {"distribution": fm_dist, "nav": fm_nav}, fm_real, atol=1e-12)
 
+# ============================ Pack LQ - liquidity / microstructure ============================
+# Independent reference: numpy recompute of the Amihud / Amivest ratios, Roll's serial-
+# covariance spread, Kyle's lambda OLS slope, VWAP and the relative quoted spread.
+
+lq_ret = list(uniforms(9101, 60, -0.03, 0.03))
+lq_dvol = list(uniforms(9102, 60, 1.0e6, 5.0e6))
+# bid-ask bounce around a slow drift -> guaranteed negative serial covariance of price changes
+lq_price = [100.0 + 0.01 * t + (0.20 if t % 2 == 0 else -0.20) for t in range(40)]
+lq_dp = list(uniforms(9104, 50, -0.4, 0.4))
+lq_q = list(uniforms(9105, 50, -1000.0, 1000.0))
+lq_vol = list(uniforms(9106, 30, 100.0, 5000.0))
+lq_pr = list(uniforms(9107, 30, 95.0, 105.0))
+lq_bid = list(uniforms(9108, 30, 99.0, 100.0))
+lq_ask = [b + s for b, s in zip(lq_bid, uniforms(9109, 30, 0.01, 0.20))]
+
+_lr, _ldv = np.array(lq_ret), np.array(lq_dvol)
+lq_amihud = float(np.mean(np.abs(_lr) / _ldv))
+_nz = _lr != 0.0
+lq_amivest = float(_ldv[_nz].sum() / np.abs(_lr[_nz]).sum())
+_pd = np.diff(np.array(lq_price))
+lq_roll_c = float(np.cov(_pd[:-1], _pd[1:], ddof=1)[0, 1])
+lq_roll = float(2.0 * np.sqrt(-lq_roll_c)) if lq_roll_c < 0 else float("nan")
+lq_kyle = float(np.cov(np.array(lq_dp), np.array(lq_q), ddof=1)[0, 1]
+                / np.var(np.array(lq_q), ddof=1))
+lq_vwap = float((np.array(lq_pr) * np.array(lq_vol)).sum() / np.array(lq_vol).sum())
+_lb, _la = np.array(lq_bid), np.array(lq_ask)
+lq_relspr = float(np.mean((_la - _lb) / (0.5 * (_la + _lb))))
+case("amihud_illiquidity", "amihud_illiquidity", {"ret": lq_ret, "dvol": lq_dvol}, lq_amihud, atol=1e-15)
+case("amivest_liquidity", "amivest_liquidity", {"ret": lq_ret, "dvol": lq_dvol}, lq_amivest, atol=1e-6)
+case("roll_spread", "roll_spread", {"price": lq_price}, lq_roll, atol=1e-12)
+case("kyle_lambda", "kyle_lambda", {"dp": lq_dp, "q": lq_q}, lq_kyle, atol=1e-12)
+case("vwap", "vwap", {"price": lq_pr, "volume": lq_vol}, lq_vwap, atol=1e-12)
+case("relative_spread", "relative_spread", {"bid": lq_bid, "ask": lq_ask}, lq_relspr, atol=1e-12)
+
 # ============================ write ============================
 
 doc = {

@@ -2130,3 +2130,48 @@ def realization_ratio(cols, binding, convention=None):
     d = cols[binding["distribution"]]
     nav = _conv_float(convention, "nav", 0.0)
     return _result(N.realization_ratio(d, nav), {"n": len(d), "nav": nav})
+
+
+# ======================================================================================
+# Pack LQ - liquidity / microstructure. Per-day return / dollar-volume / price / quote
+# columns drive the price-impact and spread estimators.
+# ======================================================================================
+
+def _lq_rv(fn):
+    def recipe(cols, binding, convention=None):
+        r, v = cols[binding["return"]], cols[binding["dollar_volume"]]
+        return _result(fn(r, v), {"n": len(r)})
+    return recipe
+
+
+for _mid in ("amihud_illiquidity", "amivest_liquidity"):
+    register(_mid, family="liquidity", required_tags=["return", "dollar_volume"],
+             set_maturity="reviewed")(_lq_rv(getattr(N, _mid)))
+
+
+@register("roll_spread", family="liquidity", required_tags=["price"],
+          set_maturity="reviewed")
+def roll_spread(cols, binding, convention=None):
+    p = cols[binding["price"]]
+    return _result(N.roll_spread(p), {"n": len(p)}, path_dependent=True)
+
+
+@register("kyle_lambda", family="liquidity", required_tags=["price_change", "signed_volume"],
+          set_maturity="reviewed")
+def kyle_lambda(cols, binding, convention=None):
+    dp, q = cols[binding["price_change"]], cols[binding["signed_volume"]]
+    return _result(N.kyle_lambda(dp, q), {"n": len(dp)})
+
+
+@register("vwap", family="liquidity", required_tags=["price", "volume"],
+          set_maturity="reviewed")
+def vwap(cols, binding, convention=None):
+    p, v = cols[binding["price"]], cols[binding["volume"]]
+    return _result(N.vwap(p, v), {"n": len(p)})
+
+
+@register("relative_spread", family="liquidity", required_tags=["bid", "ask"],
+          set_maturity="reviewed")
+def relative_spread(cols, binding, convention=None):
+    b, a = cols[binding["bid"]], cols[binding["ask"]]
+    return _result(N.relative_spread(b, a), {"n": len(b)})

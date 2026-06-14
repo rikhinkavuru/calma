@@ -2514,6 +2514,62 @@ export const FAMILIES: Family[] = [
     ],
   },
   {
+    key: "liquidity",
+    title: "Liquidity & microstructure",
+    blurb:
+      "Can the book actually be traded? The price-impact and spread estimators ODD teams and pod-shop risk desks run, rebuilt from the raw return, volume and quote series — Amihud, Amivest, Roll, Kyle, VWAP and the quoted spread.",
+    recipes: [
+      {
+        id: "amihud_illiquidity",
+        name: "Amihud illiquidity",
+        claim: "“ILLIQ 4.8e-9”",
+        what: "Average price move per dollar traded — the canonical illiquidity proxy.",
+        how: "mean(|retₜ| / dollar_volumeₜ) over the days.",
+        ref: "Amihud (2002)",
+      },
+      {
+        id: "amivest_liquidity",
+        name: "Amivest liquidity",
+        claim: "“Amivest 1.1e8”",
+        what: "Dollar volume that moves price one unit — the liquidity counterpart to Amihud.",
+        how: "Σ dollar_volume / Σ |ret| over nonzero-return days.",
+        ref: "Amivest ratio",
+      },
+      {
+        id: "roll_spread",
+        name: "Roll effective spread",
+        claim: "“Roll spread $0.40”",
+        what: "Effective bid-ask spread backed out of the bid-ask bounce in trade prices.",
+        how: "2·√(−cov(Δpₜ, Δpₜ₋₁)); a non-negative serial covariance degrades instead of guessing.",
+        ref: "Roll (1984)",
+      },
+      {
+        id: "kyle_lambda",
+        name: "Kyle's lambda",
+        claim: "“λ 1.9e-4”",
+        what: "Price-impact slope — how much price moves per unit of signed order flow.",
+        how: "cov(Δp, q) / var(q), the OLS slope of price change on signed volume.",
+        ref: "Kyle (1985)",
+      },
+      {
+        id: "vwap",
+        name: "VWAP",
+        claim: "“VWAP $100.12”",
+        what: "Volume-weighted average price — the execution benchmark.",
+        how: "Σ(priceᵢ·volumeᵢ) / Σ volumeᵢ.",
+        ref: "definitional",
+      },
+      {
+        id: "relative_spread",
+        name: "Relative quoted spread",
+        claim: "“avg spread 11 bps”",
+        what: "The quoted spread as a fraction of the midpoint, averaged over the quotes.",
+        how: "mean((askₜ − bidₜ) / midₜ), mid = (ask+bid)/2.",
+        ref: "definitional",
+      },
+    ],
+  },
+  {
     key: "derivatives",
     title: "Options & derivatives risk",
     blurb:

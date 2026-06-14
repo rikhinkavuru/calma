@@ -4414,3 +4414,78 @@ def realization_ratio(distribution, nav):
     if tot <= 0:
         return float("nan")
     return d / tot
+
+
+# ======================================================================================
+# Pack LQ - liquidity / microstructure. Price-impact and spread estimators desks and ODD
+# teams quote: Amihud illiquidity, Amivest liquidity, Roll's effective spread from serial
+# covariance, Kyle's lambda price-impact slope, VWAP and the relative quoted spread. All
+# definitional / documented closed forms. Validated against numpy recomputes.
+# ======================================================================================
+
+def _lq_ok(*cols):
+    n = len(cols[0])
+    return n > 0 and all(len(c) == n for c in cols) and not any(_has_nan(c) for c in cols)
+
+
+def amihud_illiquidity(ret, dollar_volume):
+    """Amihud (2002) illiquidity: mean(|ret_t| / dollar_volume_t) over the days."""
+    if not _lq_ok(ret, dollar_volume) or any(v <= 0 for v in dollar_volume):
+        return float("nan")
+    return fmean([abs(r) / v for r, v in zip(ret, dollar_volume)])
+
+
+def amivest_liquidity(ret, dollar_volume):
+    """Amivest liquidity ratio: sum(dollar_volume) / sum(|ret|) over nonzero-return days."""
+    if not _lq_ok(ret, dollar_volume):
+        return float("nan")
+    num = math.fsum(v for r, v in zip(ret, dollar_volume) if r != 0.0)
+    den = math.fsum(abs(r) for r in ret if r != 0.0)
+    if den <= 0:
+        return float("nan")
+    return num / den
+
+
+def roll_spread(price):
+    """Roll (1984) effective spread: 2*sqrt(-cov(dp_t, dp_{t-1})), nan if the serial
+    covariance of price changes is non-negative."""
+    if not _lq_ok(price) or len(price) < 3:
+        return float("nan")
+    d = [price[i] - price[i - 1] for i in range(1, len(price))]
+    c = covariance(d[:-1], d[1:])
+    if c != c or c >= 0:
+        return float("nan")
+    return 2.0 * math.sqrt(-c)
+
+
+def kyle_lambda(price_change, signed_volume):
+    """Kyle's lambda price-impact slope: cov(dp, q) / var(q) (OLS slope of dp on signed flow)."""
+    if not _lq_ok(price_change, signed_volume) or len(price_change) < 2:
+        return float("nan")
+    vq = covariance(signed_volume, signed_volume)
+    if vq != vq or vq == 0:
+        return float("nan")
+    return covariance(price_change, signed_volume) / vq
+
+
+def vwap(price, volume):
+    """Volume-weighted average price: sum(price_i * volume_i) / sum(volume_i)."""
+    if not _lq_ok(price, volume):
+        return float("nan")
+    tot = math.fsum(volume)
+    if tot == 0:
+        return float("nan")
+    return math.fsum(p * v for p, v in zip(price, volume)) / tot
+
+
+def relative_spread(bid, ask):
+    """Mean relative quoted spread: mean((ask_t - bid_t) / midpoint_t), midpoint=(ask+bid)/2."""
+    if not _lq_ok(bid, ask):
+        return float("nan")
+    vals = []
+    for b, a in zip(bid, ask):
+        mid = 0.5 * (a + b)
+        if mid <= 0:
+            return float("nan")
+        vals.append((a - b) / mid)
+    return fmean(vals)

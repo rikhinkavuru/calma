@@ -386,6 +386,13 @@ KINDS = {
     "called_pct": lambda a: N.called_pct(a["contribution"], a["committed"]),
     "carried_interest": lambda a: N.carried_interest(a["contribution"], a["distribution"], a["carry"]),
     "realization_ratio": lambda a: N.realization_ratio(a["distribution"], a["nav"]),
+    # pack LQ - liquidity / microstructure
+    "amihud_illiquidity": lambda a: N.amihud_illiquidity(a["ret"], a["dvol"]),
+    "amivest_liquidity": lambda a: N.amivest_liquidity(a["ret"], a["dvol"]),
+    "roll_spread": lambda a: N.roll_spread(a["price"]),
+    "kyle_lambda": lambda a: N.kyle_lambda(a["dp"], a["q"]),
+    "vwap": lambda a: N.vwap(a["price"], a["volume"]),
+    "relative_spread": lambda a: N.relative_spread(a["bid"], a["ask"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -507,10 +514,13 @@ EXPECTED = {
     "effective_duration", "effective_convexity",
     # pack FM - fund / LP economics (6)
     "dpi", "rvpi", "tvpi", "called_pct", "carried_interest", "realization_ratio",
+    # pack LQ - liquidity / microstructure (6)
+    "amihud_illiquidity", "amivest_liquidity", "roll_spread", "kyle_lambda",
+    "vwap", "relative_spread",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 315 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 321 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402
