@@ -16,8 +16,22 @@ from __future__ import annotations
 CONFIRMED = "CONFIRMED"
 CAVEATS = "CONFIRMED-WITH-CAVEATS"
 REFUTED = "REFUTED"
+INVALIDATED = "INVALIDATED"   # the number reproduces, but the result is invalid (gap-free; see _decide)
 INCONCLUSIVE = "INCONCLUSIVE"
-VERDICTS = (CONFIRMED, CAVEATS, REFUTED, INCONCLUSIVE)
+VERDICTS = (CONFIRMED, CAVEATS, REFUTED, INVALIDATED, INCONCLUSIVE)
+
+# Fail-closed verdict classification. `clean` is an ALLOWLIST: only these pass the gate. Any other
+# value - including an unknown/future verdict - is treated as NON-clean, so a switch-site that forgets
+# to handle a new verdict degrades to over-cautious (exit 1, no clean badge), never to a false-confirm.
+CLEAN_VERDICTS = (CONFIRMED, CAVEATS)
+# The authoritative "the catch worked" outcomes. MIXED is a repo-level rollup string (not a claim enum),
+# so it is listed as a literal here.
+CATCH_VERDICTS = (REFUTED, "MIXED", INVALIDATED)
+
+
+def is_clean(repo_verdict):
+    """True iff `repo_verdict` is an explicitly-clean outcome. Allowlist by design (fail-closed)."""
+    return repo_verdict in CLEAN_VERDICTS
 
 # exit-code table (references/script-interfaces.md):
 #   0 done | 1 findings | 2 invalid | 3 refused-no-isolation | 4 kill->INCONCLUSIVE
@@ -55,6 +69,14 @@ DEFAULTS = {
     "outputs_unstable": False,  # two identical re-executions produced different artifacts (FLAKY)
     "no_claim_reproduced": False,  # no claimed number was given, but the run re-executed cleanly and
                                    # the metric recomputed from raw outputs (scope=reproduction)
+    # WS-validity (leakage/overfitting findings rail). Set by the validity detectors via
+    # _assemble_ledger, after which the claim verdict is re-derived. All conservative-default False, so
+    # a ledger without them re-derives identically (back-compat). REFUTED stays strictly gap-gated;
+    # these only ever DEGRADE a would-be-CONFIRMED toward INVALIDATED / INCONCLUSIVE / CAVEATS.
+    "validity_invalidated": False,   # authoritative: the number reproduces but the result is invalid
+    "oos_claim_asserted": False,     # the claim asserts held-out / out-of-sample (gates INVALIDATED)
+    "validity_unresolved": False,    # a validity concern whose adjudication needs an undeclared scope
+    "soft_validity_caveat": False,   # a heuristic / soft validity concern -> CAVEAT (never blocks)
 }
 
 
@@ -121,6 +143,23 @@ def _caveat_reasons(vi):
     return out
 
 
+def _validity_override(vi):
+    """A number that reproduces but that a validity detector (leakage / overfitting) flagged. Returns
+    (label, reason) or None. CONSERVATIVE-ONLY: it can degrade a would-be CONFIRMED/CAVEAT to
+    INVALIDATED or INCONCLUSIVE, never the other way - and it is consulted ONLY on the within-budget
+    (number-reproduces) paths, so it can never turn an over-budget gap into anything but the gap-gated
+    REFUTED/INCONCLUSIVE decided above. INVALIDATED additionally requires an out-of-sample claim
+    assertion (the scope-guard): contamination on an in-sample / undeclared-scope claim never gets here
+    (it is routed to soft_validity_caveat / validity_unresolved by the detector)."""
+    if vi["validity_invalidated"] and vi["oos_claim_asserted"]:
+        return INVALIDATED, ("the number reproduces, but the held-out result is invalid - "
+                             "authoritative contamination on an out-of-sample claim")
+    if vi["validity_unresolved"]:
+        return INCONCLUSIVE, ("the number reproduces, but a validity concern cannot be adjudicated as "
+                              "claimed (declare the scope - see fix)")
+    return None
+
+
 def _decide(vi):
     ec = tuple(vi["exit_codes"] or ())
 
@@ -185,14 +224,23 @@ def _decide(vi):
         return REFUTED, "recomputed value differs from the claim beyond the calibrated budget and is statistically distinguishable"
 
     if within:
+        # the number reproduces - a validity detector may still DEGRADE it (never inflate).
+        ov = _validity_override(vi)
+        if ov:
+            return ov
         if not vi["sign_agrees"]:
             return CAVEATS, "recompute agrees in magnitude but sign/direction differs"
         reasons = _caveat_reasons(vi)
+        if vi["soft_validity_caveat"]:
+            reasons = reasons + ["a validity heuristic flagged the result (see findings)"]
         if reasons:
             return CAVEATS, "holds but narrows: " + "; ".join(reasons)
         return CONFIRMED, "recomputed value matches the claim within the calibrated budget"
 
     # Ambiguous zone: budget < gap <= budget * margin (close, but outside the tight budget).
+    ov = _validity_override(vi)
+    if ov:
+        return ov
     return CAVEATS, "recompute is near the claim but outside the tight budget (within the fraud-margin)"
 
 

@@ -85,6 +85,36 @@ check(R(sign_agrees=False), V.CAVEATS, "magnitude matches but sign differs")
 check(R(isolation_tier="host-not-isolated"), V.CAVEATS, "within budget but host not isolated")
 check(R(gap=0.02), V.CAVEATS, "ambiguous zone: between budget and budget*margin")
 
+# ---- INVALIDATED (validity findings rail): the number reproduces, but the result is invalid ----
+# These DEGRADE a would-be CONFIRMED only; REFUTED stays strictly gap-gated.
+check(R(validity_invalidated=True, oos_claim_asserted=True), V.INVALIDATED,
+      "authoritative contamination on an OOS claim -> INVALIDATED")
+check(R(validity_invalidated=True, oos_claim_asserted=False), V.CONFIRMED,
+      "scope-guard: validity_invalidated WITHOUT an OOS assertion never manufactures INVALIDATED")
+check(R(validity_unresolved=True), V.INCONCLUSIVE,
+      "validity concern unadjudicable as claimed (e.g. OOS indeterminate / uncountable N) -> CAN'T-CONFIRM")
+check(R(soft_validity_caveat=True), V.CAVEATS,
+      "heuristic / soft validity concern -> CONFIRMED-WITH-CAVEATS (never blocks)")
+check(R(gap=0.02, validity_invalidated=True, oos_claim_asserted=True), V.INVALIDATED,
+      "ambiguous zone + authoritative OOS contamination -> INVALIDATED")
+# REFUTED stays gap-gated: the override is consulted ONLY on the within/ambiguous (reproduces) paths.
+check(R(gap=147.0, validity_invalidated=True, oos_claim_asserted=True), V.REFUTED,
+      "huge gap + contamination -> REFUTED (numeric path wins; INVALIDATED never overrides a real gap)")
+# INVALIDATED implies the number reproduced: a failed/killed/degenerate run still goes INCONCLUSIVE.
+check(R(killed=True, validity_invalidated=True, oos_claim_asserted=True), V.INCONCLUSIVE,
+      "killed run + contamination -> INCONCLUSIVE (INVALIDATED requires reproduction)")
+check(R(recompute_degenerate=True, validity_invalidated=True, oos_claim_asserted=True), V.INCONCLUSIVE,
+      "degenerate recompute + contamination -> INCONCLUSIVE (no valid number to call invalid)")
+
+# ---- fail-closed allowlist: only CONFIRMED/CAVEATS are clean; anything else (incl. unknown) is not ----
+for v, want in ((V.CONFIRMED, True), (V.CAVEATS, True), (V.INVALIDATED, False),
+                (V.REFUTED, False), (V.INCONCLUSIVE, False), ("ZZZ_UNKNOWN_VERDICT", False)):
+    _n += 1
+    if V.is_clean(v) != want:
+        _fail += 1
+        print("  FAIL [is_clean] %r expected %s" % (v, want))
+assert V.INVALIDATED in V.CATCH_VERDICTS and V.REFUTED in V.CATCH_VERDICTS
+
 # ---- totality: verdict() never raises and always returns a valid enum on garbage ----
 for bad in [None, {}, {"gap": float("nan")}, {"exit_codes": None}, {"margin": -5}]:
     v = V.verdict(bad)

@@ -422,7 +422,7 @@ def main():
                     verdict=verdict, claimed=res.get("claimed"),
                     recomputed=res.get("recomputed"), cached=bool(res.get("cached")),
                     ms=ms, run_dir=res.get("run_dir"))
-        if verdict not in ("REFUTED", "MIXED"):
+        if verdict not in ("REFUTED", "MIXED", "INVALIDATED"):
             continue
         key = _claim_key(cand)
         if res.get("cached") and key in informed:

@@ -27,6 +27,7 @@ _TOPLINE = {
     V.CONFIRMED: ("CONFIRMED", "reproduces and recomputes to the claim"),
     V.CAVEATS: ("CONFIRMED-WITH-CAVEATS", "holds, but narrower than claimed"),
     V.REFUTED: ("REFUTED", "the result does not hold"),
+    V.INVALIDATED: ("INVALIDATED", "the number reproduces, but the result is invalid"),
     V.INCONCLUSIVE: ("CAN'T-CONFIRM", "not verifiable yet"),
     "MIXED": ("MIXED", "some claims hold, at least one is broken"),
 }
@@ -128,9 +129,9 @@ def _fix_line(led, diff=None):
 
 
 _SYMBOL = {V.CONFIRMED: "✓", V.CAVEATS: "✓", V.REFUTED: "✗",
-           V.INCONCLUSIVE: "▲", "MIXED": "✗"}
+           V.INVALIDATED: "✗", V.INCONCLUSIVE: "▲", "MIXED": "✗"}
 _ANSI = {V.CONFIRMED: "32", V.CAVEATS: "33", V.REFUTED: "31",
-         V.INCONCLUSIVE: "33", "MIXED": "31"}
+         V.INVALIDATED: "31", V.INCONCLUSIVE: "33", "MIXED": "31"}
 _DET_GLOSS = {"controlled-to-bit": "bit-exact", "measured-band": "stable within tolerance",
               "uncontrolled": "not bit-reproducible"}
 
@@ -194,8 +195,9 @@ def render(led, diff=None, color=False):
     # the numeric collapse + reproduction for a break. With a multi-metric table above, the per-row
     # numbers are already shown - skip the single collapse (claims[0] may be a CONFIRMED row, which
     # would mislead) and just point reproduce at the first broken metric.
-    if rv in ("REFUTED", "MIXED") and led.get("claims"):
-        broken = next((c for c in led["claims"] if c.get("verdict") == V.REFUTED), led["claims"][0])
+    if rv in V.CATCH_VERDICTS and led.get("claims"):
+        broken = next((c for c in led["claims"]
+                       if c.get("verdict") in (V.REFUTED, V.INVALIDATED)), led["claims"][0])
         if len(claims) <= 1:
             c = led["claims"][0]
             if c.get("claimed_value") is not None and c.get("recomputed_value") is not None:
@@ -208,7 +210,7 @@ def render(led, diff=None, color=False):
     # the fix line: an INCONCLUSIVE (or any not-clean outcome with a known unblock) names who-can-act
     if rv != V.CONFIRMED:
         fix = _fix_line(led, diff)
-        if fix and rv in (V.INCONCLUSIVE, V.CAVEATS):
+        if fix and rv in (V.INCONCLUSIVE, V.CAVEATS, V.INVALIDATED):
             lines.append("  fix: " + fix)
     # scope one-liner (the honest 'what we checked')
     sc = led.get("scope", {})
@@ -283,6 +285,8 @@ _DIMENSION_GLOSS = {
     "baseline": "loses to the trivial baseline",
     "reproducibility": "doesn't re-run",
     "contract-grounding": "not enough structure to verify",
+    "leakage": "the held-out set is contaminated",
+    "overfitting": "the edge doesn't survive multiple-testing correction",
 }
 
 
@@ -345,7 +349,7 @@ h1 { font-size:13px; letter-spacing:2px; text-transform:uppercase; color:var(--m
 .vbadge { font-family:ui-monospace,Menlo,monospace; font-weight:700; font-size:22px;
           padding:8px 16px; border-radius:8px; border:2px solid; }
 .v-CONFIRMED, .v-CONFIRMED-WITH-CAVEATS { color:var(--green); border-color:var(--green); background:#EAF3EC; }
-.v-REFUTED, .v-MIXED { color:var(--red); border-color:var(--red); background:#F6E9E8; }
+.v-REFUTED, .v-MIXED, .v-INVALIDATED { color:var(--red); border-color:var(--red); background:#F6E9E8; }
 .v-CANT-CONFIRM { color:var(--amber); border-color:var(--amber); background:#F6EFDD; }
 .conf { font-family:ui-monospace,Menlo,monospace; color:var(--mut); font-size:14px; }
 .gloss { color:var(--ink2); margin:2px 0 0; }
@@ -383,7 +387,8 @@ _LIMITS = ("Calma verifies a result by RE-EXECUTING it in the stated isolation t
 
 def _html_verdict_class(rv):
     return {V.CONFIRMED: "CONFIRMED", V.CAVEATS: "CONFIRMED-WITH-CAVEATS", V.REFUTED: "REFUTED",
-            "MIXED": "MIXED", V.INCONCLUSIVE: "CANT-CONFIRM"}.get(rv, "CANT-CONFIRM")
+            "MIXED": "MIXED", V.INVALIDATED: "INVALIDATED",
+            V.INCONCLUSIVE: "CANT-CONFIRM"}.get(rv, "CANT-CONFIRM")
 
 
 def _sha256_file(path):

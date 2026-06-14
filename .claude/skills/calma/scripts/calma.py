@@ -483,7 +483,7 @@ def _cached_result(target, fingerprint):
     if led.get("repo_verdict") != ent.get("repo_verdict"):
         return None  # cached verdict and stored ledger disagree - never serve it
     code, summary = LED.validate_obj(led)
-    if led.get("repo_verdict") not in ("CONFIRMED", "CONFIRMED-WITH-CAVEATS", "REFUTED", "MIXED"):
+    if led.get("repo_verdict") not in ("CONFIRMED", "CONFIRMED-WITH-CAVEATS", "REFUTED", "MIXED", "INVALIDATED"):
         return None
     rendered = ("(cached - code, data, and claim unchanged since the last run; "
                 "--force re-executes)\n") + REP.render(led)
@@ -493,7 +493,7 @@ def _cached_result(target, fingerprint):
 
 
 def _store_cache(target, fingerprint, run_id, repo_verdict):
-    if repo_verdict not in ("CONFIRMED", "CONFIRMED-WITH-CAVEATS", "REFUTED", "MIXED"):
+    if repo_verdict not in ("CONFIRMED", "CONFIRMED-WITH-CAVEATS", "REFUTED", "MIXED", "INVALIDATED"):
         return
     led_sha = _ledger_sha256(os.path.join(target, ".calma", run_id, "ledger.json"))
     if led_sha is None:
@@ -1046,10 +1046,10 @@ def stats(target):
              "  verifications: %d" % len(verifs)]
     if teardowns:
         lines.append("  teardown re-checks: %d (not counted as verifications)" % teardowns)
-    for v in ("CONFIRMED", "CONFIRMED-WITH-CAVEATS", "REFUTED", "MIXED", "INCONCLUSIVE"):
+    for v in ("CONFIRMED", "CONFIRMED-WITH-CAVEATS", "REFUTED", "MIXED", "INVALIDATED", "INCONCLUSIVE"):
         if counts.get(v):
             lines.append("  %-24s %d" % (v, counts[v]))
-    catches = [r for r in verifs if r.get("verdict") in ("REFUTED", "MIXED")]
+    catches = [r for r in verifs if r.get("verdict") in V.CATCH_VERDICTS]
     for c in catches[-3:]:
         lines.append("  catch: claimed %s -> recomputed %s (%s)"
                      % (REP.fmt_value(c.get("claimed"), c.get("metric")),
@@ -1176,7 +1176,7 @@ def run_batch(targets, manifest=None, fail_on="not-clean", timeout=None, force=F
         led = res["ledger"]
         c0 = (led.get("claims") or [{}])[0]
         clean = res["gate_exit"] == 0 if fail_on == "not-clean" \
-            else res["repo_verdict"] not in ("REFUTED", "MIXED")
+            else res["repo_verdict"] not in V.CATCH_VERDICTS
         rows.append({"target": os.path.basename(os.path.normpath(path)),
                      "verdict": res["repo_verdict"], "metric": c0.get("metric"),
                      "claimed": c0.get("claimed_value"), "recomputed": c0.get("recomputed_value"),
@@ -1187,7 +1187,7 @@ def run_batch(targets, manifest=None, fail_on="not-clean", timeout=None, force=F
 def _render_batch(rows, color=False):
     """A single scannable summary table for N targets + a roll-up line."""
     n = len(rows)
-    refuted = sum(1 for r in rows if r["verdict"] in ("REFUTED", "MIXED"))
+    refuted = sum(1 for r in rows if r["verdict"] in V.CATCH_VERDICTS)
     confirmed = sum(1 for r in rows if r["verdict"] in ("CONFIRMED", "CONFIRMED-WITH-CAVEATS"))
     inconcl = sum(1 for r in rows if r["verdict"] in ("INCONCLUSIVE", "ERROR"))
     # pre-format claimed/recomputed so column widths fit the ACTUAL strings (a value like
@@ -1381,7 +1381,7 @@ def main():
                          force=a.force, check_determinism=a.check_determinism,
                          trust=a.trust, timeout=a.timeout, isolation=a.isolation, restore=a.restore)
             if a.fail_on == "refuted":
-                exit_code = 1 if res["repo_verdict"] in ("REFUTED", "MIXED") else 0
+                exit_code = 1 if res["repo_verdict"] in V.CATCH_VERDICTS else 0
             else:
                 exit_code = res["gate_exit"]
             # refusal/kill outcomes get their own exit codes (documented in the README table):
@@ -1406,6 +1406,9 @@ def main():
                 if rv in ("REFUTED", "MIXED"):
                     # a REFUTED is the catch working, not a misconfiguration - say so on the exit line
                     tail = " - claim refuted (the catch; --fail-on sets exit behavior)"
+                elif rv == "INVALIDATED":
+                    # the catch working in a different shape: the number reproduces, but it isn't valid
+                    tail = " - result invalidated (reproduces, but not a valid result; --fail-on sets exit)"
                 elif exit_code == 0:
                     tail = ""
                 else:
@@ -1658,7 +1661,7 @@ def main():
                           % attest.render_verify(bundle, bok, bchecks), file=sys.stderr)
                     return 1
                 entry = REG.derive_entry(bundle, engagement=a.engagement, note=a.note)
-                if entry.get("verdict") not in ("REFUTED", "MIXED"):
+                if entry.get("verdict") not in V.CATCH_VERDICTS:
                     print("note: this entry records a %s outcome, not a catch - the registry "
                           "documents both" % entry.get("verdict"))
             fname, wrapper = REG.append_entry(reg_dir, entry, seed)

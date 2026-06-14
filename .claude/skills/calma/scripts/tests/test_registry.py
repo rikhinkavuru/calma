@@ -4,6 +4,7 @@ under a foreign key, redaction leaks. Plus the CLI surface: publish requires att
 engagements without outcomes stay visible. Pure stdlib.
 Run: python3 test_registry.py
 """
+import base64
 import json
 import os
 import shutil
@@ -64,6 +65,44 @@ truth(summary["entries"] == 3 and summary["verdicts"].get("REFUTED") == 2,
 truth(w2["entry"]["prev"] == w1["id"] and w3["entry"]["prev"] == w2["id"],
       "each entry embeds the previous entry's hash")
 truth(summary["open_engagements"] == [], "an outcome closes the opened engagement")
+
+# --- INVALIDATED is first-class through attest + the registry (the load-bearing property): a bundle
+# whose embedded ledger re-derives to INVALIDATED verifies, and the redacted entry records the verdict
+# string VERBATIM (never serialized as a CONFIRMED-anything). No registry schema change was needed. ---
+_man = json.loads(base64.b64decode(bundle["envelope"]["payload"]))["predicate"]["manifest"]
+_inval_led = {
+    "schema": "calma/ledger@1", "repo_verdict": "INVALIDATED", "target": "leakage-fixture",
+    "scope": {"isolation_tier": "tier0", "determinism_mode": "controlled-to-bit"},
+    "claims": [{
+        "id": "c1", "headline": True, "verdict": "INVALIDATED",
+        "input_binding_status": "independently-bound",
+        "verdict_inputs": {"gap": 0.0, "effective_budget": 1e-9, "binding_status": "independently-bound",
+                           "determinism_mode": "controlled-to-bit", "container_present": True,
+                           "band_coverage_ok": True, "sufficient_k": True, "exit_codes": [0],
+                           "claim_outside_ci": False, "claim_confirmed_target": True,
+                           "validity_invalidated": True, "oos_claim_asserted": True},
+        "driving_dimension": "leakage", "waivable": False,
+        "metric": "auc", "claimed_value": 0.94, "recomputed_value": 0.94,
+    }],
+    "findings": [{
+        "id": "f-c1-leak", "claim_id": "c1", "dimension": "leakage", "severity": "blocker",
+        "status": "open", "confidence": "deterministic", "fixable_by": "author",
+        "locator": "held-out AUC isn't held-out: 30% exact row overlap",
+        "unblock": "evaluate on a split with no train/test overlap, then re-verify",
+        "reverify": {"kind": "artifact-recheck", "source": "rows", "expected": "zero overlap"},
+    }],
+}
+_ibundle = A.make_bundle(_inval_led, _man, seed)
+_iok, _ichecks = A.verify_bundle(_ibundle)
+truth(_iok, "an INVALIDATED bundle verifies (re-derives byte-for-byte): %s" % [c for c in _ichecks if not c[1]])
+_ientry = R.derive_entry(_ibundle)
+truth(_ientry["verdict"] == "INVALIDATED" and set(_ientry) <= R.ALLOWED_FIELDS,
+      "the redacted entry records verdict=INVALIDATED verbatim, whitelisted (no CONFIRMED-anything)")
+_ireg = tempfile.mkdtemp()
+R.append_entry(_ireg, _ientry, seed)
+_iok2, _, _isum = R.verify_chain(_ireg)
+truth(_iok2 and _isum["verdicts"].get("INVALIDATED") == 1,
+      "the INVALIDATED entry hash-chains and the audit counts it as first-class")
 
 # opened-without-outcome stays visible (the clinical-trial property)
 reg2 = tempfile.mkdtemp()

@@ -42,7 +42,7 @@ REVERIFY_KINDS = {"static-reread", "artifact-recheck", "requires-reexecution"}
 FIXABLE = {"editor", "author", "operator", "none"}
 BINDING_STATES = {"independently-bound", "plausibly-bound", "author-asserted"}
 CLEAN_REPO = {V.CONFIRMED, V.CAVEATS}
-NONCLEAN_REPO = {"REFUTED", "MIXED", "CONTESTED"}
+NONCLEAN_REPO = {"REFUTED", "MIXED", "CONTESTED", V.INVALIDATED}
 
 
 def load_ledger(path):
@@ -94,9 +94,15 @@ def compute_repo_verdict(led):
         return V.INCONCLUSIVE
     headline_refuted = any(c["verdict"] == V.REFUTED and c.get("headline") for c in claims)
     nonheadline_refuted = any(c["verdict"] == V.REFUTED and not c.get("headline") for c in claims)
+    # INVALIDATED is a severity-peer of REFUTED (authoritative, exit 1): a headline INVALIDATED sets the
+    # repo INVALIDATED; a non-headline one rolls up to MIXED, identically to a non-headline REFUTED.
+    headline_invalidated = any(c["verdict"] == V.INVALIDATED and c.get("headline") for c in claims)
+    nonheadline_invalidated = any(c["verdict"] == V.INVALIDATED and not c.get("headline") for c in claims)
     if headline_refuted:
         return "REFUTED"
-    if nonheadline_refuted:
+    if headline_invalidated:
+        return V.INVALIDATED
+    if nonheadline_refuted or nonheadline_invalidated:
         return "MIXED"
     if any(c["verdict"] == V.INCONCLUSIVE for c in claims):
         # not a refutation; if nothing CONFIRMED at all, the repo is under-determined
@@ -142,6 +148,21 @@ def semantic_validate(led):
             rep = c.get("reproduction_or_reverify") or {}
             if rep.get("kind") not in REVERIFY_KINDS or not rep.get("expected"):
                 e.append("claim %s: REFUTED needs a structured reproduction with a runnable `expected`" % cid)
+        if c["verdict"] == V.INVALIDATED:
+            # INVALIDATED: the number reproduces but the result is invalid. Distinct precondition from
+            # REFUTED - NO numeric gap / reproduction is required - but it MUST carry the authoritative
+            # validity evidence: a linked blocker finding of the driving dimension AND an out-of-sample
+            # claim assertion (the scope-guard, so an in-sample/undeclared claim never lands here).
+            axis = c.get("driving_dimension")
+            if axis not in DIMENSIONS:
+                e.append("claim %s: INVALIDATED but driving_dimension %r invalid" % (cid, axis))
+            linked = [f for f in led["findings"]
+                      if f.get("claim_id") == cid and f.get("severity") == "blocker"
+                      and f.get("dimension") == axis]
+            if not linked:
+                e.append("claim %s: INVALIDATED needs a linked blocker finding of dimension %r" % (cid, axis))
+            if not (c.get("verdict_inputs") or {}).get("oos_claim_asserted"):
+                e.append("claim %s: INVALIDATED requires an out-of-sample claim assertion" % cid)
 
     # (4) referential integrity + execution-derived findings are not static-reread
     for f in led["findings"]:
@@ -157,10 +178,11 @@ def semantic_validate(led):
     computed = compute_repo_verdict(led)
     if led["repo_verdict"] != computed:
         e.append("repo_verdict %r != computed worst-of-claims %r" % (led["repo_verdict"], computed))
-    nonwaivable_refuted = any(
-        c["verdict"] == V.REFUTED and not c.get("waivable", False) for c in led["claims"])
-    if nonwaivable_refuted and led["repo_verdict"] in CLEAN_REPO:
-        e.append("a non-waivable REFUTED claim cannot coexist with a clean repo_verdict")
+    nonwaivable_bad = any(
+        c["verdict"] in (V.REFUTED, V.INVALIDATED) and not c.get("waivable", False)
+        for c in led["claims"])
+    if nonwaivable_bad and led["repo_verdict"] in CLEAN_REPO:
+        e.append("a non-waivable REFUTED/INVALIDATED claim cannot coexist with a clean repo_verdict")
     return e
 
 

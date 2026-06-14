@@ -2,6 +2,32 @@
 
 All notable changes to the calma skill/CLI. Dates are UTC.
 
+## Unreleased — validity families (leakage + overfitting)
+
+In progress: two new validity-family detectors on the findings rail, plus a new verdict shape they
+need. Serial, leakage-first; each step keeps the full suite green.
+
+- **New verdict `INVALIDATED`** — "the number reproduces while the result is invalid." A first-class,
+  gap-free third shape (distinct from `CONFIRMED` and the gap-gated `REFUTED`), reached only by a
+  conservative *degrade*: a validity detector sets one of four new `verdict_inputs` and the claim
+  verdict is re-derived — `validity_invalidated`+`oos_claim_asserted` → INVALIDATED;
+  `validity_unresolved` → CAN'T-CONFIRM (e.g. OOS-indeterminate / uncountable-N); `soft_validity_caveat`
+  → CONFIRMED-WITH-CAVEATS. Plain REFUTED stays **strictly gap-gated** (the override is consulted only on
+  the within-budget / number-reproduces paths). `semantic_validate` gives INVALIDATED its own precondition
+  (a linked `blocker` of the driving dimension + an out-of-sample assertion; no numeric gap required).
+- **Fail-closed verdict classification.** `clean` is now an allowlist (`verdict.is_clean`,
+  `CLEAN_VERDICTS`/`CATCH_VERDICTS`): any unknown/future verdict is treated as non-clean (exit 1, no clean
+  badge), so a missed switch-site degrades to over-cautious, never to a false-confirm. INVALIDATED is
+  plumbed through the gate, repo rollup (headline → INVALIDATED, non-headline → MIXED), report (headline
+  word/symbol/HTML class + an evidence-led render), the CLI exit/cache/tally/batch/publish paths, and the
+  agent guardrail hook.
+- **Registry/attestation: no schema change.** An INVALIDATED bundle verifies (the embedded ledger
+  re-derives the label byte-for-byte) and the redacted, hash-chained registry entry records the verdict
+  string verbatim — never serialized as a CONFIRMED-anything.
+- Tests: +14 `test_verdict`, +12 `test_ledger`, +3 `test_registry` (attest→registry round-trip), incl. a
+  fail-closed unknown-verdict property. Detectors, contract surface, kernels, and reference vectors land
+  in the following steps. Design of record: `.claude/skills/calma/PLAN.md`.
+
 ## 0.9.1 — 2026-06-14
 
 ### Robustness hardening (closed-loop audit: never traceback, never a wrong verdict)
