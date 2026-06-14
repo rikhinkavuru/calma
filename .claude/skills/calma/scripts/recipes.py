@@ -2475,3 +2475,33 @@ def _ic_k(fn):
 for _mid in ("aic", "bic", "aicc", "hqic"):
     register(_mid, family="regression", required_tags=["residual"],
              set_maturity="reviewed", accepted_conventions=["k=<int>"])(_ic_k(getattr(N, _mid)))
+
+
+# ======================================================================================
+# Pack INE - inequality / concentration depth. A positive value column; GE takes an alpha.
+# ======================================================================================
+
+@register("hoover_index", family="analytics", required_tags=["value"], set_maturity="reviewed")
+def hoover_index(cols, binding, convention=None):
+    xs = cols[binding["value"]]
+    return _result(N.hoover_index(xs), {"n": len(xs)})
+
+
+@register("mean_log_deviation", family="analytics", required_tags=["value"], set_maturity="reviewed")
+def mean_log_deviation(cols, binding, convention=None):
+    xs = cols[binding["value"]]
+    return _result(N.mean_log_deviation(xs), {"n": len(xs)})
+
+
+@register("generalized_entropy_index", family="analytics", required_tags=["value"],
+          set_maturity="reviewed", accepted_conventions=["alpha=<float>"])
+def generalized_entropy_index(cols, binding, convention=None):
+    xs = cols[binding["value"]]
+    alpha = _conv_float(convention, "alpha", 2.0)
+    return _result(N.generalized_entropy_index(xs, alpha), {"n": len(xs), "alpha": alpha})
+
+
+@register("percentile_ratio", family="analytics", required_tags=["value"], set_maturity="reviewed")
+def percentile_ratio(cols, binding, convention=None):
+    xs = cols[binding["value"]]
+    return _result(N.percentile_ratio(xs), {"n": len(xs)})

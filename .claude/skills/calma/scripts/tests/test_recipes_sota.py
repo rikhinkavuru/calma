@@ -461,6 +461,11 @@ KINDS = {
     "bic": lambda a: N.bic(a["resid"], a["k"]),
     "aicc": lambda a: N.aicc(a["resid"], a["k"]),
     "hqic": lambda a: N.hqic(a["resid"], a["k"]),
+    # pack INE - inequality / concentration depth
+    "hoover_index": lambda a: N.hoover_index(a["xs"]),
+    "mean_log_deviation": lambda a: N.mean_log_deviation(a["xs"]),
+    "generalized_entropy_index": lambda a: N.generalized_entropy_index(a["xs"], a["alpha"]),
+    "percentile_ratio": lambda a: N.percentile_ratio(a["xs"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -615,10 +620,12 @@ EXPECTED = {
     "ks_pme", "direct_alpha", "pme_plus_lambda",
     # pack IC - information criteria / model selection (5)
     "log_likelihood_gaussian", "aic", "bic", "aicc", "hqic",
+    # pack INE - inequality / concentration depth (4)
+    "hoover_index", "mean_log_deviation", "generalized_entropy_index", "percentile_ratio",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 378 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 382 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

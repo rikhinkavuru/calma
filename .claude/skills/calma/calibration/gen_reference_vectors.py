@@ -1985,6 +1985,26 @@ case("bic", "bic", {"resid": ic_resid, "k": ic_k}, ic_bic, atol=1e-9)
 case("aicc", "aicc", {"resid": ic_resid, "k": ic_k}, ic_aicc, atol=1e-9)
 case("hqic", "hqic", {"resid": ic_resid, "k": ic_k}, float(ic_hqic), atol=1e-9)
 
+# ============================ Pack INE - inequality / concentration depth ============================
+# Independent reference: numpy recompute of the Hoover index, mean log deviation,
+# generalized entropy GE(alpha) and the P90/P10 percentile ratio.
+
+ine_x = list(uniforms(3301, 80, 1.0, 100.0))
+ine_alpha = 2.0
+_ix = np.array(ine_x)
+_imu = float(_ix.mean())
+_is = float(_ix.sum())
+_in = len(_ix)
+ine_hoover = float(0.5 * np.sum(np.abs(_ix / _is - 1.0 / _in)))
+ine_mld = float(np.mean(np.log(_imu / _ix)))
+ine_ge = float(1.0 / (_in * ine_alpha * (ine_alpha - 1.0)) * np.sum((_ix / _imu) ** ine_alpha - 1.0))
+ine_pr = float(np.quantile(_ix, 0.90) / np.quantile(_ix, 0.10))
+case("hoover_index", "hoover_index", {"xs": ine_x}, ine_hoover, atol=1e-12)
+case("mean_log_deviation", "mean_log_deviation", {"xs": ine_x}, ine_mld, atol=1e-12)
+case("generalized_entropy_index", "generalized_entropy_index",
+     {"xs": ine_x, "alpha": ine_alpha}, ine_ge, atol=1e-12)
+case("percentile_ratio", "percentile_ratio", {"xs": ine_x}, ine_pr, atol=1e-12)
+
 # ============================ write ============================
 
 doc = {

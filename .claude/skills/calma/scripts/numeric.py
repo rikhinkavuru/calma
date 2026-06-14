@@ -5279,3 +5279,61 @@ def hqic(resid, k):
     if llf is None or k < 0 or n < 3:
         return float("nan")
     return -2.0 * llf + 2.0 * k * dlog(dlog(n))
+
+
+# ======================================================================================
+# Pack INE - inequality / concentration depth. A positive value column gives the Hoover
+# (Robin Hood) index, the mean log deviation (Theil-L / GE(0)), the generalized entropy
+# index GE(alpha) and the P90/P10 percentile ratio. Complements gini / theil / atkinson / hhi.
+# ======================================================================================
+
+def _ine_ok(xs):
+    return bool(xs) and not _has_nan(xs) and all(x > 0 for x in xs)
+
+
+def hoover_index(xs):
+    """Hoover (Robin Hood) index: 0.5 * sum |x_i/sum(x) - 1/n|; share to redistribute for equality."""
+    if not _ine_ok(xs):
+        return float("nan")
+    s = math.fsum(xs)
+    n = len(xs)
+    if s <= 0:
+        return float("nan")
+    return 0.5 * math.fsum(abs(x / s - 1.0 / n) for x in xs)
+
+
+def mean_log_deviation(xs):
+    """Mean log deviation (Theil-L / GE(0)): (1/n) sum ln(mean/x_i)."""
+    if not _ine_ok(xs):
+        return float("nan")
+    mu = fmean(xs)
+    if mu <= 0:
+        return float("nan")
+    return fmean([dlog(mu / x) for x in xs])
+
+
+def generalized_entropy_index(xs, alpha=2.0):
+    """Generalized entropy index GE(alpha). alpha=0 -> mean log deviation, alpha=1 -> Theil-T,
+    alpha=2 -> half the squared coefficient of variation."""
+    if not _ine_ok(xs):
+        return float("nan")
+    mu = fmean(xs)
+    if mu <= 0:
+        return float("nan")
+    n = len(xs)
+    if alpha == 0.0:
+        return fmean([dlog(mu / x) for x in xs])
+    if alpha == 1.0:
+        return fmean([(x / mu) * dlog(x / mu) for x in xs])
+    c = 1.0 / (n * alpha * (alpha - 1.0))
+    return c * math.fsum((x / mu) ** alpha - 1.0 for x in xs)
+
+
+def percentile_ratio(xs):
+    """P90/P10 ratio: the 90th percentile over the 10th (numpy-linear quantiles)."""
+    if not _ine_ok(xs):
+        return float("nan")
+    lo = quantile(xs, 0.10)
+    if lo <= 0:
+        return float("nan")
+    return quantile(xs, 0.90) / lo
