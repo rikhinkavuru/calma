@@ -1831,6 +1831,23 @@ case("trimean", "trimean", {"xs": rl_x}, rl_tri, atol=1e-12)
 case("hodges_lehmann_estimator", "hodges_lehmann_estimator", {"xs": rl_x}, rl_hl, atol=1e-12)
 case("gastwirth_location", "gastwirth_location", {"xs": rl_x}, rl_gw, atol=1e-12)
 
+# Pack DM - Gini mean difference & L-moment dispersion (numpy recompute)
+dm_x = list(uniforms(4001, 70, -2.0, 14.0))
+_dmx = np.array(dm_x)
+_dmn = len(_dmx)
+dm_gmd = float(np.sum(np.abs(_dmx[:, None] - _dmx[None, :])) / (_dmn * (_dmn - 1)))
+dm_rmd = dm_gmd / abs(float(_dmx.mean()))
+_dms = np.sort(_dmx)
+_dmi = np.arange(_dmn)
+_dmb0 = float(_dms.mean())
+_dmb1 = float(np.sum(_dmi / (_dmn - 1) * _dms) / _dmn)
+dm_l2 = 2.0 * _dmb1 - _dmb0
+dm_lcv = dm_l2 / _dmb0
+case("gini_mean_difference", "gini_mean_difference", {"xs": dm_x}, dm_gmd, atol=1e-12)
+case("relative_mean_difference", "relative_mean_difference", {"xs": dm_x}, dm_rmd, atol=1e-12)
+case("l_scale", "l_scale", {"xs": dm_x}, dm_l2, atol=1e-12)
+case("l_cv", "l_cv", {"xs": dm_x}, dm_lcv, atol=1e-12)
+
 # ============================ Pack PA - portfolio construction & attribution ============================
 # Independent reference: vectorized numpy recompute of Brinson-Hood-Beebower attribution
 # and the weight-based metrics over a deterministic 6-segment book.

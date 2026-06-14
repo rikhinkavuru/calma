@@ -407,6 +407,10 @@ KINDS = {
     "trimean": lambda a: N.trimean(a["xs"]),
     "hodges_lehmann_estimator": lambda a: N.hodges_lehmann_estimator(a["xs"]),
     "gastwirth_location": lambda a: N.gastwirth_location(a["xs"]),
+    "gini_mean_difference": lambda a: N.gini_mean_difference(a["xs"]),
+    "relative_mean_difference": lambda a: N.relative_mean_difference(a["xs"]),
+    "l_scale": lambda a: N.l_scale(a["xs"]),
+    "l_cv": lambda a: N.l_cv(a["xs"]),
     "mood_test": lambda a: N.mood_test(a["a"], a["b"]),
     "ansari_bradley": lambda a: N.ansari_bradley(a["a"], a["b"]),
     "brunner_munzel": lambda a: N.brunner_munzel(a["a"], a["b"]),
@@ -736,6 +740,8 @@ EXPECTED = {
     "pearson_median_skewness", "studentized_range", "relative_mean_deviation", "midhinge",
     # pack RL - robust location estimators (3)
     "trimean", "hodges_lehmann_estimator", "gastwirth_location",
+    # pack DM - Gini mean difference & L-moment dispersion (4)
+    "gini_mean_difference", "relative_mean_difference", "l_scale", "l_cv",
     # pack PA - portfolio construction & attribution (7)
     "brinson_allocation", "brinson_selection", "brinson_interaction", "brinson_total_active",
     "active_share", "portfolio_turnover", "effective_number_of_bets",
@@ -822,7 +828,7 @@ EXPECTED = {
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 494 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 498 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

@@ -6304,6 +6304,52 @@ def l_kurtosis(xs):
 
 
 # ======================================================================================
+# Pack DM - Gini mean difference & L-moment dispersion. The Shalit-Yitzhaki Gini mean
+# difference (a dispersion / risk measure), its relative form, and the L-scale (L2) and
+# L-coefficient-of-variation. Definitional; validated against numpy.
+# ======================================================================================
+
+def gini_mean_difference(xs):
+    """Gini mean difference: (2/(n(n-1))) * sum_{i<j} |x_i - x_j| (the absolute-difference
+    dispersion underlying the Gini coefficient; used in MAD/GMD portfolio theory)."""
+    if not xs or _has_nan(xs) or len(xs) < 2:
+        return float("nan")
+    n = len(xs)
+    s = sorted(xs)
+    # sum_{i<j}(s_j - s_i) = sum_k s_k * (2k - n + 1) for 0-based k
+    tot = math.fsum(s[k] * (2 * k - n + 1) for k in range(n))
+    return 2.0 * tot / (n * (n - 1))
+
+
+def relative_mean_difference(xs):
+    """Relative mean difference: Gini mean difference / |mean| (= 2*Gini for positive data)."""
+    if not xs or _has_nan(xs) or len(xs) < 2:
+        return float("nan")
+    m = fmean(xs)
+    if m == 0:
+        return float("nan")
+    return gini_mean_difference(xs) / abs(m)
+
+
+def l_scale(xs):
+    """L-scale: the second sample L-moment L2 (a robust dispersion measure)."""
+    if not _sh_ok(xs):
+        return float("nan")
+    mm = _l_moments(xs)
+    return float("nan") if mm is None else mm[1]
+
+
+def l_cv(xs):
+    """L-coefficient of variation (Hosking): L2 / L1."""
+    if not _sh_ok(xs):
+        return float("nan")
+    mm = _l_moments(xs)
+    if mm is None or mm[0] == 0:
+        return float("nan")
+    return mm[1] / mm[0]
+
+
+# ======================================================================================
 # Pack TL - tail-risk / extreme-value estimators. A positive loss / magnitude column gives
 # the Hill and Pickands tail-index estimates and the max-to-sum moment ratio (a finite-
 # moment diagnostic). Validated against numpy recomputes of the documented closed forms.
