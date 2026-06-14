@@ -734,6 +734,12 @@ KINDS = {
     "sokal_sneath_distance": lambda a: N.sokal_sneath_distance(a["x"], a["y"]),
     "yule_distance": lambda a: N.yule_distance(a["x"], a["y"]),
     "hamming_distance": lambda a: N.hamming_distance(a["x"], a["y"]),
+    # pack OLS - simple OLS regression inference
+    "ols_slope": lambda a: N.ols_slope(a["x"], a["y"]),
+    "ols_intercept": lambda a: N.ols_intercept(a["x"], a["y"]),
+    "residual_standard_error": lambda a: N.residual_standard_error(a["x"], a["y"]),
+    "regression_f_statistic": lambda a: N.regression_f_statistic(a["x"], a["y"]),
+    "regression_t_statistic": lambda a: N.regression_t_statistic(a["x"], a["y"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -1023,10 +1029,13 @@ EXPECTED = {
     # pack BD3 - boolean / set distances (6)
     "dice_distance", "rogers_tanimoto_distance", "russell_rao_distance",
     "sokal_sneath_distance", "yule_distance", "hamming_distance",
+    # pack OLS - simple OLS regression inference (5)
+    "ols_slope", "ols_intercept", "residual_standard_error",
+    "regression_f_statistic", "regression_t_statistic",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 615 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 620 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

@@ -1,7 +1,7 @@
-# Recipe catalog (representative families across all 617 SOTA-validated recipes)
+# Recipe catalog (representative families across all 622 SOTA-validated recipes)
 
 This documents the binding tags, conventions, and data layouts by FAMILY with representative
-recipes; the authoritative, complete id list is `calma recipes` (617 ids across 16 families).
+recipes; the authoritative, complete id list is `calma recipes` (622 ids across 16 families).
 Every recipe recomputes its number ONLY from raw machine-readable artifacts via the
 reference-deterministic kernels in `numeric.py` (fsum / pairwise product / sqrt, plus the
 deterministic transcendental kernels - never platform libm, never numpy). Every recipe is

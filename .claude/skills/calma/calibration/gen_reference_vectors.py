@@ -3268,6 +3268,19 @@ case("sokal_sneath_distance", "sokal_sneath_distance", _bd3, float(_spd.sokalsne
 case("yule_distance", "yule_distance", _bd3, float(_spd.yule(bd3_x, bd3_y)), atol=1e-12)
 case("hamming_distance", "hamming_distance", _bd3, float(_spd.hamming(bd3_x, bd3_y)), atol=1e-12)
 
+# ============================ Pack OLS - simple OLS regression inference ============================
+# Independent reference: statsmodels.OLS on [const, x].
+
+ols_x = list(uniforms(8001, 50, -4, 4))
+ols_y = [1.2 + 0.8 * xi + ei for xi, ei in zip(ols_x, uniforms(8002, 50, -1.5, 1.5))]
+_ols_m = _sm.OLS(np.array(ols_y), _sm.add_constant(np.array(ols_x))).fit()
+_ols_args = {"x": ols_x, "y": ols_y}
+case("ols_slope", "ols_slope", _ols_args, float(_ols_m.params[1]), atol=1e-10, rtol=1e-10)
+case("ols_intercept", "ols_intercept", _ols_args, float(_ols_m.params[0]), atol=1e-10, rtol=1e-10)
+case("residual_standard_error", "residual_standard_error", _ols_args, float(np.sqrt(_ols_m.mse_resid)), atol=1e-10, rtol=1e-10)
+case("regression_f_statistic", "regression_f_statistic", _ols_args, float(_ols_m.fvalue), atol=1e-8, rtol=1e-9)
+case("regression_t_statistic", "regression_t_statistic", _ols_args, float(_ols_m.tvalues[1]), atol=1e-8, rtol=1e-9)
+
 # ============================ write ============================
 
 doc = {

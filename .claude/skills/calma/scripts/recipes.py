@@ -3570,3 +3570,13 @@ for _mid in ("dice_distance", "rogers_tanimoto_distance", "russell_rao_distance"
              "sokal_sneath_distance", "yule_distance", "hamming_distance"):
     register(_mid, family="analytics", required_tags=["x", "y"],
              set_maturity="reviewed")(_xy_recipe(getattr(N, _mid)))
+
+
+# ======================================================================================
+# Pack OLS - simple OLS regression inference over paired (x, y) columns.
+# ======================================================================================
+
+for _mid in ("ols_slope", "ols_intercept", "residual_standard_error",
+             "regression_f_statistic", "regression_t_statistic"):
+    register(_mid, family="regression", required_tags=["x", "y"],
+             set_maturity="reviewed")(_xy_recipe(getattr(N, _mid)))

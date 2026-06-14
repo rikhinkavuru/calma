@@ -8501,3 +8501,65 @@ def hamming_distance(x, y):
     if n == 0:
         return float("nan")
     return sum(1 for a, b in zip(x, y) if a != b) / n
+
+
+# ======================================================================================
+# Pack OLS - simple (single-regressor) OLS regression inference over paired (x, y) columns:
+# slope, intercept, overall F, slope t-statistic and the residual standard error. Backed by
+# the deterministic _ols_fit solver; validated against statsmodels.OLS.
+# ======================================================================================
+
+def _ols_xy(x, y):
+    if not _xy_ok(x, y) or len(x) < 3:
+        return None
+    return _ols_fit([[1.0, xi] for xi in x], y)
+
+
+def ols_slope(x, y):
+    """Ordinary-least-squares regression slope of y on x (statsmodels OLS params[1])."""
+    r = _ols_xy(x, y)
+    return float("nan") if r is None else r[0][1]
+
+
+def ols_intercept(x, y):
+    """Ordinary-least-squares regression intercept of y on x (statsmodels OLS params[0])."""
+    r = _ols_xy(x, y)
+    return float("nan") if r is None else r[0][0]
+
+
+def residual_standard_error(x, y):
+    """Residual standard error sqrt(SSR/(n-2)) of the OLS fit (sqrt of statsmodels mse_resid)."""
+    r = _ols_xy(x, y)
+    if r is None:
+        return float("nan")
+    n = len(x)
+    return math.sqrt(r[1] / (n - 2))
+
+
+def regression_f_statistic(x, y):
+    """Overall F-statistic of the single-regressor OLS fit (statsmodels OLS fvalue)."""
+    r = _ols_xy(x, y)
+    if r is None or r[2] == 0:
+        return float("nan")
+    r2 = 1.0 - r[1] / r[2]
+    if r2 >= 1.0:
+        return float("nan")
+    n = len(x)
+    return (r2 / 1.0) / ((1.0 - r2) / (n - 2))
+
+
+def regression_t_statistic(x, y):
+    """t-statistic of the OLS slope: slope / SE(slope) (statsmodels OLS tvalues[1])."""
+    r = _ols_xy(x, y)
+    if r is None:
+        return float("nan")
+    n = len(x)
+    sigma2 = r[1] / (n - 2)
+    mx = fmean(x)
+    sxx = math.fsum((xi - mx) ** 2 for xi in x)
+    if sxx <= 0:
+        return float("nan")
+    se = math.sqrt(sigma2 / sxx)
+    if se == 0:
+        return float("nan")
+    return r[0][1] / se

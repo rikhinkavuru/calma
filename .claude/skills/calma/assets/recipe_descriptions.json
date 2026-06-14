@@ -4602,6 +4602,30 @@
       ],
       "description": "Ratio of the odds of an outcome between two groups."
     },
+    "ols_intercept": {
+      "aliases": [
+        "ols intercept",
+        "regression intercept",
+        "least squares intercept",
+        "constant term",
+        "where the line crosses the y-axis",
+        "fitted line intercept",
+        "alpha intercept"
+      ],
+      "description": "Ordinary-least-squares regression intercept of y on x."
+    },
+    "ols_slope": {
+      "aliases": [
+        "ols slope",
+        "regression slope",
+        "least squares slope",
+        "beta coefficient",
+        "how much y changes per unit x",
+        "fitted line slope",
+        "linear regression slope"
+      ],
+      "description": "Ordinary-least-squares regression slope of y on x."
+    },
     "omega_ratio": {
       "aliases": [
         "gains over losses around threshold",
@@ -5378,6 +5402,30 @@
       ],
       "description": "Willmott's 2012 refined index of agreement, bounded in [-1,1]."
     },
+    "regression_f_statistic": {
+      "aliases": [
+        "regression f-statistic",
+        "overall f test",
+        "model f statistic",
+        "is the regression significant overall",
+        "f value of the fit",
+        "anova f for regression",
+        "global f test"
+      ],
+      "description": "Overall F-statistic of the regression fit."
+    },
+    "regression_t_statistic": {
+      "aliases": [
+        "regression t-statistic",
+        "slope t-stat",
+        "t value of the slope",
+        "is the slope significant",
+        "t test on the coefficient",
+        "coefficient t statistic",
+        "slope significance t"
+      ],
+      "description": "t-statistic of the OLS slope coefficient."
+    },
     "relative_absolute_error": {
       "aliases": [
         "rae",
@@ -5478,6 +5526,18 @@
         "long memory range statistic"
       ],
       "description": "Range of cumulative deviations divided by standard deviation; basis of the Hurst exponent."
+    },
+    "residual_standard_error": {
+      "aliases": [
+        "residual standard error",
+        "standard error of regression",
+        "sigma hat",
+        "typical residual size",
+        "root mean square residual",
+        "regression standard error",
+        "rse"
+      ],
+      "description": "Standard error of the regression residuals (sigma-hat)."
     },
     "restricted_mean_survival_time": {
       "aliases": [
