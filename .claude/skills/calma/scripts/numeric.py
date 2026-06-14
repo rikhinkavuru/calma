@@ -4040,6 +4040,53 @@ def bs_volga(S, K, T, sig, r, qty, is_call):
     return _bs_book(S, K, T, sig, r, qty, is_call, _bs_volga_pos)
 
 
+# Pack OPT2 - higher-order Greeks (all call=put for the non-dividend model). Closed forms
+# verified against finite differences of the first-order Greeks.
+
+def _bs_speed_pos(s, k, t, v, r, is_call):
+    d1, _d2 = _bs_d1d2(s, k, t, v, r)
+    rt = v * math.sqrt(t)
+    return -_norm_pdf(d1) / (s * s * v * math.sqrt(t)) * (d1 / rt + 1.0)
+
+
+def _bs_zomma_pos(s, k, t, v, r, is_call):
+    d1, d2 = _bs_d1d2(s, k, t, v, r)
+    gamma = _norm_pdf(d1) / (s * v * math.sqrt(t))
+    return gamma * (d1 * d2 - 1.0) / v
+
+
+def _bs_charm_pos(s, k, t, v, r, is_call):
+    d1, d2 = _bs_d1d2(s, k, t, v, r)
+    rt = v * math.sqrt(t)
+    return -_norm_pdf(d1) * (2.0 * r * t - d2 * rt) / (2.0 * t * rt)
+
+
+def _bs_color_pos(s, k, t, v, r, is_call):
+    d1, d2 = _bs_d1d2(s, k, t, v, r)
+    rt = v * math.sqrt(t)
+    return -_norm_pdf(d1) / (2.0 * s * t * v * math.sqrt(t)) * (1.0 + (2.0 * r * t - d2 * rt) / rt * d1)
+
+
+def bs_speed(S, K, T, sig, r, qty, is_call):
+    """Book speed sum_i qty_i * d3Price/dS3_i (gamma's sensitivity to spot; call=put)."""
+    return _bs_book(S, K, T, sig, r, qty, is_call, _bs_speed_pos)
+
+
+def bs_zomma(S, K, T, sig, r, qty, is_call):
+    """Book zomma sum_i qty_i * dGamma/dsigma_i (call=put)."""
+    return _bs_book(S, K, T, sig, r, qty, is_call, _bs_zomma_pos)
+
+
+def bs_charm(S, K, T, sig, r, qty, is_call):
+    """Book charm sum_i qty_i * dDelta/dt_i, delta decay per calendar year (call=put)."""
+    return _bs_book(S, K, T, sig, r, qty, is_call, _bs_charm_pos)
+
+
+def bs_color(S, K, T, sig, r, qty, is_call):
+    """Book color sum_i qty_i * dGamma/dt_i, gamma decay per calendar year (call=put)."""
+    return _bs_book(S, K, T, sig, r, qty, is_call, _bs_color_pos)
+
+
 def _bs_implied_one(s, k, t, r, price, is_call):
     """Implied vol of a single option by bisection on the monotone price(sigma)."""
     def f(v):

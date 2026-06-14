@@ -346,6 +346,10 @@ KINDS = {
     "bs_rho": lambda a: N.bs_rho(a["S"], a["K"], a["T"], a["sigma"], a["r"], a["qty"], a["is_call"]),
     "bs_vanna": lambda a: N.bs_vanna(a["S"], a["K"], a["T"], a["sigma"], a["r"], a["qty"], a["is_call"]),
     "bs_volga": lambda a: N.bs_volga(a["S"], a["K"], a["T"], a["sigma"], a["r"], a["qty"], a["is_call"]),
+    "bs_speed": lambda a: N.bs_speed(a["S"], a["K"], a["T"], a["sigma"], a["r"], a["qty"], a["is_call"]),
+    "bs_zomma": lambda a: N.bs_zomma(a["S"], a["K"], a["T"], a["sigma"], a["r"], a["qty"], a["is_call"]),
+    "bs_charm": lambda a: N.bs_charm(a["S"], a["K"], a["T"], a["sigma"], a["r"], a["qty"], a["is_call"]),
+    "bs_color": lambda a: N.bs_color(a["S"], a["K"], a["T"], a["sigma"], a["r"], a["qty"], a["is_call"]),
     "bs_implied_vol": lambda a: N.bs_implied_vol(a["S"], a["K"], a["T"], a["r"], a["price"], a["is_call"]),
     # pack ES - expected-shortfall / VaR backtesting
     "var_breach_rate": lambda a: N.var_breach_rate(a["rets"], a["var"]),
@@ -646,6 +650,8 @@ EXPECTED = {
     # pack OPT - Black-Scholes options & Greeks (9)
     "bs_value", "bs_delta", "bs_gamma", "bs_vega", "bs_theta",
     "bs_rho", "bs_vanna", "bs_volga", "bs_implied_vol",
+    # pack OPT2 - higher-order Greeks (4)
+    "bs_speed", "bs_zomma", "bs_charm", "bs_color",
     # pack ES - expected-shortfall / VaR backtesting (7)
     "var_breach_rate", "realized_shortfall", "expected_exceedance", "basel_traffic_light",
     "es_backtest_ratio", "acerbi_szekely_z1", "acerbi_szekely_z2",
@@ -732,7 +738,7 @@ EXPECTED = {
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 439 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 443 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

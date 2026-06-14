@@ -1483,6 +1483,35 @@ case("bs_rho_put", "bs_rho", _opt_args(False), _opt_book(_opt_rho, False), atol=
 case("bs_vanna", "bs_vanna", _opt_args(True), _opt_book(_opt_vanna, True), atol=1e-10)
 case("bs_volga", "bs_volga", _opt_args(True), _opt_book(_opt_volga, True), atol=1e-9)
 
+
+def _opt_speed(s, k, t, v, r, c):
+    d1, _d2 = _opt_d1d2(s, k, t, v, r)
+    rt = v * _opt_m.sqrt(t)
+    return -_spn.pdf(d1) / (s * s * v * _opt_m.sqrt(t)) * (d1 / rt + 1.0)
+
+
+def _opt_zomma(s, k, t, v, r, c):
+    d1, d2 = _opt_d1d2(s, k, t, v, r)
+    return (_spn.pdf(d1) / (s * v * _opt_m.sqrt(t))) * (d1 * d2 - 1.0) / v
+
+
+def _opt_charm(s, k, t, v, r, c):
+    d1, d2 = _opt_d1d2(s, k, t, v, r)
+    rt = v * _opt_m.sqrt(t)
+    return -_spn.pdf(d1) * (2.0 * r * t - d2 * rt) / (2.0 * t * rt)
+
+
+def _opt_color(s, k, t, v, r, c):
+    d1, d2 = _opt_d1d2(s, k, t, v, r)
+    rt = v * _opt_m.sqrt(t)
+    return -_spn.pdf(d1) / (2.0 * s * t * v * _opt_m.sqrt(t)) * (1.0 + (2.0 * r * t - d2 * rt) / rt * d1)
+
+
+case("bs_speed", "bs_speed", _opt_args(True), _opt_book(_opt_speed, True), atol=1e-12)
+case("bs_zomma", "bs_zomma", _opt_args(True), _opt_book(_opt_zomma, True), atol=1e-10)
+case("bs_charm", "bs_charm", _opt_args(True), _opt_book(_opt_charm, True), atol=1e-10)
+case("bs_color", "bs_color", _opt_args(True), _opt_book(_opt_color, True), atol=1e-11)
+
 # implied vol: price each call at a known sigma, recover it with brentq, average across rows
 iv_price = [_opt_px(s, k, t, v, r, True)
             for s, k, t, v, r in zip(opt_S, opt_K, opt_T, opt_sig, opt_r)]
