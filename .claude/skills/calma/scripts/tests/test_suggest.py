@@ -87,5 +87,23 @@ try:
 except Exception as e:  # noqa: BLE001
     check(False, "suggest raised on edge input: %r" % e)
 
+# ---- 4. auto-suggest is wired into verify's unclear paths (not a separate command) ----
+import calma as CALMA  # noqa: E402
+
+# unknown/unclear --metric must raise with semantic suggestions, not just a string-distance guess
+try:
+    CALMA.verify("/tmp", "x", metric="sharp_ratio")
+    check(False, "unknown --metric should raise")
+except ValueError as e:
+    check("sharpe" in str(e).lower(), "unknown --metric should suggest the sharpe family: %s" % e)
+except Exception as e:  # noqa: BLE001
+    check(False, "unknown --metric raised non-ValueError: %r" % e)
+
+# helpers are fail-open and only fire on the unclear case (caller decides when to call them)
+check(CALMA._metric_suggestions("/nonexistent-dir", "") == [], "_metric_suggestions must fail-open to []")
+check(CALMA._suggest_unblock([]) == "", "_suggest_unblock([]) must be empty (no noise when nothing to suggest)")
+ub = CALMA._suggest_unblock(SUGG.suggest("sharpe ratio", k=2))
+check("--metric" in ub and "Did you mean" in ub, "_suggest_unblock should render a pickable 'did you mean' line")
+
 print("test_suggest: %s" % ("OK" if not fails else "%d FAILED" % fails))
 sys.exit(1 if fails else 0)

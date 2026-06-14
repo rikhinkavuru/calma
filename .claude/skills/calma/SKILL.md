@@ -88,6 +88,12 @@ After running `calma verify`, report in THIS order - the user should never need 
    zero-install OpenSSH check." NEVER make the user type signature commands by hand.
 5. If the user wants it on the public record: `calma seal <run_dir> --publish <registry_dir>`,
    then a signed git commit + push makes the site's /registry page update itself.
+6. **On CAN'T-CONFIRM because it's UNCLEAR what to verify** (an `f-no-metric` finding, or a
+   bad `--metric`): the verdict carries a `suggestions` list / a "Did you mean..." line.
+   Surface those candidates and ASK THE USER to pick one (re-run with `--metric <id>`) or to
+   say which number they computed. Do this automatically - never guess a metric to force a
+   verdict, and never make the user invoke `calma suggest` themselves. (In a batch, only the
+   genuinely-ambiguous targets reach this branch; clearly-bound ones verify silently as usual.)
 
 Agents: prefer `--json` - it returns `{verdict, clean, confidence, claimed, recomputed, reason, fix,
 cached, run_dir}` so you branch on the verdict without parsing prose.

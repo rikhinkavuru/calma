@@ -193,6 +193,36 @@ def _not_verified(metric_ids):
     return ["leakage re-run (roadmap)", "overfitting statistics (roadmap)"]
 
 
+def _metric_suggestions(target, claim, k=4):
+    """For the genuinely-unclear case ONLY: when calma cannot bind a metric, rank the recipes
+    the user most likely meant from their claim text + the data's own column/file names, so
+    verify can ask 'did you mean...?' instead of bare-refusing. Suggestion-only and fail-open:
+    never raises, never affects a verdict, never runs when a metric was determined."""
+    try:
+        # the claim is the user's stated intent - the strongest, cleanest signal. Use it alone
+        # when present; the data's column/file names are noisier (a "balance" column wrongly
+        # pulls "balanced_accuracy"), so fall back to them ONLY when there is no claim text.
+        if claim and claim.strip():
+            hit = SUGG.suggest(claim, k=k)
+            if hit:
+                return hit
+        bits = []
+        for a in DC._scan_csvs(target):
+            bits.append(os.path.basename(a.get("path", "")).rsplit(".", 1)[0].replace("_", " "))
+            bits.extend(str(c).replace("_", " ") for c in (a.get("columns") or {}))
+        return SUGG.suggest(" ".join(b for b in bits if b), k=k) if bits else []
+    except Exception:  # noqa: BLE001  - suggestion gathering is best-effort, never load-bearing
+        return []
+
+
+def _suggest_unblock(sugg):
+    """Render ranked suggestions as a one-line 'did you mean' addendum for a finding's unblock."""
+    if not sugg:
+        return ""
+    return ("  Did you mean: %s? Re-run with --metric <id>, or tell me which number you calculated."
+            % "; ".join("%s (%s)" % (s["metric_id"], s["family"]) for s in sugg))
+
+
 def _inconclusive_ledger(run_res, finding=None, target_name=None):
     """A valid INCONCLUSIVE ledger for paths where re-execution could not produce a verdict.
     The finding carries the actionable unblock (the 'here's the fix' line)."""
@@ -547,12 +577,13 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
     if isolation not in (None, "auto", "seatbelt", "docker", "firecracker"):
         raise ValueError("--isolation must be auto/seatbelt/docker/firecracker (got %r)" % isolation)
     if metric and RCP.get(metric) is None:
-        import difflib
-        close = difflib.get_close_matches(metric, RCP.ids(), n=3, cutoff=0.4)
+        # unknown/unclear metric id -> rank the recipes it most likely meant (semantic, not just
+        # string-edit distance). Replaces difflib: alias/description-aware, same engine as `suggest`.
+        sugg = [s["metric_id"] for s in SUGG.suggest(metric.replace("_", " "), k=3)]
         # common slip: passing a binding TAG ("return", "prediction") instead of a recipe id
         tag_hits = sorted(m for m in RCP.ids()
                           if metric in (RCP.get(m).manifest.get("required_tags") or []))[:4]
-        hint = ("did you mean: %s?" % ", ".join(close)) if close else ""
+        hint = ("did you mean: %s?" % ", ".join(sugg)) if sugg else ""
         if tag_hits:
             hint = ("%r is a binding tag, not a recipe - recipes that bind it: %s. %s"
                     % (metric, ", ".join(tag_hits), hint)).strip()
@@ -774,6 +805,16 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
                               ("CONFIRMED", "CONFIRMED-WITH-CAVEATS")
                               else "OUTSIDE the calibrated budget"))
             led = _assemble_ledger(contract, diff, run_res)
+            # calma AUTO-PICKED the metric (producer didn't pin it) and it didn't confirm -> the
+            # ask was unclear. Offer ranked alternatives from the claim + data columns and let the
+            # user pick, instead of silently standing on a guessed metric. Only here: a confirmed
+            # auto-pick, or a user-pinned --metric, never triggers this. Fail-open.
+            if (led.get("scope", {}).get("binding_note")
+                    and led.get("repo_verdict") not in ("CONFIRMED", "CONFIRMED-WITH-CAVEATS")):
+                _sugg = _metric_suggestions(target, claim)
+                if _sugg:
+                    led["suggestions"] = _sugg
+                    led["scope"]["binding_note"] += _suggest_unblock(_sugg)
             if not diff["metrics"]:
                 # P1-5: a committed contract that pins NO artifacts next to recomputable outputs is
                 # the cause - name verify.yaml in the fix instead of asking for files that exist
@@ -781,6 +822,9 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
                 if contract_path == committed and not contract.get("artifacts"):
                     candidates = [a["path"] for a in DC._scan_csvs(target)
                                   if any(s["tag"] for s in a["columns"].values())]
+                # genuinely unclear what to compute -> auto-rank likely metrics from the claim +
+                # the data's columns and ask the user to pick or explain (no `calma suggest` needed)
+                sugg = _metric_suggestions(target, claim)
                 if candidates:
                     led["findings"].append({
                         "id": "f-no-metric", "claim_id": None, "dimension": "contract-grounding",
@@ -789,8 +833,9 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
                         "locator": "verify.yaml pins no artifacts, but recomputable outputs exist (%s)"
                                    % ", ".join(candidates[:3]),
                         "unblock": "your verify.yaml lists no artifacts - add %s (with its columns) "
-                                   "to verify.yaml, or delete verify.yaml to auto-detect"
-                                   % candidates[0],
+                                   "to verify.yaml, or delete verify.yaml to auto-detect%s"
+                                   % (candidates[0], _suggest_unblock(sugg)),
+                        "suggestions": sugg,
                         "reverify": {"kind": "static-reread", "source": "contract",
                                      "expected": "verify.yaml pins at least one artifact"},
                     })
@@ -801,7 +846,9 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
                         "fixable_by": "author",
                         "locator": "no machine-readable output with a recognizable metric column was found",
                         "unblock": "write the result to a CSV the recompute can read "
-                                   "(e.g. predictions.csv with y_true,y_pred / returns.csv with strat_return)",
+                                   "(e.g. predictions.csv with y_true,y_pred / returns.csv with strat_return)"
+                                   + _suggest_unblock(sugg),
+                        "suggestions": sugg,
                         "reverify": {"kind": "artifact-recheck", "source": "artifacts",
                                      "expected": "a bindable metric column exists"},
                     })
