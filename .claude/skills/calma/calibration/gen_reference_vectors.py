@@ -1494,6 +1494,44 @@ case("bs_implied_vol", "bs_implied_vol",
      {"S": opt_S, "K": opt_K, "T": opt_T, "r": opt_r, "price": iv_price, "is_call": True},
      iv_mean, atol=1e-8)
 
+# ============================ Pack ES - expected-shortfall / VaR backtesting ============================
+# Independent reference: vectorized numpy recompute of the documented Acerbi-Szekely (2014)
+# and Basel (1996) closed forms over a deterministic return/VaR/ES fixture engineered to
+# carry exactly six exceptions (Basel yellow zone, plus-factor 0.50).
+
+es_level = 0.975
+es_var = list(uniforms(4201, 250, 0.015, 0.025))          # positive daily VaR, never < 0.015
+es_es = [v * 1.3 for v in es_var]                          # ES strictly above VaR
+es_rets = list(uniforms(4202, 250, -0.012, 0.012))         # base |loss| <= 0.012 < VaR -> no breach
+es_exc_idx = [3, 50, 99, 140, 200, 240]                    # six engineered loss days
+for _i in es_exc_idx:
+    es_rets[_i] = -0.06                                     # -ret 0.06 > VaR -> exception
+
+_np_r = np.array(es_rets)
+_np_v = np.array(es_var)
+_np_e = np.array(es_es)
+_loss = -_np_r
+_mask = _loss > _np_v
+_n = len(_np_r)
+es_breach = float(_mask.sum() / _n)
+es_rsf = float(_loss[_mask].mean())
+es_exceed = float((_loss[_mask] - _np_v[_mask]).mean())
+es_basel = 0.50                                            # six exceptions -> Basel yellow
+es_ratio = float(_loss[_mask].sum() / _np_e[_mask].sum())
+es_z1 = float((_loss[_mask] / _np_e[_mask]).mean() - 1.0)
+es_z2 = float((_loss[_mask] / _np_e[_mask]).sum() / (_n * (1.0 - es_level)) - 1.0)
+
+es_rv_args = {"rets": es_rets, "var": es_var}
+es_rve_args = {"rets": es_rets, "var": es_var, "es": es_es}
+es_z_args = {"rets": es_rets, "var": es_var, "es": es_es, "level": es_level}
+case("var_breach_rate", "var_breach_rate", es_rv_args, es_breach, atol=1e-12)
+case("realized_shortfall", "realized_shortfall", es_rv_args, es_rsf, atol=1e-12)
+case("expected_exceedance", "expected_exceedance", es_rv_args, es_exceed, atol=1e-12)
+case("basel_traffic_light", "basel_traffic_light", es_rv_args, es_basel, atol=1e-12)
+case("es_backtest_ratio", "es_backtest_ratio", es_rve_args, es_ratio, atol=1e-12)
+case("acerbi_szekely_z1", "acerbi_szekely_z1", es_z_args, es_z1, atol=1e-12)
+case("acerbi_szekely_z2", "acerbi_szekely_z2", es_z_args, es_z2, atol=1e-12)
+
 # ============================ write ============================
 
 doc = {

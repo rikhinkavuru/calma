@@ -3852,17 +3852,9 @@ def yield_to_maturity(cashflows, times, price):
 # closed-form Black-Scholes and scipy.optimize.brentq for implied vol.
 # ======================================================================================
 
-_SQRT2PI = 2.5066282746310002
-
-
 def _norm_cdf(x):
     """Standard normal CDF P(Z<=x) via the deterministic erfc."""
     return normal_sf(-x)
-
-
-def _norm_pdf(x):
-    """Standard normal density via the deterministic exp."""
-    return dexp(-0.5 * x * x) / _SQRT2PI
 
 
 def _bs_ok(*cols):
@@ -4011,3 +4003,104 @@ def bs_implied_vol(S, K, T, r, price, is_call):
             return float("nan")
         ivs.append(iv)
     return fmean(ivs)
+
+
+# ======================================================================================
+# Pack ES - expected-shortfall / VaR backtesting. Bind a realized return column with the
+# day's predicted VaR (and ES), both POSITIVE loss fractions; level via convention. An
+# exception is a day whose realized loss exceeds VaR: -ret_t > VaR_t. Complements the
+# Kupiec / Christoffersen exception-count suite. Validated against the documented
+# Acerbi-Szekely (2014) and Basel (1996) closed forms recomputed in numpy.
+# ======================================================================================
+
+def _es_ok(*cols):
+    n = len(cols[0])
+    return n > 0 and all(len(c) == n for c in cols) and not any(_has_nan(c) for c in cols)
+
+
+def _es_exceptions(rets, var):
+    """Indices where the realized loss exceeds the predicted VaR (positive-loss convention)."""
+    return [i for i, (x, v) in enumerate(zip(rets, var)) if -x > v]
+
+
+def var_breach_rate(rets, var):
+    """Realized VaR exception fraction: count(-ret > VaR) / N."""
+    if not _es_ok(rets, var):
+        return float("nan")
+    return len(_es_exceptions(rets, var)) / len(rets)
+
+
+def realized_shortfall(rets, var):
+    """Mean realized loss on exception days: mean(-ret_t | -ret_t > VaR_t)."""
+    if not _es_ok(rets, var):
+        return float("nan")
+    exc = _es_exceptions(rets, var)
+    if not exc:
+        return float("nan")
+    return fmean([-rets[i] for i in exc])
+
+
+def expected_exceedance(rets, var):
+    """Mean overshoot beyond VaR on exception days: mean((-ret_t) - VaR_t | exception)."""
+    if not _es_ok(rets, var):
+        return float("nan")
+    exc = _es_exceptions(rets, var)
+    if not exc:
+        return float("nan")
+    return fmean([(-rets[i]) - var[i] for i in exc])
+
+
+def basel_traffic_light(rets, var):
+    """Basel (1996) backtesting plus-factor from the VaR exception count: 0-4 green -> 0.00;
+    5..9 yellow -> 0.40/0.50/0.65/0.75/0.85; >=10 red -> 1.00."""
+    if not _es_ok(rets, var):
+        return float("nan")
+    x = len(_es_exceptions(rets, var))
+    if x <= 4:
+        return 0.0
+    if x >= 10:
+        return 1.0
+    return {5: 0.40, 6: 0.50, 7: 0.65, 8: 0.75, 9: 0.85}[x]
+
+
+def acerbi_szekely_z1(rets, var, es, level):
+    """Acerbi-Szekely (2014) Test 1: mean(L_t/ES_t) - 1 over exception days, L_t = -ret_t.
+    0 = ES calibrated, >0 = ES underestimated; conditional on the exceptions (independent of
+    their count)."""
+    if not _es_ok(rets, var, es) or not (0.5 < level < 1.0):
+        return float("nan")
+    exc = _es_exceptions(rets, var)
+    if not exc:
+        return float("nan")
+    ratios = []
+    for i in exc:
+        if es[i] <= 0:
+            return float("nan")
+        ratios.append((-rets[i]) / es[i])
+    return fmean(ratios) - 1.0
+
+
+def acerbi_szekely_z2(rets, var, es, level):
+    """Acerbi-Szekely (2014) Test 2: (1/(N*(1-level))) * sum_t I_t * L_t/ES_t - 1.
+    0 = calibrated; jointly senses the frequency and the magnitude of breaches."""
+    if not _es_ok(rets, var, es) or not (0.5 < level < 1.0):
+        return float("nan")
+    parts = []
+    for i in _es_exceptions(rets, var):
+        if es[i] <= 0:
+            return float("nan")
+        parts.append((-rets[i]) / es[i])
+    return math.fsum(parts) / (len(rets) * (1.0 - level)) - 1.0
+
+
+def es_backtest_ratio(rets, var, es):
+    """Aggregate realized/predicted ES on exception days: sum(L_t) / sum(ES_t). ~1 = calibrated."""
+    if not _es_ok(rets, var, es):
+        return float("nan")
+    exc = _es_exceptions(rets, var)
+    if not exc:
+        return float("nan")
+    den = math.fsum(es[i] for i in exc)
+    if den <= 0:
+        return float("nan")
+    return math.fsum(-rets[i] for i in exc) / den

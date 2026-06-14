@@ -1897,3 +1897,41 @@ def bs_implied_vol(cols, binding, convention=None):
     ic = _opt_is_call(convention)
     return _result(N.bs_implied_vol(S, K, T, r, px, ic),
                    {"n": len(S), "type": "call" if ic else "put"})
+
+
+# ======================================================================================
+# Pack ES - expected-shortfall / VaR backtesting. Bind a realized return column with the
+# day's predicted VaR (positive loss) and, for the magnitude tests, the predicted ES; the
+# tail level comes from the convention. Complements the Kupiec / Christoffersen suite.
+# ======================================================================================
+
+def _es_rv(fn):
+    def recipe(cols, binding, convention=None):
+        r, v = cols[binding["return"]], cols[binding["var"]]
+        return _result(fn(r, v), {"n": len(r)}, path_dependent=True)
+    return recipe
+
+
+for _mid in ("var_breach_rate", "realized_shortfall", "expected_exceedance", "basel_traffic_light"):
+    register(_mid, family="quant", required_tags=["return", "var"],
+             set_maturity="reviewed")(_es_rv(getattr(N, _mid)))
+
+
+@register("es_backtest_ratio", family="quant", required_tags=["return", "var", "es"],
+          set_maturity="reviewed")
+def es_backtest_ratio(cols, binding, convention=None):
+    r, v, e = cols[binding["return"]], cols[binding["var"]], cols[binding["es"]]
+    return _result(N.es_backtest_ratio(r, v, e), {"n": len(r)}, path_dependent=True)
+
+
+def _es_z(fn):
+    def recipe(cols, binding, convention=None):
+        r, v, e = cols[binding["return"]], cols[binding["var"]], cols[binding["es"]]
+        level = _conv_float(convention, "level", 0.975)
+        return _result(fn(r, v, e, level), {"n": len(r), "level": level}, path_dependent=True)
+    return recipe
+
+
+for _mid in ("acerbi_szekely_z1", "acerbi_szekely_z2"):
+    register(_mid, family="quant", required_tags=["return", "var", "es"],
+             set_maturity="reviewed", accepted_conventions=["level=<frac>"])(_es_z(getattr(N, _mid)))
