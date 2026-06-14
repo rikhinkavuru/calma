@@ -491,6 +491,10 @@ KINDS = {
     "scott_pi": lambda a: N.scott_pi(a["ra"], a["rb"]),
     "brennan_prediger": lambda a: N.brennan_prediger(a["ra"], a["rb"]),
     "gwet_ac1": lambda a: N.gwet_ac1(a["ra"], a["rb"]),
+    # pack CO - correlation / dependence depth
+    "distance_correlation": lambda a: N.distance_correlation(a["x"], a["y"]),
+    "somers_d": lambda a: N.somers_d(a["x"], a["y"]),
+    "goodman_kruskal_gamma": lambda a: N.goodman_kruskal_gamma(a["x"], a["y"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -658,10 +662,12 @@ EXPECTED = {
     "interval_coverage", "mean_interval_width", "winkler_score", "coverage_deviation",
     # pack AG - inter-rater agreement coefficients (4)
     "percentage_agreement", "scott_pi", "brennan_prediger", "gwet_ac1",
+    # pack CO - correlation / dependence depth (3)
+    "distance_correlation", "somers_d", "goodman_kruskal_gamma",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 402 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 405 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

@@ -2129,6 +2129,44 @@ case("scott_pi", "scott_pi", ag_args, ag_scott, atol=1e-12)
 case("brennan_prediger", "brennan_prediger", ag_args, ag_bp, atol=1e-12)
 case("gwet_ac1", "gwet_ac1", ag_args, ag_gwet, atol=1e-12)
 
+# ============================ Pack CO - correlation / dependence depth ============================
+# Independent reference: scipy.stats.somersd for Somers' D, numpy double-centering for the
+# distance correlation, and the documented closed form for Goodman-Kruskal gamma. y is
+# bucketed to integers so it carries ties (gamma and Somers' D then genuinely differ).
+
+from scipy.stats import somersd as _somersd  # noqa: E402
+
+co_x = list(uniforms(9901, 45, 0.0, 5.0))
+co_y = [int(round(xi * 0.6 + e)) for xi, e in zip(co_x, uniforms(9902, 45, -1.0, 1.0))]
+_cn = len(co_x)
+_cC = _cD = _cTy = 0
+for _i in range(_cn):
+    for _j in range(_i + 1, _cn):
+        _dx = co_x[_i] - co_x[_j]
+        _dy = co_y[_i] - co_y[_j]
+        if _dx == 0 and _dy == 0:
+            continue
+        if _dx == 0:
+            pass
+        elif _dy == 0:
+            _cTy += 1
+        elif _dx * _dy > 0:
+            _cC += 1
+        else:
+            _cD += 1
+co_somers = float(_somersd(co_x, co_y).statistic)
+co_gamma = (_cC - _cD) / (_cC + _cD)
+_ax = np.abs(np.array(co_x)[:, None] - np.array(co_x)[None, :])
+_ay = np.abs(np.array(co_y)[:, None] - np.array(co_y)[None, :])
+_AX = _ax - _ax.mean(0)[None, :] - _ax.mean(1)[:, None] + _ax.mean()
+_AY = _ay - _ay.mean(0)[None, :] - _ay.mean(1)[:, None] + _ay.mean()
+_dcov = np.sqrt(max((_AX * _AY).mean(), 0.0))
+co_dcor = float(_dcov / np.sqrt(np.sqrt((_AX * _AX).mean()) * np.sqrt((_AY * _AY).mean())))
+co_args = {"x": co_x, "y": co_y}
+case("distance_correlation", "distance_correlation", co_args, co_dcor, atol=1e-12)
+case("somers_d", "somers_d", co_args, co_somers, atol=1e-12)
+case("goodman_kruskal_gamma", "goodman_kruskal_gamma", co_args, co_gamma, atol=1e-12)
+
 # ============================ write ============================
 
 doc = {

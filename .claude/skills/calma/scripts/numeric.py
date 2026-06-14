@@ -5630,3 +5630,80 @@ def gwet_ac1(a, b):
     if pe >= 1.0:
         return float("nan")
     return (po - pe) / (1.0 - pe)
+
+
+# ======================================================================================
+# Pack CO - correlation / dependence depth. Two value columns give the Szekely distance
+# correlation (detects nonlinear dependence), Somers' D and Goodman-Kruskal gamma (ordinal
+# concordance). Validated against scipy.stats.somersd and the documented closed forms.
+# ======================================================================================
+
+def _co_ok(x, y):
+    return bool(x) and len(x) == len(y) and not _has_nan(x) and not _has_nan(y)
+
+
+def _concordance(x, y):
+    n = len(x)
+    c = d = tx = ty = 0
+    for i in range(n):
+        xi, yi = x[i], y[i]
+        for j in range(i + 1, n):
+            dx = xi - x[j]
+            dy = yi - y[j]
+            if dx == 0 and dy == 0:
+                continue
+            if dx == 0:
+                tx += 1
+            elif dy == 0:
+                ty += 1
+            elif dx * dy > 0:
+                c += 1
+            else:
+                d += 1
+    return c, d, tx, ty
+
+
+def somers_d(x, y):
+    """Somers' D(Y|X): (C - D) / (C + D + ties-in-y), ordinal association (scipy.stats.somersd)."""
+    if not _co_ok(x, y):
+        return float("nan")
+    c, d, _, ty = _concordance(x, y)
+    den = c + d + ty
+    if den == 0:
+        return float("nan")
+    return (c - d) / den
+
+
+def goodman_kruskal_gamma(x, y):
+    """Goodman-Kruskal gamma: (C - D) / (C + D), excluding all tied pairs."""
+    if not _co_ok(x, y):
+        return float("nan")
+    c, d, _, _ = _concordance(x, y)
+    if c + d == 0:
+        return float("nan")
+    return (c - d) / (c + d)
+
+
+def distance_correlation(x, y):
+    """Szekely distance correlation in [0,1]: 0 iff independent (captures nonlinear dependence)."""
+    if not _co_ok(x, y) or len(x) < 2:
+        return float("nan")
+    n = len(x)
+    a = [[abs(x[i] - x[j]) for j in range(n)] for i in range(n)]
+    b = [[abs(y[i] - y[j]) for j in range(n)] for i in range(n)]
+
+    def center(m):
+        rm = [fmean(row) for row in m]
+        cm = [fmean([m[i][j] for i in range(n)]) for j in range(n)]
+        gm = fmean([m[i][j] for i in range(n) for j in range(n)])
+        return [[m[i][j] - rm[i] - cm[j] + gm for j in range(n)] for i in range(n)]
+
+    ca, cb = center(a), center(b)
+    dcov2 = fmean([ca[i][j] * cb[i][j] for i in range(n) for j in range(n)])
+    dvx2 = fmean([ca[i][j] * ca[i][j] for i in range(n) for j in range(n)])
+    dvy2 = fmean([cb[i][j] * cb[i][j] for i in range(n) for j in range(n)])
+    dvx, dvy = math.sqrt(dvx2) if dvx2 > 0 else 0.0, math.sqrt(dvy2) if dvy2 > 0 else 0.0
+    if dvx <= 0 or dvy <= 0:
+        return float("nan")
+    dcov = math.sqrt(dcov2) if dcov2 > 0 else 0.0
+    return dcov / math.sqrt(dvx * dvy)

@@ -2627,3 +2627,19 @@ def _ag_recipe(fn):
 for _mid in ("percentage_agreement", "scott_pi", "brennan_prediger", "gwet_ac1"):
     register(_mid, family="classification", required_tags=["rater_a", "rater_b"],
              string_tags=["rater_a", "rater_b"], set_maturity="reviewed")(_ag_recipe(getattr(N, _mid)))
+
+
+# ======================================================================================
+# Pack CO - correlation / dependence depth. Two value columns (x / y).
+# ======================================================================================
+
+def _co_xy(fn):
+    def recipe(cols, binding, convention=None):
+        x, y = cols[binding["x"]], cols[binding["y"]]
+        return _result(fn(x, y), {"n": len(x)})
+    return recipe
+
+
+for _mid in ("distance_correlation", "somers_d", "goodman_kruskal_gamma"):
+    register(_mid, family="stats", required_tags=["x", "y"],
+             set_maturity="reviewed")(_co_xy(getattr(N, _mid)))
