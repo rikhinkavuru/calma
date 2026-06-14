@@ -3560,3 +3560,13 @@ for _mid in ("levenshtein_similarity", "indel_similarity", "jaro_similarity",
              "jaro_winkler_similarity", "longest_common_subsequence"):
     register(_mid, family="llm-eval", required_tags=["prediction", "reference"],
              string_tags=["prediction", "reference"], set_maturity="reviewed")(_str_recipe(getattr(N, _mid)))
+
+
+# ======================================================================================
+# Pack BD3 - boolean / set distances between two 0/1 columns.
+# ======================================================================================
+
+for _mid in ("dice_distance", "rogers_tanimoto_distance", "russell_rao_distance",
+             "sokal_sneath_distance", "yule_distance", "hamming_distance"):
+    register(_mid, family="analytics", required_tags=["x", "y"],
+             set_maturity="reviewed")(_xy_recipe(getattr(N, _mid)))

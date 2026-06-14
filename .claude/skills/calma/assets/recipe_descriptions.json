@@ -1826,6 +1826,18 @@
       ],
       "description": "Ratio of positive to negative likelihood ratios summarizing test discrimination."
     },
+    "dice_distance": {
+      "aliases": [
+        "dice distance",
+        "sorensen-dice dissimilarity",
+        "dice dissimilarity",
+        "one minus dice coefficient",
+        "binary set distance",
+        "fingerprint dissimilarity",
+        "dice on bit vectors"
+      ],
+      "description": "Dice dissimilarity between two binary sets or fingerprints."
+    },
     "differential_entropy": {
       "aliases": [
         "differential entropy",
@@ -2819,6 +2831,18 @@
         "gwet coefficient"
       ],
       "description": "Chance-corrected inter-rater agreement robust to prevalence skew."
+    },
+    "hamming_distance": {
+      "aliases": [
+        "hamming distance",
+        "fraction differing",
+        "proportion of mismatches",
+        "how many positions differ",
+        "bit difference rate",
+        "normalized hamming",
+        "element mismatch fraction"
+      ],
+      "description": "Fraction of positions where two vectors differ."
     },
     "harmonic_mean": {
       "aliases": [
@@ -5576,6 +5600,17 @@
       ],
       "description": "Range-based volatility estimator robust to drift, using OHLC prices."
     },
+    "rogers_tanimoto_distance": {
+      "aliases": [
+        "rogers-tanimoto distance",
+        "rogers tanimoto dissimilarity",
+        "binary taxonomy distance",
+        "rogers-tanimoto coefficient",
+        "presence-absence distance",
+        "rt distance"
+      ],
+      "description": "Rogers-Tanimoto dissimilarity between two binary vectors."
+    },
     "roll_spread": {
       "aliases": [
         "roll spread",
@@ -5652,6 +5687,17 @@
         "serial randomness"
       ],
       "description": "Tests whether a binary sequence is randomly ordered."
+    },
+    "russell_rao_distance": {
+      "aliases": [
+        "russell-rao distance",
+        "russell rao dissimilarity",
+        "fraction not both present",
+        "joint-absence distance",
+        "russell-rao coefficient",
+        "binary co-presence distance"
+      ],
+      "description": "Russell-Rao dissimilarity: fraction of positions not jointly present."
     },
     "rvpi": {
       "aliases": [
@@ -5833,6 +5879,17 @@
         "service level attainment"
       ],
       "description": "Fraction of requests meeting the service level objective threshold."
+    },
+    "sokal_sneath_distance": {
+      "aliases": [
+        "sokal-sneath distance",
+        "sokal sneath dissimilarity",
+        "sokal-sneath coefficient",
+        "numerical taxonomy distance",
+        "binary mismatch-weighted distance",
+        "ss distance"
+      ],
+      "description": "Sokal-Sneath dissimilarity between two binary vectors."
     },
     "somers_d": {
       "aliases": [
@@ -6767,6 +6824,17 @@
         "bookmaker informedness"
       ],
       "description": "Sensitivity plus specificity minus one, summarizing overall discrimination."
+    },
+    "yule_distance": {
+      "aliases": [
+        "yule distance",
+        "yule dissimilarity",
+        "yule's q distance",
+        "binary association distance",
+        "yule coefficient",
+        "cross-product mismatch distance"
+      ],
+      "description": "Yule dissimilarity from the cross-product of binary mismatches."
     },
     "z_spread": {
       "aliases": [

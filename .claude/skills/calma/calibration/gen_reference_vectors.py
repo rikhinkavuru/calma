@@ -3244,6 +3244,30 @@ case("jaro_winkler_similarity", "jaro_winkler_similarity", str_args,
 case("longest_common_subsequence", "longest_common_subsequence", str_args,
      float(np.mean([_RfLCS.similarity(p, r) for p, r in _str_pairs])), atol=1e-12)
 
+# ============================ Pack BD3 - boolean / set distances ============================
+# Independent reference: scipy.spatial.distance (boolean dice / rogerstanimoto / russellrao /
+# sokalsneath / yule / hamming).
+
+
+def _bits(seed, n):
+    s = seed & ((1 << 64) - 1)
+    out = []
+    for _ in range(n):
+        s = (s * 6364136223846793005 + 1442695040888963407) % (1 << 64)
+        out.append(1.0 if (s >> 11) / float(1 << 53) < 0.5 else 0.0)
+    return out
+
+
+bd3_x = _bits(7001, 40)
+bd3_y = _bits(7002, 40)
+_bd3 = {"x": bd3_x, "y": bd3_y}
+case("dice_distance", "dice_distance", _bd3, float(_spd.dice(bd3_x, bd3_y)), atol=1e-12)
+case("rogers_tanimoto_distance", "rogers_tanimoto_distance", _bd3, float(_spd.rogerstanimoto(bd3_x, bd3_y)), atol=1e-12)
+case("russell_rao_distance", "russell_rao_distance", _bd3, float(_spd.russellrao(bd3_x, bd3_y)), atol=1e-12)
+case("sokal_sneath_distance", "sokal_sneath_distance", _bd3, float(_spd.sokalsneath(bd3_x, bd3_y)), atol=1e-12)
+case("yule_distance", "yule_distance", _bd3, float(_spd.yule(bd3_x, bd3_y)), atol=1e-12)
+case("hamming_distance", "hamming_distance", _bd3, float(_spd.hamming(bd3_x, bd3_y)), atol=1e-12)
+
 # ============================ write ============================
 
 doc = {

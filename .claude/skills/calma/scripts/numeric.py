@@ -8410,3 +8410,94 @@ def longest_common_subsequence(preds, refs):
     if not _str_ok(preds, refs):
         return float("nan")
     return fmean([float(_lcs_len(p, r)) for p, r in zip(preds, refs)])
+
+
+# ======================================================================================
+# Pack BD3 - boolean / set distances between two 0/1 (truthy) vectors, from the four match
+# counts ntt/ntf/nft/nff (cheminformatics fingerprints, numerical taxonomy, ecology).
+# Validated against scipy.spatial.distance.
+# ======================================================================================
+
+def _bool_counts(x, y):
+    ntt = ntf = nft = nff = 0
+    for a, b in zip(x, y):
+        ba, bb = a != 0, b != 0
+        if ba and bb:
+            ntt += 1
+        elif ba and not bb:
+            ntf += 1
+        elif not ba and bb:
+            nft += 1
+        else:
+            nff += 1
+    return ntt, ntf, nft, nff
+
+
+def dice_distance(x, y):
+    """Dice dissimilarity for boolean vectors: (ntf+nft)/(2*ntt+ntf+nft)
+    (scipy.spatial.distance.dice)."""
+    if not _xy_ok(x, y):
+        return float("nan")
+    ntt, ntf, nft, nff = _bool_counts(x, y)
+    den = 2 * ntt + ntf + nft
+    if den == 0:
+        return 0.0
+    return (ntf + nft) / den
+
+
+def rogers_tanimoto_distance(x, y):
+    """Rogers-Tanimoto dissimilarity: 2R/(S+2R), R=ntf+nft, S=ntt+nff
+    (scipy.spatial.distance.rogerstanimoto)."""
+    if not _xy_ok(x, y):
+        return float("nan")
+    ntt, ntf, nft, nff = _bool_counts(x, y)
+    r = ntf + nft
+    den = (ntt + nff) + 2 * r
+    if den == 0:
+        return 0.0
+    return 2.0 * r / den
+
+
+def russell_rao_distance(x, y):
+    """Russell-Rao dissimilarity: (n - ntt)/n (scipy.spatial.distance.russellrao)."""
+    if not _xy_ok(x, y):
+        return float("nan")
+    n = len(x)
+    ntt, ntf, nft, nff = _bool_counts(x, y)
+    if n == 0:
+        return float("nan")
+    return (n - ntt) / n
+
+
+def sokal_sneath_distance(x, y):
+    """Sokal-Sneath dissimilarity: 2R/(ntt+2R), R=ntf+nft (scipy.spatial.distance.sokalsneath)."""
+    if not _xy_ok(x, y):
+        return float("nan")
+    ntt, ntf, nft, nff = _bool_counts(x, y)
+    r = ntf + nft
+    den = ntt + 2 * r
+    if den == 0:
+        return 0.0
+    return 2.0 * r / den
+
+
+def yule_distance(x, y):
+    """Yule dissimilarity: 2*ntf*nft / (ntt*nff + ntf*nft) (scipy.spatial.distance.yule)."""
+    if not _xy_ok(x, y):
+        return float("nan")
+    ntt, ntf, nft, nff = _bool_counts(x, y)
+    den = ntt * nff + ntf * nft
+    if den == 0:
+        return 0.0
+    return 2.0 * ntf * nft / den
+
+
+def hamming_distance(x, y):
+    """Hamming distance: fraction of positions where the two vectors differ
+    (scipy.spatial.distance.hamming)."""
+    if not _xy_ok(x, y):
+        return float("nan")
+    n = len(x)
+    if n == 0:
+        return float("nan")
+    return sum(1 for a, b in zip(x, y) if a != b) / n

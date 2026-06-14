@@ -727,6 +727,13 @@ KINDS = {
     "jaro_similarity": lambda a: N.jaro_similarity(a["preds"], a["refs"]),
     "jaro_winkler_similarity": lambda a: N.jaro_winkler_similarity(a["preds"], a["refs"]),
     "longest_common_subsequence": lambda a: N.longest_common_subsequence(a["preds"], a["refs"]),
+    # pack BD3 - boolean / set distances
+    "dice_distance": lambda a: N.dice_distance(a["x"], a["y"]),
+    "rogers_tanimoto_distance": lambda a: N.rogers_tanimoto_distance(a["x"], a["y"]),
+    "russell_rao_distance": lambda a: N.russell_rao_distance(a["x"], a["y"]),
+    "sokal_sneath_distance": lambda a: N.sokal_sneath_distance(a["x"], a["y"]),
+    "yule_distance": lambda a: N.yule_distance(a["x"], a["y"]),
+    "hamming_distance": lambda a: N.hamming_distance(a["x"], a["y"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -1013,10 +1020,13 @@ EXPECTED = {
     # pack STR - string-similarity metrics (5)
     "levenshtein_similarity", "indel_similarity", "jaro_similarity",
     "jaro_winkler_similarity", "longest_common_subsequence",
+    # pack BD3 - boolean / set distances (6)
+    "dice_distance", "rogers_tanimoto_distance", "russell_rao_distance",
+    "sokal_sneath_distance", "yule_distance", "hamming_distance",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 609 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 615 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402
