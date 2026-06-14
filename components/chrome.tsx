@@ -151,9 +151,11 @@ export function Nav() {
             </div>
           </div>
           <a href={DOCS_LINK.href}>{DOCS_LINK.label}</a>
-          {cta}
         </nav>
-        <Burger open={menu} onToggle={() => setMenu((m) => !m)} />
+        <div className="nav__right">
+          {cta}
+          <Burger open={menu} onToggle={() => setMenu((m) => !m)} />
+        </div>
       </div>
       {menu && (
         <nav className="nav__menu">
