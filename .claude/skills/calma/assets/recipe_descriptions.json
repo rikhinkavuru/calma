@@ -576,6 +576,18 @@
       ],
       "description": "Estimates continuous (jump-free) variance from products of adjacent absolute returns."
     },
+    "blomqvist_beta": {
+      "aliases": [
+        "blomqvist beta",
+        "medial correlation",
+        "blomqvist's beta",
+        "quadrant correlation around medians",
+        "sign-based correlation",
+        "median quadrant agreement",
+        "robust quadrant measure"
+      ],
+      "description": "Blomqvist's medial correlation: sign agreement about the medians."
+    },
     "bond_price": {
       "aliases": [
         "bond value",
@@ -1072,6 +1084,18 @@
         "cds hazard"
       ],
       "description": "Default intensity from CDS spread over loss given default."
+    },
+    "chatterjee_xi": {
+      "aliases": [
+        "chatterjee xi",
+        "xi correlation",
+        "chatterjee correlation",
+        "new rank correlation",
+        "dependence coefficient",
+        "how much y depends on x",
+        "chatterjee 2021"
+      ],
+      "description": "Chatterjee's xi rank coefficient measuring dependence of y on x."
     },
     "chi_square": {
       "aliases": [
@@ -2404,6 +2428,18 @@
       ],
       "description": "Robust location estimator combining weighted central quantiles for resistance to outliers."
     },
+    "gaussian_rank_correlation": {
+      "aliases": [
+        "gaussian rank correlation",
+        "van der waerden correlation",
+        "normal scores correlation",
+        "robust correlation from ranks",
+        "normal-score rank correlation",
+        "boudt correlation",
+        "gaussian-transformed rank correlation"
+      ],
+      "description": "Robust correlation from normal scores of the ranks."
+    },
     "generalized_entropy_index": {
       "aliases": [
         "ge index",
@@ -3371,6 +3407,30 @@
         "how much higher one group landed compared to the baseline"
       ],
       "description": "Relative or absolute improvement of one group's mean over another."
+    },
+    "linregress_intercept_stderr": {
+      "aliases": [
+        "intercept standard error",
+        "standard error of the intercept",
+        "intercept stderr",
+        "uncertainty of the intercept",
+        "se of intercept",
+        "how precise the intercept is",
+        "intercept confidence width"
+      ],
+      "description": "Standard error of the OLS regression intercept."
+    },
+    "linregress_slope_stderr": {
+      "aliases": [
+        "slope standard error",
+        "standard error of the slope",
+        "slope stderr",
+        "uncertainty of the regression slope",
+        "how precise the slope estimate is",
+        "se of slope",
+        "slope confidence width"
+      ],
+      "description": "Standard error of the OLS regression slope."
     },
     "liquidity_coverage": {
       "aliases": [
@@ -5356,6 +5416,18 @@
         "number rejected"
       ],
       "description": "Counts hypotheses rejected after the Sidak multiple-comparison correction."
+    },
+    "siegel_slope": {
+      "aliases": [
+        "siegel slope",
+        "repeated median slope",
+        "siegel repeated median",
+        "robust trend slope",
+        "outlier-resistant slope",
+        "median-of-medians slope",
+        "robust regression slope"
+      ],
+      "description": "Siegel repeated-median robust regression slope."
     },
     "simpson_evenness": {
       "aliases": [

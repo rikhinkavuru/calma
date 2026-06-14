@@ -679,6 +679,13 @@ KINDS = {
     "dpmo": lambda a: N.dpmo(a["def"], a["opp"]),
     "first_pass_yield": lambda a: N.first_pass_yield(a["passed"], a["total"]),
     "rolled_throughput_yield": lambda a: N.rolled_throughput_yield(a["ys"]),
+    # pack RC2 - robust correlation & regression-slope estimators
+    "siegel_slope": lambda a: N.siegel_slope(a["x"], a["y"]),
+    "linregress_slope_stderr": lambda a: N.linregress_slope_stderr(a["x"], a["y"]),
+    "linregress_intercept_stderr": lambda a: N.linregress_intercept_stderr(a["x"], a["y"]),
+    "chatterjee_xi": lambda a: N.chatterjee_xi(a["x"], a["y"]),
+    "blomqvist_beta": lambda a: N.blomqvist_beta(a["x"], a["y"]),
+    "gaussian_rank_correlation": lambda a: N.gaussian_rank_correlation(a["x"], a["y"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -942,10 +949,13 @@ EXPECTED = {
     # pack REL - reliability & operations engineering (7)
     "failure_rate", "mean_time_to_repair", "mean_time_to_failure", "defect_density",
     "dpmo", "first_pass_yield", "rolled_throughput_yield",
+    # pack RC2 - robust correlation & regression-slope estimators (6)
+    "siegel_slope", "linregress_slope_stderr", "linregress_intercept_stderr",
+    "chatterjee_xi", "blomqvist_beta", "gaussian_rank_correlation",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 568 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 574 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

@@ -7777,3 +7777,114 @@ def rolled_throughput_yield(yields):
     if not yields or _has_nan(yields):
         return float("nan")
     return pairwise_prod(yields)
+
+
+# ======================================================================================
+# Pack RC2 - robust correlation & regression-slope estimators over paired (x, y) columns.
+# Siegel repeated-median slope, OLS slope / intercept standard errors, Chatterjee's xi
+# dependence coefficient, Blomqvist's medial beta and the Gaussian-rank correlation.
+# Validated against scipy.stats (siegelslopes / linregress / chatterjeexi) and numpy.
+# ======================================================================================
+
+def _xy_ok(x, y):
+    return bool(x) and len(x) == len(y) and not _has_nan(x) and not _has_nan(y)
+
+
+def siegel_slope(x, y):
+    """Siegel (1982) repeated-median robust slope: median over i of the median over j!=i of
+    (y_j - y_i)/(x_j - x_i) (scipy.stats.siegelslopes, hierarchical)."""
+    n = len(x)
+    if n < 2 or not _xy_ok(x, y):
+        return float("nan")
+    meds = []
+    for i in range(n):
+        sl = [(y[j] - y[i]) / (x[j] - x[i]) for j in range(n) if x[j] != x[i]]
+        if sl:
+            meds.append(quantile(sorted(sl), 0.5))
+    if not meds:
+        return float("nan")
+    return quantile(sorted(meds), 0.5)
+
+
+def _ols_slope_se(x, y):
+    n = len(x)
+    if n < 3 or not _xy_ok(x, y):
+        return None
+    mx, my = fmean(x), fmean(y)
+    sxx = math.fsum((a - mx) ** 2 for a in x)
+    if sxx == 0:
+        return None
+    sxy = math.fsum((a - mx) * (b - my) for a, b in zip(x, y))
+    slope = sxy / sxx
+    intercept = my - slope * mx
+    s2 = math.fsum((b - (intercept + slope * a)) ** 2 for a, b in zip(x, y)) / (n - 2)
+    se_slope = math.sqrt(s2 / sxx)
+    return se_slope, math.sqrt(math.fsum(a * a for a in x) / n)
+
+
+def linregress_slope_stderr(x, y):
+    """Standard error of the OLS slope (scipy.stats.linregress .stderr)."""
+    r = _ols_slope_se(x, y)
+    return float("nan") if r is None else r[0]
+
+
+def linregress_intercept_stderr(x, y):
+    """Standard error of the OLS intercept (scipy.stats.linregress .intercept_stderr):
+    slope SE * sqrt(mean(x^2))."""
+    r = _ols_slope_se(x, y)
+    return float("nan") if r is None else r[0] * r[1]
+
+
+def chatterjee_xi(x, y):
+    """Chatterjee's (2021) xi rank dependence coefficient of y on x; sort by x, then
+    1 - n*sum|r_{i+1}-r_i| / (2*sum l_i(n-l_i)) (scipy.stats.chatterjeexi; ties in x kept in
+    input order)."""
+    n = len(x)
+    if n < 2 or not _xy_ok(x, y):
+        return float("nan")
+    order = sorted(range(n), key=lambda i: x[i])
+    ys = [y[i] for i in order]
+    r = [sum(1 for v in ys if v <= ys[i]) for i in range(n)]
+    l = [sum(1 for v in ys if v >= ys[i]) for i in range(n)]
+    den = 2.0 * math.fsum(li * (n - li) for li in l)
+    if den == 0:
+        return float("nan")
+    return 1.0 - n * math.fsum(abs(r[i + 1] - r[i]) for i in range(n - 1)) / den
+
+
+def blomqvist_beta(x, y):
+    """Blomqvist's beta (medial correlation): the sign agreement of (x, y) about their
+    medians, (n_concordant - n_discordant)/(n_concordant + n_discordant)."""
+    if not _xy_ok(x, y):
+        return float("nan")
+    mx = quantile(sorted(x), 0.5)
+    my = quantile(sorted(y), 0.5)
+    s = 0
+    cnt = 0
+    for a, b in zip(x, y):
+        v = (a - mx) * (b - my)
+        if v > 0:
+            s += 1
+            cnt += 1
+        elif v < 0:
+            s -= 1
+            cnt += 1
+    if cnt == 0:
+        return float("nan")
+    return s / cnt
+
+
+def gaussian_rank_correlation(x, y):
+    """Gaussian-rank (van der Waerden) correlation (Boudt et al. 2012): Pearson of the normal
+    scores Phi^-1(rank/(n+1)), normalized by sum Phi^-1(i/(n+1))^2 - a robust correlation."""
+    n = len(x)
+    if n < 2 or not _xy_ok(x, y):
+        return float("nan")
+    rx = _avg_ranks(x)
+    ry = _avg_ranks(y)
+    qx = [z_ppf(r / (n + 1)) for r in rx]
+    qy = [z_ppf(r / (n + 1)) for r in ry]
+    den = math.fsum(z_ppf(i / (n + 1)) ** 2 for i in range(1, n + 1))
+    if den == 0:
+        return float("nan")
+    return math.fsum(a * b for a, b in zip(qx, qy)) / den

@@ -3040,6 +3040,33 @@ case("first_pass_yield", "first_pass_yield", {"passed": rel_pass, "total": rel_t
 case("rolled_throughput_yield", "rolled_throughput_yield", {"ys": rel_yield},
      float(np.prod(rel_yield)), atol=1e-12)
 
+# ============================ Pack RC2 - robust correlation & regression-slope estimators ============================
+# Independent reference: scipy.stats.siegelslopes / linregress / chatterjeexi, and numpy for
+# Blomqvist's beta and the Gaussian-rank (van der Waerden) correlation.
+
+rc2_x = list(uniforms(1001, 40, -5, 5))
+rc2_y = [1.5 * xi + e for xi, e in zip(rc2_x, uniforms(1002, 40, -2, 2))]
+_rc2_lr = stats.linregress(rc2_x, rc2_y)
+_rc2_args = {"x": rc2_x, "y": rc2_y}
+case("siegel_slope", "siegel_slope", _rc2_args, float(stats.siegelslopes(rc2_y, rc2_x).slope), atol=1e-12)
+case("linregress_slope_stderr", "linregress_slope_stderr", _rc2_args, float(_rc2_lr.stderr), atol=1e-12)
+case("linregress_intercept_stderr", "linregress_intercept_stderr", _rc2_args,
+     float(_rc2_lr.intercept_stderr), atol=1e-12)
+case("chatterjee_xi", "chatterjee_xi", _rc2_args, float(stats.chatterjeexi(rc2_x, rc2_y).statistic), atol=1e-12)
+_rc2_mx = float(np.median(rc2_x))
+_rc2_my = float(np.median(rc2_y))
+_rc2_v = (np.array(rc2_x) - _rc2_mx) * (np.array(rc2_y) - _rc2_my)
+case("blomqvist_beta", "blomqvist_beta", _rc2_args,
+     float((np.sum(_rc2_v > 0) - np.sum(_rc2_v < 0)) / np.sum(_rc2_v != 0)), atol=1e-12)
+_rc2_n = len(rc2_x)
+_rc2_rx = stats.rankdata(rc2_x)
+_rc2_ry = stats.rankdata(rc2_y)
+_rc2_qx = stats.norm.ppf(_rc2_rx / (_rc2_n + 1))
+_rc2_qy = stats.norm.ppf(_rc2_ry / (_rc2_n + 1))
+_rc2_den = float(np.sum(stats.norm.ppf(np.arange(1, _rc2_n + 1) / (_rc2_n + 1)) ** 2))
+case("gaussian_rank_correlation", "gaussian_rank_correlation", _rc2_args,
+     float(np.sum(_rc2_qx * _rc2_qy) / _rc2_den), atol=1e-9, rtol=1e-9)
+
 # ============================ write ============================
 
 doc = {

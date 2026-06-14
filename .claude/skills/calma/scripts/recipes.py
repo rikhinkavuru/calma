@@ -3424,3 +3424,20 @@ for _mid, _tags in _REL_BIND.items():
 def rolled_throughput_yield(cols, binding, convention=None):
     ys = cols[binding["yield_step"]]
     return _result(N.rolled_throughput_yield(ys), {"n": len(ys)})
+
+
+# ======================================================================================
+# Pack RC2 - robust correlation & regression-slope estimators over paired (x, y) columns.
+# ======================================================================================
+
+def _xy_recipe(fn):
+    def recipe(cols, binding, convention=None):
+        x, y = cols[binding["x"]], cols[binding["y"]]
+        return _result(fn(x, y), {"n": len(x)})
+    return recipe
+
+
+for _mid in ("siegel_slope", "linregress_slope_stderr", "linregress_intercept_stderr",
+             "chatterjee_xi", "blomqvist_beta", "gaussian_rank_correlation"):
+    register(_mid, family="stats", required_tags=["x", "y"],
+             set_maturity="reviewed")(_xy_recipe(getattr(N, _mid)))
