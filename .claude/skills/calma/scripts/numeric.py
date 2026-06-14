@@ -4668,6 +4668,26 @@ def effective_number_of_bets(weight):
     return s * s / s2
 
 
+def brinson_fachler_allocation(wp, wb, rb):
+    """Brinson-Fachler allocation effect: sum_i (wp_i - wb_i)(rb_i - Rb), Rb = sum wb_i rb_i.
+    Unlike BHB it nets out the overall benchmark return so a neutral bet scores zero."""
+    if not _pa_ok(wp, wb, rb):
+        return float("nan")
+    rbt = math.fsum(b * r for b, r in zip(wb, rb))
+    return math.fsum((p - b) * (r - rbt) for p, b, r in zip(wp, wb, rb))
+
+
+def geometric_excess_return(wp, wb, rp, rb):
+    """Geometric excess (active) return: (1+Rp)/(1+Rb) - 1, Rp = sum wp_i rp_i, Rb = sum wb_i rb_i."""
+    if not _pa_ok(wp, wb, rp, rb):
+        return float("nan")
+    rpt = math.fsum(p * r for p, r in zip(wp, rp))
+    rbt = math.fsum(b * r for b, r in zip(wb, rb))
+    if 1.0 + rbt == 0:
+        return float("nan")
+    return (1.0 + rpt) / (1.0 + rbt) - 1.0
+
+
 # ======================================================================================
 # Pack RC - rates / curve analytics. A zero (spot) curve given as rate + tenor columns
 # yields par yields, annuity factors and forward rates; a zero curve plus cashflows

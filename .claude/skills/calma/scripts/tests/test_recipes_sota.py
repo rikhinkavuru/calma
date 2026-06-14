@@ -410,6 +410,8 @@ KINDS = {
     "active_share": lambda a: N.active_share(a["wp"], a["wb"]),
     "portfolio_turnover": lambda a: N.portfolio_turnover(a["wprev"], a["wcurr"]),
     "effective_number_of_bets": lambda a: N.effective_number_of_bets(a["weight"]),
+    "brinson_fachler_allocation": lambda a: N.brinson_fachler_allocation(a["wp"], a["wb"], a["rb"]),
+    "geometric_excess_return": lambda a: N.geometric_excess_return(a["wp"], a["wb"], a["rp"], a["rb"]),
     # pack RC - rates / curve analytics
     "par_yield": lambda a: N.par_yield(a["zero"], a["time"]),
     "annuity_factor": lambda a: N.annuity_factor(a["zero"], a["time"]),
@@ -716,6 +718,8 @@ EXPECTED = {
     # pack PA - portfolio construction & attribution (7)
     "brinson_allocation", "brinson_selection", "brinson_interaction", "brinson_total_active",
     "active_share", "portfolio_turnover", "effective_number_of_bets",
+    # pack BR2 - Brinson-Fachler & geometric attribution (2)
+    "brinson_fachler_allocation", "geometric_excess_return",
     # pack RC - rates / curve analytics (6)
     "par_yield", "annuity_factor", "forward_rate", "curve_pv",
     "effective_duration", "effective_convexity",
@@ -793,7 +797,7 @@ EXPECTED = {
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 477 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 479 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

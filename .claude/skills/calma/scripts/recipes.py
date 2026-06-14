@@ -2158,6 +2158,21 @@ def effective_number_of_bets(cols, binding, convention=None):
     return _result(N.effective_number_of_bets(w), {"n": len(w)})
 
 
+@register("brinson_fachler_allocation", family="portfolio",
+          required_tags=["port_weight", "bench_weight", "bench_return"], set_maturity="reviewed")
+def brinson_fachler_allocation(cols, binding, convention=None):
+    wp, wb, rb = cols[binding["port_weight"]], cols[binding["bench_weight"]], cols[binding["bench_return"]]
+    return _result(N.brinson_fachler_allocation(wp, wb, rb), {"n": len(wp)})
+
+
+@register("geometric_excess_return", family="portfolio",
+          required_tags=["port_weight", "bench_weight", "port_return", "bench_return"],
+          set_maturity="reviewed")
+def geometric_excess_return(cols, binding, convention=None):
+    a = [cols[binding[k]] for k in ("port_weight", "bench_weight", "port_return", "bench_return")]
+    return _result(N.geometric_excess_return(*a), {"n": len(a[0])})
+
+
 # ======================================================================================
 # Pack RC - rates / curve analytics. Zero-curve columns (rate + tenor) drive par yields,
 # annuity factors and forward rates; a curve plus cashflows drives a multi-curve PV;

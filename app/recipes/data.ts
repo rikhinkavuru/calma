@@ -4085,6 +4085,22 @@ export const FAMILIES: Family[] = [
         ref: "Brinson-Hood-Beebower (1986)",
       },
       {
+        id: "brinson_fachler_allocation",
+        name: "Brinson-Fachler allocation",
+        claim: "“BF allocation +38 bps”",
+        what: "Allocation effect that nets out the overall benchmark — a neutral sector bet scores zero.",
+        how: "Σ (wpᵢ − wbᵢ)(rbᵢ − R_b), R_b the total benchmark return.",
+        ref: "Brinson-Fachler (1985)",
+      },
+      {
+        id: "geometric_excess_return",
+        name: "Geometric excess return",
+        claim: "“geometric active +0.67%”",
+        what: "Compounding-correct active return — what actually links across periods, unlike arithmetic.",
+        how: "(1 + R_p)/(1 + R_b) − 1.",
+        ref: "geometric attribution",
+      },
+      {
         id: "active_share",
         name: "Active share",
         claim: "“active share 62%”",

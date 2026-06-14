@@ -1806,6 +1806,15 @@ case("brinson_total_active", "brinson_total_active", pa4, pa_total, atol=1e-12)
 case("active_share", "active_share", {"wp": pa_wp, "wb": pa_wb}, pa_active_share, atol=1e-12)
 case("portfolio_turnover", "portfolio_turnover", {"wprev": pa_wprev, "wcurr": pa_wcurr}, pa_turn, atol=1e-12)
 case("effective_number_of_bets", "effective_number_of_bets", {"weight": pa_wp}, pa_enb, atol=1e-12)
+# Pack BR2 - Brinson-Fachler & geometric attribution (reuse the PA fixture)
+_bf_rbt = float((_pwb * _prb).sum())
+bf_alloc = float(np.sum((_pwp - _pwb) * (_prb - _bf_rbt)))
+_geo_rp = float((_pwp * _prp).sum())
+_geo_rb = float((_pwb * _prb).sum())
+bf_geo = (1.0 + _geo_rp) / (1.0 + _geo_rb) - 1.0
+case("brinson_fachler_allocation", "brinson_fachler_allocation",
+     {"wp": pa_wp, "wb": pa_wb, "rb": pa_rb}, bf_alloc, atol=1e-12)
+case("geometric_excess_return", "geometric_excess_return", pa4, bf_geo, atol=1e-12)
 
 # ============================ Pack RC - rates / curve analytics ============================
 # Independent reference: numpy recompute of the discrete-compounding zero-curve formulas
