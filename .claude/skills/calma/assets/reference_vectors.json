@@ -5,7 +5,7 @@
   "scipy": "1.17.1",
   "sklearn": "1.9.0"
  },
- "n_cases": 596,
+ "n_cases": 601,
  "cases": [
   {
    "id": "total_return",
@@ -160638,6 +160638,116 @@
    },
    "expected": 0.0010373968940766338,
    "atol": 1e-12,
+   "rtol": 1e-12
+  },
+  {
+   "id": "bonferroni_rejections",
+   "kind": "bonferroni_rejections",
+   "args": {
+    "pvals": [
+     0.0005,
+     0.001,
+     0.003,
+     0.006,
+     0.009,
+     0.012,
+     0.02,
+     0.035,
+     0.21,
+     0.6
+    ],
+    "alpha": 0.05
+   },
+   "expected": 3.0,
+   "atol": 0.0,
+   "rtol": 1e-12
+  },
+  {
+   "id": "sidak_rejections",
+   "kind": "sidak_rejections",
+   "args": {
+    "pvals": [
+     0.0005,
+     0.001,
+     0.003,
+     0.006,
+     0.009,
+     0.012,
+     0.02,
+     0.035,
+     0.21,
+     0.6
+    ],
+    "alpha": 0.05
+   },
+   "expected": 3.0,
+   "atol": 0.0,
+   "rtol": 1e-12
+  },
+  {
+   "id": "holm_sidak_rejections",
+   "kind": "holm_sidak_rejections",
+   "args": {
+    "pvals": [
+     0.0005,
+     0.001,
+     0.003,
+     0.006,
+     0.009,
+     0.012,
+     0.02,
+     0.035,
+     0.21,
+     0.6
+    ],
+    "alpha": 0.05
+   },
+   "expected": 4.0,
+   "atol": 0.0,
+   "rtol": 1e-12
+  },
+  {
+   "id": "hochberg_rejections",
+   "kind": "hochberg_rejections",
+   "args": {
+    "pvals": [
+     0.0005,
+     0.001,
+     0.003,
+     0.006,
+     0.009,
+     0.012,
+     0.02,
+     0.035,
+     0.21,
+     0.6
+    ],
+    "alpha": 0.05
+   },
+   "expected": 4.0,
+   "atol": 0.0,
+   "rtol": 1e-12
+  },
+  {
+   "id": "benjamini_yekutieli",
+   "kind": "benjamini_yekutieli",
+   "args": {
+    "pvals": [
+     0.0005,
+     0.001,
+     0.003,
+     0.006,
+     0.009,
+     0.012,
+     0.02,
+     0.035,
+     0.21,
+     0.6
+    ],
+    "alpha": 0.05
+   },
+   "expected": 4.0,
+   "atol": 0.0,
    "rtol": 1e-12
   }
  ]

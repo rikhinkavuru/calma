@@ -1691,6 +1691,20 @@ case("kyle_lambda", "kyle_lambda", {"dp": lq_dp, "q": lq_q}, lq_kyle, atol=1e-12
 case("vwap", "vwap", {"price": lq_pr, "volume": lq_vol}, lq_vwap, atol=1e-12)
 case("relative_spread", "relative_spread", {"bid": lq_bid, "ask": lq_ask}, lq_relspr, atol=1e-12)
 
+# ============================ Pack AB - multiple-testing corrections ============================
+# Independent reference: statsmodels.stats.multitest.multipletests rejection counts.
+
+from statsmodels.stats.multitest import multipletests as _mt  # noqa: E402
+
+ab_pvals = [0.0005, 0.001, 0.003, 0.006, 0.009, 0.012, 0.02, 0.035, 0.21, 0.6]
+ab_alpha = 0.05
+ab_args = {"pvals": ab_pvals, "alpha": ab_alpha}
+for _cid, _sm in [("bonferroni_rejections", "bonferroni"), ("sidak_rejections", "sidak"),
+                  ("holm_sidak_rejections", "holm-sidak"), ("hochberg_rejections", "simes-hochberg"),
+                  ("benjamini_yekutieli", "fdr_by")]:
+    _rej = float(int(_mt(ab_pvals, alpha=ab_alpha, method=_sm)[0].sum()))
+    case(_cid, _cid, ab_args, _rej, atol=0.0)
+
 # ============================ write ============================
 
 doc = {

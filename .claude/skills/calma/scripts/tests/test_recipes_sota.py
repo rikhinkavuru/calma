@@ -393,6 +393,12 @@ KINDS = {
     "kyle_lambda": lambda a: N.kyle_lambda(a["dp"], a["q"]),
     "vwap": lambda a: N.vwap(a["price"], a["volume"]),
     "relative_spread": lambda a: N.relative_spread(a["bid"], a["ask"]),
+    # pack AB - multiple-testing corrections
+    "bonferroni_rejections": lambda a: N.bonferroni_rejections(a["pvals"], a["alpha"]),
+    "sidak_rejections": lambda a: N.sidak_rejections(a["pvals"], a["alpha"]),
+    "holm_sidak_rejections": lambda a: N.holm_sidak_rejections(a["pvals"], a["alpha"]),
+    "hochberg_rejections": lambda a: N.hochberg_rejections(a["pvals"], a["alpha"]),
+    "benjamini_yekutieli": lambda a: N.benjamini_yekutieli(a["pvals"], a["alpha"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -517,10 +523,13 @@ EXPECTED = {
     # pack LQ - liquidity / microstructure (6)
     "amihud_illiquidity", "amivest_liquidity", "roll_spread", "kyle_lambda",
     "vwap", "relative_spread",
+    # pack AB - multiple-testing corrections (5)
+    "bonferroni_rejections", "sidak_rejections", "holm_sidak_rejections",
+    "hochberg_rejections", "benjamini_yekutieli",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 321 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 326 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

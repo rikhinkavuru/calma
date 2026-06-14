@@ -4489,3 +4489,69 @@ def relative_spread(bid, ask):
             return float("nan")
         vals.append((a - b) / mid)
     return fmean(vals)
+
+
+# ======================================================================================
+# Pack AB - multiple-testing corrections (experiment / A-B depth). A p-value column and a
+# family alpha give the rejection count under each procedure; complements the existing
+# Benjamini-Hochberg and Holm-Bonferroni. Validated against statsmodels.multipletests.
+# ======================================================================================
+
+def bonferroni_rejections(pvals, alpha):
+    """Count rejected by Bonferroni at family alpha: p_i <= alpha/m."""
+    m = len(pvals)
+    if m < 1 or _has_nan(pvals):
+        return float("nan")
+    thr = alpha / m
+    return float(sum(1 for p in pvals if p <= thr))
+
+
+def sidak_rejections(pvals, alpha):
+    """Count rejected by single-step Sidak: p_i <= 1-(1-alpha)^(1/m)."""
+    m = len(pvals)
+    if m < 1 or _has_nan(pvals):
+        return float("nan")
+    thr = 1.0 - (1.0 - alpha) ** (1.0 / m)
+    return float(sum(1 for p in pvals if p <= thr))
+
+
+def holm_sidak_rejections(pvals, alpha):
+    """Count rejected by step-down Holm-Sidak: sorted p_(k) <= 1-(1-alpha)^(1/(m-k+1))."""
+    m = len(pvals)
+    if m < 1 or _has_nan(pvals):
+        return float("nan")
+    sp = sorted(pvals)
+    count = 0
+    for k in range(1, m + 1):
+        if sp[k - 1] <= 1.0 - (1.0 - alpha) ** (1.0 / (m - k + 1)):
+            count += 1
+        else:
+            break
+    return float(count)
+
+
+def hochberg_rejections(pvals, alpha):
+    """Count rejected by Hochberg step-up (Simes-Hochberg): largest k with p_(k) <= alpha/(m-k+1)."""
+    m = len(pvals)
+    if m < 1 or _has_nan(pvals):
+        return float("nan")
+    sp = sorted(pvals)
+    maxk = 0
+    for k in range(1, m + 1):
+        if sp[k - 1] <= alpha / (m - k + 1):
+            maxk = k
+    return float(maxk)
+
+
+def benjamini_yekutieli(pvals, alpha):
+    """Count rejected by Benjamini-Yekutieli FDR: BH with the c(m)=sum_{i=1}^m 1/i penalty."""
+    m = len(pvals)
+    if m < 1 or _has_nan(pvals):
+        return float("nan")
+    c = math.fsum(1.0 / i for i in range(1, m + 1))
+    sp = sorted(pvals)
+    maxk = 0
+    for k in range(1, m + 1):
+        if sp[k - 1] <= (k / (m * c)) * alpha:
+            maxk = k
+    return float(maxk)

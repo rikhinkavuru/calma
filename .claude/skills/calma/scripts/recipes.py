@@ -2175,3 +2175,28 @@ def vwap(cols, binding, convention=None):
 def relative_spread(cols, binding, convention=None):
     b, a = cols[binding["bid"]], cols[binding["ask"]]
     return _result(N.relative_spread(b, a), {"n": len(b)})
+
+
+# ======================================================================================
+# Pack AB - multiple-testing corrections. A p-value column + family alpha convention give
+# the rejection count under each procedure; complements bh_rejections / holm_rejections.
+# ======================================================================================
+
+_AB_METHOD = {
+    "bonferroni_rejections": "bonferroni", "sidak_rejections": "sidak",
+    "holm_sidak_rejections": "holm-sidak", "hochberg_rejections": "simes-hochberg",
+    "benjamini_yekutieli": "fdr_by",
+}
+
+
+def _ab_reject(fn, method):
+    def recipe(cols, binding, convention=None):
+        pvals = cols[binding["value"]]
+        alpha = _conv_float(convention, "alpha", 0.05)
+        return _result(fn(pvals, alpha), {"m": len(pvals), "alpha": alpha, "method": method})
+    return recipe
+
+
+for _mid, _method in _AB_METHOD.items():
+    register(_mid, family="stats", required_tags=["value"], set_maturity="reviewed",
+             accepted_conventions=["alpha=<frac>"])(_ab_reject(getattr(N, _mid), _method))
