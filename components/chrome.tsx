@@ -85,15 +85,25 @@ function Burger({ open, onToggle }: { open: boolean; onToggle: () => void }) {
 /* THE nav — one component, one set of links, one CTA, mounted on every page.
    Anchors are absolute so they resolve from any route; the background fades in
    on scroll identically everywhere. Any per-page nav variant is a bug. */
-const NAV_LINKS: { href: string; label: string }[] = [
+type NavLink = { href: string; label: string };
+const PRIMARY_LINKS: NavLink[] = [
   { href: "/#problem", label: "The problem" },
-  { href: "/#benchmarks", label: "Benchmarks" },
   { href: "/#features", label: "Features" },
+];
+const RESOURCE_LINKS: NavLink[] = [
   { href: "/recipes", label: "Recipes" },
   { href: "/registry", label: "Registry" },
-  { href: "/install", label: "Install" },
   { href: "/lab", label: "The lab" },
 ];
+const DOCS_LINK: NavLink = { href: "/install", label: "Docs" };
+
+function Caret() {
+  return (
+    <svg className="nav__caret" viewBox="0 0 10 6" aria-hidden="true">
+      <path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 export function Nav() {
   const [scrolled, setScrolled] = useState(false);
@@ -123,22 +133,44 @@ export function Nav() {
           CALMA
         </a>
         <nav className="nav__links">
-          {NAV_LINKS.map((l) => (
+          {PRIMARY_LINKS.map((l) => (
             <a key={l.href} href={l.href}>
               {l.label}
             </a>
           ))}
+          <div className="nav__drop">
+            <button type="button" className="nav__droptrigger" aria-haspopup="true">
+              Resources <Caret />
+            </button>
+            <div className="nav__dropmenu" role="menu">
+              {RESOURCE_LINKS.map((l) => (
+                <a key={l.href} href={l.href} role="menuitem">
+                  {l.label}
+                </a>
+              ))}
+            </div>
+          </div>
+          <a href={DOCS_LINK.href}>{DOCS_LINK.label}</a>
           {cta}
         </nav>
         <Burger open={menu} onToggle={() => setMenu((m) => !m)} />
       </div>
       {menu && (
         <nav className="nav__menu">
-          {NAV_LINKS.map((l) => (
+          {PRIMARY_LINKS.map((l) => (
             <a key={l.href} href={l.href} onClick={close}>
               {l.label}
             </a>
           ))}
+          <span className="nav__menugroup">Resources</span>
+          {RESOURCE_LINKS.map((l) => (
+            <a key={l.href} href={l.href} onClick={close} className="nav__menusub">
+              {l.label}
+            </a>
+          ))}
+          <a href={DOCS_LINK.href} onClick={close}>
+            {DOCS_LINK.label}
+          </a>
           {cta}
         </nav>
       )}
