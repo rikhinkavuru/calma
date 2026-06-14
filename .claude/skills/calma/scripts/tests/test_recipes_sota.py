@@ -451,6 +451,10 @@ KINDS = {
     "vwap_slippage": lambda a: N.vwap_slippage(a["exec"], a["bench"], a["qty"], a["side"]),
     "effective_spread_bps": lambda a: N.effective_spread_bps(a["exec"], a["bench"], a["qty"], a["side"]),
     "participation_rate": lambda a: N.participation_rate(a["order"], a["market"]),
+    # pack PME - private-market benchmarking
+    "ks_pme": lambda a: N.ks_pme(a["c"], a["d"], a["index"], a["nav"]),
+    "direct_alpha": lambda a: N.direct_alpha(a["c"], a["d"], a["index"], a["nav"]),
+    "pme_plus_lambda": lambda a: N.pme_plus_lambda(a["c"], a["d"], a["index"], a["nav"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -601,10 +605,12 @@ EXPECTED = {
     # pack TX - transaction-cost analysis (5)
     "implementation_shortfall", "arrival_slippage", "vwap_slippage",
     "effective_spread_bps", "participation_rate",
+    # pack PME - private-market benchmarking (3)
+    "ks_pme", "direct_alpha", "pme_plus_lambda",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 370 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 373 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

@@ -5172,3 +5172,50 @@ def participation_rate(order_volume, market_volume):
     if den <= 0:
         return float("nan")
     return math.fsum(order_volume) / den
+
+
+# ======================================================================================
+# Pack PME - private-market benchmarking. Capital-call (contribution), distribution and
+# public-index-level columns, with residual NAV, give the Kaplan-Schoar PME, the index-
+# relative Direct Alpha (IRR of index-discounted flows) and the PME+ scaling lambda.
+# ======================================================================================
+
+def _pme_ok(c, d, index):
+    n = len(c)
+    return (n > 0 and len(d) == n and len(index) == n and not _has_nan(c)
+            and not _has_nan(d) and not _has_nan(index) and all(x > 0 for x in index))
+
+
+def ks_pme(contribution, distribution, index, nav):
+    """Kaplan-Schoar (2005) PME: (sum(d_t/I_t) + NAV/I_T) / sum(c_t/I_t); >1 beats the index."""
+    if not _pme_ok(contribution, distribution, index):
+        return float("nan")
+    den = math.fsum(c / i for c, i in zip(contribution, index))
+    if den <= 0:
+        return float("nan")
+    num = math.fsum(d / i for d, i in zip(distribution, index)) + nav / index[-1]
+    return num / den
+
+
+def direct_alpha(contribution, distribution, index, nav):
+    """Direct Alpha (Gredil-Griffiths-Stucke 2014): per-period IRR of the index-discounted
+    net cash flows (contributions out, distributions + terminal NAV in)."""
+    if not _pme_ok(contribution, distribution, index):
+        return float("nan")
+    it = index[-1]
+    flows = [(d - c) * it / i for c, d, i in zip(contribution, distribution, index)]
+    flows[-1] += nav
+    return irr(flows)
+
+
+def pme_plus_lambda(contribution, distribution, index, nav):
+    """PME+ (Rouvinez 2003) scaling factor lambda that makes index-replicated distributions
+    reproduce the actual NAV: (sum(c_t*I_T/I_t) - NAV) / sum(d_t*I_T/I_t)."""
+    if not _pme_ok(contribution, distribution, index):
+        return float("nan")
+    it = index[-1]
+    dden = math.fsum(d * it / i for d, i in zip(distribution, index))
+    if dden <= 0:
+        return float("nan")
+    cnum = math.fsum(c * it / i for c, i in zip(contribution, index))
+    return (cnum - nav) / dden

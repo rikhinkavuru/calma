@@ -1941,6 +1941,27 @@ case("participation_rate", "participation_rate",
      {"order": tx_ovol, "market": tx_mvol},
      float(np.sum(tx_ovol) / np.sum(tx_mvol)), atol=1e-12)
 
+# ============================ Pack PME - private-market benchmarking ============================
+# Independent reference: numpy recompute of Kaplan-Schoar PME and the PME+ lambda, and
+# numpy-financial IRR for Direct Alpha (index-discounted net cash flows).
+
+pme_c = [10.0, 15.0, 12.0, 0.0, 0.0, 0.0]
+pme_d = [0.0, 0.0, 3.0, 8.0, 10.0, 12.0]
+pme_idx = [100.0, 105.0, 108.0, 112.0, 118.0, 125.0]
+pme_nav = 20.0
+_pit = pme_idx[-1]
+pme_ks = float((np.sum([d / i for d, i in zip(pme_d, pme_idx)]) + pme_nav / _pit)
+               / np.sum([c / i for c, i in zip(pme_c, pme_idx)]))
+_pme_flows = [(d - c) * _pit / i for c, d, i in zip(pme_c, pme_d, pme_idx)]
+_pme_flows[-1] += pme_nav
+pme_da = float(npf.irr(_pme_flows))
+pme_lam = float((np.sum([c * _pit / i for c, i in zip(pme_c, pme_idx)]) - pme_nav)
+                / np.sum([d * _pit / i for d, i in zip(pme_d, pme_idx)]))
+pme_args = {"c": pme_c, "d": pme_d, "index": pme_idx, "nav": pme_nav}
+case("ks_pme", "ks_pme", pme_args, pme_ks, atol=1e-12)
+case("direct_alpha", "direct_alpha", pme_args, pme_da, atol=1e-9)
+case("pme_plus_lambda", "pme_plus_lambda", pme_args, pme_lam, atol=1e-12)
+
 # ============================ write ============================
 
 doc = {

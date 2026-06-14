@@ -2432,3 +2432,21 @@ for _mid, (_bench, _fn) in _TX_BENCH.items():
 def participation_rate(cols, binding, convention=None):
     o, m = cols[binding["order_volume"]], cols[binding["market_volume"]]
     return _result(N.participation_rate(o, m), {"n": len(o)})
+
+
+# ======================================================================================
+# Pack PME - private-market benchmarking. Contribution / distribution / public-index-level
+# columns; residual NAV via convention.
+# ======================================================================================
+
+def _pme_recipe(fn):
+    def recipe(cols, binding, convention=None):
+        c, d, ix = cols[binding["contribution"]], cols[binding["distribution"]], cols[binding["index"]]
+        nav = _conv_float(convention, "nav", 0.0)
+        return _result(fn(c, d, ix, nav), {"n": len(c), "nav": nav})
+    return recipe
+
+
+for _mid in ("ks_pme", "direct_alpha", "pme_plus_lambda"):
+    register(_mid, family="finance", required_tags=["contribution", "distribution", "index"],
+             set_maturity="reviewed", accepted_conventions=["nav=<float>"])(_pme_recipe(getattr(N, _mid)))
