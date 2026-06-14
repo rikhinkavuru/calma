@@ -1210,6 +1210,38 @@ case("upside_potential", "upside_potential", {"rets": rets}, float(np.mean(np.ma
 case("omega_sharpe_ratio", "omega_sharpe_ratio", {"rets": rets, "threshold": 0.0},
      float(np.mean(qr) / np.mean(np.maximum(-qr, 0.0))), atol=1e-11)
 
+# ============================ Pack EXP - causal / experimentation ============================
+
+at_t = uniforms(125, 120, 0.0, 10.0)
+at_c = uniforms(126, 100, -1.0, 8.0)
+case("average_treatment_effect", "average_treatment_effect", {"treatment": at_t, "control": at_c},
+     float(np.mean(at_t) - np.mean(at_c)), atol=1e-11)
+case("standardized_mean_difference", "standardized_mean_difference", {"treatment": at_t, "control": at_c},
+     float((np.mean(at_t) - np.mean(at_c)) / np.sqrt((np.var(at_t, ddof=1) + np.var(at_c, ddof=1)) / 2)), atol=1e-11)
+rb_t = [1.0 if u < 0.6 else 0.0 for u in uniforms(127, 150)]
+rb_c = [1.0 if u < 0.4 else 0.0 for u in uniforms(128, 150)]
+case("risk_difference", "risk_difference", {"treatment": rb_t, "control": rb_c},
+     float(np.mean(rb_t) - np.mean(rb_c)), atol=1e-12)
+case("relative_risk_reduction", "relative_risk_reduction", {"treatment": rb_t, "control": rb_c},
+     float((np.mean(rb_c) - np.mean(rb_t)) / np.mean(rb_c)), atol=1e-12)
+case("number_needed_to_treat", "number_needed_to_treat", {"treatment": rb_t, "control": rb_c},
+     float(1.0 / abs(np.mean(rb_t) - np.mean(rb_c))), atol=1e-11)
+cu_x = uniforms(129, 200, 0.0, 10.0)
+cu_g = [1.0 if u < 0.5 else 0.0 for u in uniforms(130, 200)]
+cu_y = [0.6 * x + (1.0 if g else 0.0) + e for x, g, e in zip(cu_x, cu_g, uniforms(131, 200, -2.0, 2.0))]
+_theta = float(np.cov(cu_y, cu_x, ddof=1)[0, 1] / np.var(cu_x, ddof=1))
+_yadj = np.array(cu_y) - _theta * (np.array(cu_x) - np.mean(cu_x))
+_gm = np.array(cu_g)
+case("cuped_ate", "cuped_ate", {"value": cu_y, "covariate": cu_x, "group": cu_g},
+     float(np.mean(_yadj[_gm != 0]) - np.mean(_yadj[_gm == 0])), atol=1e-11)
+case("variance_reduction_cuped", "variance_reduction_cuped", {"value": cu_y, "covariate": cu_x},
+     float(1.0 - np.var(_yadj, ddof=1) / np.var(cu_y, ddof=1)), atol=1e-11)
+srm_g = ["A" if u < 0.52 else "B" for u in uniforms(132, 500)]
+_obs = [srm_g.count("A"), srm_g.count("B")]
+_n = len(srm_g)
+case("srm_pvalue", "srm_pvalue", {"group": srm_g},
+     float(stats.chisquare(_obs, [_n / 2, _n / 2])[1]), atol=1e-9)
+
 # ============================ write ============================
 
 doc = {

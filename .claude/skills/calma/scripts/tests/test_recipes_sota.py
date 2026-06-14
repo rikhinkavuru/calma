@@ -311,6 +311,15 @@ KINDS = {
     "downside_potential": lambda a: N.downside_potential(a["rets"]),
     "upside_potential": lambda a: N.upside_potential(a["rets"]),
     "omega_sharpe_ratio": lambda a: N.omega_sharpe_ratio(a["rets"], a["threshold"]),
+    # pack EXP - causal / experimentation
+    "average_treatment_effect": lambda a: N.average_treatment_effect(a["treatment"], a["control"]),
+    "risk_difference": lambda a: N.risk_difference(a["treatment"], a["control"]),
+    "relative_risk_reduction": lambda a: N.relative_risk_reduction(a["treatment"], a["control"]),
+    "number_needed_to_treat": lambda a: N.number_needed_to_treat(a["treatment"], a["control"]),
+    "standardized_mean_difference": lambda a: N.standardized_mean_difference(a["treatment"], a["control"]),
+    "cuped_ate": lambda a: N.cuped_ate(a["value"], a["covariate"], a["group"]),
+    "variance_reduction_cuped": lambda a: N.variance_reduction_cuped(a["value"], a["covariate"]),
+    "srm_pvalue": lambda a: N.srm_pvalue(a["group"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -405,10 +414,14 @@ EXPECTED = {
     "pain_ratio", "sterling_ratio", "burke_ratio", "m2_measure", "appraisal_ratio",
     "common_sense_ratio", "rachev_ratio", "downside_potential", "upside_potential",
     "omega_sharpe_ratio",
+    # pack EXP - causal / experimentation (8)
+    "average_treatment_effect", "risk_difference", "relative_risk_reduction",
+    "number_needed_to_treat", "standardized_mean_difference", "cuped_ate",
+    "variance_reduction_cuped", "srm_pvalue",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 249 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 257 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

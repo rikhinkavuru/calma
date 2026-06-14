@@ -3523,3 +3523,92 @@ def omega_sharpe_ratio(rets, threshold):
         return float("nan")
     lpm1 = math.fsum(max(threshold - r, 0.0) for r in rets) / len(rets)
     return (fmean(rets) - threshold) / lpm1 if lpm1 > 0 else float("nan")
+
+
+# ======================================================================================
+# Pack EXP - causal / experimentation (A/B testing; documented definitions / scipy SRM).
+# ======================================================================================
+
+def average_treatment_effect(treatment, control):
+    """Mean(treatment) - mean(control)."""
+    if not treatment or not control or _has_nan(treatment) or _has_nan(control):
+        return float("nan")
+    return fmean(treatment) - fmean(control)
+
+
+def risk_difference(treatment, control):
+    """Absolute risk difference for binary outcomes: P(1|treatment) - P(1|control)."""
+    if not treatment or not control or _has_nan(treatment) or _has_nan(control):
+        return float("nan")
+    return fmean(treatment) - fmean(control)
+
+
+def relative_risk_reduction(treatment, control):
+    """(P_control - P_treatment) / P_control for binary outcomes."""
+    if not treatment or not control or _has_nan(treatment) or _has_nan(control):
+        return float("nan")
+    mc = fmean(control)
+    return (mc - fmean(treatment)) / mc if mc != 0 else float("nan")
+
+
+def number_needed_to_treat(treatment, control):
+    """1 / |risk difference|."""
+    if not treatment or not control or _has_nan(treatment) or _has_nan(control):
+        return float("nan")
+    rd = fmean(treatment) - fmean(control)
+    return 1.0 / abs(rd) if rd != 0 else float("nan")
+
+
+def standardized_mean_difference(treatment, control):
+    """SMD balance metric: (mean_t - mean_c) / sqrt((var_t + var_c)/2), ddof=1."""
+    if len(treatment) < 2 or len(control) < 2 or _has_nan(treatment) or _has_nan(control):
+        return float("nan")
+    pooled = (fvar(treatment, 1) + fvar(control, 1)) / 2.0
+    return (fmean(treatment) - fmean(control)) / math.sqrt(pooled) if pooled > 0 else float("nan")
+
+
+def cuped_ate(value, covariate, group):
+    """CUPED-adjusted ATE: theta = cov(Y,X)/var(X); Y' = Y - theta(X - meanX);
+    ATE = mean(Y'|group!=0) - mean(Y'|group==0)."""
+    n = len(value)
+    if n < 2 or len(covariate) != n or len(group) != n or _has_nan(value) or _has_nan(covariate) or _has_nan(group):
+        return float("nan")
+    varx = fvar(covariate, 1)
+    if varx <= 0:
+        return float("nan")
+    theta = covariance(value, covariate) / varx
+    mx = fmean(covariate)
+    yadj = [y - theta * (x - mx) for y, x in zip(value, covariate)]
+    t = [yadj[i] for i in range(n) if group[i] != 0]
+    c = [yadj[i] for i in range(n) if group[i] == 0]
+    return (fmean(t) - fmean(c)) if (t and c) else float("nan")
+
+
+def variance_reduction_cuped(value, covariate):
+    """Fraction of outcome variance removed by CUPED: 1 - var(Y')/var(Y)."""
+    n = len(value)
+    if n < 2 or len(covariate) != n or _has_nan(value) or _has_nan(covariate):
+        return float("nan")
+    vary = fvar(value, 1)
+    varx = fvar(covariate, 1)
+    if vary <= 0 or varx <= 0:
+        return float("nan")
+    theta = covariance(value, covariate) / varx
+    mx = fmean(covariate)
+    yadj = [y - theta * (x - mx) for y, x in zip(value, covariate)]
+    return 1.0 - fvar(yadj, 1) / vary
+
+
+def srm_pvalue(group):
+    """Sample-ratio-mismatch chi-square GOF p-value vs an equal split (scipy.stats.chisquare)."""
+    if not group:
+        return float("nan")
+    counts = {}
+    for g in group:
+        counts[g.strip()] = counts.get(g.strip(), 0) + 1
+    k = len(counts)
+    if k < 2:
+        return float("nan")
+    exp = len(group) / k
+    chi2 = math.fsum((c - exp) ** 2 / exp for c in counts.values())
+    return chi2_sf(chi2, k - 1)

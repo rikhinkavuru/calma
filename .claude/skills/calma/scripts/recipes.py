@@ -1745,3 +1745,40 @@ def omega_sharpe_ratio(cols, binding, convention=None):
     rets = cols[binding["return"]]
     thr = _conv_float(convention, "threshold", 0.0)
     return _result(N.omega_sharpe_ratio(rets, thr), {"n": len(rets), "threshold": thr})
+
+
+# ======================================================================================
+# Pack EXP - causal / experimentation (A/B testing).
+# ======================================================================================
+
+def _tc(fn):
+    def recipe(cols, binding, convention=None):
+        t, c = cols[binding["treatment"]], cols[binding["control"]]
+        return _result(fn(t, c), {"n_t": len(t), "n_c": len(c)})
+    return recipe
+
+
+for _mid in ("average_treatment_effect", "risk_difference", "relative_risk_reduction",
+             "number_needed_to_treat", "standardized_mean_difference"):
+    register(_mid, family="stats", required_tags=["treatment", "control"],
+             set_maturity="reviewed")(_tc(getattr(N, _mid)))
+
+
+@register("cuped_ate", family="stats", required_tags=["value", "covariate", "group"], set_maturity="reviewed")
+def cuped_ate(cols, binding, convention=None):
+    return _result(N.cuped_ate(cols[binding["value"]], cols[binding["covariate"]], cols[binding["group"]]),
+                   {"n": len(cols[binding["value"]])})
+
+
+@register("variance_reduction_cuped", family="stats", required_tags=["value", "covariate"],
+          set_maturity="reviewed")
+def variance_reduction_cuped(cols, binding, convention=None):
+    return _result(N.variance_reduction_cuped(cols[binding["value"]], cols[binding["covariate"]]),
+                   {"n": len(cols[binding["value"]])})
+
+
+@register("srm_pvalue", family="stats", required_tags=["group"], string_tags=["group"],
+          set_maturity="reviewed")
+def srm_pvalue(cols, binding, convention=None):
+    g = cols[binding["group"]]
+    return _result(N.srm_pvalue(g), {"n": len(g)})
