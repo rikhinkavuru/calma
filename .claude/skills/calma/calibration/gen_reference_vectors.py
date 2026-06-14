@@ -2839,6 +2839,48 @@ case("provision_coverage_ratio", "provision_coverage_ratio", {"provisions": cr3_
 case("cds_implied_hazard", "cds_implied_hazard", {"spread": cr3_spread, "recovery": cr3_rec},
      float(np.mean(np.array(cr3_spread) / (1.0 - np.array(cr3_rec)))), atol=1e-12)
 
+# ============================ Pack EFF - effect sizes & association measures ============================
+# Independent reference: scipy.stats.contingency.association (Tschuprow's T, Pearson C),
+# scipy.stats.chi2_contingency for Cohen's w, and the numpy one-way ANOVA SS decomposition
+# for omega^2 / epsilon^2 / Cohen's f.
+
+from scipy.stats.contingency import association as _assoc, crosstab as _crosstab  # noqa: E402
+
+eff_gs = ["a", "b", "c"]
+eff_os = ["x", "y"]
+eff_g = [eff_gs[int(u * 3) % 3] for u in uniforms(6101, 80, 0, 1)]
+eff_o = [eff_os[int(u * 2) % 2] for u in uniforms(6102, 80, 0, 1)]
+eff_lab = ["g1", "g2", "g3", "g4"]
+eff_grp = [eff_lab[int(u * 4) % 4] for u in uniforms(6103, 90, 0, 1)]
+eff_val = list(uniforms(6104, 90, -3.0, 8.0))
+_eff_tab = _crosstab(eff_g, eff_o).count
+_eff_assoc = {"groups": eff_g, "outcomes": eff_o}
+case("tschuprow_t", "tschuprow_t", _eff_assoc, float(_assoc(_eff_tab, method="tschuprow")), atol=1e-12)
+case("pearson_contingency_coefficient", "pearson_contingency_coefficient", _eff_assoc,
+     float(_assoc(_eff_tab, method="pearson")), atol=1e-12)
+case("cohens_w", "cohens_w", _eff_assoc,
+     float(np.sqrt(stats.chi2_contingency(_eff_tab, correction=False)[0] / len(eff_g))), atol=1e-12)
+
+
+def _eff_ss(groups, values):
+    values = np.array(values, float)
+    labs = sorted(set(groups))
+    grand = values.mean()
+    n = len(values)
+    k = len(labs)
+    ssb = float(sum(np.array([v for g, v in zip(groups, values) if g == L]).size
+                    * (np.array([v for g, v in zip(groups, values) if g == L]).mean() - grand) ** 2
+                    for L in labs))
+    sst = float(np.sum((values - grand) ** 2))
+    return ssb, sst, ssb / sst, (sst - ssb) / (n - k), k
+
+
+_e_ssb, _e_sst, _e_eta, _e_msw, _e_k = _eff_ss(eff_grp, eff_val)
+_eff_anova = {"groups": eff_grp, "values": eff_val}
+case("omega_squared", "omega_squared", _eff_anova, (_e_ssb - (_e_k - 1) * _e_msw) / (_e_sst + _e_msw), atol=1e-12)
+case("epsilon_squared", "epsilon_squared", _eff_anova, (_e_ssb - (_e_k - 1) * _e_msw) / _e_sst, atol=1e-12)
+case("cohens_f", "cohens_f", _eff_anova, float(np.sqrt(_e_eta / (1.0 - _e_eta))), atol=1e-12)
+
 # ============================ write ============================
 
 doc = {

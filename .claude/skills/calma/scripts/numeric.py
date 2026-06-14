@@ -7299,3 +7299,102 @@ def cds_implied_hazard(spread, recovery):
     if not _cr_ok(spread, recovery) or any(r >= 1.0 for r in recovery):
         return float("nan")
     return fmean([s / (1.0 - r) for s, r in zip(spread, recovery)])
+
+
+# ======================================================================================
+# Pack EFF - effect sizes & association measures. The categorical-association measures
+# (Tschuprow's T, Pearson contingency C, Cohen's w) reuse the no-correction chi-square from
+# raw (group, outcome) pairs; the ANOVA effect sizes (omega^2, epsilon^2, Cohen's f) come
+# from the one-way sum-of-squares decomposition. Validated against scipy.stats.contingency
+# .association and the numpy SS reference.
+# ======================================================================================
+
+def tschuprow_t(groups, outcomes):
+    """Tschuprow's T: sqrt(chi2_nocorr / (n * sqrt((r-1)(c-1)))) from raw (group, outcome) pairs."""
+    if not groups or len(groups) != len(outcomes):
+        return float("nan")
+    stat = chi_square(groups, outcomes, yates=False, output="statistic")
+    if stat != stat:
+        return float("nan")
+    r = len(set(g.strip() for g in groups))
+    c = len(set(o.strip() for o in outcomes))
+    denom = math.sqrt((r - 1) * (c - 1))
+    if denom <= 0:
+        return float("nan")
+    return math.sqrt(stat / (len(groups) * denom))
+
+
+def pearson_contingency_coefficient(groups, outcomes):
+    """Pearson's contingency coefficient C: sqrt(chi2_nocorr / (chi2_nocorr + n))."""
+    if not groups or len(groups) != len(outcomes):
+        return float("nan")
+    stat = chi_square(groups, outcomes, yates=False, output="statistic")
+    if stat != stat:
+        return float("nan")
+    return math.sqrt(stat / (stat + len(groups)))
+
+
+def cohens_w(groups, outcomes):
+    """Cohen's w effect size for a contingency table: sqrt(chi2_nocorr / n)."""
+    if not groups or len(groups) != len(outcomes):
+        return float("nan")
+    stat = chi_square(groups, outcomes, yates=False, output="statistic")
+    if stat != stat:
+        return float("nan")
+    return math.sqrt(stat / len(groups))
+
+
+def _anova_ss(groups, values):
+    """One-way ANOVA sum-of-squares decomposition from raw (group, value) rows ->
+    (ss_between, ss_total, ss_within, ms_within, k_groups, n)."""
+    if not groups or len(groups) != len(values) or _has_nan(values):
+        return None
+    buckets = {}
+    for g, v in zip(groups, values):
+        buckets.setdefault(g.strip(), []).append(v)
+    k = len(buckets)
+    n = len(values)
+    if k < 2 or n - k < 1:
+        return None
+    grand = fmean(values)
+    ssb = math.fsum(len(vs) * (fmean(vs) - grand) ** 2 for vs in buckets.values())
+    sst = math.fsum((v - grand) ** 2 for v in values)
+    ssw = sst - ssb
+    return ssb, sst, ssw, ssw / (n - k), k, n
+
+
+def omega_squared(groups, values):
+    """One-way omega-squared: (SSB - (k-1)*MSW) / (SST + MSW); a less-biased eta-squared."""
+    r = _anova_ss(groups, values)
+    if r is None:
+        return float("nan")
+    ssb, sst, ssw, msw, k, n = r
+    den = sst + msw
+    if den == 0:
+        return float("nan")
+    return (ssb - (k - 1) * msw) / den
+
+
+def epsilon_squared(groups, values):
+    """One-way epsilon-squared (Kelley): (SSB - (k-1)*MSW) / SST; bias-corrected eta-squared."""
+    r = _anova_ss(groups, values)
+    if r is None:
+        return float("nan")
+    ssb, sst, ssw, msw, k, n = r
+    if sst == 0:
+        return float("nan")
+    return (ssb - (k - 1) * msw) / sst
+
+
+def cohens_f(groups, values):
+    """Cohen's f ANOVA effect size: sqrt(eta2 / (1 - eta2)), eta2 = SSB/SST."""
+    r = _anova_ss(groups, values)
+    if r is None:
+        return float("nan")
+    ssb, sst, ssw, msw, k, n = r
+    if sst <= 0:
+        return float("nan")
+    eta2 = ssb / sst
+    if eta2 >= 1.0:
+        return float("nan")
+    return math.sqrt(eta2 / (1.0 - eta2))

@@ -635,6 +635,13 @@ KINDS = {
     "tier1_leverage_ratio": lambda a: N.tier1_leverage_ratio(a["tier1_capital"], a["total_exposure"]),
     "provision_coverage_ratio": lambda a: N.provision_coverage_ratio(a["provisions"], a["npl"]),
     "cds_implied_hazard": lambda a: N.cds_implied_hazard(a["spread"], a["recovery"]),
+    # pack EFF - effect sizes & association measures
+    "tschuprow_t": lambda a: N.tschuprow_t(a["groups"], a["outcomes"]),
+    "pearson_contingency_coefficient": lambda a: N.pearson_contingency_coefficient(a["groups"], a["outcomes"]),
+    "cohens_w": lambda a: N.cohens_w(a["groups"], a["outcomes"]),
+    "omega_squared": lambda a: N.omega_squared(a["groups"], a["values"]),
+    "epsilon_squared": lambda a: N.epsilon_squared(a["groups"], a["values"]),
+    "cohens_f": lambda a: N.cohens_f(a["groups"], a["values"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -879,10 +886,13 @@ EXPECTED = {
     "altman_z_double_prime", "springate_score", "zmijewski_score",
     "capital_adequacy_ratio", "tier1_leverage_ratio", "provision_coverage_ratio",
     "cds_implied_hazard",
+    # pack EFF - effect sizes & association measures (6)
+    "tschuprow_t", "pearson_contingency_coefficient", "cohens_w",
+    "omega_squared", "epsilon_squared", "cohens_f",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 530 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 536 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

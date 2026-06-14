@@ -1122,6 +1122,18 @@
       ],
       "description": "Inter-rater agreement corrected for chance agreement."
     },
+    "cohens_f": {
+      "aliases": [
+        "cohen's f",
+        "cohens f",
+        "f effect size",
+        "anova effect size f",
+        "how large is the group effect",
+        "f for power analysis",
+        "standardized anova effect"
+      ],
+      "description": "Cohen's f effect size derived from eta-squared in ANOVA."
+    },
     "cohens_h": {
       "aliases": [
         "cohen h",
@@ -1132,6 +1144,18 @@
         "h statistic"
       ],
       "description": "Effect size for the difference between two proportions using arcsine transform."
+    },
+    "cohens_w": {
+      "aliases": [
+        "cohen's w",
+        "cohens w",
+        "w effect size",
+        "chi-square effect size",
+        "effect size for a cross-tab",
+        "how big is the categorical effect",
+        "omnibus w"
+      ],
+      "description": "Cohen's w effect size for a chi-square contingency table."
     },
     "column_max": {
       "aliases": [
@@ -1739,6 +1763,18 @@
         "diversity"
       ],
       "description": "Shannon entropy quantifying uncertainty or diversity across category frequencies."
+    },
+    "epsilon_squared": {
+      "aliases": [
+        "epsilon squared",
+        "epsilon-squared",
+        "kelley's epsilon",
+        "adjusted variance explained",
+        "bias-corrected eta squared",
+        "anova effect size epsilon",
+        "proportion of variance corrected"
+      ],
+      "description": "Bias-corrected eta-squared effect size for one-way ANOVA."
     },
     "equal_opportunity_difference": {
       "aliases": [
@@ -3894,6 +3930,18 @@
       ],
       "description": "Omega ratio minus one; expresses omega as an excess performance figure."
     },
+    "omega_squared": {
+      "aliases": [
+        "omega squared",
+        "omega-squared",
+        "unbiased effect size anova",
+        "variance explained by group",
+        "how much group explains",
+        "less-biased eta squared",
+        "anova effect size omega"
+      ],
+      "description": "Less-biased proportion of variance explained by group in one-way ANOVA."
+    },
     "operating_margin": {
       "aliases": [
         "operating profit margin",
@@ -4029,6 +4077,18 @@
         "memory high water mark"
       ],
       "description": "Maximum memory consumed during execution."
+    },
+    "pearson_contingency_coefficient": {
+      "aliases": [
+        "pearson contingency coefficient",
+        "contingency coefficient",
+        "pearson's c",
+        "coefficient of contingency",
+        "association in a cross-tab",
+        "strength of categorical relationship",
+        "pearson c"
+      ],
+      "description": "Pearson's contingency coefficient C for a contingency table."
     },
     "pearson_median_skewness": {
       "aliases": [
@@ -5379,6 +5439,18 @@
         "tsallis q index"
       ],
       "description": "Tsallis q-entropy, a non-additive generalization of Shannon entropy."
+    },
+    "tschuprow_t": {
+      "aliases": [
+        "tschuprow t",
+        "tschuprow's t",
+        "tschuprow coefficient",
+        "categorical association strength",
+        "how related are two categories",
+        "contingency association",
+        "t-association"
+      ],
+      "description": "Tschuprow's T association between two categorical variables."
     },
     "tvpi": {
       "aliases": [

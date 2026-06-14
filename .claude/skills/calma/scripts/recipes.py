@@ -3218,3 +3218,32 @@ _CR3_BIND = {
 for _mid, _tags in _CR3_BIND.items():
     register(_mid, family="credit", required_tags=list(_tags),
              set_maturity="reviewed")(_biz_recipe(getattr(N, _mid), _tags))
+
+
+# ======================================================================================
+# Pack EFF - effect sizes & association measures. Categorical association binds (group,
+# outcome) as strings; ANOVA effect sizes bind (group string, value).
+# ======================================================================================
+
+def _assoc_recipe(fn):
+    def recipe(cols, binding, convention=None):
+        g, o = cols[binding["group"]], cols[binding["outcome"]]
+        return _result(fn(g, o), {"n": len(g)})
+    return recipe
+
+
+for _mid in ("tschuprow_t", "pearson_contingency_coefficient", "cohens_w"):
+    register(_mid, family="stats", required_tags=["group", "outcome"],
+             string_tags=["group", "outcome"], set_maturity="reviewed")(_assoc_recipe(getattr(N, _mid)))
+
+
+def _anova_eff_recipe(fn):
+    def recipe(cols, binding, convention=None):
+        groups, values = cols[binding["group"]], cols[binding["value"]]
+        return _result(fn(groups, values), {"n": len(values)})
+    return recipe
+
+
+for _mid in ("omega_squared", "epsilon_squared", "cohens_f"):
+    register(_mid, family="stats", required_tags=["group", "value"], string_tags=["group"],
+             set_maturity="reviewed")(_anova_eff_recipe(getattr(N, _mid)))
