@@ -4326,6 +4326,39 @@ def merton_pd(asset_value, debt, drift, vol, time):
     return fmean(pds)
 
 
+# Pack CR2 - Basel ASRF / Vasicek credit-portfolio capital. PD/LGD/EAD columns with an
+# asset-correlation rho; the 99.9% conditional default rate is the Vasicek single-factor
+# worst case. Validated against a scipy.stats.norm recompute.
+
+def _asrf_cond_pd(p, rho, q):
+    return _norm_cdf((z_ppf(p) + math.sqrt(rho) * z_ppf(q)) / math.sqrt(1.0 - rho))
+
+
+def vasicek_conditional_pd(pd, rho, q=0.999):
+    """Mean Vasicek conditional (stressed) default rate at quantile q: N((N^-1(PD)+sqrt(rho)
+    N^-1(q))/sqrt(1-rho)), averaged over names."""
+    if not pd or _has_nan(pd) or not (0.0 < rho < 1.0) or not (0.5 < q < 1.0):
+        return float("nan")
+    if any(not (0.0 < p < 1.0) for p in pd):
+        return float("nan")
+    return fmean([_asrf_cond_pd(p, rho, q) for p in pd])
+
+
+def asrf_capital_requirement(pd, lgd, ead, rho, q=0.999):
+    """Basel IRB / ASRF portfolio capital: sum_i EAD_i * LGD_i * (conditional_PD_i - PD_i)."""
+    if not _cr_ok(pd, lgd, ead) or not (0.0 < rho < 1.0) or not (0.5 < q < 1.0):
+        return float("nan")
+    if any(not (0.0 < p < 1.0) for p in pd):
+        return float("nan")
+    return math.fsum(e * l * (_asrf_cond_pd(p, rho, q) - p) for p, l, e in zip(pd, lgd, ead))
+
+
+def asrf_rwa(pd, lgd, ead, rho, q=0.999):
+    """Basel risk-weighted assets from the ASRF capital: capital * 12.5."""
+    cap = asrf_capital_requirement(pd, lgd, ead, rho, q)
+    return float("nan") if cap != cap else cap * 12.5
+
+
 # ======================================================================================
 # Pack PA - portfolio construction & attribution. Per-segment portfolio/benchmark weight
 # and return columns drive Brinson-Hood-Beebower attribution; weight vectors drive active

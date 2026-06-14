@@ -1989,6 +1989,32 @@ for _mid in ("merton_distance_to_default", "merton_pd"):
 
 
 # ======================================================================================
+# Pack CR2 - Basel ASRF / Vasicek credit-portfolio capital. PD/LGD/EAD columns; the asset
+# correlation rho via convention (Basel default ~0.15). The 99.9% quantile is fixed.
+# ======================================================================================
+
+def _cr2_capital(fn):
+    def recipe(cols, binding, convention=None):
+        p, l, e = cols[binding["pd"]], cols[binding["lgd"]], cols[binding["ead"]]
+        rho = _conv_float(convention, "rho", 0.15)
+        return _result(fn(p, l, e, rho), {"n": len(p), "rho": rho})
+    return recipe
+
+
+for _mid in ("asrf_capital_requirement", "asrf_rwa"):
+    register(_mid, family="credit", required_tags=["pd", "lgd", "ead"],
+             set_maturity="reviewed", accepted_conventions=["rho=<frac>"])(_cr2_capital(getattr(N, _mid)))
+
+
+@register("vasicek_conditional_pd", family="credit", required_tags=["pd"],
+          set_maturity="reviewed", accepted_conventions=["rho=<frac>"])
+def vasicek_conditional_pd(cols, binding, convention=None):
+    p = cols[binding["pd"]]
+    rho = _conv_float(convention, "rho", 0.15)
+    return _result(N.vasicek_conditional_pd(p, rho), {"n": len(p), "rho": rho})
+
+
+# ======================================================================================
 # Pack PA - portfolio construction & attribution. Per-segment portfolio/benchmark weight
 # and return columns drive Brinson attribution; weight vectors drive active share,
 # turnover and the effective number of bets.

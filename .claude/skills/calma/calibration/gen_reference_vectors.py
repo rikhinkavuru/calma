@@ -1607,6 +1607,27 @@ mt_args = {"v": mt_v, "d": mt_d, "mu": mt_mu, "sigma": mt_sig, "t": mt_t}
 case("merton_distance_to_default", "merton_distance_to_default", mt_args, cr_dd, atol=1e-12)
 case("merton_pd", "merton_pd", mt_args, cr_mpd, atol=1e-12)
 
+# Pack CR2 - Basel ASRF / Vasicek capital (scipy.stats.norm reference)
+cr2_pd = [0.010, 0.020, 0.050, 0.008, 0.030]
+cr2_lgd = [0.45, 0.50, 0.40, 0.55, 0.45]
+cr2_ead = [100.0, 200.0, 150.0, 120.0, 180.0]
+cr2_rho, cr2_q = 0.15, 0.999
+
+
+def _cr2_cond(p):
+    return float(_spn.cdf((_spn.ppf(p) + np.sqrt(cr2_rho) * _spn.ppf(cr2_q)) / np.sqrt(1.0 - cr2_rho)))
+
+
+cr2_cap = float(np.sum([e * l * (_cr2_cond(p) - p) for p, l, e in zip(cr2_pd, cr2_lgd, cr2_ead)]))
+cr2_rwa = cr2_cap * 12.5
+cr2_condpd = float(np.mean([_cr2_cond(p) for p in cr2_pd]))
+case("asrf_capital_requirement", "asrf_capital_requirement",
+     {"pd": cr2_pd, "lgd": cr2_lgd, "ead": cr2_ead, "rho": cr2_rho}, cr2_cap, atol=1e-9)
+case("asrf_rwa", "asrf_rwa",
+     {"pd": cr2_pd, "lgd": cr2_lgd, "ead": cr2_ead, "rho": cr2_rho}, cr2_rwa, atol=1e-8)
+case("vasicek_conditional_pd", "vasicek_conditional_pd",
+     {"pd": cr2_pd, "rho": cr2_rho}, cr2_condpd, atol=1e-10)
+
 # ============================ Pack PA - portfolio construction & attribution ============================
 # Independent reference: vectorized numpy recompute of Brinson-Hood-Beebower attribution
 # and the weight-based metrics over a deterministic 6-segment book.

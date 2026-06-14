@@ -368,6 +368,9 @@ KINDS = {
     "altman_z_prime": lambda a: N.altman_z_prime(a["x1"], a["x2"], a["x3"], a["x4"]),
     "merton_distance_to_default": lambda a: N.merton_distance_to_default(a["v"], a["d"], a["mu"], a["sigma"], a["t"]),
     "merton_pd": lambda a: N.merton_pd(a["v"], a["d"], a["mu"], a["sigma"], a["t"]),
+    "asrf_capital_requirement": lambda a: N.asrf_capital_requirement(a["pd"], a["lgd"], a["ead"], a["rho"]),
+    "asrf_rwa": lambda a: N.asrf_rwa(a["pd"], a["lgd"], a["ead"], a["rho"]),
+    "vasicek_conditional_pd": lambda a: N.vasicek_conditional_pd(a["pd"], a["rho"]),
     # pack PA - portfolio construction & attribution
     "brinson_allocation": lambda a: N.brinson_allocation(a["wp"], a["wb"], a["rb"]),
     "brinson_selection": lambda a: N.brinson_selection(a["wb"], a["rp"], a["rb"]),
@@ -658,6 +661,8 @@ EXPECTED = {
     # pack CR - credit / default risk (8)
     "expected_loss", "expected_loss_rate", "weighted_lgd", "unexpected_loss",
     "altman_z", "altman_z_prime", "merton_distance_to_default", "merton_pd",
+    # pack CR2 - Basel ASRF / Vasicek credit-portfolio capital (3)
+    "asrf_capital_requirement", "asrf_rwa", "vasicek_conditional_pd",
     # pack PA - portfolio construction & attribution (7)
     "brinson_allocation", "brinson_selection", "brinson_interaction", "brinson_total_active",
     "active_share", "portfolio_turnover", "effective_number_of_bets",
@@ -738,7 +743,7 @@ EXPECTED = {
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 443 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 446 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402
