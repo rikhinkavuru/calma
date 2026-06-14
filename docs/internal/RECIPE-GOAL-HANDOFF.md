@@ -15,7 +15,58 @@ highest quality." User does not care what order packs are added in.
 
 ---
 
-## Where things stand (as of commit `94cb5cd`) — 🎯 500 MILESTONE REACHED
+## Where things stand (as of commit `8a5555d`) — 622 total, +122 this run (paused on a quality call)
+
+- **Engine: 622 total recipes** = **620 reviewed** + **2 compiled-validated** (up from 500).
+  Test suite green: `recipes-sota: 2244 checks, 0 failures`; `test_suggest: OK`
+  (recall@8 ALL 96.9% / named 99.7% / paraphrase 94.1% on a 1230-row blind gold set);
+  `npx tsc --noEmit` clean. `RECIPE_COUNT` auto-derives to 622.
+- **Why paused here (READ THIS before resuming):** the user interrupted and asked to
+  "stop the goal if quality of recipes is degrading." Honest assessment: the *validation*
+  bar held perfectly (every one of the 122 new recipes was prototyped against an
+  independent reference — scipy / scipy.spatial / scipy.stats.contingency / scikit-learn /
+  statsmodels / numpy-financial / rapidfuzz / numpy closed forms — and matches to ≤1e-7,
+  with three blind-benchmark re-enrichment rounds). But the *SOTA-distinctiveness* bar
+  softened on a few late packs as the easy library veins got tapped: REL (reliability /
+  Six-Sigma ops ratios), BD3 (niche boolean-vector distances) and the in-flight PERF pack
+  (geometric-mean return / average win / average loss are near-trivial) drifted toward
+  simple definitional ratios rather than research-grade or canonical-named metrics. **Pack
+  PERF was reverted** (it was half-applied) to leave the tree green at 622. The GIPS Dietz
+  returns in it (`simple_dietz_return` / `modified_dietz_return` / `holding_period_return`)
+  ARE on-brand and worth redoing; the three return-stat components are skippable.
+- **Quality bar for resuming (the lesson):** only add a recipe if it is (a) genuinely
+  distinct from every existing kernel — NOT a reskin (e.g. a weighted-mean rebinding, a
+  `1 - x` of an existing metric, or `payoff_ratio` which equals the existing
+  `gain_loss_ratio`), and (b) has a *named paper / canonical library function / documented
+  closed form* as its independent reference. When the clean veins run dry, SLOW DOWN and
+  find truly novel validatable metrics rather than padding to hit the count. The Stop-hook
+  count target is secondary to this.
+- **New infrastructure this run:** a deterministic pure-stdlib OLS solver lives in
+  `numeric.py` (`_solve_linear` Gauss-Jordan + `_ols_fit` normal equations) — it backs the
+  heteroskedasticity tests (Pack HET) and OLS inference (Pack OLS) and unlocks more
+  regression-based recipes. New reusable helpers: `_xy_ok`, `_xy_recipe`, `_str_recipe`,
+  `_bool_counts`, `_grp_confusion`, `_anova_ss`, `_het_recipe`.
+- **The 20 packs added this run** (each green + committed; family in parens): GM generalized
+  means/k-stats (analytics/stats), NT normality+nonparametric tests (stats), FE4 forecasting/
+  hydrology skill (forecasting), DEC diversity/entropy/welfare (analytics), CR3 distress
+  models + Basel ratios (credit), EFF effect sizes/association (stats), MS microstructure
+  spreads (liquidity/execution), SK sklearn classification/regression depth (classification/
+  regression), CF corporate finance/capital budgeting (finance), TSF time-series/signal
+  features (stats), REL reliability/Six-Sigma (engineering), RC2 robust correlation/slopes
+  (stats), VD vector distances (analytics), IT information-theoretic association (stats),
+  CAL2 calibration/decision-curve (classification), FAIR2 group-fairness depth (classification),
+  HET heteroskedasticity tests (regression), STR string similarity vs rapidfuzz (llm-eval),
+  BD3 boolean/set distances (analytics), OLS regression inference (regression). Plus three
+  `suggest:` consolidation commits (blind gold set 1000→1230, +244 blind asks).
+- **⚠️ Parallel session is ACTIVE and collided this run.** Another session is editing
+  `scripts/calma.py`, `references/recipes.md`, `assets/reference_vectors.json` and adding
+  `scripts/leakage_checks.py` + `tests/test_leakage_checks.py` (uncommitted right now). It
+  regenerated `reference_vectors.json` while this session's generator still held an
+  uncommitted PERF block, leaving the on-disk vectors file inconsistent with HEAD. Keep using
+  pathspec-scoped commits; treat `reference_vectors.json` as shared and regenerate-then-commit
+  it atomically inside your own pack; never `git checkout` a file the other session owns.
+
+## Where things stood at the 500 milestone (commit `94cb5cd`) — 🎯 500 MILESTONE REACHED
 
 - **Engine: 500 total recipes** = **498 reviewed** + **2 compiled-validated**. The
   "~500" marketing target is met (started this multi-session run at 274).
