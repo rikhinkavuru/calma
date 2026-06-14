@@ -7065,3 +7065,78 @@ def differential_entropy(xs):
         return float("nan")
     pad = [s[0]] * m + s + [s[-1]] * m
     return math.fsum(dlog(n / (2.0 * m) * (pad[2 * m + i] - pad[i])) for i in range(n)) / n
+
+
+# ======================================================================================
+# Pack FE4 - forecasting & hydrology skill metrics. prediction + target columns. Each is a
+# documented closed form (Legates-McCabe E1, Willmott 2012 refined dr, fractional bias,
+# log Nash-Sutcliffe, RMSPE, mean bias error) recomputed against the numpy reference.
+# ======================================================================================
+
+def root_mean_square_percentage_error(pred, actual):
+    """RMSPE: sqrt(mean(((a-p)/a)^2)); any zero actual -> NaN, never an epsilon fudge."""
+    n = len(actual)
+    if n < 1 or len(pred) != n or _has_nan(pred) or _has_nan(actual) or any(a == 0 for a in actual):
+        return float("nan")
+    return math.sqrt(math.fsum(((a - p) / a) ** 2 for p, a in zip(pred, actual)) / n)
+
+
+def legates_mccabe_efficiency(pred, actual):
+    """Legates-McCabe E1 skill score: 1 - sum|p-a| / sum|a - mean(a)| (absolute-error NSE)."""
+    n = len(actual)
+    if n < 1 or len(pred) != n or _has_nan(pred) or _has_nan(actual):
+        return float("nan")
+    m = fmean(actual)
+    den = math.fsum(abs(a - m) for a in actual)
+    if den == 0:
+        return float("nan")
+    return 1.0 - math.fsum(abs(p - a) for p, a in zip(pred, actual)) / den
+
+
+def refined_willmott_index(pred, actual):
+    """Willmott et al. (2012) refined index of agreement dr (a bounded [-1,1] skill score)."""
+    n = len(actual)
+    if n < 1 or len(pred) != n or _has_nan(pred) or _has_nan(actual):
+        return float("nan")
+    m = fmean(actual)
+    a_sum = math.fsum(abs(p - a) for p, a in zip(pred, actual))
+    b_sum = math.fsum(abs(a - m) for a in actual)
+    if b_sum == 0:
+        return float("nan")
+    return 1.0 - a_sum / (2.0 * b_sum) if a_sum <= 2.0 * b_sum else (2.0 * b_sum) / a_sum - 1.0
+
+
+def fractional_bias(pred, actual):
+    """Fractional bias FB = 2(mean(a) - mean(p)) / (mean(a) + mean(p)); a symmetric, bounded
+    measure of systematic over/under-forecast (atmospheric-dispersion standard)."""
+    n = len(actual)
+    if n < 1 or len(pred) != n or _has_nan(pred) or _has_nan(actual):
+        return float("nan")
+    ma, mp = fmean(actual), fmean(pred)
+    if ma + mp == 0:
+        return float("nan")
+    return 2.0 * (ma - mp) / (ma + mp)
+
+
+def mean_bias_error(pred, actual):
+    """Mean bias error MBE = mean(p - a) in the original units; positive = over-forecast."""
+    n = len(actual)
+    if n < 1 or len(pred) != n or _has_nan(pred) or _has_nan(actual):
+        return float("nan")
+    return math.fsum(p - a for p, a in zip(pred, actual)) / n
+
+
+def log_nash_sutcliffe(pred, actual):
+    """Log Nash-Sutcliffe efficiency: NSE computed on ln-transformed series; positive data
+    (low-flow / heavy-tail forecasting standard)."""
+    n = len(actual)
+    if (n < 1 or len(pred) != n or _has_nan(pred) or _has_nan(actual)
+            or any(a <= 0 for a in actual) or any(p <= 0 for p in pred)):
+        return float("nan")
+    la = [dlog(a) for a in actual]
+    lp = [dlog(p) for p in pred]
+    m = fmean(la)
+    den = math.fsum((a - m) ** 2 for a in la)
+    if den == 0:
+        return float("nan")
+    return 1.0 - math.fsum((a - p) ** 2 for a, p in zip(la, lp)) / den

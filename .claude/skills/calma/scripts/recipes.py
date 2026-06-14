@@ -3166,3 +3166,14 @@ for _mid in ("skewtest", "kurtosistest", "normaltest", "differential_entropy"):
 for _mid in ("wilcoxon_rank_sum", "mood_median_test"):
     register(_mid, family="stats", required_tags=["sample_a", "sample_b"],
              set_maturity="reviewed")(_np_ab(getattr(N, _mid)))
+
+
+# ======================================================================================
+# Pack FE4 - forecasting & hydrology skill metrics. prediction + target columns.
+# ======================================================================================
+
+for _mid in ("root_mean_square_percentage_error", "legates_mccabe_efficiency",
+             "refined_willmott_index", "fractional_bias", "mean_bias_error",
+             "log_nash_sutcliffe"):
+    register(_mid, family="forecasting", required_tags=["prediction", "target"],
+             set_maturity="reviewed")(_fc2_recipe(getattr(N, _mid)))

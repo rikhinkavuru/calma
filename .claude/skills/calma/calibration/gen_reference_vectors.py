@@ -2741,6 +2741,29 @@ case("mood_median_test", "mood_median_test", {"a": nt_a, "b": nt_b},
 case("differential_entropy", "differential_entropy", {"xs": nt_x},
      float(stats.differential_entropy(nt_x, method="vasicek")), atol=1e-12)
 
+# ============================ Pack FE4 - forecasting & hydrology skill metrics ============================
+# Independent reference: numpy closed forms for RMSPE, Legates-McCabe E1, Willmott (2012)
+# refined dr, fractional bias, mean bias error, and log Nash-Sutcliffe efficiency.
+
+fe4_a = list(uniforms(3101, 90, 5.0, 60.0))
+fe4_noise = list(uniforms(3102, 90, -6.0, 6.0))
+fe4_p = [x + e for x, e in zip(fe4_a, fe4_noise)]
+_fa, _fp = np.array(fe4_a), np.array(fe4_p)
+_fb_A = float(np.sum(np.abs(_fp - _fa)))
+_fb_B = float(np.sum(np.abs(_fa - _fa.mean())))
+fe4_args = {"pred": fe4_p, "actual": fe4_a}
+case("root_mean_square_percentage_error", "root_mean_square_percentage_error", fe4_args,
+     float(np.sqrt(np.mean(((_fa - _fp) / _fa) ** 2))), atol=1e-12)
+case("legates_mccabe_efficiency", "legates_mccabe_efficiency", fe4_args, 1.0 - _fb_A / _fb_B, atol=1e-12)
+case("refined_willmott_index", "refined_willmott_index", fe4_args,
+     (1.0 - _fb_A / (2.0 * _fb_B)) if _fb_A <= 2.0 * _fb_B else (2.0 * _fb_B) / _fb_A - 1.0, atol=1e-12)
+case("fractional_bias", "fractional_bias", fe4_args,
+     float(2.0 * (_fa.mean() - _fp.mean()) / (_fa.mean() + _fp.mean())), atol=1e-12)
+case("mean_bias_error", "mean_bias_error", fe4_args, float(np.mean(_fp - _fa)), atol=1e-12)
+case("log_nash_sutcliffe", "log_nash_sutcliffe", fe4_args,
+     float(1.0 - np.sum((np.log(_fa) - np.log(_fp)) ** 2) / np.sum((np.log(_fa) - np.log(_fa).mean()) ** 2)),
+     atol=1e-12)
+
 # ============================ write ============================
 
 doc = {

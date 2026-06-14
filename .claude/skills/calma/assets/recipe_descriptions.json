@@ -2038,6 +2038,18 @@
       ],
       "description": "Difference in false-positive rate across protected groups."
     },
+    "fractional_bias": {
+      "aliases": [
+        "fractional bias",
+        "fb",
+        "normalized bias",
+        "symmetric bias",
+        "is the model consistently over or under",
+        "systematic over-forecast measure",
+        "relative mean bias"
+      ],
+      "description": "Symmetric bounded measure of systematic over- or under-forecast."
+    },
     "free_cash_flow_margin": {
       "aliases": [
         "fcf margin",
@@ -2992,6 +3004,18 @@
       ],
       "description": "Standard deviation of response times measuring latency spread."
     },
+    "legates_mccabe_efficiency": {
+      "aliases": [
+        "legates-mccabe efficiency",
+        "e1 efficiency",
+        "modified nash-sutcliffe",
+        "absolute-error skill score",
+        "how much better than predicting the mean",
+        "l-m efficiency",
+        "mean absolute efficiency"
+      ],
+      "description": "Absolute-error skill score: 1 minus mean abs error over mean abs deviation."
+    },
     "lehmer_mean": {
       "aliases": [
         "lehmer mean",
@@ -3079,6 +3103,18 @@
         "cross-entropy loss"
       ],
       "description": "Average negative log-likelihood of predicted class probabilities."
+    },
+    "log_nash_sutcliffe": {
+      "aliases": [
+        "log nash-sutcliffe",
+        "lnnse",
+        "log nse",
+        "nash-sutcliffe on logs",
+        "skill for low values",
+        "heavy-tail forecast skill",
+        "logarithmic efficiency"
+      ],
+      "description": "Nash-Sutcliffe efficiency computed on log-transformed series."
     },
     "long_exposure": {
       "aliases": [
@@ -3326,6 +3362,18 @@
         "full map"
       ],
       "description": "Mean over queries of the average precision across all relevant items."
+    },
+    "mean_bias_error": {
+      "aliases": [
+        "mean bias error",
+        "mbe",
+        "average bias",
+        "systematic error",
+        "is the forecast too high or too low on average",
+        "additive bias",
+        "mean error"
+      ],
+      "description": "Mean of forecast minus actual, in the original units."
     },
     "mean_directional_accuracy": {
       "aliases": [
@@ -4404,6 +4452,18 @@
       ],
       "description": "Fraction of exposure recovered after a default."
     },
+    "refined_willmott_index": {
+      "aliases": [
+        "refined index of agreement",
+        "willmott dr",
+        "refined willmott",
+        "dr agreement",
+        "how well predictions agree with observations",
+        "bounded agreement index",
+        "willmott 2012"
+      ],
+      "description": "Willmott's 2012 refined index of agreement, bounded in [-1,1]."
+    },
     "relative_absolute_error": {
       "aliases": [
         "rae",
@@ -4607,6 +4667,18 @@
         "effective value"
       ],
       "description": "Root mean square: the square root of the mean of squared values."
+    },
+    "root_mean_square_percentage_error": {
+      "aliases": [
+        "rmspe",
+        "root mean square percentage error",
+        "percentage rmse",
+        "relative rmse",
+        "how big the errors are in percent",
+        "typical percent error",
+        "rms percent error"
+      ],
+      "description": "Root mean square percentage error between forecast and actual."
     },
     "rosenbluth_index": {
       "aliases": [

@@ -612,6 +612,13 @@ KINDS = {
     "differential_entropy": lambda a: N.differential_entropy(a["xs"]),
     "wilcoxon_rank_sum": lambda a: N.wilcoxon_rank_sum(a["a"], a["b"]),
     "mood_median_test": lambda a: N.mood_median_test(a["a"], a["b"]),
+    # pack FE4 - forecasting & hydrology skill metrics
+    "root_mean_square_percentage_error": lambda a: N.root_mean_square_percentage_error(a["pred"], a["actual"]),
+    "legates_mccabe_efficiency": lambda a: N.legates_mccabe_efficiency(a["pred"], a["actual"]),
+    "refined_willmott_index": lambda a: N.refined_willmott_index(a["pred"], a["actual"]),
+    "fractional_bias": lambda a: N.fractional_bias(a["pred"], a["actual"]),
+    "mean_bias_error": lambda a: N.mean_bias_error(a["pred"], a["actual"]),
+    "log_nash_sutcliffe": lambda a: N.log_nash_sutcliffe(a["pred"], a["actual"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -845,10 +852,14 @@ EXPECTED = {
     # pack NT - normality & nonparametric test statistics (6)
     "skewtest", "kurtosistest", "normaltest", "differential_entropy",
     "wilcoxon_rank_sum", "mood_median_test",
+    # pack FE4 - forecasting & hydrology skill metrics (6)
+    "root_mean_square_percentage_error", "legates_mccabe_efficiency",
+    "refined_willmott_index", "fractional_bias", "mean_bias_error",
+    "log_nash_sutcliffe",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 510 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 516 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402
