@@ -686,6 +686,16 @@ KINDS = {
     "chatterjee_xi": lambda a: N.chatterjee_xi(a["x"], a["y"]),
     "blomqvist_beta": lambda a: N.blomqvist_beta(a["x"], a["y"]),
     "gaussian_rank_correlation": lambda a: N.gaussian_rank_correlation(a["x"], a["y"]),
+    # pack VD - vector distance & similarity
+    "euclidean_distance": lambda a: N.euclidean_distance(a["x"], a["y"]),
+    "squared_euclidean_distance": lambda a: N.squared_euclidean_distance(a["x"], a["y"]),
+    "manhattan_distance": lambda a: N.manhattan_distance(a["x"], a["y"]),
+    "chebyshev_distance": lambda a: N.chebyshev_distance(a["x"], a["y"]),
+    "cosine_distance": lambda a: N.cosine_distance(a["x"], a["y"]),
+    "braycurtis_distance": lambda a: N.braycurtis_distance(a["x"], a["y"]),
+    "canberra_distance": lambda a: N.canberra_distance(a["x"], a["y"]),
+    "correlation_distance": lambda a: N.correlation_distance(a["x"], a["y"]),
+    "minkowski_distance": lambda a: N.minkowski_distance(a["x"], a["y"], a["p"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -952,10 +962,14 @@ EXPECTED = {
     # pack RC2 - robust correlation & regression-slope estimators (6)
     "siegel_slope", "linregress_slope_stderr", "linregress_intercept_stderr",
     "chatterjee_xi", "blomqvist_beta", "gaussian_rank_correlation",
+    # pack VD - vector distance & similarity (9)
+    "euclidean_distance", "squared_euclidean_distance", "manhattan_distance",
+    "chebyshev_distance", "cosine_distance", "braycurtis_distance",
+    "canberra_distance", "correlation_distance", "minkowski_distance",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 574 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 583 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

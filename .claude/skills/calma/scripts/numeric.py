@@ -7888,3 +7888,81 @@ def gaussian_rank_correlation(x, y):
     if den == 0:
         return float("nan")
     return math.fsum(a * b for a, b in zip(qx, qy)) / den
+
+
+# ======================================================================================
+# Pack VD - vector distance & similarity between two equal-length numeric columns (e.g. two
+# embeddings or two profiles). Validated against scipy.spatial.distance.
+# ======================================================================================
+
+def euclidean_distance(x, y):
+    """L2 distance: sqrt(sum((x_i - y_i)^2)) (scipy.spatial.distance.euclidean)."""
+    if not _xy_ok(x, y):
+        return float("nan")
+    return math.sqrt(math.fsum((a - b) ** 2 for a, b in zip(x, y)))
+
+
+def squared_euclidean_distance(x, y):
+    """Squared L2 distance: sum((x_i - y_i)^2) (scipy.spatial.distance.sqeuclidean)."""
+    if not _xy_ok(x, y):
+        return float("nan")
+    return math.fsum((a - b) ** 2 for a, b in zip(x, y))
+
+
+def manhattan_distance(x, y):
+    """L1 (cityblock) distance: sum(|x_i - y_i|) (scipy.spatial.distance.cityblock)."""
+    if not _xy_ok(x, y):
+        return float("nan")
+    return math.fsum(abs(a - b) for a, b in zip(x, y))
+
+
+def chebyshev_distance(x, y):
+    """L-infinity distance: max(|x_i - y_i|) (scipy.spatial.distance.chebyshev)."""
+    if not _xy_ok(x, y):
+        return float("nan")
+    return max(abs(a - b) for a, b in zip(x, y))
+
+
+def cosine_distance(x, y):
+    """Cosine distance: 1 - (x . y)/(|x||y|) (scipy.spatial.distance.cosine)."""
+    if not _xy_ok(x, y):
+        return float("nan")
+    na = math.sqrt(math.fsum(a * a for a in x))
+    nb = math.sqrt(math.fsum(b * b for b in y))
+    if na == 0 or nb == 0:
+        return float("nan")
+    return 1.0 - math.fsum(a * b for a, b in zip(x, y)) / (na * nb)
+
+
+def braycurtis_distance(x, y):
+    """Bray-Curtis dissimilarity: sum|x_i-y_i| / sum|x_i+y_i| (scipy.spatial.distance.braycurtis)."""
+    if not _xy_ok(x, y):
+        return float("nan")
+    den = math.fsum(abs(a + b) for a, b in zip(x, y))
+    if den == 0:
+        return float("nan")
+    return math.fsum(abs(a - b) for a, b in zip(x, y)) / den
+
+
+def canberra_distance(x, y):
+    """Canberra distance: sum(|x_i-y_i| / (|x_i|+|y_i|)), zero-denominator terms skipped
+    (scipy.spatial.distance.canberra)."""
+    if not _xy_ok(x, y):
+        return float("nan")
+    return math.fsum(abs(a - b) / (abs(a) + abs(b)) for a, b in zip(x, y) if abs(a) + abs(b) > 0)
+
+
+def correlation_distance(x, y):
+    """Correlation distance: 1 - Pearson(x, y) (scipy.spatial.distance.correlation)."""
+    if not _xy_ok(x, y):
+        return float("nan")
+    r = pearson_r(x, y)
+    return float("nan") if r != r else 1.0 - r
+
+
+def minkowski_distance(x, y, p=2.0):
+    """Minkowski L_p distance: (sum |x_i - y_i|^p)^(1/p), p >= 1
+    (scipy.spatial.distance.minkowski)."""
+    if not _xy_ok(x, y) or p != p or p < 1.0:
+        return float("nan")
+    return dpow(math.fsum(dpow(abs(a - b), p) for a, b in zip(x, y)), 1.0 / p)

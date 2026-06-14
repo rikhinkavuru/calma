@@ -3441,3 +3441,23 @@ for _mid in ("siegel_slope", "linregress_slope_stderr", "linregress_intercept_st
              "chatterjee_xi", "blomqvist_beta", "gaussian_rank_correlation"):
     register(_mid, family="stats", required_tags=["x", "y"],
              set_maturity="reviewed")(_xy_recipe(getattr(N, _mid)))
+
+
+# ======================================================================================
+# Pack VD - vector distance & similarity between two equal-length columns. Most are
+# parameter-free; minkowski takes an order p.
+# ======================================================================================
+
+for _mid in ("euclidean_distance", "squared_euclidean_distance", "manhattan_distance",
+             "chebyshev_distance", "cosine_distance", "braycurtis_distance",
+             "canberra_distance", "correlation_distance"):
+    register(_mid, family="analytics", required_tags=["x", "y"],
+             set_maturity="reviewed")(_xy_recipe(getattr(N, _mid)))
+
+
+@register("minkowski_distance", family="analytics", required_tags=["x", "y"],
+          set_maturity="reviewed", accepted_conventions=["p=<float>"])
+def minkowski_distance(cols, binding, convention=None):
+    x, y = cols[binding["x"]], cols[binding["y"]]
+    p = _conv_float(convention, "p", 2.0)
+    return _result(N.minkowski_distance(x, y, p), {"n": len(x), "p": p})

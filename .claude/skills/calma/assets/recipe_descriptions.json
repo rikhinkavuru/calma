@@ -638,6 +638,18 @@
       ],
       "description": "Tests whether a group of autocorrelations is jointly zero (white noise)."
     },
+    "braycurtis_distance": {
+      "aliases": [
+        "bray-curtis distance",
+        "bray curtis dissimilarity",
+        "ecological dissimilarity",
+        "relative absolute difference",
+        "compositional distance",
+        "bray-curtis index",
+        "abundance dissimilarity"
+      ],
+      "description": "Bray-Curtis dissimilarity between two non-negative vectors."
+    },
     "brennan_prediger": {
       "aliases": [
         "brennan-prediger",
@@ -1019,6 +1031,17 @@
       ],
       "description": "Annualized return divided by maximum drawdown."
     },
+    "canberra_distance": {
+      "aliases": [
+        "canberra distance",
+        "weighted manhattan distance",
+        "relative difference distance",
+        "ratio-scaled distance",
+        "per-feature relative gap sum",
+        "canberra metric"
+      ],
+      "description": "Sum of per-coordinate relative absolute differences."
+    },
     "capital_adequacy_ratio": {
       "aliases": [
         "capital adequacy ratio",
@@ -1096,6 +1119,18 @@
         "chatterjee 2021"
       ],
       "description": "Chatterjee's xi rank coefficient measuring dependence of y on x."
+    },
+    "chebyshev_distance": {
+      "aliases": [
+        "chebyshev distance",
+        "l-infinity distance",
+        "chessboard distance",
+        "maximum coordinate difference",
+        "biggest gap on any dimension",
+        "max metric",
+        "linf distance"
+      ],
+      "description": "Largest absolute difference across coordinates (L-infinity)."
     },
     "chi_square": {
       "aliases": [
@@ -1444,6 +1479,17 @@
       ],
       "description": "Strength and direction of the linear or monotonic relationship between two variables."
     },
+    "correlation_distance": {
+      "aliases": [
+        "correlation distance",
+        "1 minus correlation",
+        "pearson distance",
+        "how uncorrelated two series are",
+        "shape distance between vectors",
+        "correlation dissimilarity"
+      ],
+      "description": "One minus the Pearson correlation between two vectors."
+    },
     "corwin_schultz_spread": {
       "aliases": [
         "corwin-schultz spread",
@@ -1455,6 +1501,18 @@
         "cs spread"
       ],
       "description": "Bid-ask spread estimated from daily high-low prices (Corwin-Schultz)."
+    },
+    "cosine_distance": {
+      "aliases": [
+        "cosine distance",
+        "cosine similarity",
+        "angular distance",
+        "how aligned two embeddings are",
+        "one minus cosine",
+        "direction difference between vectors",
+        "cosine dissimilarity"
+      ],
+      "description": "One minus the cosine similarity between two vectors."
     },
     "covariance": {
       "aliases": [
@@ -2057,6 +2115,18 @@
         "what fraction of the differences the labels explain"
       ],
       "description": "Proportion of total variance explained by group membership in ANOVA."
+    },
+    "euclidean_distance": {
+      "aliases": [
+        "euclidean distance",
+        "l2 distance",
+        "straight-line distance",
+        "how far apart two vectors are",
+        "root sum of squared differences",
+        "l2 norm of the difference",
+        "euclidean metric"
+      ],
+      "description": "Straight-line L2 distance between two vectors."
     },
     "exact_match": {
       "aliases": [
@@ -3552,6 +3622,18 @@
       ],
       "description": "Average absolute difference between predictions and targets."
     },
+    "manhattan_distance": {
+      "aliases": [
+        "manhattan distance",
+        "l1 distance",
+        "cityblock distance",
+        "taxicab distance",
+        "sum of absolute differences",
+        "grid distance",
+        "l1 norm of the difference"
+      ],
+      "description": "Sum of absolute differences (L1 / cityblock) between two vectors."
+    },
     "mann_whitney": {
       "aliases": [
         "mann whitney u",
@@ -3941,6 +4023,18 @@
         "hinge mean"
       ],
       "description": "Average of the first and third quartiles, a robust center estimate."
+    },
+    "minkowski_distance": {
+      "aliases": [
+        "minkowski distance",
+        "lp distance",
+        "generalized distance",
+        "p-norm distance",
+        "tunable-order distance",
+        "minkowski metric",
+        "l_p norm of the difference"
+      ],
+      "description": "Generalized L_p distance between two vectors."
     },
     "mode_share": {
       "aliases": [
@@ -5564,6 +5658,17 @@
         "s-score distress"
       ],
       "description": "Springate S-score bankruptcy classifier from four financial ratios."
+    },
+    "squared_euclidean_distance": {
+      "aliases": [
+        "squared euclidean distance",
+        "sum of squared differences",
+        "sse between vectors",
+        "l2 squared",
+        "squared distance",
+        "euclidean distance without the square root"
+      ],
+      "description": "Sum of squared differences between two vectors."
     },
     "squared_hinge_loss": {
       "aliases": [

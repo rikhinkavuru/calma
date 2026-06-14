@@ -3067,6 +3067,26 @@ _rc2_den = float(np.sum(stats.norm.ppf(np.arange(1, _rc2_n + 1) / (_rc2_n + 1)) 
 case("gaussian_rank_correlation", "gaussian_rank_correlation", _rc2_args,
      float(np.sum(_rc2_qx * _rc2_qy) / _rc2_den), atol=1e-9, rtol=1e-9)
 
+# ============================ Pack VD - vector distance & similarity ============================
+# Independent reference: scipy.spatial.distance.
+
+from scipy.spatial import distance as _spd  # noqa: E402
+
+vd_x = list(uniforms(2001, 25, 0.1, 9))
+vd_y = list(uniforms(2002, 25, 0.1, 9))
+vd_p = 3.0
+_vd = {"x": vd_x, "y": vd_y}
+case("euclidean_distance", "euclidean_distance", _vd, float(_spd.euclidean(vd_x, vd_y)), atol=1e-11)
+case("squared_euclidean_distance", "squared_euclidean_distance", _vd, float(_spd.sqeuclidean(vd_x, vd_y)), atol=1e-10)
+case("manhattan_distance", "manhattan_distance", _vd, float(_spd.cityblock(vd_x, vd_y)), atol=1e-11)
+case("chebyshev_distance", "chebyshev_distance", _vd, float(_spd.chebyshev(vd_x, vd_y)), atol=1e-12)
+case("cosine_distance", "cosine_distance", _vd, float(_spd.cosine(vd_x, vd_y)), atol=1e-12)
+case("braycurtis_distance", "braycurtis_distance", _vd, float(_spd.braycurtis(vd_x, vd_y)), atol=1e-12)
+case("canberra_distance", "canberra_distance", _vd, float(_spd.canberra(vd_x, vd_y)), atol=1e-11)
+case("correlation_distance", "correlation_distance", _vd, float(_spd.correlation(vd_x, vd_y)), atol=1e-12)
+case("minkowski_distance", "minkowski_distance", {"x": vd_x, "y": vd_y, "p": vd_p},
+     float(_spd.minkowski(vd_x, vd_y, vd_p)), atol=1e-9, rtol=1e-9)
+
 # ============================ write ============================
 
 doc = {
