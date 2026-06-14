@@ -3177,3 +3177,23 @@ for _mid in ("root_mean_square_percentage_error", "legates_mccabe_efficiency",
              "log_nash_sutcliffe"):
     register(_mid, family="forecasting", required_tags=["prediction", "target"],
              set_maturity="reviewed")(_fc2_recipe(getattr(N, _mid)))
+
+
+# ======================================================================================
+# Pack DEC - diversity, entropy & welfare depth. A non-negative amounts/counts column;
+# renyi_entropy / tsallis_entropy take an order q.
+# ======================================================================================
+
+for _mid in ("renyi_entropy", "tsallis_entropy"):
+    @register(_mid, family="analytics", required_tags=["value"], set_maturity="reviewed",
+              accepted_conventions=["q=<float>"])
+    def _dec_q(cols, binding, convention=None, _fn=getattr(N, _mid)):
+        xs = cols[binding["value"]]
+        q = _conv_float(convention, "q", 2.0)
+        return _result(_fn(xs, q), {"n": len(xs), "q": q})
+
+
+for _mid in ("margalef_richness", "menhinick_richness", "mcintosh_diversity",
+             "sen_welfare", "simpson_evenness"):
+    register(_mid, family="analytics", required_tags=["value"],
+             set_maturity="reviewed")(_mom_recipe(getattr(N, _mid)))

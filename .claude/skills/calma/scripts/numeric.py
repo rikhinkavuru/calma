@@ -7140,3 +7140,91 @@ def log_nash_sutcliffe(pred, actual):
     if den == 0:
         return float("nan")
     return 1.0 - math.fsum((a - p) ** 2 for a, p in zip(la, lp)) / den
+
+
+# ======================================================================================
+# Pack DEC - diversity, entropy & welfare depth. A non-negative amounts/counts column.
+# renyi_entropy / tsallis_entropy are the generalized (order-q) entropies; margalef /
+# menhinick / mcintosh are ecology richness/diversity indices; sen_welfare = mean*(1-gini);
+# simpson_evenness = inverse-Simpson / richness. Validated against the numpy closed forms.
+# ======================================================================================
+
+def renyi_entropy(xs, q=2.0):
+    """Renyi entropy of order q (nats): (1/(1-q)) ln(sum p_i^q); q->1 limit is Shannon."""
+    p = _dv_shares(xs)
+    if p is None or q != q:
+        return float("nan")
+    if q == 1.0:
+        return -math.fsum(pi * dlog(pi) for pi in p if pi > 0)
+    s = math.fsum(pi ** q for pi in p if pi > 0)
+    if s <= 0:
+        return float("nan")
+    return (1.0 / (1.0 - q)) * dlog(s)
+
+
+def tsallis_entropy(xs, q=2.0):
+    """Tsallis (q-)entropy: (1/(q-1))(1 - sum p_i^q); q->1 limit is Shannon."""
+    p = _dv_shares(xs)
+    if p is None or q != q:
+        return float("nan")
+    if q == 1.0:
+        return -math.fsum(pi * dlog(pi) for pi in p if pi > 0)
+    s = math.fsum(pi ** q for pi in p if pi > 0)
+    return (1.0 / (q - 1.0)) * (1.0 - s)
+
+
+def margalef_richness(xs):
+    """Margalef's diversity / richness index: (S - 1) / ln(N), S = number of present species,
+    N = total count; requires N > 1."""
+    if not xs or _has_nan(xs) or any(v < 0 for v in xs):
+        return float("nan")
+    s = sum(1 for v in xs if v > 0)
+    n = math.fsum(xs)
+    if n <= 1:
+        return float("nan")
+    return (s - 1.0) / dlog(n)
+
+
+def menhinick_richness(xs):
+    """Menhinick's richness index: S / sqrt(N), S = number of present species, N = total count."""
+    if not xs or _has_nan(xs) or any(v < 0 for v in xs):
+        return float("nan")
+    s = sum(1 for v in xs if v > 0)
+    n = math.fsum(xs)
+    if n <= 0:
+        return float("nan")
+    return s / math.sqrt(n)
+
+
+def mcintosh_diversity(xs):
+    """McIntosh's diversity index: (N - U) / (N - sqrt(N)), U = sqrt(sum n_i^2); requires N > 1."""
+    if not xs or _has_nan(xs) or any(v < 0 for v in xs):
+        return float("nan")
+    n = math.fsum(xs)
+    u = math.sqrt(math.fsum(v * v for v in xs))
+    den = n - math.sqrt(n)
+    if den == 0:
+        return float("nan")
+    return (n - u) / den
+
+
+def sen_welfare(xs):
+    """Sen (1976) social-welfare index: mean * (1 - Gini); welfare-adjusted average."""
+    if not xs or _has_nan(xs) or any(v < 0 for v in xs):
+        return float("nan")
+    g = gini_coefficient(xs)
+    if g != g:
+        return float("nan")
+    return fmean(xs) * (1.0 - g)
+
+
+def simpson_evenness(xs):
+    """Simpson's evenness: inverse Simpson (1 / sum p_i^2) divided by richness S."""
+    p = _dv_shares(xs)
+    if p is None:
+        return float("nan")
+    s = math.fsum(pi * pi for pi in p if pi > 0)
+    rich = sum(1 for v in xs if v > 0)
+    if s <= 0 or rich == 0:
+        return float("nan")
+    return (1.0 / s) / rich

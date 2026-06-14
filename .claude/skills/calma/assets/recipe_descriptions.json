@@ -3214,6 +3214,18 @@
       ],
       "description": "Average absolute error expressed as a percentage of actual values."
     },
+    "margalef_richness": {
+      "aliases": [
+        "margalef richness",
+        "margalef index",
+        "margalef diversity",
+        "species richness index",
+        "how many distinct types adjusted for count",
+        "richness per log abundance",
+        "d-margalef"
+      ],
+      "description": "Species richness scaled by sample size: (S-1)/ln(N)."
+    },
     "margin_pct": {
       "aliases": [
         "profit margin",
@@ -3323,6 +3335,18 @@
         "balanced confusion score"
       ],
       "description": "Correlation between predicted and true labels from the confusion matrix."
+    },
+    "mcintosh_diversity": {
+      "aliases": [
+        "mcintosh diversity",
+        "mcintosh index",
+        "mcintosh d",
+        "euclidean diversity index",
+        "how evenly spread the counts are",
+        "abundance evenness index",
+        "mcintosh measure"
+      ],
+      "description": "McIntosh diversity from the Euclidean norm of abundances."
     },
     "mcnemar": {
       "aliases": [
@@ -3457,6 +3481,18 @@
         "median percentage error"
       ],
       "description": "Median of absolute percentage errors, robust to outlier errors."
+    },
+    "menhinick_richness": {
+      "aliases": [
+        "menhinick richness",
+        "menhinick index",
+        "menhinick diversity",
+        "richness per root abundance",
+        "number of types relative to sample size",
+        "d-menhinick",
+        "species density index"
+      ],
+      "description": "Species richness over the square root of total count: S/sqrt(N)."
     },
     "merton_distance_to_default": {
       "aliases": [
@@ -4539,6 +4575,18 @@
       ],
       "description": "Total squared error relative to a naive mean predictor's error."
     },
+    "renyi_entropy": {
+      "aliases": [
+        "renyi entropy",
+        "order-q entropy",
+        "generalized entropy",
+        "renyi diversity",
+        "tunable entropy measure",
+        "how concentrated the shares are",
+        "alpha-order entropy"
+      ],
+      "description": "Generalized order-q entropy; q=1 recovers Shannon, q=2 collision entropy."
+    },
     "rescaled_range": {
       "aliases": [
         "r over s statistic",
@@ -4743,6 +4791,18 @@
       ],
       "description": "Standard deviation of the sampling distribution of the mean."
     },
+    "sen_welfare": {
+      "aliases": [
+        "sen welfare",
+        "sen social welfare",
+        "inequality-adjusted mean",
+        "welfare-adjusted average",
+        "mean discounted by inequality",
+        "sen 1976 index",
+        "equity-adjusted income"
+      ],
+      "description": "Sen's welfare index: mean income discounted by inequality, mean*(1-Gini)."
+    },
     "shannon_diversity": {
       "aliases": [
         "shannon diversity",
@@ -4801,6 +4861,18 @@
         "number rejected"
       ],
       "description": "Counts hypotheses rejected after the Sidak multiple-comparison correction."
+    },
+    "simpson_evenness": {
+      "aliases": [
+        "simpson evenness",
+        "simpson's evenness",
+        "evenness index",
+        "how equally distributed across categories",
+        "balance of the shares",
+        "inverse simpson over richness",
+        "equitability"
+      ],
+      "description": "Evenness: inverse Simpson diversity divided by the number of types."
     },
     "skewness": {
       "aliases": [
@@ -5223,6 +5295,18 @@
         "clipped std"
       ],
       "description": "Standard deviation computed after removing extreme tail values."
+    },
+    "tsallis_entropy": {
+      "aliases": [
+        "tsallis entropy",
+        "q-entropy",
+        "non-extensive entropy",
+        "tsallis diversity",
+        "generalized entropy index",
+        "how mixed the categories are",
+        "tsallis q index"
+      ],
+      "description": "Tsallis q-entropy, a non-additive generalization of Shannon entropy."
     },
     "tvpi": {
       "aliases": [

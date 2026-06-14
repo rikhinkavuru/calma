@@ -619,6 +619,14 @@ KINDS = {
     "fractional_bias": lambda a: N.fractional_bias(a["pred"], a["actual"]),
     "mean_bias_error": lambda a: N.mean_bias_error(a["pred"], a["actual"]),
     "log_nash_sutcliffe": lambda a: N.log_nash_sutcliffe(a["pred"], a["actual"]),
+    # pack DEC - diversity, entropy & welfare depth
+    "renyi_entropy": lambda a: N.renyi_entropy(a["xs"], a["q"]),
+    "tsallis_entropy": lambda a: N.tsallis_entropy(a["xs"], a["q"]),
+    "margalef_richness": lambda a: N.margalef_richness(a["xs"]),
+    "menhinick_richness": lambda a: N.menhinick_richness(a["xs"]),
+    "mcintosh_diversity": lambda a: N.mcintosh_diversity(a["xs"]),
+    "sen_welfare": lambda a: N.sen_welfare(a["xs"]),
+    "simpson_evenness": lambda a: N.simpson_evenness(a["xs"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -856,10 +864,13 @@ EXPECTED = {
     "root_mean_square_percentage_error", "legates_mccabe_efficiency",
     "refined_willmott_index", "fractional_bias", "mean_bias_error",
     "log_nash_sutcliffe",
+    # pack DEC - diversity, entropy & welfare depth (7)
+    "renyi_entropy", "tsallis_entropy", "margalef_richness", "menhinick_richness",
+    "mcintosh_diversity", "sen_welfare", "simpson_evenness",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 516 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 523 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

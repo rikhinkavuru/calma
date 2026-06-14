@@ -2764,6 +2764,38 @@ case("log_nash_sutcliffe", "log_nash_sutcliffe", fe4_args,
      float(1.0 - np.sum((np.log(_fa) - np.log(_fp)) ** 2) / np.sum((np.log(_fa) - np.log(_fa).mean()) ** 2)),
      atol=1e-12)
 
+# ============================ Pack DEC - diversity, entropy & welfare depth ============================
+# Independent reference: numpy closed forms for Renyi / Tsallis entropy, Margalef / Menhinick /
+# McIntosh diversity, Sen welfare (mean*(1-Gini), Gini via the mean-absolute-difference route),
+# and Simpson evenness.
+
+dec_x = list(uniforms(4101, 50, 1.0, 40.0))
+dec_q = 2.5
+_dx = np.array(dec_x)
+_dp = _dx / _dx.sum()
+_dS = int(np.sum(_dx > 0))
+_dN = float(_dx.sum())
+
+
+def _dec_gini(a):
+    a = np.sort(np.asarray(a, float))
+    n = len(a)
+    idx = np.arange(1, n + 1)
+    return float(np.sum((2 * idx - n - 1) * a) / (n * np.sum(a)))
+
+
+case("renyi_entropy", "renyi_entropy", {"xs": dec_x, "q": dec_q},
+     float((1.0 / (1.0 - dec_q)) * np.log(np.sum(_dp ** dec_q))), atol=1e-12)
+case("tsallis_entropy", "tsallis_entropy", {"xs": dec_x, "q": dec_q},
+     float((1.0 / (dec_q - 1.0)) * (1.0 - np.sum(_dp ** dec_q))), atol=1e-12)
+case("margalef_richness", "margalef_richness", {"xs": dec_x}, float((_dS - 1.0) / np.log(_dN)), atol=1e-12)
+case("menhinick_richness", "menhinick_richness", {"xs": dec_x}, float(_dS / np.sqrt(_dN)), atol=1e-12)
+case("mcintosh_diversity", "mcintosh_diversity", {"xs": dec_x},
+     float((_dN - np.sqrt(np.sum(_dx ** 2))) / (_dN - np.sqrt(_dN))), atol=1e-12)
+case("sen_welfare", "sen_welfare", {"xs": dec_x}, float(_dx.mean() * (1.0 - _dec_gini(_dx))), atol=1e-12)
+case("simpson_evenness", "simpson_evenness", {"xs": dec_x},
+     float((1.0 / np.sum(_dp ** 2)) / _dS), atol=1e-12)
+
 # ============================ write ============================
 
 doc = {
