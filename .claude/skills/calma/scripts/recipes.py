@@ -2800,3 +2800,20 @@ def hill_number(cols, binding, convention=None):
     xs = cols[binding["value"]]
     q = _conv_float(convention, "q", 1.0)
     return _result(N.hill_number(xs, q), {"n": len(xs), "q": q})
+
+
+# ======================================================================================
+# Pack WIN - winsorized / trimmed robust statistics. A value column; symmetric trim fraction.
+# ======================================================================================
+
+def _win_recipe(fn):
+    def recipe(cols, binding, convention=None):
+        xs = cols[binding["value"]]
+        trim = _conv_float(convention, "trim", 0.1)
+        return _result(fn(xs, trim), {"n": len(xs), "trim": trim})
+    return recipe
+
+
+for _mid in ("winsorized_mean", "winsorized_std", "trimmed_std"):
+    register(_mid, family="analytics", required_tags=["value"],
+             set_maturity="reviewed", accepted_conventions=["trim=<frac>"])(_win_recipe(getattr(N, _mid)))

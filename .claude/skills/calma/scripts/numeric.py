@@ -6025,3 +6025,52 @@ def berger_parker(xs):
     if p is None:
         return float("nan")
     return max(p)
+
+
+# ======================================================================================
+# Pack WIN - winsorized / trimmed robust statistics. A value column with a symmetric trim
+# fraction gives the winsorized mean and std (extremes clamped) and the trimmed std
+# (extremes dropped). Matches scipy.stats.mstats winsorize / trimmed_std (floor counts).
+# ======================================================================================
+
+def _win_sorted(xs, trim):
+    if not xs or _has_nan(xs) or not (0.0 <= trim < 0.5):
+        return None
+    s = sorted(xs)
+    n = len(s)
+    g = int(trim * n)
+    if n - 2 * g < 1:
+        return None
+    return s, n, g
+
+
+def winsorized_mean(xs, trim=0.1):
+    """Winsorized mean: the lowest/highest trim-fraction are clamped to the boundary, then mean."""
+    r = _win_sorted(xs, trim)
+    if r is None:
+        return float("nan")
+    s, n, g = r
+    w = [s[g]] * g + s[g:n - g] + [s[n - g - 1]] * g
+    return fmean(w)
+
+
+def winsorized_std(xs, trim=0.1):
+    """Winsorized standard deviation (ddof=1) after clamping the tails to the boundary values."""
+    r = _win_sorted(xs, trim)
+    if r is None or len(xs) < 2:
+        return float("nan")
+    s, n, g = r
+    w = [s[g]] * g + s[g:n - g] + [s[n - g - 1]] * g
+    return fstd(w, 1)
+
+
+def trimmed_std(xs, trim=0.1):
+    """Trimmed standard deviation (ddof=1) after dropping the lowest/highest trim-fraction."""
+    r = _win_sorted(xs, trim)
+    if r is None:
+        return float("nan")
+    s, n, g = r
+    t = s[g:n - g]
+    if len(t) < 2:
+        return float("nan")
+    return fstd(t, 1)

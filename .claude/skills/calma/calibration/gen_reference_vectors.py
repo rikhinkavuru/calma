@@ -2334,6 +2334,22 @@ case("hill_number", "hill_number", {"xs": dv_x, "q": dv_q}, dv_hill, atol=1e-12)
 case("pielou_evenness", "pielou_evenness", {"xs": dv_x}, dv_pielou, atol=1e-12)
 case("berger_parker", "berger_parker", {"xs": dv_x}, dv_bp, atol=1e-12)
 
+# ============================ Pack WIN - winsorized / trimmed robust statistics ============================
+# Independent reference: scipy.stats.mstats winsorize / trimmed_std (floor-count trimming).
+
+from scipy.stats import mstats as _mstats  # noqa: E402
+
+win_x = list(uniforms(3601, 60, -5.0, 25.0))
+win_trim = 0.1
+_ww = _mstats.winsorize(np.array(win_x), limits=(win_trim, win_trim))
+win_mean = float(_ww.mean())
+win_std = float(_ww.std(ddof=1))
+win_tstd = float(_mstats.trimmed_std(np.array(win_x), limits=(win_trim, win_trim), ddof=1))
+win_args = {"xs": win_x, "trim": win_trim}
+case("winsorized_mean", "winsorized_mean", win_args, win_mean, atol=1e-11)
+case("winsorized_std", "winsorized_std", win_args, win_std, atol=1e-11)
+case("trimmed_std", "trimmed_std", win_args, win_tstd, atol=1e-11)
+
 # ============================ write ============================
 
 doc = {
