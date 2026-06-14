@@ -5932,3 +5932,39 @@ def drawdown_deviation(rets):
     if not rets or _has_nan(rets) or len(rets) < 2:
         return float("nan")
     return fstd(_drawdown_series(rets), 1)
+
+
+# ======================================================================================
+# Pack FC2 - forecasting accuracy depth. Prediction + actual columns give the bounded
+# MAAPE, the geometric-mean absolute error and the cumulative forecast error - complements
+# MAPE / sMAPE / WAPE / MASE. Validated against numpy.
+# ======================================================================================
+
+def _fc2_ok(pred, actual):
+    return bool(pred) and len(pred) == len(actual) and not _has_nan(pred) and not _has_nan(actual)
+
+
+def mean_arctangent_ape(pred, actual):
+    """Mean arctangent absolute percentage error (Kim-Kim 2016): mean(atan(|(a-p)/a|)),
+    a bounded MAPE alternative; periods with a == 0 are skipped."""
+    if not _fc2_ok(pred, actual):
+        return float("nan")
+    vals = [math.atan(abs((a - p) / a)) for p, a in zip(pred, actual) if a != 0]
+    return fmean(vals) if vals else float("nan")
+
+
+def geometric_mean_absolute_error(pred, actual):
+    """Geometric mean absolute error: exp(mean(ln|a-p|)); 0 if any forecast is exact."""
+    if not _fc2_ok(pred, actual):
+        return float("nan")
+    errs = [abs(a - p) for p, a in zip(pred, actual)]
+    if any(e == 0 for e in errs):
+        return 0.0
+    return dexp(fmean([dlog(e) for e in errs]))
+
+
+def cumulative_forecast_error(pred, actual):
+    """Cumulative forecast error (running bias): sum(actual - pred)."""
+    if not _fc2_ok(pred, actual):
+        return float("nan")
+    return math.fsum(a - p for p, a in zip(pred, actual))

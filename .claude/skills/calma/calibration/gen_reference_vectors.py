@@ -2302,6 +2302,21 @@ case("time_underwater", "time_underwater", {"rets": dd_rets}, dd_tuw, atol=1e-12
 case("drawdown_deviation", "drawdown_deviation", {"rets": dd_rets}, dd_dev, atol=1e-12)
 case("drawdown_at_risk", "drawdown_at_risk", {"rets": dd_rets, "level": dd_level}, dd_dar, atol=1e-12)
 
+# ============================ Pack FC2 - forecasting accuracy depth ============================
+# Independent reference: numpy recompute of MAAPE, geometric-mean absolute error and the
+# cumulative forecast error over a deterministic forecast/actual pair (no zero actuals).
+
+fc2_actual = [u + 5.0 for u in uniforms(6401, 70, 1.0, 20.0)]
+fc2_pred = [a + e for a, e in zip(fc2_actual, uniforms(6402, 70, -3.0, 3.0))]
+_f2a, _f2p = np.array(fc2_actual), np.array(fc2_pred)
+fc2_maape = float(np.mean(np.arctan(np.abs((_f2a - _f2p) / _f2a))))
+fc2_gmae = float(np.exp(np.mean(np.log(np.abs(_f2a - _f2p)))))
+fc2_cfe = float(np.sum(_f2a - _f2p))
+fc2_args = {"pred": fc2_pred, "actual": fc2_actual}
+case("mean_arctangent_ape", "mean_arctangent_ape", fc2_args, fc2_maape, atol=1e-12)
+case("geometric_mean_absolute_error", "geometric_mean_absolute_error", fc2_args, fc2_gmae, atol=1e-11)
+case("cumulative_forecast_error", "cumulative_forecast_error", fc2_args, fc2_cfe, atol=1e-11)
+
 # ============================ write ============================
 
 doc = {

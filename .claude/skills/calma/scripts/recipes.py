@@ -2754,3 +2754,19 @@ def drawdown_at_risk(cols, binding, convention=None):
     q = _conv_q(convention)
     level = q if (q == q and 0.5 < q < 1.0) else 0.95
     return _result(N.drawdown_at_risk(r, level), {"n": len(r), "level": level}, path_dependent=True)
+
+
+# ======================================================================================
+# Pack FC2 - forecasting accuracy depth. Prediction + actual columns.
+# ======================================================================================
+
+def _fc2_recipe(fn):
+    def recipe(cols, binding, convention=None):
+        p, a = cols[binding["prediction"]], cols[binding["target"]]
+        return _result(fn(p, a), {"n": len(p)})
+    return recipe
+
+
+for _mid in ("mean_arctangent_ape", "geometric_mean_absolute_error", "cumulative_forecast_error"):
+    register(_mid, family="forecasting", required_tags=["prediction", "target"],
+             set_maturity="reviewed")(_fc2_recipe(getattr(N, _mid)))
