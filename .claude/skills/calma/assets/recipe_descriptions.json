@@ -1039,6 +1039,18 @@
       ],
       "description": "Fund manager's profit share earned above returning investor capital."
     },
+    "cash_conversion_cycle": {
+      "aliases": [
+        "cash conversion cycle",
+        "ccc",
+        "net operating cycle",
+        "how long cash is tied up",
+        "working capital cycle",
+        "dso plus dio minus dpo",
+        "cash cycle days"
+      ],
+      "description": "Days to convert investment in inventory back into cash."
+    },
     "cdar": {
       "aliases": [
         "conditional drawdown at risk",
@@ -1545,6 +1557,30 @@
       ],
       "description": "Fraction of Tweedie deviance explained relative to a mean baseline."
     },
+    "days_inventory_outstanding": {
+      "aliases": [
+        "days inventory outstanding",
+        "dio",
+        "days inventory on hand",
+        "inventory days",
+        "how long stock sits",
+        "inventory holding period",
+        "days of inventory"
+      ],
+      "description": "Average days inventory is held before being sold."
+    },
+    "days_payable_outstanding": {
+      "aliases": [
+        "days payable outstanding",
+        "dpo",
+        "payable days",
+        "how long to pay suppliers",
+        "accounts payable days",
+        "supplier payment period",
+        "days of payables"
+      ],
+      "description": "Average days a company takes to pay its suppliers."
+    },
     "days_sales_outstanding": {
       "aliases": [
         "dso",
@@ -1893,6 +1929,18 @@
       ],
       "description": "Smallest ratio of true- or false-positive rates across groups."
     },
+    "equivalent_annual_annuity": {
+      "aliases": [
+        "equivalent annual annuity",
+        "eaa",
+        "annualized npv",
+        "equivalent annual cost",
+        "level annual cash flow",
+        "npv as a yearly payment",
+        "annual equivalent"
+      ],
+      "description": "Level annual cash flow with the same NPV as the project."
+    },
     "err_at_k": {
       "aliases": [
         "err",
@@ -2129,6 +2177,18 @@
         "hypergeometric test"
       ],
       "description": "Exact test of association in a 2x2 table for small samples."
+    },
+    "fixed_charge_coverage": {
+      "aliases": [
+        "fixed charge coverage ratio",
+        "fccr",
+        "fixed charge coverage",
+        "can it cover its fixed costs",
+        "coverage of interest and leases",
+        "debt and lease coverage",
+        "fixed obligation coverage"
+      ],
+      "description": "How well earnings plus leases cover interest plus lease obligations."
     },
     "fligner": {
       "aliases": [
@@ -3722,6 +3782,18 @@
       ],
       "description": "Percentage price change of a bond per unit change in yield."
     },
+    "modified_irr": {
+      "aliases": [
+        "modified internal rate of return",
+        "mirr",
+        "modified irr",
+        "irr with reinvestment rate",
+        "realistic return on a project",
+        "mirr cashflow return",
+        "adjusted irr"
+      ],
+      "description": "Modified IRR using separate finance and reinvestment rates."
+    },
     "modified_sharpe_ratio": {
       "aliases": [
         "sharpe using modified var",
@@ -4444,6 +4516,18 @@
         "sum of gains over sum of losses"
       ],
       "description": "Gross profits divided by gross losses."
+    },
+    "profitability_index": {
+      "aliases": [
+        "profitability index",
+        "pi",
+        "benefit-cost ratio",
+        "value per dollar invested",
+        "present value index",
+        "is the project worth it per dollar",
+        "pv ratio"
+      ],
+      "description": "Present value of inflows per unit of initial outlay."
     },
     "proportion_z": {
       "aliases": [

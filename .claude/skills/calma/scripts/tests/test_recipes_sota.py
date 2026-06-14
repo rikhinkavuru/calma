@@ -656,6 +656,14 @@ KINDS = {
     "jaccard_macro": lambda a: N.jaccard_macro(a["pred"], a["label"]),
     "d2_pinball_score": lambda a: N.d2_pinball_score(a["pred"], a["target"], a["alpha"]),
     "d2_log_loss_score": lambda a: N.d2_log_loss_score(a["prob"], a["label"]),
+    # pack CF - corporate finance & capital-budgeting depth
+    "modified_irr": lambda a: N.modified_irr(a["cf"], a["fr"], a["rr"]),
+    "profitability_index": lambda a: N.profitability_index(a["cf"], a["rate"]),
+    "equivalent_annual_annuity": lambda a: N.equivalent_annual_annuity(a["cf"], a["rate"]),
+    "days_inventory_outstanding": lambda a: N.days_inventory_outstanding(a["inv"], a["cogs"]),
+    "days_payable_outstanding": lambda a: N.days_payable_outstanding(a["pay"], a["cogs"]),
+    "cash_conversion_cycle": lambda a: N.cash_conversion_cycle(a["recv"], a["inv"], a["pay"], a["rev"], a["cogs"]),
+    "fixed_charge_coverage": lambda a: N.fixed_charge_coverage(a["ebit"], a["lease"], a["interest"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -909,10 +917,14 @@ EXPECTED = {
     # pack SK - sklearn-validated classification / regression depth (6)
     "cohen_kappa_linear", "cohen_kappa_quadratic", "balanced_accuracy_adjusted",
     "jaccard_macro", "d2_pinball_score", "d2_log_loss_score",
+    # pack CF - corporate finance & capital-budgeting depth (7)
+    "modified_irr", "profitability_index", "equivalent_annual_annuity",
+    "days_inventory_outstanding", "days_payable_outstanding", "cash_conversion_cycle",
+    "fixed_charge_coverage",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 548 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 555 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

@@ -7576,3 +7576,77 @@ def d2_log_loss_score(prob, label):
     if ll0 == 0:
         return float("nan")
     return 1.0 - ll / ll0
+
+
+# ======================================================================================
+# Pack CF - corporate finance & capital-budgeting depth. Time-ordered cashflow columns give
+# MIRR (validated vs numpy-financial), the profitability index and equivalent annual annuity;
+# the working-capital / coverage ratios sum their balance-sheet line items.
+# ======================================================================================
+
+def modified_irr(cashflows, finance_rate, reinvest_rate):
+    """Modified internal rate of return (numpy-financial mirr): negatives discounted at the
+    finance rate, positives compounded at the reinvestment rate over the horizon."""
+    n = len(cashflows)
+    if (n < 2 or _has_nan(cashflows) or finance_rate != finance_rate or reinvest_rate != reinvest_rate
+            or finance_rate <= -1.0 or reinvest_rate <= -1.0):
+        return float("nan")
+    if not any(c > 0 for c in cashflows) or not any(c < 0 for c in cashflows):
+        return float("nan")
+    pos = [c if c > 0 else 0.0 for c in cashflows]
+    neg = [c if c < 0 else 0.0 for c in cashflows]
+    numer = abs(npv(pos, reinvest_rate))
+    denom = abs(npv(neg, finance_rate))
+    if denom == 0:
+        return float("nan")
+    return dpow(numer / denom, 1.0 / (n - 1)) * (1.0 + reinvest_rate) - 1.0
+
+
+def profitability_index(cashflows, rate):
+    """Profitability index: PV(future inflows) / |initial outlay| = 1 + NPV/|cf_0|; cf_0 < 0."""
+    if len(cashflows) < 2 or _has_nan(cashflows) or rate != rate or rate <= -1.0 or cashflows[0] >= 0:
+        return float("nan")
+    return (npv(cashflows, rate) - cashflows[0]) / (-cashflows[0])
+
+
+def equivalent_annual_annuity(cashflows, rate):
+    """Equivalent annual annuity: NPV * r / (1 - (1+r)^-n), n future periods (NPV spread into
+    a level per-period cash flow)."""
+    n = len(cashflows) - 1
+    if n < 1 or _has_nan(cashflows) or rate != rate or rate <= -1.0 or rate == 0.0:
+        return float("nan")
+    af = (1.0 - dpow(1.0 + rate, -float(n))) / rate
+    if af == 0:
+        return float("nan")
+    return npv(cashflows, rate) / af
+
+
+def days_inventory_outstanding(inventory, cogs):
+    """Days inventory outstanding: sum(inventory) / sum(COGS) * 365."""
+    return _biz_ratio(inventory, cogs, 365.0)
+
+
+def days_payable_outstanding(payables, cogs):
+    """Days payable outstanding: sum(payables) / sum(COGS) * 365."""
+    return _biz_ratio(payables, cogs, 365.0)
+
+
+def cash_conversion_cycle(receivables, inventory, payables, revenue, cogs):
+    """Cash conversion cycle: DSO + DIO - DPO (days), each a 365-scaled balance-sheet ratio."""
+    if not _ar_ok(receivables, inventory, payables, revenue, cogs):
+        return float("nan")
+    rev, cog = math.fsum(revenue), math.fsum(cogs)
+    if rev == 0 or cog == 0:
+        return float("nan")
+    return (math.fsum(receivables) / rev + math.fsum(inventory) / cog
+            - math.fsum(payables) / cog) * 365.0
+
+
+def fixed_charge_coverage(ebit, lease, interest):
+    """Fixed-charge coverage ratio: (sum(EBIT) + sum(lease)) / (sum(interest) + sum(lease))."""
+    if not _ar_ok(ebit, lease, interest):
+        return float("nan")
+    den = math.fsum(interest) + math.fsum(lease)
+    if den == 0:
+        return float("nan")
+    return (math.fsum(ebit) + math.fsum(lease)) / den

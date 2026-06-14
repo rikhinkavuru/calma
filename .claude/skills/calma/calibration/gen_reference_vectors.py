@@ -2953,6 +2953,41 @@ sk_pb = [min(max(u, 1e-6), 1 - 1e-6) for u in uniforms(8106, sk_n, 0, 1)]
 case("d2_log_loss_score", "d2_log_loss_score", {"prob": sk_pb, "label": sk_yb},
      float(skm.d2_log_loss_score(sk_yb, np.c_[1 - np.array(sk_pb), np.array(sk_pb)])), atol=1e-12)
 
+# ============================ Pack CF - corporate finance & capital-budgeting depth ============================
+# Independent reference: numpy-financial mirr / npv for the capital-budgeting metrics and numpy
+# sums for the working-capital / coverage ratios.
+
+import numpy_financial as _npf  # noqa: E402
+
+cf_flows = [-1000.0] + list(uniforms(9101, 7, 100, 500))
+cf_fr, cf_rr = 0.10, 0.12
+cf_rate = 0.09
+case("modified_irr", "modified_irr", {"cf": cf_flows, "fr": cf_fr, "rr": cf_rr},
+     float(_npf.mirr(cf_flows, cf_fr, cf_rr)), atol=1e-12)
+case("profitability_index", "profitability_index", {"cf": cf_flows, "rate": cf_rate},
+     float(1.0 + _npf.npv(cf_rate, cf_flows) / (-cf_flows[0])), atol=1e-12)
+case("equivalent_annual_annuity", "equivalent_annual_annuity", {"cf": cf_flows, "rate": cf_rate},
+     float(_npf.npv(cf_rate, cf_flows) * cf_rate / (1.0 - (1.0 + cf_rate) ** (-(len(cf_flows) - 1)))),
+     atol=1e-11)
+cf_inv = list(uniforms(9102, 10, 50, 200))
+cf_cogs = list(uniforms(9103, 10, 300, 800))
+cf_pay = list(uniforms(9104, 10, 40, 150))
+cf_recv = list(uniforms(9105, 10, 80, 250))
+cf_rev = list(uniforms(9106, 10, 500, 1200))
+cf_ebit = list(uniforms(9107, 10, 50, 200))
+cf_lease = list(uniforms(9108, 10, 5, 30))
+cf_int = list(uniforms(9109, 10, 5, 40))
+case("days_inventory_outstanding", "days_inventory_outstanding", {"inv": cf_inv, "cogs": cf_cogs},
+     float(np.sum(cf_inv) / np.sum(cf_cogs) * 365.0), atol=1e-12)
+case("days_payable_outstanding", "days_payable_outstanding", {"pay": cf_pay, "cogs": cf_cogs},
+     float(np.sum(cf_pay) / np.sum(cf_cogs) * 365.0), atol=1e-12)
+case("cash_conversion_cycle", "cash_conversion_cycle",
+     {"recv": cf_recv, "inv": cf_inv, "pay": cf_pay, "rev": cf_rev, "cogs": cf_cogs},
+     float((np.sum(cf_recv) / np.sum(cf_rev) + np.sum(cf_inv) / np.sum(cf_cogs)
+            - np.sum(cf_pay) / np.sum(cf_cogs)) * 365.0), atol=1e-11)
+case("fixed_charge_coverage", "fixed_charge_coverage", {"ebit": cf_ebit, "lease": cf_lease, "interest": cf_int},
+     float((np.sum(cf_ebit) + np.sum(cf_lease)) / (np.sum(cf_int) + np.sum(cf_lease))), atol=1e-12)
+
 # ============================ write ============================
 
 doc = {

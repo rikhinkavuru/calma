@@ -3332,3 +3332,59 @@ def d2_pinball_score(cols, binding, convention=None):
 def d2_log_loss_score(cols, binding, convention=None):
     p, l = cols[binding["prob"]], cols[binding["label"]]
     return _result(N.d2_log_loss_score(p, l), {"n": len(l)})
+
+
+# ======================================================================================
+# Pack CF - corporate finance & capital-budgeting depth. The capital-budgeting metrics bind
+# a cashflow column (rate conventions); the working-capital / coverage ratios bind line items.
+# ======================================================================================
+
+def _conv_kv(convention):
+    """Parse 'finance=0.1,reinvest=0.12' (or ';'-separated) -> {key: float}."""
+    out = {}
+    for part in _conv_str(convention).replace(";", ",").split(","):
+        if "=" in part:
+            k, _, v = part.partition("=")
+            try:
+                out[k.strip()] = float(v.strip())
+            except ValueError:
+                pass
+    return out
+
+
+@register("modified_irr", family="finance", required_tags=["cashflow"], set_maturity="reviewed",
+          accepted_conventions=["finance=<frac>,reinvest=<frac>"])
+def modified_irr(cols, binding, convention=None):
+    cf = cols[binding["cashflow"]]
+    kv = _conv_kv(convention)
+    fr = kv.get("finance", 0.1)
+    rr = kv.get("reinvest", 0.1)
+    return _result(N.modified_irr(cf, fr, rr), {"n": len(cf), "finance_rate": fr, "reinvest_rate": rr})
+
+
+@register("profitability_index", family="finance", required_tags=["cashflow"], set_maturity="reviewed",
+          accepted_conventions=["rate=<frac>"])
+def profitability_index(cols, binding, convention=None):
+    cf = cols[binding["cashflow"]]
+    rate = _conv_float(convention, "rate", float("nan"))
+    return _result(N.profitability_index(cf, rate), {"n": len(cf), "rate": rate})
+
+
+@register("equivalent_annual_annuity", family="finance", required_tags=["cashflow"],
+          set_maturity="reviewed", accepted_conventions=["rate=<frac>"])
+def equivalent_annual_annuity(cols, binding, convention=None):
+    cf = cols[binding["cashflow"]]
+    rate = _conv_float(convention, "rate", float("nan"))
+    return _result(N.equivalent_annual_annuity(cf, rate), {"n": len(cf), "rate": rate})
+
+
+_CF_BIND = {
+    "days_inventory_outstanding": ["inventory", "cogs"],
+    "days_payable_outstanding": ["payables", "cogs"],
+    "cash_conversion_cycle": ["receivables", "inventory", "payables", "revenue", "cogs"],
+    "fixed_charge_coverage": ["ebit", "lease", "interest"],
+}
+
+for _mid, _tags in _CF_BIND.items():
+    register(_mid, family="finance", required_tags=list(_tags),
+             set_maturity="reviewed")(_biz_recipe(getattr(N, _mid), _tags))
