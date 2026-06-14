@@ -3112,3 +3112,41 @@ def partial_autocorrelation(cols, binding, convention=None):
     xs = cols[binding["value"]]
     lag = _conv_int(convention, "lag", 1)
     return _result(N.partial_autocorrelation(xs, lag), {"n": len(xs), "lag": lag})
+
+
+# ======================================================================================
+# Pack GM - generalized means & power-sum descriptive statistics. A single value column.
+# power_mean / lehmer_mean take a power p; the others are parameter-free.
+# ======================================================================================
+
+@register("power_mean", family="analytics", required_tags=["value"],
+          set_maturity="reviewed", accepted_conventions=["p=<float>"])
+def power_mean(cols, binding, convention=None):
+    xs = cols[binding["value"]]
+    p = _conv_float(convention, "p", 2.0)
+    return _result(N.power_mean(xs, p), {"n": len(xs), "p": p})
+
+
+@register("lehmer_mean", family="analytics", required_tags=["value"],
+          set_maturity="reviewed", accepted_conventions=["p=<float>"])
+def lehmer_mean(cols, binding, convention=None):
+    xs = cols[binding["value"]]
+    p = _conv_float(convention, "p", 2.0)
+    return _result(N.lehmer_mean(xs, p), {"n": len(xs), "p": p})
+
+
+@register("geometric_std", family="analytics", required_tags=["value"], set_maturity="reviewed")
+def geometric_std(cols, binding, convention=None):
+    xs = cols[binding["value"]]
+    return _result(N.geometric_std(xs), {"n": len(xs)})
+
+
+@register("root_mean_square", family="analytics", required_tags=["value"], set_maturity="reviewed")
+def root_mean_square(cols, binding, convention=None):
+    xs = cols[binding["value"]]
+    return _result(N.root_mean_square(xs), {"n": len(xs)})
+
+
+for _mid in ("kstat_third", "kstat_fourth"):
+    register(_mid, family="stats", required_tags=["value"],
+             set_maturity="reviewed")(_mom_recipe(getattr(N, _mid)))

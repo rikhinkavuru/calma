@@ -2170,6 +2170,18 @@
       ],
       "description": "Geometric mean of absolute forecast errors, robust to large outliers."
     },
+    "geometric_std": {
+      "aliases": [
+        "geometric standard deviation",
+        "geometric sd",
+        "gsd",
+        "multiplicative spread",
+        "how much values vary on a ratio scale",
+        "spread of log-normal data",
+        "times-or-divide variability"
+      ],
+      "description": "Multiplicative spread: the exponential of the standard deviation of log values."
+    },
     "gini_coefficient": {
       "aliases": [
         "gini coefficient",
@@ -2759,6 +2771,28 @@
       ],
       "description": "Tests whether two samples share the same underlying distribution."
     },
+    "kstat_fourth": {
+      "aliases": [
+        "fourth k-statistic",
+        "k4",
+        "fourth cumulant estimate",
+        "unbiased fourth moment",
+        "tailedness of the distribution",
+        "how heavy the tails are"
+      ],
+      "description": "Unbiased sample estimate of the fourth cumulant (drives excess kurtosis)."
+    },
+    "kstat_third": {
+      "aliases": [
+        "third k-statistic",
+        "k3",
+        "third cumulant estimate",
+        "unbiased third moment",
+        "asymmetry of the distribution",
+        "how lopsided the data is"
+      ],
+      "description": "Unbiased sample estimate of the third cumulant (drives skewness)."
+    },
     "kupiec_pof": {
       "aliases": [
         "proportion of failures test",
@@ -2934,6 +2968,17 @@
         "response time stddev"
       ],
       "description": "Standard deviation of response times measuring latency spread."
+    },
+    "lehmer_mean": {
+      "aliases": [
+        "lehmer mean",
+        "contraharmonic mean",
+        "counter-harmonic mean",
+        "weighted-by-magnitude average",
+        "mean biased toward the larger entries",
+        "average that leans on big values"
+      ],
+      "description": "Lehmer mean: sum of x^p over sum of x^(p-1); p=2 is the contraharmonic mean."
     },
     "levene": {
       "aliases": [
@@ -3980,6 +4025,18 @@
       ],
       "description": "Odds of a positive test result in cases versus non-cases."
     },
+    "power_mean": {
+      "aliases": [
+        "power mean",
+        "generalized mean",
+        "holder mean",
+        "p-mean",
+        "minkowski mean",
+        "average tuned by an exponent",
+        "mean that weights big values more"
+      ],
+      "description": "Generalized mean with exponent p; p=1 arithmetic, p=2 quadratic, p=-1 harmonic."
+    },
     "pr_auc": {
       "aliases": [
         "pr auc",
@@ -4492,6 +4549,18 @@
         "effective spread estimator"
       ],
       "description": "Implied bid-ask spread estimated from the autocovariance of price changes."
+    },
+    "root_mean_square": {
+      "aliases": [
+        "root mean square",
+        "rms",
+        "quadratic mean",
+        "rms amplitude",
+        "typical magnitude ignoring sign",
+        "size of a fluctuating signal",
+        "effective value"
+      ],
+      "description": "Root mean square: the square root of the mean of squared values."
     },
     "rosenbluth_index": {
       "aliases": [

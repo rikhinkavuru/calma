@@ -6893,3 +6893,72 @@ def z_spread(cashflow, zero, time, price):
         else:
             lo, flo = mid, fm
     return 0.5 * (lo + hi)
+
+
+# ======================================================================================
+# Pack GM - generalized means & power-sum descriptive statistics. A single value column.
+# power_mean / geometric_std / lehmer_mean need positive data; root_mean_square and the
+# k-statistics (unbiased cumulant estimators) take any real series. Validated against
+# scipy.stats.pmean / gstd / kstat and the documented Lehmer-mean / RMS closed forms.
+# ======================================================================================
+
+def power_mean(xs, p=2.0):
+    """Generalized (Holder/power) mean: (mean(x^p))^(1/p) for positive data, p != 0
+    (scipy.stats.pmean). p=1 arithmetic, p=2 quadratic, p=-1 harmonic."""
+    if not xs or _has_nan(xs) or p != p or p == 0.0 or any(x <= 0 for x in xs):
+        return float("nan")
+    m = math.fsum(dpow(x, p) for x in xs) / len(xs)
+    return dpow(m, 1.0 / p)
+
+
+def geometric_std(xs):
+    """Geometric standard deviation: exp(std(ln x, ddof=1)); positive data (scipy.stats.gstd)."""
+    if len(xs) < 2 or _has_nan(xs) or any(x <= 0 for x in xs):
+        return float("nan")
+    return dexp(fstd([dlog(x) for x in xs], 1))
+
+
+def lehmer_mean(xs, p=2.0):
+    """Lehmer mean L_p = sum(x^p) / sum(x^(p-1)); positive data. p=2 is the contraharmonic
+    mean, p=1 arithmetic, p=0 harmonic (Bullen, Handbook of Means and Their Inequalities)."""
+    if not xs or _has_nan(xs) or p != p or any(x <= 0 for x in xs):
+        return float("nan")
+    num = math.fsum(dpow(x, p) for x in xs)
+    den = math.fsum(dpow(x, p - 1.0) for x in xs)
+    if den == 0:
+        return float("nan")
+    return num / den
+
+
+def root_mean_square(xs):
+    """Root mean square (quadratic mean): sqrt(mean(x^2)); defined for any real data."""
+    if not xs or _has_nan(xs):
+        return float("nan")
+    return math.sqrt(math.fsum(x * x for x in xs) / len(xs))
+
+
+def kstat_third(xs):
+    """Third k-statistic: the symmetric unbiased estimator of the third cumulant
+    (scipy.stats.kstat n=3). Needs n>=3."""
+    n = len(xs)
+    if n < 3 or _has_nan(xs):
+        return float("nan")
+    s1 = math.fsum(xs)
+    s2 = math.fsum(x * x for x in xs)
+    s3 = math.fsum(x * x * x for x in xs)
+    return (2.0 * s1 ** 3 - 3.0 * n * s1 * s2 + n * n * s3) / (n * (n - 1.0) * (n - 2.0))
+
+
+def kstat_fourth(xs):
+    """Fourth k-statistic: the unbiased estimator of the fourth cumulant (scipy.stats.kstat
+    n=4). Needs n>=4."""
+    n = len(xs)
+    if n < 4 or _has_nan(xs):
+        return float("nan")
+    s1 = math.fsum(xs)
+    s2 = math.fsum(x * x for x in xs)
+    s3 = math.fsum(x * x * x for x in xs)
+    s4 = math.fsum(x * x * x * x for x in xs)
+    return ((-6.0 * s1 ** 4 + 12.0 * n * s1 * s1 * s2 - 3.0 * n * (n - 1.0) * s2 * s2
+             - 4.0 * n * (n + 1.0) * s1 * s3 + n * n * (n + 1.0) * s4)
+            / (n * (n - 1.0) * (n - 2.0) * (n - 3.0)))

@@ -598,6 +598,13 @@ KINDS = {
     "box_pierce": lambda a: N.box_pierce(a["xs"], a["lags"]),
     "permutation_entropy": lambda a: N.permutation_entropy(a["xs"], a["order"]),
     "partial_autocorrelation": lambda a: N.partial_autocorrelation(a["xs"], a["lag"]),
+    # pack GM - generalized means & power-sum statistics
+    "power_mean": lambda a: N.power_mean(a["xs"], a["p"]),
+    "geometric_std": lambda a: N.geometric_std(a["xs"]),
+    "lehmer_mean": lambda a: N.lehmer_mean(a["xs"], a["p"]),
+    "root_mean_square": lambda a: N.root_mean_square(a["xs"]),
+    "kstat_third": lambda a: N.kstat_third(a["xs"]),
+    "kstat_fourth": lambda a: N.kstat_fourth(a["xs"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -825,10 +832,13 @@ EXPECTED = {
     "spread_duration", "spread_dv01", "z_spread",
     # pack TS2 - time-series diagnostics depth (3)
     "box_pierce", "permutation_entropy", "partial_autocorrelation",
+    # pack GM - generalized means & power-sum statistics (6)
+    "power_mean", "geometric_std", "lehmer_mean", "root_mean_square",
+    "kstat_third", "kstat_fourth",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 498 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 504 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

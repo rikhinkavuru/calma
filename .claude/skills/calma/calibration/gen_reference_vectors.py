@@ -2705,6 +2705,24 @@ case("box_pierce", "box_pierce", {"xs": ts2_x, "lags": ts2_lags}, ts2_bp, atol=1
 case("permutation_entropy", "permutation_entropy", {"xs": ts2_x, "order": ts2_order}, ts2_pe, atol=1e-12)
 case("partial_autocorrelation", "partial_autocorrelation", {"xs": ts2_x, "lag": ts2_lag}, ts2_pacf, atol=1e-9)
 
+# ============================ Pack GM - generalized means & power-sum statistics ============================
+# Independent reference: scipy.stats.pmean / gstd / kstat, and the documented Lehmer-mean and
+# root-mean-square closed forms in numpy.
+
+gm_pos = list(uniforms(9401, 80, 0.5, 20.0))
+gm_any = list(uniforms(9402, 80, -8.0, 12.0))
+gm_p = 3.0
+gm_lp = 2.5
+_gma = np.array(gm_pos)
+case("power_mean", "power_mean", {"xs": gm_pos, "p": gm_p}, float(stats.pmean(gm_pos, gm_p)), atol=1e-9, rtol=1e-9)
+case("geometric_std", "geometric_std", {"xs": gm_pos}, float(stats.gstd(gm_pos)), atol=1e-9, rtol=1e-9)
+case("lehmer_mean", "lehmer_mean", {"xs": gm_pos, "p": gm_lp},
+     float(np.sum(_gma ** gm_lp) / np.sum(_gma ** (gm_lp - 1.0))), atol=1e-9, rtol=1e-9)
+case("root_mean_square", "root_mean_square", {"xs": gm_any},
+     float(np.sqrt(np.mean(np.array(gm_any) ** 2))), atol=1e-12)
+case("kstat_third", "kstat_third", {"xs": gm_any}, float(stats.kstat(gm_any, 3)), atol=1e-9, rtol=1e-9)
+case("kstat_fourth", "kstat_fourth", {"xs": gm_any}, float(stats.kstat(gm_any, 4)), atol=1e-9, rtol=1e-9)
+
 # ============================ write ============================
 
 doc = {
