@@ -1242,6 +1242,126 @@ _n = len(srm_g)
 case("srm_pvalue", "srm_pvalue", {"group": srm_g},
      float(stats.chisquare(_obs, [_n / 2, _n / 2])[1]), atol=1e-9)
 
+# ============================ Pack IR - retrieval / ranking + token overlap ============================
+
+
+def _byq(qs, rks, rls):
+    per = {}
+    for q, r, rel in zip(qs, rks, rls):
+        per.setdefault(q, []).append((r, rel))
+    for q in per:
+        per[q].sort(key=lambda t: t[0])
+    return list(per.values())
+
+
+def ref_r_precision():
+    vals = []
+    for rows in _byq(queries, ranks, rels_bin):
+        rr = sum(1 for _, rel in rows if rel > 0)
+        if rr:
+            vals.append(sum(1 for _, rel in rows[:rr] if rel > 0) / rr)
+    return float(np.mean(vals))
+
+
+def ref_map():
+    vals = []
+    for rows in _byq(queries, ranks, rels_bin):
+        rr = sum(1 for _, rel in rows if rel > 0)
+        if not rr:
+            continue
+        h, ap = 0, 0.0
+        for i, (_, rel) in enumerate(rows, start=1):
+            if rel > 0:
+                h += 1
+                ap += h / i
+        vals.append(ap / rr)
+    return float(np.mean(vals))
+
+
+def ref_f1_at_k(k):
+    vals = []
+    for rows in _byq(queries, ranks, rels_bin):
+        rr = sum(1 for _, rel in rows if rel > 0)
+        if not rr:
+            continue
+        hits = sum(1 for _, rel in rows[:k] if rel > 0)
+        pr, rc = hits / k, hits / rr
+        vals.append(2 * pr * rc / (pr + rc) if (pr + rc) > 0 else 0.0)
+    return float(np.mean(vals))
+
+
+def ref_fallout_at_k(k):
+    vals = []
+    for rows in _byq(queries, ranks, rels_bin):
+        nr = sum(1 for _, rel in rows if rel <= 0)
+        if nr:
+            vals.append(sum(1 for _, rel in rows[:k] if rel <= 0) / nr)
+    return float(np.mean(vals))
+
+
+def ref_rbp(p):
+    vals = []
+    for rows in _byq(queries, ranks, rels_bin):
+        s, pw = 0.0, 1.0
+        for _, rel in rows:
+            if rel > 0:
+                s += pw
+            pw *= p
+        vals.append((1 - p) * s)
+    return float(np.mean(vals))
+
+
+case("r_precision", "r_precision", RETR, ref_r_precision(), atol=1e-12)
+case("mean_average_precision", "mean_average_precision", RETR, ref_map(), atol=1e-12)
+case("f1_at_5", "f1_at_k", dict(RETR, k=5), ref_f1_at_k(5), atol=1e-12)
+case("f1_at_10", "f1_at_k", dict(RETR, k=10), ref_f1_at_k(10), atol=1e-12)
+case("fallout_at_5", "fallout_at_k", dict(RETR, k=5), ref_fallout_at_k(5), atol=1e-12)
+case("rbp_08", "rbp", dict(RETR, p=0.8), ref_rbp(0.8), atol=1e-11)
+
+# token-overlap text metrics
+_ARTS = {"a", "an", "the"}
+
+
+def _emn(s):
+    s = s.lower()
+    s = "".join(ch if (ch.isalnum() or ch.isspace()) else " " for ch in s)
+    return [t for t in s.split() if t not in _ARTS]
+
+
+tok_preds = ["the cat sat on the mat", "a quick brown fox", "hello world foo",
+             "machine learning is fun", "the answer is 42"]
+tok_refs = ["the cat sat on a mat", "the quick brown fox jumps", "hello there world",
+            "deep learning is fun", "the answer is forty two"]
+_tf = []
+for _p, _r in zip(tok_preds, tok_refs):
+    _pt, _rt = _emn(_p), _emn(_r)
+    _rc = {}
+    for _t in _rt:
+        _rc[_t] = _rc.get(_t, 0) + 1
+    _c = 0
+    for _t in _pt:
+        if _rc.get(_t, 0) > 0:
+            _c += 1
+            _rc[_t] -= 1
+    if not _pt and not _rt:
+        _tf.append(1.0)
+    elif not _pt or not _rt or _c == 0:
+        _tf.append(0.0)
+    else:
+        _pp, _rr2 = _c / len(_pt), _c / len(_rt)
+        _tf.append(2 * _pp * _rr2 / (_pp + _rr2))
+case("token_f1", "token_f1", {"preds": tok_preds, "refs": tok_refs}, float(np.mean(_tf)), atol=1e-12)
+_tj = []
+_td = []
+for _p, _r in zip(tok_preds, tok_refs):
+    _a, _b = set(_p.split()), set(_r.split())
+    _u = len(_a | _b)
+    _tj.append(len(_a & _b) / _u if _u else 0.0)
+    _dd = len(_a) + len(_b)
+    _td.append(2 * len(_a & _b) / _dd if _dd else 1.0)
+case("token_jaccard", "token_jaccard", {"preds": tok_preds, "refs": tok_refs}, float(np.mean(_tj)), atol=1e-12)
+case("token_dice", "token_dice", {"preds": tok_preds, "refs": tok_refs}, float(np.mean(_td)), atol=1e-12)
+
 # ============================ write ============================
 
 doc = {

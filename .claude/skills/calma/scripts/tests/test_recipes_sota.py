@@ -320,6 +320,15 @@ KINDS = {
     "cuped_ate": lambda a: N.cuped_ate(a["value"], a["covariate"], a["group"]),
     "variance_reduction_cuped": lambda a: N.variance_reduction_cuped(a["value"], a["covariate"]),
     "srm_pvalue": lambda a: N.srm_pvalue(a["group"]),
+    # pack IR - retrieval / ranking + token-overlap
+    "r_precision": lambda a: N.r_precision(a["queries"], a["ranks"], a["rels"]),
+    "mean_average_precision": lambda a: N.mean_average_precision(a["queries"], a["ranks"], a["rels"]),
+    "f1_at_k": lambda a: N.f1_at_k(a["queries"], a["ranks"], a["rels"], a["k"]),
+    "fallout_at_k": lambda a: N.fallout_at_k(a["queries"], a["ranks"], a["rels"], a["k"]),
+    "rbp": lambda a: N.rbp(a["queries"], a["ranks"], a["rels"], a["p"]),
+    "token_f1": lambda a: N.token_f1(a["preds"], a["refs"]),
+    "token_jaccard": lambda a: N.token_jaccard(a["preds"], a["refs"]),
+    "token_dice": lambda a: N.token_dice(a["preds"], a["refs"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -418,10 +427,13 @@ EXPECTED = {
     "average_treatment_effect", "risk_difference", "relative_risk_reduction",
     "number_needed_to_treat", "standardized_mean_difference", "cuped_ate",
     "variance_reduction_cuped", "srm_pvalue",
+    # pack IR - retrieval / ranking + token-overlap (8)
+    "r_precision", "mean_average_precision", "f1_at_k", "fallout_at_k", "rbp",
+    "token_f1", "token_jaccard", "token_dice",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 257 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 265 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

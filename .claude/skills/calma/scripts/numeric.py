@@ -3612,3 +3612,142 @@ def srm_pvalue(group):
     exp = len(group) / k
     chi2 = math.fsum((c - exp) ** 2 / exp for c in counts.values())
     return chi2_sf(chi2, k - 1)
+
+
+# ======================================================================================
+# Pack IR - retrieval / ranking depth + token-overlap text metrics.
+# ======================================================================================
+
+def r_precision(queries, ranks, rels):
+    """Mean over queries of precision at R (R = number relevant for the query)."""
+    if not queries or _has_nan(ranks) or _has_nan(rels):
+        return float("nan")
+    vals = []
+    for rows in _by_query(queries, ranks, rels).values():
+        r = sum(1 for _, rel in rows if rel > 0)
+        if r == 0:
+            continue
+        vals.append(sum(1 for _, rel in rows[:r] if rel > 0) / r)
+    return fmean(vals) if vals else float("nan")
+
+
+def f1_at_k(queries, ranks, rels, k):
+    """Mean over queries of F1 of precision@k and recall@k (zero-relevant queries skipped)."""
+    if not queries or _has_nan(ranks) or _has_nan(rels) or k < 1:
+        return float("nan")
+    vals = []
+    for rows in _by_query(queries, ranks, rels).values():
+        r = sum(1 for _, rel in rows if rel > 0)
+        if r == 0:
+            continue
+        hits = sum(1 for _, rel in rows[:k] if rel > 0)
+        prec, rec = hits / k, hits / r
+        vals.append(2 * prec * rec / (prec + rec) if (prec + rec) > 0 else 0.0)
+    return fmean(vals) if vals else float("nan")
+
+
+def rbp(queries, ranks, rels, p):
+    """Rank-biased precision: (1-p) * sum_i rel_i * p^(i-1), per query, averaged."""
+    if not queries or _has_nan(ranks) or _has_nan(rels) or not (0.0 < p < 1.0):
+        return float("nan")
+    vals = []
+    for rows in _by_query(queries, ranks, rels).values():
+        s, pw = 0.0, 1.0
+        for _, rel in rows:
+            if rel > 0:
+                s += pw
+            pw *= p
+        vals.append((1.0 - p) * s)
+    return fmean(vals) if vals else float("nan")
+
+
+def mean_average_precision(queries, ranks, rels):
+    """Mean over queries of AP = (1/R) sum over relevant ranks of precision-at-that-rank."""
+    if not queries or _has_nan(ranks) or _has_nan(rels):
+        return float("nan")
+    vals = []
+    for rows in _by_query(queries, ranks, rels).values():
+        r = sum(1 for _, rel in rows if rel > 0)
+        if r == 0:
+            continue
+        hits, ap = 0, 0.0
+        for i, (_, rel) in enumerate(rows, start=1):
+            if rel > 0:
+                hits += 1
+                ap += hits / i
+        vals.append(ap / r)
+    return fmean(vals) if vals else float("nan")
+
+
+def fallout_at_k(queries, ranks, rels, k):
+    """Mean over queries of (nonrelevant in top-k) / (total nonrelevant)."""
+    if not queries or _has_nan(ranks) or _has_nan(rels) or k < 1:
+        return float("nan")
+    vals = []
+    for rows in _by_query(queries, ranks, rels).values():
+        nonrel = sum(1 for _, rel in rows if rel <= 0)
+        if nonrel == 0:
+            continue
+        vals.append(sum(1 for _, rel in rows[:k] if rel <= 0) / nonrel)
+    return fmean(vals) if vals else float("nan")
+
+
+def _multiset_overlap(a, b):
+    rc = {}
+    for t in b:
+        rc[t] = rc.get(t, 0) + 1
+    common = 0
+    for t in a:
+        if rc.get(t, 0) > 0:
+            common += 1
+            rc[t] -= 1
+    return common
+
+
+def token_f1(preds, refs):
+    """SQuAD-style token-level F1 (multiset overlap on normalized tokens), averaged."""
+    if len(preds) != len(refs) or not preds:
+        return float("nan")
+    vals = []
+    for p, r in zip(preds, refs):
+        pt, rt = _em_normalize(p).split(), _em_normalize(r).split()
+        if not pt and not rt:
+            vals.append(1.0)
+            continue
+        if not pt or not rt:
+            vals.append(0.0)
+            continue
+        c = _multiset_overlap(pt, rt)
+        if c == 0:
+            vals.append(0.0)
+            continue
+        prec, rec = c / len(pt), c / len(rt)
+        vals.append(2 * prec * rec / (prec + rec))
+    return fmean(vals)
+
+
+def token_jaccard(preds, refs):
+    """Token-set Jaccard (whitespace tokens), averaged over examples."""
+    if len(preds) != len(refs) or not preds:
+        return float("nan")
+    vals = []
+    for p, r in zip(preds, refs):
+        a, b = set(p.split()), set(r.split())
+        if not a and not b:
+            vals.append(1.0)
+            continue
+        u = len(a | b)
+        vals.append(len(a & b) / u if u else 0.0)
+    return fmean(vals)
+
+
+def token_dice(preds, refs):
+    """Token-set Sorensen-Dice coefficient (whitespace tokens), averaged."""
+    if len(preds) != len(refs) or not preds:
+        return float("nan")
+    vals = []
+    for p, r in zip(preds, refs):
+        a, b = set(p.split()), set(r.split())
+        d = len(a) + len(b)
+        vals.append(2 * len(a & b) / d if d else 1.0)
+    return fmean(vals)

@@ -1782,3 +1782,44 @@ def variance_reduction_cuped(cols, binding, convention=None):
 def srm_pvalue(cols, binding, convention=None):
     g = cols[binding["group"]]
     return _result(N.srm_pvalue(g), {"n": len(g)})
+
+
+# ======================================================================================
+# Pack IR - retrieval / ranking depth + token-overlap text metrics.
+# ======================================================================================
+
+def _qrr(fn, kconv):
+    def recipe(cols, binding, convention=None):
+        q, rk, rel = cols[binding["query"]], cols[binding["rank"]], cols[binding["relevance"]]
+        if kconv == "k":
+            k = _conv_int(convention, "k", 10)
+            return _result(fn(q, rk, rel, k), {"k": k, "n_rows": len(rk)})
+        if kconv == "p":
+            p = _conv_float(convention, "p", 0.8)
+            return _result(fn(q, rk, rel, p), {"p": p, "n_rows": len(rk)})
+        return _result(fn(q, rk, rel), {"n_rows": len(rk)})
+    return recipe
+
+
+register("r_precision", family="retrieval", required_tags=["query", "rank", "relevance"],
+         string_tags=["query"], set_maturity="reviewed")(_qrr(N.r_precision, None))
+register("mean_average_precision", family="retrieval", required_tags=["query", "rank", "relevance"],
+         string_tags=["query"], set_maturity="reviewed")(_qrr(N.mean_average_precision, None))
+register("f1_at_k", family="retrieval", required_tags=["query", "rank", "relevance"], string_tags=["query"],
+         set_maturity="reviewed", accepted_conventions=["k=<int>"])(_qrr(N.f1_at_k, "k"))
+register("fallout_at_k", family="retrieval", required_tags=["query", "rank", "relevance"], string_tags=["query"],
+         set_maturity="reviewed", accepted_conventions=["k=<int>"])(_qrr(N.fallout_at_k, "k"))
+register("rbp", family="retrieval", required_tags=["query", "rank", "relevance"], string_tags=["query"],
+         set_maturity="reviewed", accepted_conventions=["p=<frac>"])(_qrr(N.rbp, "p"))
+
+
+def _pr(fn):
+    def recipe(cols, binding, convention=None):
+        p, r = cols[binding["prediction"]], cols[binding["reference"]]
+        return _result(fn(p, r), {"n": len(p)})
+    return recipe
+
+
+for _mid in ("token_f1", "token_jaccard", "token_dice"):
+    register(_mid, family="llm-eval", required_tags=["prediction", "reference"],
+             string_tags=["prediction", "reference"], set_maturity="reviewed")(_pr(getattr(N, _mid)))
