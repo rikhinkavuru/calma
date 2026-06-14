@@ -4270,3 +4270,79 @@ def effective_number_of_bets(weight):
     if s2 == 0:
         return float("nan")
     return s * s / s2
+
+
+# ======================================================================================
+# Pack RC - rates / curve analytics. A zero (spot) curve given as rate + tenor columns
+# yields par yields, annuity factors and forward rates; a zero curve plus cashflows
+# yields a multi-curve PV; effective duration / convexity come from bumping a single
+# yield by +/-1bp and repricing. Discrete annual compounding DF_i = 1/(1+z_i)^t_i,
+# matching the Pack FI conventions. Validated against numpy recomputes.
+# ======================================================================================
+
+def _rc_ok(*cols):
+    n = len(cols[0])
+    return n > 0 and all(len(c) == n for c in cols) and not any(_has_nan(c) for c in cols)
+
+
+def _discount_factors(zero, time):
+    return [1.0 / (1.0 + z) ** t for z, t in zip(zero, time)]
+
+
+def annuity_factor(zero, time):
+    """PV of $1 per period from the zero curve: sum_i 1/(1+z_i)^t_i."""
+    if not _rc_ok(zero, time) or any(z <= -1.0 for z in zero):
+        return float("nan")
+    return math.fsum(_discount_factors(zero, time))
+
+
+def par_yield(zero, time):
+    """Annual-pay par coupon from the zero curve: (1 - DF_n) / sum_i DF_i."""
+    if not _rc_ok(zero, time) or any(z <= -1.0 for z in zero):
+        return float("nan")
+    df = _discount_factors(zero, time)
+    s = math.fsum(df)
+    if s == 0:
+        return float("nan")
+    return (1.0 - df[-1]) / s
+
+
+def forward_rate(zero, time):
+    """Implied forward rate between the final two curve tenors:
+    ((1+z2)^t2 / (1+z1)^t1)^(1/(t2-t1)) - 1."""
+    if not _rc_ok(zero, time) or len(zero) < 2:
+        return float("nan")
+    z1, z2, t1, t2 = zero[-2], zero[-1], time[-2], time[-1]
+    if z1 <= -1.0 or z2 <= -1.0 or t2 == t1:
+        return float("nan")
+    g = (1.0 + z2) ** t2 / (1.0 + z1) ** t1
+    if g <= 0:
+        return float("nan")
+    return g ** (1.0 / (t2 - t1)) - 1.0
+
+
+def curve_pv(cashflow, zero, time):
+    """Present value of a cashflow stream under a zero curve: sum_i CF_i/(1+z_i)^t_i."""
+    if not _rc_ok(cashflow, zero, time) or any(z <= -1.0 for z in zero):
+        return float("nan")
+    return math.fsum(cf / (1.0 + z) ** t for cf, z, t in zip(cashflow, zero, time))
+
+
+def effective_duration(cashflow, time, y, bump=1e-4):
+    """Bump-and-reprice effective duration: (P(y-d) - P(y+d)) / (2 P(y) d), d = 1bp."""
+    p0 = bond_price(cashflow, time, y)
+    pu = bond_price(cashflow, time, y + bump)
+    pd = bond_price(cashflow, time, y - bump)
+    if p0 != p0 or pu != pu or pd != pd or p0 == 0:
+        return float("nan")
+    return (pd - pu) / (2.0 * p0 * bump)
+
+
+def effective_convexity(cashflow, time, y, bump=1e-4):
+    """Bump-and-reprice effective convexity: (P(y+d) + P(y-d) - 2P(y)) / (P(y) d^2), d = 1bp."""
+    p0 = bond_price(cashflow, time, y)
+    pu = bond_price(cashflow, time, y + bump)
+    pd = bond_price(cashflow, time, y - bump)
+    if p0 != p0 or pu != pu or pd != pd or p0 == 0:
+        return float("nan")
+    return (pu + pd - 2.0 * p0) / (p0 * bump * bump)

@@ -2040,3 +2040,41 @@ def portfolio_turnover(cols, binding, convention=None):
 def effective_number_of_bets(cols, binding, convention=None):
     w = cols[binding["weight"]]
     return _result(N.effective_number_of_bets(w), {"n": len(w)})
+
+
+# ======================================================================================
+# Pack RC - rates / curve analytics. Zero-curve columns (rate + tenor) drive par yields,
+# annuity factors and forward rates; a curve plus cashflows drives a multi-curve PV;
+# effective duration / convexity bump a single yield by +/-1bp and reprice.
+# ======================================================================================
+
+def _rc_curve(fn):
+    def recipe(cols, binding, convention=None):
+        z, t = cols[binding["zero_rate"]], cols[binding["time"]]
+        return _result(fn(z, t), {"n": len(z)})
+    return recipe
+
+
+for _mid in ("par_yield", "annuity_factor", "forward_rate"):
+    register(_mid, family="finance", required_tags=["zero_rate", "time"],
+             set_maturity="reviewed")(_rc_curve(getattr(N, _mid)))
+
+
+@register("curve_pv", family="finance", required_tags=["cashflow", "zero_rate", "time"],
+          set_maturity="reviewed")
+def curve_pv(cols, binding, convention=None):
+    cf, z, t = cols[binding["cashflow"]], cols[binding["zero_rate"]], cols[binding["time"]]
+    return _result(N.curve_pv(cf, z, t), {"n": len(cf)})
+
+
+def _rc_bump(fn):
+    def recipe(cols, binding, convention=None):
+        cf, t = cols[binding["cashflow"]], cols[binding["time"]]
+        y = _conv_float(convention, "ytm", 0.05)
+        return _result(fn(cf, t, y), {"n": len(cf), "ytm": y})
+    return recipe
+
+
+for _mid in ("effective_duration", "effective_convexity"):
+    register(_mid, family="finance", required_tags=["cashflow", "time"],
+             set_maturity="reviewed", accepted_conventions=["ytm=<frac>"])(_rc_bump(getattr(N, _mid)))

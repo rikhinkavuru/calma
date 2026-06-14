@@ -372,6 +372,13 @@ KINDS = {
     "active_share": lambda a: N.active_share(a["wp"], a["wb"]),
     "portfolio_turnover": lambda a: N.portfolio_turnover(a["wprev"], a["wcurr"]),
     "effective_number_of_bets": lambda a: N.effective_number_of_bets(a["weight"]),
+    # pack RC - rates / curve analytics
+    "par_yield": lambda a: N.par_yield(a["zero"], a["time"]),
+    "annuity_factor": lambda a: N.annuity_factor(a["zero"], a["time"]),
+    "forward_rate": lambda a: N.forward_rate(a["zero"], a["time"]),
+    "curve_pv": lambda a: N.curve_pv(a["cashflow"], a["zero"], a["time"]),
+    "effective_duration": lambda a: N.effective_duration(a["cashflow"], a["time"], a["ytm"]),
+    "effective_convexity": lambda a: N.effective_convexity(a["cashflow"], a["time"], a["ytm"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -488,10 +495,13 @@ EXPECTED = {
     # pack PA - portfolio construction & attribution (7)
     "brinson_allocation", "brinson_selection", "brinson_interaction", "brinson_total_active",
     "active_share", "portfolio_turnover", "effective_number_of_bets",
+    # pack RC - rates / curve analytics (6)
+    "par_yield", "annuity_factor", "forward_rate", "curve_pv",
+    "effective_duration", "effective_convexity",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 303 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 309 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

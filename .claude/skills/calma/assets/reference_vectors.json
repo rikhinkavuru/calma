@@ -5,7 +5,7 @@
   "scipy": "1.17.1",
   "sklearn": "1.9.0"
  },
- "n_cases": 578,
+ "n_cases": 584,
  "cases": [
   {
    "id": "total_return",
@@ -159793,6 +159793,153 @@
    },
    "expected": 4.651162790697674,
    "atol": 1e-12,
+   "rtol": 1e-12
+  },
+  {
+   "id": "par_yield",
+   "kind": "par_yield",
+   "args": {
+    "zero": [
+     0.03,
+     0.034,
+     0.037,
+     0.039,
+     0.04
+    ],
+    "time": [
+     1.0,
+     2.0,
+     3.0,
+     4.0,
+     5.0
+    ]
+   },
+   "expected": 0.0397222385833204,
+   "atol": 1e-09,
+   "rtol": 1e-12
+  },
+  {
+   "id": "annuity_factor",
+   "kind": "annuity_factor",
+   "args": {
+    "zero": [
+     0.03,
+     0.034,
+     0.037,
+     0.039,
+     0.04
+    ],
+    "time": [
+     1.0,
+     2.0,
+     3.0,
+     4.0,
+     5.0
+    ]
+   },
+   "expected": 4.482952109235409,
+   "atol": 1e-09,
+   "rtol": 1e-12
+  },
+  {
+   "id": "forward_rate",
+   "kind": "forward_rate",
+   "args": {
+    "zero": [
+     0.03,
+     0.034,
+     0.037,
+     0.039,
+     0.04
+    ],
+    "time": [
+     1.0,
+     2.0,
+     3.0,
+     4.0,
+     5.0
+    ]
+   },
+   "expected": 0.044009633906902934,
+   "atol": 1e-09,
+   "rtol": 1e-12
+  },
+  {
+   "id": "curve_pv",
+   "kind": "curve_pv",
+   "args": {
+    "cashflow": [
+     5.0,
+     5.0,
+     5.0,
+     5.0,
+     105.0
+    ],
+    "zero": [
+     0.03,
+     0.034,
+     0.037,
+     0.039,
+     0.04
+    ],
+    "time": [
+     1.0,
+     2.0,
+     3.0,
+     4.0,
+     5.0
+    ]
+   },
+   "expected": 104.60747122211221,
+   "atol": 1e-09,
+   "rtol": 1e-12
+  },
+  {
+   "id": "effective_duration",
+   "kind": "effective_duration",
+   "args": {
+    "cashflow": [
+     5.0,
+     5.0,
+     5.0,
+     5.0,
+     105.0
+    ],
+    "time": [
+     1.0,
+     2.0,
+     3.0,
+     4.0,
+     5.0
+    ],
+    "ytm": 0.04
+   },
+   "expected": 4.381814444800814,
+   "atol": 1e-07,
+   "rtol": 1e-12
+  },
+  {
+   "id": "effective_convexity",
+   "kind": "effective_convexity",
+   "args": {
+    "cashflow": [
+     5.0,
+     5.0,
+     5.0,
+     5.0,
+     105.0
+    ],
+    "time": [
+     1.0,
+     2.0,
+     3.0,
+     4.0,
+     5.0
+    ],
+    "ytm": 0.04
+   },
+   "expected": 24.476570453517002,
+   "atol": 1e-06,
    "rtol": 1e-12
   }
  ]

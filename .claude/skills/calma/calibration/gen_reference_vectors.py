@@ -1606,6 +1606,35 @@ case("active_share", "active_share", {"wp": pa_wp, "wb": pa_wb}, pa_active_share
 case("portfolio_turnover", "portfolio_turnover", {"wprev": pa_wprev, "wcurr": pa_wcurr}, pa_turn, atol=1e-12)
 case("effective_number_of_bets", "effective_number_of_bets", {"weight": pa_wp}, pa_enb, atol=1e-12)
 
+# ============================ Pack RC - rates / curve analytics ============================
+# Independent reference: numpy recompute of the discrete-compounding zero-curve formulas
+# (DF_i = 1/(1+z_i)^t_i) and the +/-1bp bump-and-reprice duration / convexity.
+
+rc_zero = [0.030, 0.034, 0.037, 0.039, 0.040]
+rc_time = [1.0, 2.0, 3.0, 4.0, 5.0]
+rc_cf = [5.0, 5.0, 5.0, 5.0, 105.0]
+_rz, _rt, _rcf = np.array(rc_zero), np.array(rc_time), np.array(rc_cf)
+_df = 1.0 / (1.0 + _rz) ** _rt
+rc_ann = float(_df.sum())
+rc_par = float((1.0 - _df[-1]) / _df.sum())
+rc_fwd = float(((1.0 + rc_zero[-1]) ** rc_time[-1] / (1.0 + rc_zero[-2]) ** rc_time[-2])
+               ** (1.0 / (rc_time[-1] - rc_time[-2])) - 1.0)
+rc_cpv = float((_rcf * _df).sum())
+rc_y, rc_bump = 0.04, 1e-4
+_P = lambda yy: float((_rcf / (1.0 + yy) ** _rt).sum())
+_p0, _pu, _pd = _P(rc_y), _P(rc_y + rc_bump), _P(rc_y - rc_bump)
+rc_ed = (_pd - _pu) / (2.0 * _p0 * rc_bump)
+rc_ec = (_pu + _pd - 2.0 * _p0) / (_p0 * rc_bump * rc_bump)
+rc_curve = {"zero": rc_zero, "time": rc_time}
+case("par_yield", "par_yield", rc_curve, rc_par, atol=1e-9)
+case("annuity_factor", "annuity_factor", rc_curve, rc_ann, atol=1e-9)
+case("forward_rate", "forward_rate", rc_curve, rc_fwd, atol=1e-9)
+case("curve_pv", "curve_pv", {"cashflow": rc_cf, "zero": rc_zero, "time": rc_time}, rc_cpv, atol=1e-9)
+case("effective_duration", "effective_duration",
+     {"cashflow": rc_cf, "time": rc_time, "ytm": rc_y}, rc_ed, atol=1e-7)
+case("effective_convexity", "effective_convexity",
+     {"cashflow": rc_cf, "time": rc_time, "ytm": rc_y}, rc_ec, atol=1e-6)
+
 # ============================ write ============================
 
 doc = {
