@@ -159,6 +159,11 @@ def _decide(vi):
 
     gap = abs(gap)
     budg = max(budg, 0.0)
+    # defense in depth: a non-finite gap/budget is not comparable. Unreachable via compare() (a
+    # NaN/Inf recompute sets recompute_degenerate -> G2 above, and compare only sets gap when the
+    # recompute is finite), but verdict() is a public TOTAL function, so close the hole here too.
+    if gap != gap or budg != budg or gap == float("inf") or budg == float("inf"):
+        return INCONCLUSIVE, "non-finite gap or budget - the claim is not numerically comparable"
     margin = max(vi["margin"], 1.0)
     exceeds = gap > budg * margin
     within = gap <= budg

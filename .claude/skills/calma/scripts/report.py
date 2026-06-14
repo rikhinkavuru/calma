@@ -10,8 +10,18 @@ import hashlib
 import os
 import shutil
 import subprocess
+import textwrap
 
 import verdict as V
+
+
+def _wrap(text, width=96):
+    """Wrap a prose report line to a fixed sane width with a hanging indent, so a long scope /
+    not-verified list reads as a few lines, not a 240-char wall. Fixed (not terminal-derived) so
+    the stored report.txt is byte-stable across terminals. NEVER used for command/reproduce lines
+    (wrapping would break copy-paste)."""
+    return textwrap.fill(text, width=width, initial_indent="  ", subsequent_indent="      ",
+                         break_long_words=False, break_on_hyphens=False)
 
 _TOPLINE = {
     V.CONFIRMED: ("CONFIRMED", "reproduces and recomputes to the claim"),
@@ -60,11 +70,13 @@ def fmt_value(value, metric_id=None):
     v = float(value)
     if v != v:
         return "NaN"
+    if v == 0:
+        v = 0.0  # collapse negative zero (a cancelled recompute) so it never renders as "-0"
     if metric_id in PERCENT_METRICS or metric_id in UNSIGNED_PERCENT_METRICS:
         # a return of >= ~5 reads cleaner as a multiple, but keep the raw percent alongside it so the
         # scale still lands: 10.3258 -> "10.3x (+1,033%)"; 146.98 -> "147.0x (+14,698%)".
         if metric_id in PERCENT_METRICS and abs(v) >= 5:
-            return "{:.1f}x ({:+,.0f}%)".format(v, v * 100.0)
+            return "{:,.1f}x ({:+,.0f}%)".format(v, v * 100.0)
         pct = v * 100.0
         sign = "+" if metric_id in PERCENT_METRICS else ""
         if abs(pct) >= 100:
@@ -72,8 +84,15 @@ def fmt_value(value, metric_id=None):
         if abs(pct) >= 1:
             return ("{:" + sign + ".1f}%").format(pct)
         return ("{:" + sign + ".2f}%").format(pct)
-    if v.is_integer() and abs(v) < 1e15:
+    av = abs(v)
+    if av >= 1e15 or (av != 0 and av < 1e-4):
+        return "%.4g" % v                       # extreme magnitudes read clearest in scientific
+    if v.is_integer():
         return "{:,.0f}".format(v)
+    if av >= 1000:
+        # large non-integer money/counts: thousands separators beat "1.235e+06" (display only;
+        # the ledger keeps full precision). Round to the integer the separators imply.
+        return "{:,.0f}".format(round(v))
     return "%.4g" % v
 
 
@@ -83,6 +102,16 @@ def _fix_line(led, diff=None):
     for f in led.get("findings", []):
         if f.get("unblock"):
             return f["unblock"]
+    # a precise recompute/binding error (column not found, non-finite cell) beats the generic
+    # "NaN/Inf - check for missing values" guidance the reason->fix table would otherwise pick.
+    # Check claims (always present, so --json's fix_line(led) sees it too) then the diff.
+    for m in led.get("claims", []):
+        if m.get("recompute_error"):
+            return m["recompute_error"]
+    if diff:
+        for m in diff.get("metrics", []):
+            if m.get("recompute_error"):
+                return m["recompute_error"]
     reasons = []
     for c in led.get("claims", []):
         if c.get("reason"):
@@ -194,14 +223,17 @@ def render(led, diff=None, color=False):
             lines.append("  verified by re-execution (isolation: %s, determinism: %s)"
                          % (sc.get("isolation_tier", "?"), _det(sc.get("determinism_mode"))))
             if nv:
-                lines.append("  not verified: " + "; ".join(nv))
+                lines.append(_wrap("not verified: " + "; ".join(nv)))
         else:
-            lines.append("  scope: %s | isolation: %s | determinism: %s%s"
-                         % (", ".join(checked) or "-", sc.get("isolation_tier", "?"),
-                            _det(sc.get("determinism_mode")),
-                            (" | not verified: " + "; ".join(nv)) if nv else ""))
+            # not-clean: scope + the (often long) not-verified list each wrap to their own block,
+            # rather than one 240-char line that wraps into a wall on any normal terminal
+            lines.append(_wrap("scope: %s | isolation: %s | determinism: %s"
+                               % (", ".join(checked) or "-", sc.get("isolation_tier", "?"),
+                                  _det(sc.get("determinism_mode")))))
+            if nv:
+                lines.append(_wrap("not verified: " + "; ".join(nv)))
         if sc.get("binding_note"):
-            lines.append("  checked: " + sc["binding_note"])
+            lines.append(_wrap("checked: " + sc["binding_note"]))
     return "\n".join(lines)
 
 

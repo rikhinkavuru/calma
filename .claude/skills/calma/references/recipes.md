@@ -1,11 +1,13 @@
-# Recipe catalog (500 recipes, all SOTA-validated)
+# Recipe catalog (representative families across all 500 SOTA-validated recipes)
 
+This documents the binding tags, conventions, and data layouts by FAMILY with representative
+recipes; the authoritative, complete id list is `calma recipes` (500 ids across 16 families).
 Every recipe recomputes its number ONLY from raw machine-readable artifacts via the
 reference-deterministic kernels in `numeric.py` (fsum / pairwise product / sqrt, plus the
 deterministic transcendental kernels - never platform libm, never numpy). Every recipe is
 validated against published reference implementations (scikit-learn, SciPy, NumPy, the
 HumanEval pass@k estimator, the SQuAD eval normalizer, Guo et al. ECE) by
-`tests/test_recipes_sota.py` over `assets/reference_vectors.json` (385 vectors, regenerable
+`tests/test_recipes_sota.py` over `assets/reference_vectors.json` (774 vectors, regenerable
 with `calibration/gen_reference_vectors.py`).
 
 Binding = semantic tag -> column name. A binding value `other.csv::col` reads from a sibling

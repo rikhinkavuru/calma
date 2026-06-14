@@ -100,8 +100,9 @@ After running `calma verify`, report in THIS order - the user should never need 
    it's fine to propose a recipe it missed (e.g. "your wealth-inequality number → `gini_coefficient`")
    as long as you confirm with the user before pinning it. Still never auto-verify against a guess.
 
-Agents: prefer `--json` - it returns `{verdict, clean, confidence, claimed, recomputed, reason, fix,
-cached, run_dir}` so you branch on the verdict without parsing prose.
+Agents: prefer `--json` - it returns `{verdict, clean, gate_exit, confidence, claimed, recomputed,
+reason, fix, cached, note, run_dir, metric, metrics[], isolation_tier, determinism_mode}` so you
+branch on the verdict without parsing prose (`metrics[]` carries every claim in a multi-metric run).
 
 ## The zero-touch guardrail (installed automatically with the plugin)
 
@@ -151,10 +152,10 @@ committed claim and says so in the report and `--json` (`note`).
    findings-floor). Exit 0 clean, 1 not-clean, 2 invalid. CI: `--fail-on refuted` fails only on a break.
 5. **Verdict + attestation** - `scripts/attest.py` -> a content-addressed manifest (in-toto/SLSA statement
    + CycloneDX ML-BOM) and, once `calma attest keygen` has run, a SIGNED DSSE bundle on every verify whose
-   predicate is the VSA-style `github.com/rikhinkavuru/calma/verdict/v1` (GitHub-rooted; v1 bundles
-   signed under the legacy `calma.dev/verdict/v1` URI remain valid and are accepted on verification)
-   (verifier+version, contract+calibration hashes as
-   policy, verdict, claims). The same Ed25519 key signs twice: raw DSSE (Sigstore-countersignable) and an
+   predicate is the VSA-style `github.com/rikhinkavuru/calma/verdict/v1` (verifier+version,
+   contract+calibration hashes as
+   policy, verdict, claims; legacy-URI bundles still verify - see script-interfaces.md). The same
+   Ed25519 key signs twice: raw DSSE (Sigstore-countersignable) and an
    OpenSSH SSHSIG (namespace `calma-attest@v1`) with sidecar files, so the counterparty can verify with
    stock `ssh-keygen -Y verify` and zero installs - or run `calma attest verify <bundle>` for the full
    offline check (both signatures + byte-for-byte verdict re-derivation; `--key` pins the signer,
@@ -196,6 +197,7 @@ committed claim and says so in the report and `--json` (`note`).
 7. **Any "validity layer / five families / language-agnostic" claim carries the installed-milestone gate.**
 
 Build status + what is real vs deferred: `BUILD-NOTES.md`. Script I/O contract:
-`references/script-interfaces.md`. The full 120-recipe catalog (binding tags, conventions, data
-layouts, reference implementations each is validated against): `references/recipes.md`. Full spec
+`references/script-interfaces.md`. The recipe-catalog reference (binding tags, conventions, data
+layouts, reference implementations - representative families; `calma recipes` lists all 500 ids):
+`references/recipes.md`. Full spec
 (repo checkout only, not shipped with the skill folder): `docs/internal/calma-skill-blueprint.md`.

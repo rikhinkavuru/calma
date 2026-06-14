@@ -260,8 +260,9 @@ def verify_chain(reg_dir, pinned_pub_hex=None):
 
 
 def render_verify(ok, checks, summary):
-    lines = ["REGISTRY %s  -  %d entries" % ("VERIFIED" if ok else "BROKEN",
-                                             summary.get("entries", 0))]
+    _ne = summary.get("entries", 0)
+    lines = ["REGISTRY %s  -  %d entr%s" % ("VERIFIED" if ok else "BROKEN",
+                                            _ne, "y" if _ne == 1 else "ies")]
     for name, cok, detail in checks:
         if not cok:
             lines.append("  %-28s FAIL  (%s)" % (name, detail))

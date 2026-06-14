@@ -201,7 +201,7 @@ def suggest(text, k=_TOP_DEFAULT, available_tags=None):
     for phrase, mid in alias_pairs:
         if mid in docs and mid not in seen_phrase and _phrase_hit(phrase, norm):
             scores[mid] = scores.get(mid, 0.0) + ALIAS_WEIGHT * len(phrase.split())
-            why[mid] = "matches “%s”" % phrase
+            why[mid] = "matches \"%s\"" % phrase
             seen_phrase.add(mid)
             qualifies.add(mid)
     # tier 2 - idf-weighted token overlap, prefix-aware (catches asks with no full alias phrase)
@@ -250,7 +250,7 @@ def render(text, results, invocation="calma"):
     VERIFIED), one runnable command per candidate, never auto-runs anything."""
     if not results:
         return "\n".join((
-            "NOT VERIFIED - couldn't tell which metric “%s” refers to." % (text or "").strip(),
+            "NOT VERIFIED - couldn't tell which metric \"%s\" refers to." % (text or "").strip(),
             "  Browse all 500 recipes:  %s recipes" % invocation,
             "  Then pin one:            %s verify <folder> \"<claim>\" --metric <id>" % invocation))
     if results[0].get("confidence") == "high":

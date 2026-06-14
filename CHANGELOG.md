@@ -2,6 +2,40 @@
 
 All notable changes to the calma skill/CLI. Dates are UTC.
 
+## 0.9.1 — 2026-06-14
+
+### Robustness hardening (closed-loop audit: never traceback, never a wrong verdict)
+
+A full adversarial pass over the skill + CLI; every input now degrades to a clean verdict or `error:`,
+and no reachable false-CONFIRM/false-REFUTE survives.
+
+- **Soundness.** A fabricated INFINITE claim (`"1e999"`) no longer false-CONFIRMs (it made the tolerance
+  budget `inf`); it is rejected as not-a-finite-number, with defense-in-depth guards in `compare` and
+  `verdict()`. A Unicode-minus claim (`"−14%"`, U+2212 — what editors/PDFs/LLMs emit) no longer false-REFUTEs
+  a correct negative claim; minus/hyphen codepoints normalize to ASCII `-` (en/em dash stay separators).
+- **No more tracebacks.** 165 of the 500 recipe kernels could raise an uncaught `OverflowError`/
+  `ZeroDivisionError` on extreme-but-valid data — they now degrade to CAN'T-CONFIRM. Same for an empty
+  0-byte output file, a bad `--out`/`--key`/bundle path (every `OSError`), an `inf` in a graded column, and
+  a pathologically deep `verify.yaml`. A literal `inf`/`Infinity` CSV cell now degenerates the recompute
+  instead of an order-statistic (median/percentile) silently returning a finite-from-corrupt number.
+- **Privacy.** The reproduce command no longer leaks the producer's absolute `$HOME` path into the SIGNED,
+  counterparty-facing attestation bundle (it is `~`-redacted, as the bundle invariant always promised).
+- **Claim parsing.** Spelled-out "percent"/"pct" is read as `%` ("accuracy 87 percent" → 0.87, was
+  REFUTING); NPV's leading discount rate ("npv at 10% 5000") is treated as a parameter, not the value.
+- **Terminal UI / agents.** Batch table columns size to their values (no more overflow); the long
+  `scope:`/`not verified:` line wraps with a hanging indent; `recipes` wraps to `$COLUMNS`; `NO_COLOR`
+  suppresses the stderr trace + spinner styling; `--json` is strict JSON (NaN/Inf → null) and its
+  `gate_exit` matches the 3/4 refused/killed exit; a precise "column X not found" surfaces in the fix line;
+  large non-integer money/counts render with thousands separators (not `1.235e+06`); plus "1 target"
+  pluralization, batch dedup, `registry verify` erroring on a missing dir, and assorted wording fixes.
+- **Cache.** An explicit `--isolation` is now part of the cache key (a different tier re-runs rather than
+  serving a verdict achieved under another tier).
+- **Docs.** README/recipes.md counts corrected (120 → 500; reference vectors 385 → 774); the recipes.md
+  catalog is described honestly as a representative-families reference with the full id list via
+  `calma recipes`; the SKILL.md `--json` field list completed.
+- **Tests.** New `test_robustness.py` (51 checks) pins the whole cluster. Full suite: 23 suites, ~2,890
+  checks, 0 failures. Version is the cache key, so these verdict-behavior changes invalidate stale entries.
+
 ## 0.9.0 — 2026-06-13
 
 ### WS6 + dress rehearsals — end-to-end pilot pipeline + registry dry-run

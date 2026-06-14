@@ -31,7 +31,7 @@ import run_hermetic as H
 import suggest as SUGG
 import verdict as V
 
-__version__ = "0.9.0"
+__version__ = "0.9.1"
 
 QUANT_METRICS = {"total_return", "sharpe", "max_drawdown"}
 DEFAULT_TIMEOUT_S = 120
@@ -53,6 +53,12 @@ def _color_enabled():
     return sys.stdout.isatty() and not os.environ.get("NO_COLOR")
 
 
+def _stderr_color():
+    """NO_COLOR-respecting style gate for the stderr trace + spinner (no-color.org: NO_COLOR drops
+    ALL added style, not just stdout's). Progress still shows under NO_COLOR - just without dim."""
+    return sys.stderr.isatty() and not os.environ.get("NO_COLOR")
+
+
 class _Spinner:
     """A single self-updating stderr line ('⠹ label (Ns)') during a long step, so re-execution
     doesn't look like a frozen terminal. Active only on an interactive stderr (never in pipes/CI/
@@ -62,6 +68,7 @@ class _Spinner:
     def __init__(self, label):
         self.label = label
         self._on = _trace_enabled() and sys.stderr.isatty()
+        self._color = _stderr_color()  # dim styling only when NO_COLOR is unset
         self._stop = None
         self._thread = None
 
@@ -75,8 +82,11 @@ class _Spinner:
         def _spin():
             i, t0 = 0, _t.time()
             while not self._stop.wait(0.1):
-                sys.stderr.write("\r\x1b[2m  %s %s (%.0fs)\x1b[0m\x1b[K"
-                                 % (self.FRAMES[i % len(self.FRAMES)], self.label, _t.time() - t0))
+                body = "  %s %s (%.0fs)" % (self.FRAMES[i % len(self.FRAMES)], self.label,
+                                            _t.time() - t0)
+                if self._color:
+                    body = "\x1b[2m%s\x1b[0m" % body
+                sys.stderr.write("\r" + body + "\x1b[K")   # \r + erase-to-EOL are control, not color
                 sys.stderr.flush()
                 i += 1
         self._thread = threading.Thread(target=_spin, daemon=True)
@@ -95,7 +105,7 @@ class _Spinner:
 def _trace(step, msg):
     if not _trace_enabled():
         return
-    if sys.stderr.isatty():
+    if _stderr_color():
         print("  \x1b[2m%-9s\x1b[0m %s" % (step, msg), file=sys.stderr, flush=True)
     else:
         print("  %-9s %s" % (step, msg), file=sys.stderr, flush=True)
@@ -112,6 +122,11 @@ def _invocation():
     if os.path.basename(a0) == "calma.py":
         return "python3 %s" % a0
     return "calma"
+
+
+def _article(word):
+    """'a' / 'an' by the leading sound (good enough for metric ids: 'an auc metric', 'a sharpe')."""
+    return "an" if str(word)[:1].lower() in "aeiou" else "a"
 
 
 def _reconcile_claim(contract, claim, metric):
@@ -148,8 +163,8 @@ def _reconcile_claim(contract, claim, metric):
             "severity": "major", "status": "open", "confidence": "deterministic",
             "fixable_by": "author",
             "locator": "%s - refusing to verify a claim you didn't make" % named_via,
-            "unblock": "add a %s metric to verify.yaml, or move/remove verify.yaml to auto-detect"
-                       % user_metric,
+            "unblock": "add %s %s metric to verify.yaml, or move/remove verify.yaml to auto-detect"
+                       % (_article(user_metric), user_metric),
             "reverify": {"kind": "static-reread", "source": "contract",
                          "expected": "the claim's metric is pinned in verify.yaml"},
         }
@@ -269,7 +284,7 @@ def _assemble_ledger(contract, diff, run_res):
             "verdict": label, "input_binding_status": vi["binding_status"],
             "verdict_inputs": vi, "verdict_status": "stable", "verdict_history": [], "waivable": False,
             "recipe_authority": "canonical", "set_maturity": "reviewed",
-            "reason": m.get("reason"),
+            "reason": m.get("reason"), "recompute_error": m.get("recompute_error"),
         }
         if label == V.REFUTED:
             claim["driving_dimension"] = "metric-mismatch"
@@ -281,7 +296,10 @@ def _assemble_ledger(contract, diff, run_res):
                 pass
             claim["reproduction_or_reverify"] = {
                 "kind": "requires-reexecution",
-                "command": "%s replay %s" % (_invocation(), _rd),
+                # _redact_home: when calma.py is invoked by ABSOLUTE path (as SKILL.md documents and
+                # the hook does), _invocation() carries it - and this command ships inside the signed,
+                # counterparty-facing bundle. $HOME must never enter a bundle (see _redact_home).
+                "command": _redact_home("%s replay %s" % (_invocation(), _rd)),
                 "manifest_ref": run_res.get("manifest_ref", "sha256:unavailable"),
                 "expected": "recomputed differs from claimed beyond the calibrated budget",
             }
@@ -289,7 +307,9 @@ def _assemble_ledger(contract, diff, run_res):
                 "id": "f-%s-mm" % cid, "claim_id": cid, "dimension": "metric-mismatch",
                 "severity": "blocker", "status": "open", "confidence": "deterministic",
                 "fixable_by": "author",
-                "locator": "claimed %s but the code recomputes %s" % (m["claimed"], m["recomputed"]),
+                "locator": "claimed %s but the code recomputes %s"
+                           % (REP.fmt_value(m["claimed"], m["metric_id"]),
+                              REP.fmt_value(m["recomputed"], m["metric_id"])),
                 "reverify": {"kind": "requires-reexecution", "source": m.get("metric_id"),
                              "expected": "recomputed within budget of claimed"},
             })
@@ -382,15 +402,21 @@ def _assemble_ledger(contract, diff, run_res):
     return led
 
 
-def _input_fingerprint(target, contract):
-    """Content-address everything the verdict depends on: the contract (minus draft notes), the
-    entrypoint bytes, and every bound artifact's bytes. Same fingerprint => the prior verdict is the
-    verdict (re-verification would re-derive it from identical inputs)."""
+def _input_fingerprint(target, contract, isolation=None):
+    """Content-address everything the verdict depends on: the contract (minus draft notes, but incl.
+    env.trust), the entrypoint bytes, every bound artifact's bytes, and an EXPLICIT isolation choice.
+    Same fingerprint => the prior verdict is the verdict (re-verification re-derives it from identical
+    inputs). An explicit --isolation (not auto) is part of the key so a request for a different tier
+    re-runs instead of serving a result achieved under another tier (a weaker one would understate
+    isolation)."""
     h = hashlib.sha256()
     # the verifier's own version and the interpreter line are part of the key: upgrading either
-    # invalidates the cache (a different verifier run is a different computation)
-    h.update(("calma-cache@1|calma=%s|py=%d.%d\n"
-              % (__version__, sys.version_info[0], sys.version_info[1])).encode())
+    # invalidates the cache (a different verifier run is a different computation). A default (auto)
+    # isolation appends nothing, so existing cache entries keep their fingerprint.
+    iso = isolation if isolation not in (None, "auto") else ""
+    h.update(("calma-cache@1|calma=%s|py=%d.%d%s\n"
+              % (__version__, sys.version_info[0], sys.version_info[1],
+                 ("|iso=" + iso) if iso else "")).encode())
     h.update(json.dumps({k: v for k, v in contract.items() if not str(k).startswith("_")},
                         sort_keys=True).encode())
     rt = os.path.realpath(target)
@@ -459,8 +485,8 @@ def _cached_result(target, fingerprint):
     code, summary = LED.validate_obj(led)
     if led.get("repo_verdict") not in ("CONFIRMED", "CONFIRMED-WITH-CAVEATS", "REFUTED", "MIXED"):
         return None
-    rendered = ("(cached: code, data, and claim unchanged since the last verification - "
-                "pass --force to re-execute)\n") + REP.render(led)
+    rendered = ("(cached - code, data, and claim unchanged since the last run; "
+                "--force re-executes)\n") + REP.render(led)
     return {"gate_exit": code, "gate": summary, "repo_verdict": led["repo_verdict"],
             "report": rendered, "teardown": REP.teardown_card(led), "run_dir": run_dir,
             "ledger": led, "cached": True}
@@ -599,8 +625,9 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
         if tag_hits:
             hint = ("%r is a binding tag, not a recipe - recipes that bind it: %s. %s"
                     % (metric, ", ".join(tag_hits), hint)).strip()
-        raise ValueError("no recipe named %r. %s (full list: calma recipes)"
-                         % (metric, hint or "run `calma recipes` for the full list"))
+        if hint:
+            raise ValueError("no recipe named %r. %s (full list: calma recipes)" % (metric, hint))
+        raise ValueError("no recipe named %r - run `calma recipes` for the full list" % metric)
     if not os.path.isdir(target):
         raise ValueError("target directory does not exist: %s" % target)
     if not any(n for n in os.listdir(target) if n not in (".calma", ".DS_Store")):
@@ -648,7 +675,7 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
     # Inline/agent-loop use re-verifies only what changed; --force always re-executes, and a
     # determinism check is new evidence, so it never reads the cache (it still stores).
     if block_finding is None and not force and not check_determinism:
-        hit = _cached_result(target, _input_fingerprint(target, contract))
+        hit = _cached_result(target, _input_fingerprint(target, contract, isolation))
         if hit:
             _trace("cache", "code+data+claim unchanged -> prior verdict (--force re-executes)")
             if claim_note:
@@ -894,7 +921,7 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
     card = REP.teardown_card(led)
     if card:
         open(os.path.join(run_dir, "teardown.txt"), "w").write(card)
-    _store_cache(target, _input_fingerprint(target, contract), run_id, led["repo_verdict"])
+    _store_cache(target, _input_fingerprint(target, contract, isolation), run_id, led["repo_verdict"])
     # append-only, human-readable history: one JSON line per verification (the audit trail is a feature)
     c0 = (led.get("claims") or [{}])[0]
     try:
@@ -1053,6 +1080,20 @@ def stats(target):
             "auto": auto}, "\n".join(lines)
 
 
+def _json_finite(obj):
+    """Recursively replace non-finite floats (NaN/Inf) with None so `--json` is STRICT JSON.
+    Python's json.dumps emits bare NaN/Infinity by default, which JavaScript's JSON.parse rejects
+    and jq silently coerces to wrong values - both bad for the agents that consume `--json`. A NaN
+    recomputed value (a degenerate recompute) becomes null; its verdict is already INCONCLUSIVE."""
+    if isinstance(obj, float):
+        return obj if (obj == obj and obj not in (float("inf"), float("-inf"))) else None
+    if isinstance(obj, dict):
+        return {k: _json_finite(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_json_finite(v) for v in obj]
+    return obj
+
+
 def _json_result(res):
     """The agent-consumable structured verdict (stable shape; no prose parsing needed). The top-level
     metric/claimed/recomputed mirror the FIRST claim for back-compat; `metrics` carries ALL of them so
@@ -1060,10 +1101,13 @@ def _json_result(res):
     led = res["ledger"]
     claims = led.get("claims") or [{}]
     c0 = claims[0]
+    # the process exit is overridden to 3 (refused) / 4 (killed); reflect that in the JSON so an
+    # agent keying on gate_exit sees the same code the shell does (not the pre-override gate value).
+    eff_exit = 3 if res.get("refused") else 4 if res.get("killed") else res["gate_exit"]
     return {
         "verdict": res["repo_verdict"],
-        "clean": res["gate_exit"] == 0,
-        "gate_exit": res["gate_exit"],
+        "clean": eff_exit == 0,
+        "gate_exit": eff_exit,
         "cached": bool(res.get("cached")),
         "confidence": c0.get("headline_confidence"),
         "metric": c0.get("metric"),
@@ -1093,14 +1137,29 @@ def _batch_jobs(targets, manifest):
             if os.path.isdir(m):
                 jobs.append((m, None, None))
     if manifest:
-        for line in open(manifest):
-            line = line.strip()
-            if not line or line.startswith("#"):
+        for ln_no, line in enumerate(open(manifest), 1):
+            line = line.rstrip("\n")
+            if not line.strip() or line.lstrip().startswith("#"):
                 continue
             parts = [p.strip() for p in line.split("\t")]
+            if len(parts) > 3:
+                # a claim with an embedded tab would silently shift the metric column - fail loud
+                raise ValueError("manifest line %d has %d tab-separated fields (max 3: "
+                                 "path<TAB>claim<TAB>metric); a claim cannot contain a tab"
+                                 % (ln_no, len(parts)))
+            if not parts[0]:
+                raise ValueError("manifest line %d has an empty path" % ln_no)
             jobs.append((parts[0], parts[1] if len(parts) > 1 and parts[1] else None,
                          parts[2] if len(parts) > 2 and parts[2] else None))
-    return jobs
+    # dedupe identical (path, claim, metric) jobs - they would render as indistinguishable rows
+    # and (for a repeated dir) overwrite each other's run dir on disk
+    seen, uniq = set(), []
+    for j in jobs:
+        key = (os.path.realpath(j[0]), j[1], j[2])
+        if key not in seen:
+            seen.add(key)
+            uniq.append(j)
+    return uniq
 
 
 def run_batch(targets, manifest=None, fail_on="not-clean", timeout=None, force=False):
@@ -1131,20 +1190,27 @@ def _render_batch(rows, color=False):
     refuted = sum(1 for r in rows if r["verdict"] in ("REFUTED", "MIXED"))
     confirmed = sum(1 for r in rows if r["verdict"] in ("CONFIRMED", "CONFIRMED-WITH-CAVEATS"))
     inconcl = sum(1 for r in rows if r["verdict"] in ("INCONCLUSIVE", "ERROR"))
+    # pre-format claimed/recomputed so column widths fit the ACTUAL strings (a value like
+    # "147.0x (+14,698%)" is 17 chars and used to overflow a fixed %12s, shoving RECOMPUTED out
+    # from under its header - the one thing a scannable table must never do)
+    for r in rows:
+        r["_c"] = REP.fmt_value(r["claimed"], r["metric"]) if r["claimed"] is not None else "-"
+        r["_r"] = REP.fmt_value(r["recomputed"], r["metric"]) if r["recomputed"] is not None else "-"
     tw = max([len(str(r["target"])) for r in rows] + [6])
     mw = max([len(str(r["metric"] or "-")) for r in rows] + [6])
-    head = "CALMA BATCH  -  %d targets  -  %d REFUTED, %d confirmed, %d can't-confirm" \
-        % (n, refuted, confirmed, inconcl)
+    cw = max([len(r["_c"]) for r in rows] + [len("CLAIMED")])
+    rw = max([len(r["_r"]) for r in rows] + [len("RECOMPUTED")])
+    head = "CALMA BATCH  -  %d target%s  -  %d REFUTED, %d confirmed, %d can't-confirm" \
+        % (n, "" if n == 1 else "s", refuted, confirmed, inconcl)
     out = ["", head, "-" * max(len(head), 60),
-           "  %-*s  %-*s  %12s  %12s  %s" % (tw, "TARGET", mw, "METRIC", "CLAIMED", "RECOMPUTED", "VERDICT")]
+           "  %-*s  %-*s  %*s  %*s  %s"
+           % (tw, "TARGET", mw, "METRIC", cw, "CLAIMED", rw, "RECOMPUTED", "VERDICT")]
     for r in rows:
         sym = REP._SYMBOL.get(r["verdict"], "·")
         if color and r["verdict"] in REP._ANSI:
             sym = "\x1b[%sm%s\x1b[0m" % (REP._ANSI[r["verdict"]], sym)
-        out.append("  %-*s  %-*s  %12s  %12s  %s %s"
-                   % (tw, r["target"], mw, (r["metric"] or "-"),
-                      REP.fmt_value(r["claimed"], r["metric"]) if r["claimed"] is not None else "-",
-                      REP.fmt_value(r["recomputed"], r["metric"]) if r["recomputed"] is not None else "-",
+        out.append("  %-*s  %-*s  %*s  %*s  %s %s"
+                   % (tw, r["target"], mw, (r["metric"] or "-"), cw, r["_c"], rw, r["_r"],
                       sym, REP.display(r["verdict"]) if r["verdict"] != "ERROR" else "ERROR"))
     out.append("-" * max(len(head), 60))
     return "\n".join(out)
@@ -1325,12 +1391,14 @@ def main():
             elif res.get("killed"):
                 exit_code = 4
             if a.as_json:
-                print(json.dumps(_json_result(res), indent=2))
+                print(json.dumps(_json_finite(_json_result(res)), indent=2))
             else:
                 print(res.get("display") or res["report"])
                 # the trust footnote prints AFTER the verdict (dimmed on a tty), never above it
                 note = res.get("first_run_notice")
                 if note:
+                    # one-time dim footnote; left on a single line on purpose - it carries a copy-able
+                    # "--trust third-party" flag that hard-wrapping would split (and it's short)
                     print(("\x1b[2m%s\x1b[0m" if _color_enabled() else "%s") % ("  " + note))
                 # human vocabulary on the exit line: INCONCLUSIVE displays as CAN'T-CONFIRM.
                 rv = res["repo_verdict"]
@@ -1356,7 +1424,7 @@ def main():
                 print("error: no targets matched", file=sys.stderr)
                 return 2
             if a.as_json:
-                print(json.dumps(rows, indent=2, default=str))
+                print(json.dumps(_json_finite(rows), indent=2, default=str))
             else:
                 print(_render_batch(rows, color=_color_enabled()))
             # roll-up: exit 1 if ANY target failed its policy
@@ -1408,12 +1476,16 @@ def main():
             if a.as_json:
                 print(json.dumps(fams, indent=2, sort_keys=True))
                 return 0
+            import shutil
             import textwrap
+            # wrap to the terminal width (bounded), not a hardcoded 88 that overflows a narrow term.
+            # get_terminal_size honors $COLUMNS, then the tty, then falls back to 88 when piped.
+            wrap_w = max(40, min(shutil.get_terminal_size((88, 24)).columns, 100) - 4)
             print("CALMA RECIPES - %d metrics. Pin one with: "
                   "calma verify <folder> \"<claim>\" --metric <id>" % len(RCP.ids()))
             for fam in sorted(fams):
                 print("\n  %s (%d)" % (fam, len(fams[fam])))
-                for ln in textwrap.wrap(", ".join(fams[fam]), width=88):
+                for ln in textwrap.wrap(", ".join(fams[fam]), width=wrap_w):
                     print("    " + ln)
             return 0
         if a.cmd == "teardown":
@@ -1596,7 +1668,7 @@ def main():
             if e.get("claim"):
                 print("  claim    %s" % e["claim"])
             if e.get("recomputed") is not None:
-                print("  recomputed %s" % e["recomputed"])
+                print("  recomputed %s" % REP.fmt_value(e["recomputed"], e.get("metric")))
             print("  verdict  %s\n  id       %s" % (e.get("verdict"), wrapper["id"]))
             print("the entry is redacted (no code, no data), chained to the previous entry, and "
                   "signed; commit it with a signed commit to complete the public record")
@@ -1604,13 +1676,21 @@ def main():
         if a.cmd == "registry" and a.registry_cmd == "verify":
             import registry as REG
             reg_dir = a.dir or os.environ.get("CALMA_REGISTRY_DIR") or "registry"
+            if not os.path.isdir(reg_dir):
+                # a typo'd path must not read as a green "VERIFIED - 0 entries" (mirrors publish)
+                print("error: no registry directory at %r - pass a path or set CALMA_REGISTRY_DIR"
+                      % reg_dir, file=sys.stderr)
+                return 2
             pinned = None
             if a.key:
                 pinned = open(a.key).read().strip() if os.path.exists(a.key) else a.key.strip()
             ok, checks, summary = REG.verify_chain(reg_dir, pinned_pub_hex=pinned)
             print(REG.render_verify(ok, checks, summary))
             return 0 if ok else 1
-    except ValueError as e:
+    except (ValueError, OSError) as e:
+        # ValueError = bad input/contract; OSError = a file path that can't be read/written
+        # (--out to a missing dir, --key pointing at a directory, a missing bundle). Both are
+        # user-actionable input errors - print the message, never a raw traceback.
         print("error: %s" % e, file=sys.stderr)
         return 2
     return 2

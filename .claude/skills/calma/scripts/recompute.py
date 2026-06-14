@@ -8,17 +8,22 @@ CLI: recompute.py --contract verify.yaml [--base DIR] [-k K] --out recompute.jso
 import argparse
 import csv
 import json
+import math
 import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import recipes as R  # noqa: E402
 
+_INF, _NINF = float("inf"), float("-inf")
+
 
 def _load_cols(path):
     with open(path, newline="") as fh:
         rd = csv.reader(fh)
-        header = next(rd)
+        header = next(rd, None)
+        if header is None:  # a 0-byte / header-less emitted artifact: a clean degenerate, not a crash
+            raise ValueError("artifact %s is empty (no header row)" % os.path.basename(path))
         cols = {h: [] for h in header}
         for row in rd:
             for h, v in zip(header, row):
@@ -38,7 +43,11 @@ def _to_numeric(raw, na_policy="error"):
                 continue
             out.append(float("nan"))
         else:
-            out.append(float(v))
+            f = float(v)
+            # a literal inf/-inf/Infinity cell is corrupt data, not a value: map it to NaN so the
+            # recompute degenerates (-> INCONCLUSIVE) instead of an order-statistic silently
+            # returning a finite-but-from-corrupt-data number (e.g. median([10,20,inf]) = 20).
+            out.append(f if math.isfinite(f) else float("nan"))
     return out
 
 
@@ -100,6 +109,19 @@ def _run_recipe(metric_id, cols, binding, convention, k):
     fn = R.get(metric_id)
     if fn is None:
         return {"metric_id": metric_id, "error": "no recipe for %r" % metric_id, "degenerate": True}
+    # A non-finite value in any bound NUMERIC column (an inf/NaN cell, or an unfilled NA under
+    # na_policy=error) makes the recompute degenerate. Order-statistic kernels (median/min/max/
+    # quantile/iqr) that don't SELECT the bad value would otherwise return a finite-but-from-corrupt
+    # -data number (median([10,20,inf]) = 20 -> a misleading CONFIRMED-WITH-CAVEATS). String columns
+    # (null/distinct/duplicate recipes, declared via string_tags) hold raw strings, so they're skipped
+    # here and still see their own NA/empty cells. Set na_policy: drop|zero-fill to clean instead.
+    for col_vals in cols.values():
+        if any(isinstance(x, float) and not (x == x and x not in (_INF, _NINF)) for x in col_vals):
+            return {"metric_id": metric_id, "value": float("nan"), "terms": {}, "k": 0,
+                    "k_spread": 0.0, "degenerate": True, "near_zero_vol": False,
+                    "path_dependent": False,
+                    "error": "a bound numeric column contains a non-finite value (NaN/Inf cell, "
+                             "or an unfilled NA under na_policy=error)"}
     runs = [fn(cols, binding, convention) for _ in range(max(k, 1))]
     vals = [r["value"] for r in runs]
     finite = [v for v in vals if isinstance(v, float) and v == v]
@@ -129,18 +151,29 @@ def recompute_contract(contract_path, base=None, k=3):
 
 
 def _recompute_one(contract, m, base, k):
-    """Recompute a single contract metric. A broken binding (missing file/column, a non-numeric
-    cell in a numeric column, a path escape) is a DEGENERATE recompute - the verdict guard turns
-    it into INCONCLUSIVE with the error named - never an uncaught traceback."""
+    """Recompute a single contract metric. ANY failure - a broken binding (missing file/column,
+    a non-numeric cell, a path escape) OR a kernel that cannot produce a finite number on this
+    data (overflow on near-float-max magnitudes, a division by zero, a degenerate index) - is a
+    DEGENERATE recompute. The verdict guard (G2) turns it into INCONCLUSIVE with the error named;
+    it is NEVER an uncaught traceback. A recompute that raises is, by definition, a number that
+    could not be reproduced, which is exactly INCONCLUSIVE - so the catch-all is sound, not a
+    swallow (KeyboardInterrupt/SystemExit still propagate: we catch Exception, not BaseException)."""
     try:
         cols = _numeric_cols(contract, m["artifact"], m["binding"], base, m["metric_id"])
         return _run_recipe(m["metric_id"], cols, m["binding"], m.get("convention"), k)
     except (KeyError, ValueError, OSError) as e:
         detail = ("column %s not found in the artifact" % e) if isinstance(e, KeyError) else str(e)
-        return {"metric_id": m["metric_id"], "value": float("nan"), "terms": {},
-                "k": 0, "k_spread": 0.0, "degenerate": True,
-                "near_zero_vol": False, "path_dependent": False,
-                "error": "binding failed: %s" % detail}
+        return _degenerate(m["metric_id"], "binding failed: %s" % detail)
+    except Exception as e:  # noqa: BLE001 - any kernel failure is a degenerate recompute, not a crash
+        return _degenerate(m["metric_id"],
+                           "recompute could not produce a finite value: %s: %s"
+                           % (type(e).__name__, str(e)[:120]))
+
+
+def _degenerate(metric_id, error):
+    return {"metric_id": metric_id, "value": float("nan"), "terms": {},
+            "k": 0, "k_spread": 0.0, "degenerate": True,
+            "near_zero_vol": False, "path_dependent": False, "error": error}
 
 
 def main():

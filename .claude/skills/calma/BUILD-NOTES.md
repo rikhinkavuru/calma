@@ -606,3 +606,61 @@ as weaker than a domain metric's. 0.8.0 closes that without spending the zero-fa
 
 All versions reconciled to 0.8.0 (plugin/marketplace/calma.py/site). Full suite green on Homebrew python3.13
 and system python3.14: **18 suites, 1,588 checks, 0 failures**. See CHANGELOG.md (0.8.0).
+
+## Audit round 7 (robustness closed-loop: never-traceback + never-false-verdict + UX/docs) — 0.9.1
+
+A full closed-loop audit of the skill + CLI (edge cases, dev cases, UX, terminal-UI, token, docs), run as
+parallel adversarial sweeps with every finding independently reproduced before fixing, then re-verified to
+convergence. The recurring class: a few inputs could still TRACEBACK or produce a wrong verdict at the
+numeric/edge boundary. All fixed; the verifier now degrades to INCONCLUSIVE (or a clean `error:`) on every
+hostile input, and no reachable false-CONFIRM/false-REFUTE survives.
+
+**Soundness (the two that mattered):**
+- **No false-CONFIRM on an infinite claim.** `"1e999"` overflowed to `claimed=inf`, making the budget `inf`,
+  so `gap <= inf` CONFIRMED any finite recompute. `parse_claim` now rejects non-finite claims (clean exit-2
+  error), with a defense-in-depth guard in `compare` and a non-finite gap/budget guard in `verdict()` itself.
+- **No false-REFUTE on a Unicode-minus claim.** `"−14%"` (U+2212, what editors/PDFs/LLMs emit) parsed as
+  `+0.14` → REFUTED a correct negative claim. `_normalize_claim_text` maps the minus/hyphen codepoints
+  (2212/2010/2011/2012/FF0D/FE63) to ASCII `-`; en/em dash deliberately left as separators (no new FN).
+
+**Never-traceback (one chokepoint + the I/O edges):**
+- **165 / 500 recipes** raised an uncaught `OverflowError`/`ZeroDivisionError` on extreme-but-valid data
+  (near-float-max sums, squares of ~1e154) → raw traceback. `recompute._recompute_one` now degrades ANY
+  kernel failure to a degenerate recompute (the same posture the DSL interpreter already had).
+- Empty 0-byte artifact (`StopIteration`), `main()` catching only `ValueError` (every `OSError` —
+  `--out`/`--key`/missing-bundle — tracebacked), `int(inf)` in `_grade`, and `RecursionError` on a deeply
+  nested contract: all now clean degrades/errors.
+- A literal `inf`/`Infinity` CSV cell in a numeric column now degenerates the recompute (order-statistics
+  like median that don't *select* the bad value used to return a finite-from-corrupt number → CAVEATS);
+  string-column recipes (null/distinct/duplicate) and `na_policy: drop|zero-fill` are unaffected.
+
+**Privacy / attestation:** the reproduction command shipped the producer's absolute `$HOME` path into the
+SIGNED, counterparty-facing DSSE bundle when calma.py was invoked by abspath (the documented + hook form);
+now routed through `_redact_home` (`~`), honoring that function's own stated invariant.
+
+**Claim parsing:** spelled-out "percent"/"pct" → `%` (a true 0.87 stated as "87 percent" was REFUTING);
+NPV's leading discount rate ("npv at 10% 5000") is skipped like the existing VaR/CVaR/CI level handling.
+
+**Terminal-UI / UX:** batch table columns now sized to the actual values (CLAIMED/RECOMPUTED no longer
+overflow a fixed width); the 240-char `scope:`/`not verified:` wall wraps with a hanging indent; `recipes`
+wraps to `$COLUMNS`; `NO_COLOR` now suppresses the stderr trace + spinner styling (verified on a real PTY:
+22 SGR codes → 0); `--json` is strict JSON (NaN/Inf → null) and its `gate_exit` reflects the 3/4
+refused/killed process exit; the precise binding error ("column X not found") surfaces in the fix line
+instead of the generic NaN guidance; large non-integer money/counts render with thousands separators, not
+`1.235e+06`; "1 target" singular; deduped batch jobs; `registry verify` errors on a missing dir; plus a/an
+grammar, dup-text, and curly-quote-mojibake nits.
+
+**Cache:** an explicit `--isolation` is now part of the cache fingerprint — a request for a different tier
+re-runs instead of serving a verdict achieved under another tier (default `auto` leaves the key unchanged).
+
+**Docs-vs-reality:** README "120"→"500" (3 places); `recipes.md` retitled as a representative-families
+reference (not an exhaustive dump) with the vector count 385→774; SKILL.md `--json` field list completed
+and the "full 500-recipe catalog" wording made honest. Declined: trimming the front-matter metric
+enumeration (it is the skill's discovery surface — cutting it risks non-activation, a worse failure than
+the token cost).
+
+**Tests:** new `test_robustness.py` (51 checks) pins the whole cluster — the 500-recipe degrade sweep,
+inf-claim rejection, Unicode-minus sign, empty-artifact, `_grade` inf, nested-yaml, `--json` finiteness,
+the cache-isolation key, the percent-word + npv parsing, the `$HOME` redaction, and the fmt_value
+large-number path. Versions reconciled to 0.9.1 (the version is the cache key, so the verdict-behavior
+changes correctly invalidate stale cache entries). **23 suites, ~2,890 checks, 0 failures.**

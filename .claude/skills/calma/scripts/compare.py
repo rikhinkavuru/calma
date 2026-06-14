@@ -103,6 +103,11 @@ def compare(recompute, contract, isolation_tier="tier0", container_present=None,
         mid = m["metric_id"]
         rec = by_id.get(mid, {})
         claimed = m.get("claimed_value")
+        # a non-finite claimed value (inf/NaN) is not a checkable finite target: drop it to "no
+        # numeric diff" so it can never produce an inf budget that CONFIRMs anything (defense in
+        # depth - parse_claim already rejects overflowing claims at the CLI boundary).
+        if claimed is not None and not (isinstance(claimed, (int, float)) and math.isfinite(claimed)):
+            claimed = None
         recomputed = rec.get("value")
         sampling_se = (rec.get("terms") or {}).get("sampling_se")
         eff, bterms = _budget(claimed if claimed is not None else 0.0, sampling_se,
@@ -155,6 +160,9 @@ def compare(recompute, contract, isolation_tier="tier0", container_present=None,
             "claimed": claimed, "recomputed": recomputed, "gap": gap,
             "budget": eff, "budget_terms": bterms, "verdict": label, "reason": reason,
             "verdict_inputs": vinputs,
+            # the precise recompute/binding error (e.g. "binding failed: column X not found"), so the
+            # report can surface the actual cause instead of the generic "NaN/Inf" fix line
+            "recompute_error": rec.get("error"),
         })
     # baseline edge (recompute - baseline); informational finding for the baseline family
     baseline = None

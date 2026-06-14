@@ -12,9 +12,30 @@ CLI: draft_contract.py <target_dir> [--claim FLOAT] [--metric ID] [--out verify.
 import argparse
 import csv
 import json
+import math
 import os
 import re
 import sys
+
+# Unicode minus/hyphen codepoints that mean "negative" in a numeric claim, normalized to ASCII
+# '-' before the value regex runs - so a claim copied from a PDF/editor/LLM ("−14%", U+2212) is
+# not silently parsed with the WRONG SIGN (a correct negative claim would otherwise false-REFUTE).
+# Deliberately EXCLUDES en/em dash (U+2013/U+2014): those are prose range/clause separators, and
+# treating them as minus would create false negatives ("revenue—$4.2M" must not become -4.2M).
+_DASHES = {0x2212: "-", 0x2010: "-", 0x2011: "-", 0x2012: "-", 0xFF0D: "-", 0xFE63: "-"}
+# a spelled-out "percent"/"percentage"/"pct" after a number is the % suffix written in words
+# ("accuracy of 87 percent" must parse 0.87, not 87 -> a true 0.87 would otherwise false-REFUTE).
+# \b after the keyword leaves "percentile" / "percentage points" alone (those keep their own meaning).
+_PERCENT_WORD = re.compile(r"(\d)\s*(?:percent|percentage|pct)\b", re.IGNORECASE)
+
+
+def _normalize_claim_text(s):
+    """Canonicalize a free-text claim before the value regex: Unicode minus/hyphen -> ASCII '-',
+    and a spelled-out 'percent' -> '%'. Sign- and scale-preserving; leaves metric-name hyphens and
+    'percentile' untouched."""
+    if not isinstance(s, str):
+        return s
+    return _PERCENT_WORD.sub(r"\1%", s.translate(_DASHES))
 
 # name-regex -> semantic tag (first match wins)
 TAG_PATTERNS = [
@@ -231,7 +252,7 @@ def claim_precision(text):
     23.87/100 carries float artifacts; 4.2e6 looks integer-exact). None when no number."""
     if text is None or isinstance(text, (int, float)):
         return None
-    m = _CLAIM_NUM.search(str(text).strip())
+    m = _CLAIM_NUM.search(_normalize_claim_text(str(text).strip()))
     if not m:
         return None
     raw = m.group(2).replace(",", "")
@@ -361,8 +382,9 @@ def parse_claim(text):
     if text is None:
         return None, None
     if isinstance(text, (int, float)):
-        return float(text), None
-    s = str(text).strip()
+        f = float(text)
+        return (f if math.isfinite(f) else None), None
+    s = _normalize_claim_text(str(text).strip())
     low = s.lower()
     hint = None
     for word, mid in CLAIM_METRIC_HINTS:
@@ -380,6 +402,10 @@ def parse_claim(text):
     if hint in ("value_at_risk", "cvar", "confidence_interval") and len(matches) > 1:
         if float(m.group(2).replace(",", "")) in (90.0, 95.0, 97.5, 99.0):
             m = matches[1]
+    # "npv at 10% 5000": a leading PERCENT is the discount rate (a parameter infer_convention reads),
+    # not the claimed NPV - take the value after it (NPV is a currency amount, never a bare percent)
+    elif hint == "npv" and len(matches) > 1 and (m.group(3) or "") == "%":
+        m = matches[1]
     raw = m.group(2).replace(",", "")
     val = float(raw)
     if m.group(1) == "-":
@@ -393,7 +419,9 @@ def parse_claim(text):
         val *= 1e6
     elif suffix in ("b", "B"):
         val *= 1e9
-    return val, hint
+    # a value that overflows to +/-inf (e.g. "1e999", a 50k-digit integer) is not a checkable
+    # FINITE claim; returning None routes it to a clean input error, never an inf-budget CONFIRM.
+    return (val if math.isfinite(val) else None), hint
 
 
 # ---------- contract loading (tolerant: JSON first, then a small YAML subset) ----------
@@ -573,14 +601,16 @@ def load_contract(path):
     text = open(path).read()
     try:
         obj = json.loads(text)
-    except ValueError:
+    except (ValueError, RecursionError):
+        # RecursionError: pathologically deep nesting (a hand-written contract thousands of maps
+        # deep) - fall through to the bounded YAML parse, which converts it to a clean ValueError.
         try:
             obj = parse_simple_yaml(text)
-        except ValueError as e:
+        except (ValueError, RecursionError) as e:
             raise ValueError(
-                "%s could not be parsed: %s. The contract accepts JSON or simple YAML "
+                "%s could not be parsed (%s). The contract accepts JSON or simple YAML "
                 "(nested 'key: value' maps and '- ' lists). A minimal verify.yaml:\n%s"
-                % (path, e, CONTRACT_EXAMPLE))
+                % (path, type(e).__name__ if isinstance(e, RecursionError) else e, CONTRACT_EXAMPLE))
     if not isinstance(obj, dict):
         raise ValueError("%s parsed to %s, expected a mapping. A minimal verify.yaml:\n%s"
                          % (path, type(obj).__name__, CONTRACT_EXAMPLE))
@@ -750,6 +780,10 @@ def _grade(tag, vals):
     """Independent sanity check of name+value. Any failure caps at plausibly-bound."""
     if not vals:
         return "author-asserted"
+    # a column carrying NaN/Inf is bound but not cleanly sanity-checked - degrade (never upgrade),
+    # and crucially never reach the int(v) range checks below with a non-finite v (int(inf) raises)
+    if not all(math.isfinite(v) for v in vals):
+        return "plausibly-bound"
     n = len(vals)
     mean = sum(vals) / n
     rng = (min(vals), max(vals))
@@ -928,7 +962,8 @@ def draft(target, claim=None, metric=None):
     claim_value, hint = parse_claim(claim)
     if claim is not None and claim_value is None:
         raise ValueError(
-            "no number found in claim %r - state the claimed value, e.g. \"accuracy 0.87\" or \"+14,698%%\"" % claim)
+            "no usable claimed value in %r - state a finite number, e.g. \"accuracy 0.87\" or "
+            "\"+14,698%%\" (a value that overflows to infinity is not checkable)" % claim)
     metric = metric or hint
     arts = _scan_csvs(target)
     contract = {

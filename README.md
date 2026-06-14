@@ -104,7 +104,7 @@ calma demo                          # zero-setup: catch a bundled real inflated 
 calma verify <folder> "<claim>"     # check a result (exit codes below)
 calma verify <folder>               # no claim: checks the result reproduces (CONFIRMED scope=reproduction)
 calma batch <dir>... | --manifest m.tsv   # verify MANY results at once + one summary table (CI/sprint)
-calma recipes                       # the 120 built-in metrics, grouped by family
+calma recipes                       # the 500 built-in metrics, grouped by family
 calma verify <folder> "<claim>" --json               # machine-readable verdict (for agents/CI)
 calma verify <folder> "<claim>" --check-determinism  # run twice; flaky outputs can't confirm anything
 calma verify <folder> "<claim>" --timeout 300        # raise the re-execution budget (default 120s)
@@ -177,7 +177,7 @@ MAPE/sMAPE, MASE, pinball), **retrieval & LLM evals** (recall@k, NDCG, MRR, top-
 **statistics** (p-values, confidence intervals, A/B lift, chi-square, correlation, effect size), and
 **business/finance** (CAGR, NPV/IRR, churn, margin, ledger reconciliation), **quant risk** (Sortino, Calmar,
 VaR/CVaR, beta/alpha, information ratio), and **deeper stats/ML/analytics** (Mann-Whitney, ANOVA, Fisher exact,
-KS, Cohen's κ, balanced accuracy, WER, perplexity, MAP@k, HHI, Gini, entropy…) — **120 recipes**, each validated
+KS, Cohen's κ, balanced accuracy, WER, perplexity, MAP@k, HHI, Gini, entropy…) — **500 recipes**, each validated
 against the published reference implementation (scikit-learn, SciPy, NumPy, numpy-financial, statsmodels, jiwer; see
 `.claude/skills/calma/references/recipes.md`). It works on programs written in **Python, R, Julia, C++, or
 Rust** — Calma treats your program as a black box and does the recompute itself.
@@ -268,7 +268,7 @@ No. Everything runs locally; nothing is uploaded. On macOS the run is inside a v
 sandbox; on hosts without one, the verdict says so explicitly instead of pretending.
 
 **Is it only for trading/quant?**
-No. It ships 120 metrics across trading, ML (classification, regression, retrieval/RAG, LLM evals),
+No. It ships 500 metrics across trading, ML (classification, regression, retrieval/RAG, LLM evals),
 analytics, engineering/performance, statistics, and business/finance, and treats your program as a black
 box, so it works across Python, R, Julia, C++, and Rust.
 
