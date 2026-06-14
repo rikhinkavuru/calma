@@ -3222,6 +3222,28 @@ case("white_lm", "white_lm", _het_args, float(_wh[0]), atol=1e-7, rtol=1e-9)
 case("goldfeld_quandt_fstat", "goldfeld_quandt_fstat", {"y": het_y, "x": het_x},
      float(_gq[0]), atol=1e-7, rtol=1e-9)
 
+# ============================ Pack STR - string-similarity metrics ============================
+# Independent reference: rapidfuzz.distance (Levenshtein / Indel / Jaro / JaroWinkler / LCSseq),
+# averaged over fixed (prediction, reference) string pairs.
+
+from rapidfuzz.distance import (Levenshtein as _RfLev, Indel as _RfIndel, Jaro as _RfJaro,  # noqa: E402
+                                JaroWinkler as _RfJW, LCSseq as _RfLCS)
+
+str_preds = ["kitten", "flaw", "martha", "dwayne", "abc", "hello world", "receipt", "definately"]
+str_refs = ["sitting", "lawn", "marhta", "duane", "abc", "hallo wrld", "recieve", "definitely"]
+_str_pairs = list(zip(str_preds, str_refs))
+str_args = {"preds": str_preds, "refs": str_refs}
+case("levenshtein_similarity", "levenshtein_similarity", str_args,
+     float(np.mean([_RfLev.normalized_similarity(p, r) for p, r in _str_pairs])), atol=1e-12)
+case("indel_similarity", "indel_similarity", str_args,
+     float(np.mean([_RfIndel.normalized_similarity(p, r) for p, r in _str_pairs])), atol=1e-12)
+case("jaro_similarity", "jaro_similarity", str_args,
+     float(np.mean([_RfJaro.similarity(p, r) for p, r in _str_pairs])), atol=1e-12)
+case("jaro_winkler_similarity", "jaro_winkler_similarity", str_args,
+     float(np.mean([_RfJW.similarity(p, r) for p, r in _str_pairs])), atol=1e-12)
+case("longest_common_subsequence", "longest_common_subsequence", str_args,
+     float(np.mean([_RfLCS.similarity(p, r) for p, r in _str_pairs])), atol=1e-12)
+
 # ============================ write ============================
 
 doc = {

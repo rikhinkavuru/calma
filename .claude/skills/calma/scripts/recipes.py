@@ -3543,3 +3543,20 @@ for _mid in ("breusch_pagan_lm", "breusch_pagan_fstat", "white_lm"):
 def goldfeld_quandt_fstat(cols, binding, convention=None):
     v, x = cols[binding["value"]], cols[binding["regressor"]]
     return _result(N.goldfeld_quandt_fstat(v, x), {"n": len(v)})
+
+
+# ======================================================================================
+# Pack STR - string-similarity metrics over paired (prediction, reference) text columns.
+# ======================================================================================
+
+def _str_recipe(fn):
+    def recipe(cols, binding, convention=None):
+        p, r = cols[binding["prediction"]], cols[binding["reference"]]
+        return _result(fn(p, r), {"n": len(p)})
+    return recipe
+
+
+for _mid in ("levenshtein_similarity", "indel_similarity", "jaro_similarity",
+             "jaro_winkler_similarity", "longest_common_subsequence"):
+    register(_mid, family="llm-eval", required_tags=["prediction", "reference"],
+             string_tags=["prediction", "reference"], set_maturity="reviewed")(_str_recipe(getattr(N, _mid)))

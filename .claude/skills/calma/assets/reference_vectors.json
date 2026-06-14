@@ -5,7 +5,7 @@
   "scipy": "1.17.1",
   "sklearn": "1.9.0"
  },
- "n_cases": 880,
+ "n_cases": 885,
  "cases": [
   {
    "id": "total_return",
@@ -196361,6 +196361,151 @@
    "expected": 10.346151645085833,
    "atol": 1e-07,
    "rtol": 1e-09
+  },
+  {
+   "id": "levenshtein_similarity",
+   "kind": "levenshtein_similarity",
+   "args": {
+    "preds": [
+     "kitten",
+     "flaw",
+     "martha",
+     "dwayne",
+     "abc",
+     "hello world",
+     "receipt",
+     "definately"
+    ],
+    "refs": [
+     "sitting",
+     "lawn",
+     "marhta",
+     "duane",
+     "abc",
+     "hallo wrld",
+     "recieve",
+     "definitely"
+    ]
+   },
+   "expected": 0.693939393939394,
+   "atol": 1e-12,
+   "rtol": 1e-12
+  },
+  {
+   "id": "indel_similarity",
+   "kind": "indel_similarity",
+   "args": {
+    "preds": [
+     "kitten",
+     "flaw",
+     "martha",
+     "dwayne",
+     "abc",
+     "hello world",
+     "receipt",
+     "definately"
+    ],
+    "refs": [
+     "sitting",
+     "lawn",
+     "marhta",
+     "duane",
+     "abc",
+     "hallo wrld",
+     "recieve",
+     "definitely"
+    ]
+   },
+   "expected": 0.7818202630702631,
+   "atol": 1e-12,
+   "rtol": 1e-12
+  },
+  {
+   "id": "jaro_similarity",
+   "kind": "jaro_similarity",
+   "args": {
+    "preds": [
+     "kitten",
+     "flaw",
+     "martha",
+     "dwayne",
+     "abc",
+     "hello world",
+     "receipt",
+     "definately"
+    ],
+    "refs": [
+     "sitting",
+     "lawn",
+     "marhta",
+     "duane",
+     "abc",
+     "hallo wrld",
+     "recieve",
+     "definitely"
+    ]
+   },
+   "expected": 0.8660353535353535,
+   "atol": 1e-12,
+   "rtol": 1e-12
+  },
+  {
+   "id": "jaro_winkler_similarity",
+   "kind": "jaro_winkler_similarity",
+   "args": {
+    "preds": [
+     "kitten",
+     "flaw",
+     "martha",
+     "dwayne",
+     "abc",
+     "hello world",
+     "receipt",
+     "definately"
+    ],
+    "refs": [
+     "sitting",
+     "lawn",
+     "marhta",
+     "duane",
+     "abc",
+     "hallo wrld",
+     "recieve",
+     "definitely"
+    ]
+   },
+   "expected": 0.884491341991342,
+   "atol": 1e-12,
+   "rtol": 1e-12
+  },
+  {
+   "id": "longest_common_subsequence",
+   "kind": "longest_common_subsequence",
+   "args": {
+    "preds": [
+     "kitten",
+     "flaw",
+     "martha",
+     "dwayne",
+     "abc",
+     "hello world",
+     "receipt",
+     "definately"
+    ],
+    "refs": [
+     "sitting",
+     "lawn",
+     "marhta",
+     "duane",
+     "abc",
+     "hallo wrld",
+     "recieve",
+     "definitely"
+    ]
+   },
+   "expected": 5.125,
+   "atol": 1e-12,
+   "rtol": 1e-12
   }
  ]
 }

@@ -8305,3 +8305,108 @@ def goldfeld_quandt_fstat(value, regressor):
     if a is None or b is None or a[1] <= 0 or b[1] <= 0 or a[0] == 0:
         return float("nan")
     return (b[0] / b[1]) / (a[0] / a[1])
+
+
+# ======================================================================================
+# Pack STR - string-similarity metrics over paired (prediction, reference) text columns,
+# averaged across rows. Levenshtein / Indel(LCS) normalized similarity, Jaro, Jaro-Winkler
+# and the longest-common-subsequence length. Validated against rapidfuzz.distance.
+# ======================================================================================
+
+def _lcs_len(a, b):
+    la, lb = len(a), len(b)
+    dp = [0] * (lb + 1)
+    for i in range(1, la + 1):
+        prev = 0
+        for j in range(1, lb + 1):
+            cur = dp[j]
+            dp[j] = prev + 1 if a[i - 1] == b[j - 1] else (dp[j] if dp[j] >= dp[j - 1] else dp[j - 1])
+            prev = cur
+    return dp[lb]
+
+
+def _jaro(a, b):
+    la, lb = len(a), len(b)
+    if la == 0 and lb == 0:
+        return 1.0
+    if la == 0 or lb == 0:
+        return 0.0
+    win = max(max(la, lb) // 2 - 1, 0)
+    ma = [False] * la
+    mb = [False] * lb
+    matches = 0
+    for i in range(la):
+        lo = max(0, i - win)
+        hi = min(i + win + 1, lb)
+        for j in range(lo, hi):
+            if not mb[j] and a[i] == b[j]:
+                ma[i] = mb[j] = True
+                matches += 1
+                break
+    if matches == 0:
+        return 0.0
+    ka = [a[i] for i in range(la) if ma[i]]
+    kb = [b[j] for j in range(lb) if mb[j]]
+    t = sum(1 for x, y in zip(ka, kb) if x != y) / 2.0
+    return (matches / la + matches / lb + (matches - t) / matches) / 3.0
+
+
+def _jaro_winkler(a, b):
+    j = _jaro(a, b)
+    p = 0
+    for x, y in zip(a, b):
+        if x == y and p < 4:
+            p += 1
+        else:
+            break
+    return j + p * 0.1 * (1.0 - j)
+
+
+def _str_ok(preds, refs):
+    return bool(preds) and len(preds) == len(refs)
+
+
+def levenshtein_similarity(preds, refs):
+    """Mean normalized Levenshtein similarity 1 - edit_distance/max(len) per (pred, ref) pair
+    (rapidfuzz Levenshtein.normalized_similarity)."""
+    if not _str_ok(preds, refs):
+        return float("nan")
+    vals = []
+    for p, r in zip(preds, refs):
+        m = max(len(p), len(r))
+        vals.append(1.0 if m == 0 else 1.0 - _edit_distance(list(p), list(r)) / m)
+    return fmean(vals)
+
+
+def indel_similarity(preds, refs):
+    """Mean Indel (LCS-based) normalized similarity 2*LCS/(len_a+len_b) per pair
+    (rapidfuzz Indel.normalized_similarity)."""
+    if not _str_ok(preds, refs):
+        return float("nan")
+    vals = []
+    for p, r in zip(preds, refs):
+        s = len(p) + len(r)
+        vals.append(1.0 if s == 0 else 2.0 * _lcs_len(p, r) / s)
+    return fmean(vals)
+
+
+def jaro_similarity(preds, refs):
+    """Mean Jaro similarity per (pred, ref) pair (rapidfuzz Jaro.similarity)."""
+    if not _str_ok(preds, refs):
+        return float("nan")
+    return fmean([_jaro(p, r) for p, r in zip(preds, refs)])
+
+
+def jaro_winkler_similarity(preds, refs):
+    """Mean Jaro-Winkler similarity per pair, prefix weight 0.1 up to 4 chars
+    (rapidfuzz JaroWinkler.similarity)."""
+    if not _str_ok(preds, refs):
+        return float("nan")
+    return fmean([_jaro_winkler(p, r) for p, r in zip(preds, refs)])
+
+
+def longest_common_subsequence(preds, refs):
+    """Mean longest-common-subsequence length per pair (rapidfuzz LCSseq.similarity)."""
+    if not _str_ok(preds, refs):
+        return float("nan")
+    return fmean([float(_lcs_len(p, r)) for p, r in zip(preds, refs)])

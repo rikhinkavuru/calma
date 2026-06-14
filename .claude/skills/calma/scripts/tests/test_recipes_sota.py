@@ -721,6 +721,12 @@ KINDS = {
     "breusch_pagan_fstat": lambda a: N.breusch_pagan_fstat(a["resid"], a["x"]),
     "white_lm": lambda a: N.white_lm(a["resid"], a["x"]),
     "goldfeld_quandt_fstat": lambda a: N.goldfeld_quandt_fstat(a["y"], a["x"]),
+    # pack STR - string-similarity metrics
+    "levenshtein_similarity": lambda a: N.levenshtein_similarity(a["preds"], a["refs"]),
+    "indel_similarity": lambda a: N.indel_similarity(a["preds"], a["refs"]),
+    "jaro_similarity": lambda a: N.jaro_similarity(a["preds"], a["refs"]),
+    "jaro_winkler_similarity": lambda a: N.jaro_winkler_similarity(a["preds"], a["refs"]),
+    "longest_common_subsequence": lambda a: N.longest_common_subsequence(a["preds"], a["refs"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -1004,10 +1010,13 @@ EXPECTED = {
     "generalized_entropy_error",
     # pack HET - regression heteroskedasticity tests (4)
     "breusch_pagan_lm", "breusch_pagan_fstat", "white_lm", "goldfeld_quandt_fstat",
+    # pack STR - string-similarity metrics (5)
+    "levenshtein_similarity", "indel_similarity", "jaro_similarity",
+    "jaro_winkler_similarity", "longest_common_subsequence",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 604 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 609 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

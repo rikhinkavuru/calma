@@ -3031,6 +3031,18 @@
       ],
       "description": "Total cost between the decision price and actual execution, including unfilled opportunity cost."
     },
+    "indel_similarity": {
+      "aliases": [
+        "indel similarity",
+        "lcs similarity",
+        "sequence matcher ratio",
+        "gestalt similarity",
+        "longest common subsequence ratio",
+        "how much two strings overlap in order",
+        "indel ratio"
+      ],
+      "description": "Average insertion-deletion (LCS-based) similarity between strings."
+    },
     "index_of_dispersion": {
       "aliases": [
         "dispersion index",
@@ -3123,6 +3135,30 @@
         "jaccard similarity macro"
       ],
       "description": "Macro-averaged Jaccard overlap across all classes."
+    },
+    "jaro_similarity": {
+      "aliases": [
+        "jaro similarity",
+        "jaro distance",
+        "jaro score",
+        "name matching similarity",
+        "how alike two short strings are",
+        "jaro string metric",
+        "jaro match"
+      ],
+      "description": "Average Jaro string similarity across paired strings."
+    },
+    "jaro_winkler_similarity": {
+      "aliases": [
+        "jaro-winkler similarity",
+        "jaro winkler score",
+        "prefix-weighted string similarity",
+        "name matching with prefix bonus",
+        "jaro winkler distance",
+        "fuzzy name match",
+        "jw similarity"
+      ],
+      "description": "Average Jaro-Winkler similarity, boosting common prefixes."
     },
     "jarque_bera": {
       "aliases": [
@@ -3594,6 +3630,18 @@
       ],
       "description": "Robust test for equality of variances across groups."
     },
+    "levenshtein_similarity": {
+      "aliases": [
+        "levenshtein similarity",
+        "edit distance similarity",
+        "fuzzy match score",
+        "how close two strings are",
+        "normalized levenshtein",
+        "string similarity ratio",
+        "levenshtein ratio"
+      ],
+      "description": "Average edit-distance similarity between predicted and reference strings."
+    },
     "lift": {
       "aliases": [
         "uplift",
@@ -3715,6 +3763,18 @@
         "ratio of money positioned for gains to money positioned for declines"
       ],
       "description": "Ratio of long exposure to short exposure in the portfolio."
+    },
+    "longest_common_subsequence": {
+      "aliases": [
+        "longest common subsequence",
+        "lcs length",
+        "common subsequence length",
+        "how many characters line up in order",
+        "lcs of two strings",
+        "shared subsequence length",
+        "longest matching subsequence"
+      ],
+      "description": "Average length of the longest common subsequence between strings."
     },
     "m2_measure": {
       "aliases": [
