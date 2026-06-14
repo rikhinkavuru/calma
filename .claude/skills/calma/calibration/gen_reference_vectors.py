@@ -2082,6 +2082,29 @@ case("mean_tweedie_deviance", "mean_tweedie_deviance", rgd_args,
 case("d2_tweedie_score", "d2_tweedie_score", rgd_args,
      float(_sk_d2twd(rgd_actual, rgd_pred, power=rgd_power)), atol=1e-11)
 
+# ============================ Pack FCI - prediction-interval / probabilistic-forecast eval ============================
+# Independent reference: numpy recompute of PICP, mean interval width, the Winkler interval
+# score and the coverage deviation over a deterministic set of forecast intervals.
+
+fci_actual = list(uniforms(6301, 80, 0.0, 10.0))
+fci_center = [a + u for a, u in zip(fci_actual, uniforms(6302, 80, -1.0, 1.0))]
+fci_lower = [c - w for c, w in zip(fci_center, uniforms(6303, 80, 1.0, 3.0))]
+fci_upper = [c + w for c, w in zip(fci_center, uniforms(6304, 80, 1.0, 3.0))]
+fci_alpha = 0.10
+_fa = np.array(fci_actual)
+_fl, _fu = np.array(fci_lower), np.array(fci_upper)
+fci_picp = float(np.mean((_fl <= _fa) & (_fa <= _fu)))
+fci_width = float(np.mean(_fu - _fl))
+_wk = (_fu - _fl) + (2.0 / fci_alpha) * (_fl - _fa) * (_fa < _fl) + (2.0 / fci_alpha) * (_fa - _fu) * (_fa > _fu)
+fci_wink = float(np.mean(_wk))
+fci_covdev = fci_picp - (1.0 - fci_alpha)
+fci_lua = {"lower": fci_lower, "upper": fci_upper, "actual": fci_actual}
+fci_a = {"lower": fci_lower, "upper": fci_upper, "actual": fci_actual, "alpha": fci_alpha}
+case("interval_coverage", "interval_coverage", fci_lua, fci_picp, atol=1e-12)
+case("mean_interval_width", "mean_interval_width", {"lower": fci_lower, "upper": fci_upper}, fci_width, atol=1e-12)
+case("winkler_score", "winkler_score", fci_a, fci_wink, atol=1e-12)
+case("coverage_deviation", "coverage_deviation", fci_a, fci_covdev, atol=1e-12)
+
 # ============================ write ============================
 
 doc = {

@@ -5520,3 +5520,52 @@ def d2_tweedie_score(pred, actual, power=1.5):
     if base != base or base == 0:
         return float("nan")
     return 1.0 - dev / base
+
+
+# ======================================================================================
+# Pack FCI - prediction-interval / probabilistic-forecast evaluation (also VaR/ES interval
+# validation). Lower / upper / actual columns give the coverage (PICP), mean width, Winkler
+# interval score and the coverage deviation from the nominal level. Definitional closed forms.
+# ======================================================================================
+
+def _fci_ok(*cols):
+    n = len(cols[0])
+    return n > 0 and all(len(c) == n for c in cols) and not any(_has_nan(c) for c in cols)
+
+
+def interval_coverage(lower, upper, actual):
+    """Prediction-interval coverage probability (PICP): fraction of actuals within [lower, upper]."""
+    if not _fci_ok(lower, upper, actual):
+        return float("nan")
+    return sum(1 for lo, hi, a in zip(lower, upper, actual) if lo <= a <= hi) / len(actual)
+
+
+def mean_interval_width(lower, upper):
+    """Mean prediction-interval width (sharpness): mean(upper - lower)."""
+    if not _fci_ok(lower, upper):
+        return float("nan")
+    return fmean([hi - lo for lo, hi in zip(lower, upper)])
+
+
+def winkler_score(lower, upper, actual, alpha):
+    """Mean Winkler / interval score at level alpha: width plus a (2/alpha)-weighted penalty
+    for actuals falling outside the interval (lower is better)."""
+    if not _fci_ok(lower, upper, actual) or not (0.0 < alpha < 1.0):
+        return float("nan")
+    vals = []
+    for lo, hi, a in zip(lower, upper, actual):
+        w = hi - lo
+        if a < lo:
+            w += 2.0 / alpha * (lo - a)
+        elif a > hi:
+            w += 2.0 / alpha * (a - hi)
+        vals.append(w)
+    return fmean(vals)
+
+
+def coverage_deviation(lower, upper, actual, alpha):
+    """Coverage deviation: realized PICP minus the nominal coverage (1 - alpha)."""
+    cov = interval_coverage(lower, upper, actual)
+    if cov != cov or not (0.0 < alpha < 1.0):
+        return float("nan")
+    return cov - (1.0 - alpha)

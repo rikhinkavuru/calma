@@ -481,6 +481,11 @@ KINDS = {
     "rmsle": lambda a: N.msle(a["pred"], a["actual"], True),
     "mean_tweedie_deviance": lambda a: N.mean_tweedie_deviance(a["pred"], a["actual"], a["power"]),
     "d2_tweedie_score": lambda a: N.d2_tweedie_score(a["pred"], a["actual"], a["power"]),
+    # pack FCI - prediction-interval / probabilistic-forecast eval
+    "interval_coverage": lambda a: N.interval_coverage(a["lower"], a["upper"], a["actual"]),
+    "mean_interval_width": lambda a: N.mean_interval_width(a["lower"], a["upper"]),
+    "winkler_score": lambda a: N.winkler_score(a["lower"], a["upper"], a["actual"], a["alpha"]),
+    "coverage_deviation": lambda a: N.coverage_deviation(a["lower"], a["upper"], a["actual"], a["alpha"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -644,10 +649,12 @@ EXPECTED = {
     "rogers_satchell_volatility", "yang_zhang_volatility",
     # pack RGD - regression / GLM deviance depth (4)
     "mean_squared_error", "rmsle", "mean_tweedie_deviance", "d2_tweedie_score",
+    # pack FCI - prediction-interval / probabilistic-forecast eval (4)
+    "interval_coverage", "mean_interval_width", "winkler_score", "coverage_deviation",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 394 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 398 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

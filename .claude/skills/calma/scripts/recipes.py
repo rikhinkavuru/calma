@@ -2579,3 +2579,35 @@ def _rgd_tweedie(fn):
 for _mid in ("mean_tweedie_deviance", "d2_tweedie_score"):
     register(_mid, family="regression", required_tags=["prediction", "target"],
              set_maturity="reviewed", accepted_conventions=["power=<float>"])(_rgd_tweedie(getattr(N, _mid)))
+
+
+# ======================================================================================
+# Pack FCI - prediction-interval / probabilistic-forecast evaluation. Lower / upper / actual
+# columns; the Winkler score and coverage deviation take the interval level alpha.
+# ======================================================================================
+
+@register("interval_coverage", family="forecasting",
+          required_tags=["lower", "upper", "actual"], set_maturity="reviewed")
+def interval_coverage(cols, binding, convention=None):
+    lo, hi, a = cols[binding["lower"]], cols[binding["upper"]], cols[binding["actual"]]
+    return _result(N.interval_coverage(lo, hi, a), {"n": len(a)})
+
+
+@register("mean_interval_width", family="forecasting",
+          required_tags=["lower", "upper"], set_maturity="reviewed")
+def mean_interval_width(cols, binding, convention=None):
+    lo, hi = cols[binding["lower"]], cols[binding["upper"]]
+    return _result(N.mean_interval_width(lo, hi), {"n": len(lo)})
+
+
+def _fci_alpha(fn):
+    def recipe(cols, binding, convention=None):
+        lo, hi, a = cols[binding["lower"]], cols[binding["upper"]], cols[binding["actual"]]
+        alpha = _conv_float(convention, "alpha", 0.10)
+        return _result(fn(lo, hi, a, alpha), {"n": len(a), "alpha": alpha})
+    return recipe
+
+
+for _mid in ("winkler_score", "coverage_deviation"):
+    register(_mid, family="forecasting", required_tags=["lower", "upper", "actual"],
+             set_maturity="reviewed", accepted_conventions=["alpha=<frac>"])(_fci_alpha(getattr(N, _mid)))
