@@ -5628,5 +5628,265 @@
   "query": "the bank's capital measured against its risk-weighted assets — how cushioned it is against losses — is around 10.3%, can you verify?",
   "gold": "capital_adequacy_ratio",
   "kind": "paraphrase"
+ },
+ {
+  "query": "can you check that the RMSCE on my classifier comes out to 0.10?",
+  "gold": "rms_calibration_error",
+  "kind": "named"
+ },
+ {
+  "query": "I binned my predicted probabilities against how often things actually happened and took the root-mean-square of the gaps — can you confirm that spread is about 0.10?",
+  "gold": "rms_calibration_error",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "verify the net benefit at my chosen cutoff is 0.37, please",
+  "gold": "net_benefit",
+  "kind": "named"
+ },
+ {
+  "query": "on the decision curve, at the threshold I picked, the value of actually acting on the model's calls works out to 0.37 — does that hold up?",
+  "gold": "net_benefit",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "can you confirm the prevalence threshold here is 0.42?",
+  "gold": "prevalence_threshold",
+  "kind": "named"
+ },
+ {
+  "query": "I'm trying to find the base rate below which the chance a positive call is truly positive falls apart — I got 0.42, can you check that?",
+  "gold": "prevalence_threshold",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "is the squared L2 distance between these two vectors really 372?",
+  "gold": "squared_euclidean_distance",
+  "kind": "named"
+ },
+ {
+  "query": "I added up the squared differences coordinate by coordinate between the two points and got 372 — can you verify that total?",
+  "gold": "squared_euclidean_distance",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "can you confirm the L-infinity distance between these points is 8.1?",
+  "gold": "chebyshev_distance",
+  "kind": "named"
+ },
+ {
+  "query": "of all the per-coordinate differences between the two vectors, the single biggest absolute gap is 8.1 — does that check out?",
+  "gold": "chebyshev_distance",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "verify the Bray-Curtis dissimilarity between these two profiles is 0.31",
+  "gold": "braycurtis_distance",
+  "kind": "named"
+ },
+ {
+  "query": "comparing the two non-negative abundance profiles, how compositionally unalike they are came out to 0.31 — can you confirm?",
+  "gold": "braycurtis_distance",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "can you check the correlation distance between these vectors is 1.26?",
+  "gold": "correlation_distance",
+  "kind": "named"
+ },
+ {
+  "query": "I took one minus the Pearson correlation of the two series to see how dissimilar their shapes are and got 1.26 — is that right?",
+  "gold": "correlation_distance",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "is the Siegel slope for this fit 1.37?",
+  "gold": "siegel_slope",
+  "kind": "named"
+ },
+ {
+  "query": "I fit a line using the outlier-resistant repeated-medians method instead of least squares and the slope came out to 1.37 — can you verify?",
+  "gold": "siegel_slope",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "can you confirm the intercept SE from my OLS fit is 0.18?",
+  "gold": "linregress_intercept_stderr",
+  "kind": "named"
+ },
+ {
+  "query": "how precisely the regression's constant term is pinned down — the uncertainty on where the line crosses the y-axis — I got 0.18, does that hold?",
+  "gold": "linregress_intercept_stderr",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "verify Blomqvist's beta between these two variables is 0.80",
+  "gold": "blomqvist_beta",
+  "kind": "named"
+ },
+ {
+  "query": "I measured association just by whether the two variables land on the same side of their medians and got 0.80 — can you check that?",
+  "gold": "blomqvist_beta",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "can you confirm H(Y|X) is 1.36 nats?",
+  "gold": "conditional_entropy",
+  "kind": "named"
+ },
+ {
+  "query": "how much uncertainty about the Y category is still left once you already know X — I calculated 1.36 nats, is that correct?",
+  "gold": "conditional_entropy",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "is the VI between my two clusterings 2.43 nats?",
+  "gold": "variation_of_information",
+  "kind": "named"
+ },
+ {
+  "query": "the information-theoretic distance between the two ways I partitioned the data came out to 2.43 nats — can you verify?",
+  "gold": "variation_of_information",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "can you check the symmetric uncertainty between these two features is 0.021?",
+  "gold": "symmetric_uncertainty",
+  "kind": "named"
+ },
+ {
+  "query": "the normalized, both-directions-balanced amount of information the two variables share works out to 0.021 — does that hold up?",
+  "gold": "symmetric_uncertainty",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "can you check the ACE on these predictions comes out to 0.11?",
+  "gold": "adaptive_calibration_error",
+  "kind": "named"
+ },
+ {
+  "query": "I binned my predicted probabilities into equal-sized groups and compared each group's average confidence to how often it was actually right — can you confirm that average gap is about 0.11?",
+  "gold": "adaptive_calibration_error",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "verify the PABAK between the two annotators is 0.35 for me",
+  "gold": "pabak",
+  "kind": "named"
+ },
+ {
+  "query": "after correcting our two reviewers' agreement for how rare the positive cases are and any leaning toward one label, I got roughly 0.35 — does that hold up?",
+  "gold": "pabak",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "can you confirm the L2 distance between these two embeddings is 19.3?",
+  "gold": "euclidean_distance",
+  "kind": "named"
+ },
+ {
+  "query": "if you measure the straight shortest length between the tips of these two vectors, I'm getting about 19.3 — is that right?",
+  "gold": "euclidean_distance",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "is the L1 distance between these two points 80.7?",
+  "gold": "manhattan_distance",
+  "kind": "named"
+ },
+ {
+  "query": "I added up the absolute differences across every coordinate of the two vectors, like walking the grid block by block, and got 80.7 — can you check that?",
+  "gold": "manhattan_distance",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "double-check the cosine distance between these vectors is 0.23 please",
+  "gold": "cosine_distance",
+  "kind": "named"
+ },
+ {
+  "query": "I measured how far apart in angle the two vectors point, taking one minus their directional similarity, and landed on 0.23 — does that match?",
+  "gold": "cosine_distance",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "can you verify the Canberra distance here is 9.27?",
+  "gold": "canberra_distance",
+  "kind": "named"
+ },
+ {
+  "query": "for each coordinate I took the absolute difference divided by the sum of the two values and added them all up, getting around 9.27 — is that correct?",
+  "gold": "canberra_distance",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "confirm the Minkowski distance with p=3 between these vectors is 12.7",
+  "gold": "minkowski_distance",
+  "kind": "named"
+ },
+ {
+  "query": "using the generalized distance formula where I raise each coordinate gap to the third power, sum them, then take the cube root, I got 12.7 — can you check?",
+  "gold": "minkowski_distance",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "is the slope SE from my OLS fit really 0.055?",
+  "gold": "linregress_slope_stderr",
+  "kind": "named"
+ },
+ {
+  "query": "how much uncertainty is there around the fitted line's steepness in my regression — I estimate the wobble on that slope is about 0.055, can you confirm?",
+  "gold": "linregress_slope_stderr",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "can you check Chatterjee's xi for this x-y pair is 0.72?",
+  "gold": "chatterjee_xi",
+  "kind": "named"
+ },
+ {
+  "query": "using that newer rank-based measure of how much y is pinned down by x, where 0 means no relationship and 1 means y is a pure function of x, I got 0.72 — right?",
+  "gold": "chatterjee_xi",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "verify the Gaussian-rank rho between these two columns is 0.94",
+  "gold": "gaussian_rank_correlation",
+  "kind": "named"
+ },
+ {
+  "query": "I converted both columns to their rank order, mapped those ranks onto normal-distribution scores, and correlated those — outlier-robust — getting 0.94, does that check out?",
+  "gold": "gaussian_rank_correlation",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "can you confirm the joint entropy H(X,Y) is 2.45 nats?",
+  "gold": "joint_entropy",
+  "kind": "named"
+ },
+ {
+  "query": "the total amount of unpredictability when you consider both categorical variables together as one combined outcome comes to about 2.45 nats for me — is that right?",
+  "gold": "joint_entropy",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "is Theil's U for Y given X equal to 0.019 here?",
+  "gold": "uncertainty_coefficient",
+  "kind": "named"
+ },
+ {
+  "query": "what fraction of the uncertainty in the outcome variable gets resolved once you know the other variable — I'm getting only about 0.019, can you verify?",
+  "gold": "uncertainty_coefficient",
+  "kind": "paraphrase"
+ },
+ {
+  "query": "check that the normalized VI between these two clusterings is 0.99",
+  "gold": "normalized_variation_of_information",
+  "kind": "named"
+ },
+ {
+  "query": "I measured how much information you lose going between the two groupings and then divided it by their combined total uncertainty to put it on a 0-to-1 scale, getting 0.99 — does that hold?",
+  "gold": "normalized_variation_of_information",
+  "kind": "paraphrase"
  }
 ]

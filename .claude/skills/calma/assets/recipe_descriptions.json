@@ -85,7 +85,9 @@
         "quantile-binned ece",
         "calibration error with equal-count bins",
         "adaptive ece",
-        "balanced-bin calibration gap"
+        "balanced-bin calibration gap",
+        "average gap between confidence and accuracy in equal-sized bins",
+        "equal-count binned confidence-vs-accuracy gap"
       ],
       "description": "Calibration error using equal-mass confidence bins."
     },
@@ -596,7 +598,9 @@
         "quadrant correlation around medians",
         "sign-based correlation",
         "median quadrant agreement",
-        "robust quadrant measure"
+        "robust quadrant measure",
+        "association by whether both land on the same side of their medians",
+        "same-side-of-median agreement"
       ],
       "description": "Blomqvist's medial correlation: sign agreement about the medians."
     },
@@ -1128,7 +1132,10 @@
         "new rank correlation",
         "dependence coefficient",
         "how much y depends on x",
-        "chatterjee 2021"
+        "chatterjee 2021",
+        "how much y is pinned down or determined by x",
+        "0 means no relationship and 1 means y is a function of x",
+        "new rank measure of functional dependence"
       ],
       "description": "Chatterjee's xi rank coefficient measuring dependence of y on x."
     },
@@ -1457,7 +1464,9 @@
         "uncertainty left after knowing x",
         "how much is still unknown given the other",
         "residual uncertainty",
-        "conditional uncertainty"
+        "conditional uncertainty",
+        "h of y given x",
+        "nats of uncertainty left in y after knowing x"
       ],
       "description": "Remaining uncertainty in one variable given another."
     },
@@ -4345,7 +4354,9 @@
         "scaled information distance",
         "bounded clustering distance",
         "vi over joint entropy",
-        "normalized information distance"
+        "normalized information distance",
+        "information distance between two clusterings scaled to 0 to 1",
+        "information lost between groupings over their combined uncertainty"
       ],
       "description": "Variation of information scaled to [0,1] by the joint entropy."
     },
@@ -4505,7 +4516,9 @@
         "agreement corrected for prevalence",
         "2 times accuracy minus one",
         "bias-adjusted agreement",
-        "byrt kappa"
+        "byrt kappa",
+        "agreement corrected for rare positives and label leaning",
+        "agreement adjusted for prevalence and bias"
       ],
       "description": "Prevalence-adjusted bias-adjusted kappa from observed agreement."
     },
@@ -4843,7 +4856,9 @@
         "tipping prevalence for ppv",
         "where the test stops being useful",
         "critical prevalence",
-        "screening threshold"
+        "screening threshold",
+        "base rate below which a positive call being truly positive falls apart",
+        "prevalence where positive predictive value collapses"
       ],
       "description": "Prevalence below which a classifier's positive predictive value collapses."
     },
@@ -6168,7 +6183,10 @@
         "proficiency",
         "fraction of entropy explained",
         "how much one category predicts another",
-        "entropy coefficient"
+        "entropy coefficient",
+        "theil's u for y given x",
+        "u(y|x)",
+        "fraction of the outcome's uncertainty resolved by knowing the other variable"
       ],
       "description": "Fraction of one variable's entropy explained by another (Theil's U)."
     },
