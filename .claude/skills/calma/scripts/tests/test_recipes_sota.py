@@ -642,6 +642,13 @@ KINDS = {
     "omega_squared": lambda a: N.omega_squared(a["groups"], a["values"]),
     "epsilon_squared": lambda a: N.epsilon_squared(a["groups"], a["values"]),
     "cohens_f": lambda a: N.cohens_f(a["groups"], a["values"]),
+    # pack MS - market-microstructure / execution depth
+    "corwin_schultz_spread": lambda a: N.corwin_schultz_spread(a["high"], a["low"]),
+    "abdi_ranaldo_spread": lambda a: N.abdi_ranaldo_spread(a["close"], a["high"], a["low"]),
+    "order_flow_imbalance": lambda a: N.order_flow_imbalance(a["buy"], a["sell"]),
+    "share_turnover": lambda a: N.share_turnover(a["volume"], a["shares"]),
+    "realized_spread_bps": lambda a: N.realized_spread_bps(a["exec"], a["midf"], a["qty"], a["side"]),
+    "price_impact_bps": lambda a: N.price_impact_bps(a["mid"], a["midf"], a["qty"], a["side"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -889,10 +896,13 @@ EXPECTED = {
     # pack EFF - effect sizes & association measures (6)
     "tschuprow_t", "pearson_contingency_coefficient", "cohens_w",
     "omega_squared", "epsilon_squared", "cohens_f",
+    # pack MS - market-microstructure / execution depth (6)
+    "corwin_schultz_spread", "abdi_ranaldo_spread", "order_flow_imbalance",
+    "share_turnover", "realized_spread_bps", "price_impact_bps",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 536 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 542 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

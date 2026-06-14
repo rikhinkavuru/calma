@@ -2881,6 +2881,52 @@ case("omega_squared", "omega_squared", _eff_anova, (_e_ssb - (_e_k - 1) * _e_msw
 case("epsilon_squared", "epsilon_squared", _eff_anova, (_e_ssb - (_e_k - 1) * _e_msw) / _e_sst, atol=1e-12)
 case("cohens_f", "cohens_f", _eff_anova, float(np.sqrt(_e_eta / (1.0 - _e_eta))), atol=1e-12)
 
+# ============================ Pack MS - market-microstructure / execution depth ============================
+# Independent reference: vectorized numpy for the Corwin-Schultz and Abdi-Ranaldo low-frequency
+# spread estimators, order-flow imbalance, share turnover, and the signed realized-spread /
+# price-impact decomposition (2*side*sum(q*dP)/sum(q*bench)*1e4).
+
+ms_n = 60
+ms_mid = [100 + x for x in uniforms(7201, ms_n, -5, 5)]
+ms_high = [m + abs(d) for m, d in zip(ms_mid, uniforms(7202, ms_n, 0.1, 1.5))]
+ms_low = [m - abs(d) for m, d in zip(ms_mid, uniforms(7203, ms_n, 0.1, 1.5))]
+ms_close = [m + d for m, d in zip(ms_mid, uniforms(7204, ms_n, -0.8, 0.8))]
+_H, _L, _C = np.array(ms_high), np.array(ms_low), np.array(ms_close)
+_k = 3.0 - 2.0 * np.sqrt(2.0)
+_beta = np.log(_H[:-1] / _L[:-1]) ** 2 + np.log(_H[1:] / _L[1:]) ** 2
+_gamma = np.log(np.maximum(_H[:-1], _H[1:]) / np.minimum(_L[:-1], _L[1:])) ** 2
+_alpha = (np.sqrt(2 * _beta) - np.sqrt(_beta)) / _k - np.sqrt(_gamma / _k)
+_s_cs = 2 * (np.exp(_alpha) - 1) / (1 + np.exp(_alpha))
+ms_cs = float(np.maximum(_s_cs, 0.0).mean())
+_eta = (np.log(_H) + np.log(_L)) / 2
+_cov = ((np.log(_C[:-1]) - _eta[:-1]) * (np.log(_C[:-1]) - _eta[1:])).mean()
+ms_ar = float(2 * np.sqrt(_cov)) if _cov > 0 else 0.0
+ms_buy = list(uniforms(7205, ms_n, 100, 1000))
+ms_sell = list(uniforms(7206, ms_n, 100, 1000))
+ms_vol = list(uniforms(7207, ms_n, 1e4, 1e5))
+ms_shr = list(uniforms(7208, ms_n, 1e6, 2e6))
+ms_exec = list(uniforms(7209, ms_n, 99.5, 100.5))
+ms_midf = list(uniforms(7210, ms_n, 99.5, 100.5))
+ms_qty = list(uniforms(7211, ms_n, 10, 500))
+ms_side = -1.0
+case("corwin_schultz_spread", "corwin_schultz_spread", {"high": ms_high, "low": ms_low}, ms_cs, atol=1e-12)
+case("abdi_ranaldo_spread", "abdi_ranaldo_spread", {"close": ms_close, "high": ms_high, "low": ms_low},
+     ms_ar, atol=1e-12)
+case("order_flow_imbalance", "order_flow_imbalance", {"buy": ms_buy, "sell": ms_sell},
+     float((np.sum(ms_buy) - np.sum(ms_sell)) / (np.sum(ms_buy) + np.sum(ms_sell))), atol=1e-12)
+case("share_turnover", "share_turnover", {"volume": ms_vol, "shares": ms_shr},
+     float(np.sum(ms_vol) / np.sum(ms_shr)), atol=1e-12)
+_rs_num = float(np.sum(np.array(ms_qty) * (np.array(ms_exec) - np.array(ms_midf))))
+_rs_den = float(np.sum(np.array(ms_qty) * np.array(ms_midf)))
+case("realized_spread_bps", "realized_spread_bps",
+     {"exec": ms_exec, "midf": ms_midf, "qty": ms_qty, "side": ms_side},
+     ms_side * 2.0 * _rs_num / _rs_den * 1e4, atol=1e-9, rtol=1e-12)
+_pi_num = float(np.sum(np.array(ms_qty) * (np.array(ms_midf) - np.array(ms_mid))))
+_pi_den = float(np.sum(np.array(ms_qty) * np.array(ms_mid)))
+case("price_impact_bps", "price_impact_bps",
+     {"mid": ms_mid, "midf": ms_midf, "qty": ms_qty, "side": ms_side},
+     ms_side * 2.0 * _pi_num / _pi_den * 1e4, atol=1e-9, rtol=1e-12)
+
 # ============================ write ============================
 
 doc = {

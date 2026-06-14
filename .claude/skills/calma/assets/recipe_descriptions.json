@@ -1,5 +1,17 @@
 {
   "recipes": {
+    "abdi_ranaldo_spread": {
+      "aliases": [
+        "abdi-ranaldo spread",
+        "close-high-low spread estimator",
+        "abdi ranaldo",
+        "spread from ohlc",
+        "two-moment spread estimate",
+        "ar spread",
+        "effective spread from daily prices"
+      ],
+      "description": "Bid-ask spread estimated from close, high and low prices (Abdi-Ranaldo)."
+    },
     "accuracy": {
       "aliases": [
         "accuracy",
@@ -1355,6 +1367,18 @@
         "rank correlation"
       ],
       "description": "Strength and direction of the linear or monotonic relationship between two variables."
+    },
+    "corwin_schultz_spread": {
+      "aliases": [
+        "corwin-schultz spread",
+        "high-low spread estimator",
+        "corwin schultz",
+        "bid-ask spread from highs and lows",
+        "estimated trading spread",
+        "low-frequency spread estimate",
+        "cs spread"
+      ],
+      "description": "Bid-ask spread estimated from daily high-low prices (Corwin-Schultz)."
     },
     "covariance": {
       "aliases": [
@@ -3952,6 +3976,18 @@
       ],
       "description": "Operating income as a share of revenue."
     },
+    "order_flow_imbalance": {
+      "aliases": [
+        "order flow imbalance",
+        "ofi",
+        "buy-sell imbalance",
+        "net order flow",
+        "are buyers or sellers dominating",
+        "trade imbalance",
+        "signed volume share"
+      ],
+      "description": "Net buy versus sell volume as a fraction of total volume."
+    },
     "outlier_count": {
       "aliases": [
         "outliers",
@@ -4306,6 +4342,18 @@
       ],
       "description": "Difference in positive predictive value across protected groups."
     },
+    "price_impact_bps": {
+      "aliases": [
+        "price impact",
+        "price impact bps",
+        "market impact",
+        "how much the trade moved the price",
+        "temporary impact",
+        "post-trade quote drift",
+        "execution price impact"
+      ],
+      "description": "How far the mid moved against a trade after execution, in bps."
+    },
     "probabilistic_sharpe_ratio": {
       "aliases": [
         "psr",
@@ -4525,6 +4573,18 @@
         "average realized var exceedance"
       ],
       "description": "Average of actually observed losses that breached VaR."
+    },
+    "realized_spread_bps": {
+      "aliases": [
+        "realized spread",
+        "realized spread bps",
+        "permanent spread component",
+        "post-trade spread",
+        "spread net of price impact",
+        "liquidity provider revenue",
+        "realized half-spread"
+      ],
+      "description": "Permanent post-trade spread benchmarked to the future mid, in bps."
     },
     "realized_variance": {
       "aliases": [
@@ -4920,6 +4980,18 @@
         "shannon wiener"
       ],
       "description": "Shannon diversity index measuring richness and evenness of categories."
+    },
+    "share_turnover": {
+      "aliases": [
+        "share turnover",
+        "turnover ratio",
+        "stock turnover",
+        "how actively a stock trades",
+        "volume over float",
+        "trading activity ratio",
+        "share velocity"
+      ],
+      "description": "Traded volume as a fraction of shares outstanding."
     },
     "sharpe": {
       "aliases": [

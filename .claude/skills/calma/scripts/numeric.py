@@ -7398,3 +7398,79 @@ def cohens_f(groups, values):
     if eta2 >= 1.0:
         return float("nan")
     return math.sqrt(eta2 / (1.0 - eta2))
+
+
+# ======================================================================================
+# Pack MS - market-microstructure / execution depth. corwin_schultz_spread and
+# abdi_ranaldo_spread are the modern low-frequency bid-ask spread estimators (from daily
+# high/low/close); order_flow_imbalance, share_turnover, and the realized-spread / price-
+# impact decomposition complete the execution-quality toolkit. Validated against the numpy
+# reference and (TCA) the existing signed-cost helper.
+# ======================================================================================
+
+def corwin_schultz_spread(high, low):
+    """Corwin-Schultz (2012) high-low bid-ask spread estimator, averaged over consecutive
+    overlapping day-pairs with negative two-day estimates floored at zero."""
+    n = len(high)
+    if n < 2 or len(low) != n or _has_nan(high) or _has_nan(low):
+        return float("nan")
+    if any(h <= 0 for h in high) or any(l <= 0 for l in low) or any(h < l for h, l in zip(high, low)):
+        return float("nan")
+    k = 3.0 - 2.0 * math.sqrt(2.0)
+    spreads = []
+    for t in range(n - 1):
+        beta = dlog(high[t] / low[t]) ** 2 + dlog(high[t + 1] / low[t + 1]) ** 2
+        hmax = high[t] if high[t] > high[t + 1] else high[t + 1]
+        lmin = low[t] if low[t] < low[t + 1] else low[t + 1]
+        gamma = dlog(hmax / lmin) ** 2
+        alpha = (math.sqrt(2.0 * beta) - math.sqrt(beta)) / k - math.sqrt(gamma / k)
+        ea = dexp(alpha)
+        s = 2.0 * (ea - 1.0) / (1.0 + ea)
+        spreads.append(s if s > 0 else 0.0)
+    return fmean(spreads)
+
+
+def abdi_ranaldo_spread(close, high, low):
+    """Abdi-Ranaldo (2017) two-moment close-high-low spread estimator: 2*sqrt(mean
+    (c_t - eta_t)(c_t - eta_{t+1})), eta = (ln high + ln low)/2; negative covariance -> 0."""
+    n = len(close)
+    if n < 2 or len(high) != n or len(low) != n or _has_nan(close) or _has_nan(high) or _has_nan(low):
+        return float("nan")
+    if any(c <= 0 for c in close) or any(h <= 0 for h in high) or any(l <= 0 for l in low):
+        return float("nan")
+    c = [dlog(x) for x in close]
+    eta = [(dlog(h) + dlog(l)) / 2.0 for h, l in zip(high, low)]
+    cov = math.fsum((c[t] - eta[t]) * (c[t] - eta[t + 1]) for t in range(n - 1)) / (n - 1)
+    return 2.0 * math.sqrt(cov) if cov > 0 else 0.0
+
+
+def order_flow_imbalance(buy_volume, sell_volume):
+    """Order-flow imbalance: (sum(buy) - sum(sell)) / (sum(buy) + sum(sell)) in [-1, 1]."""
+    if not _tca_ok(buy_volume, sell_volume):
+        return float("nan")
+    b, s = math.fsum(buy_volume), math.fsum(sell_volume)
+    if b + s == 0:
+        return float("nan")
+    return (b - s) / (b + s)
+
+
+def share_turnover(volume, shares_outstanding):
+    """Share turnover ratio: sum(traded volume) / sum(shares outstanding)."""
+    if not _tca_ok(volume, shares_outstanding):
+        return float("nan")
+    den = math.fsum(shares_outstanding)
+    if den == 0:
+        return float("nan")
+    return math.fsum(volume) / den
+
+
+def realized_spread_bps(exec_px, mid_future_px, qty, side):
+    """Realized spread in bps: 2*side*sum(q(exec - mid_future))/sum(q*mid_future)*1e4 - the
+    permanent (post-trade) component, benchmarked to the future mid."""
+    return _signed_cost_bps(exec_px, mid_future_px, qty, side, mult=2.0)
+
+
+def price_impact_bps(mid_px, mid_future_px, qty, side):
+    """Price impact in bps: 2*side*sum(q(mid_future - mid))/sum(q*mid)*1e4 - how far the
+    quote moved against the trade after execution."""
+    return _signed_cost_bps(mid_future_px, mid_px, qty, side, mult=2.0)

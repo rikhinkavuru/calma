@@ -3247,3 +3247,54 @@ def _anova_eff_recipe(fn):
 for _mid in ("omega_squared", "epsilon_squared", "cohens_f"):
     register(_mid, family="stats", required_tags=["group", "value"], string_tags=["group"],
              set_maturity="reviewed")(_anova_eff_recipe(getattr(N, _mid)))
+
+
+# ======================================================================================
+# Pack MS - market-microstructure / execution depth. Spread estimators bind OHLC columns;
+# the signed realized-spread / price-impact metrics take a side=buy|sell convention.
+# ======================================================================================
+
+@register("corwin_schultz_spread", family="liquidity", required_tags=["high", "low"],
+          set_maturity="reviewed")
+def corwin_schultz_spread(cols, binding, convention=None):
+    h, l = cols[binding["high"]], cols[binding["low"]]
+    return _result(N.corwin_schultz_spread(h, l), {"n": len(h)})
+
+
+@register("abdi_ranaldo_spread", family="liquidity", required_tags=["close", "high", "low"],
+          set_maturity="reviewed")
+def abdi_ranaldo_spread(cols, binding, convention=None):
+    c, h, l = cols[binding["close"]], cols[binding["high"]], cols[binding["low"]]
+    return _result(N.abdi_ranaldo_spread(c, h, l), {"n": len(c)})
+
+
+@register("order_flow_imbalance", family="liquidity", required_tags=["buy_volume", "sell_volume"],
+          set_maturity="reviewed")
+def order_flow_imbalance(cols, binding, convention=None):
+    b, s = cols[binding["buy_volume"]], cols[binding["sell_volume"]]
+    return _result(N.order_flow_imbalance(b, s), {"n": len(b)})
+
+
+@register("share_turnover", family="liquidity", required_tags=["volume", "shares_outstanding"],
+          set_maturity="reviewed")
+def share_turnover(cols, binding, convention=None):
+    v, s = cols[binding["volume"]], cols[binding["shares_outstanding"]]
+    return _result(N.share_turnover(v, s), {"n": len(v)})
+
+
+@register("realized_spread_bps", family="execution",
+          required_tags=["exec_price", "mid_future_price", "quantity"],
+          set_maturity="reviewed", accepted_conventions=["side=buy", "side=sell"])
+def realized_spread_bps(cols, binding, convention=None):
+    e, m, q = cols[binding["exec_price"]], cols[binding["mid_future_price"]], cols[binding["quantity"]]
+    side = _tca_side(convention)
+    return _result(N.realized_spread_bps(e, m, q, side), {"n": len(e), "side": "sell" if side < 0 else "buy"})
+
+
+@register("price_impact_bps", family="execution",
+          required_tags=["mid_price", "mid_future_price", "quantity"],
+          set_maturity="reviewed", accepted_conventions=["side=buy", "side=sell"])
+def price_impact_bps(cols, binding, convention=None):
+    m0, m1, q = cols[binding["mid_price"]], cols[binding["mid_future_price"]], cols[binding["quantity"]]
+    side = _tca_side(convention)
+    return _result(N.price_impact_bps(m0, m1, q, side), {"n": len(m0), "side": "sell" if side < 0 else "buy"})
