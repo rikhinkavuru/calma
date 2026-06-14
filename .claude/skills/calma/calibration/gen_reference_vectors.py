@@ -1705,6 +1705,34 @@ for _cid, _sm in [("bonferroni_rejections", "bonferroni"), ("sidak_rejections", 
     _rej = float(int(_mt(ab_pvals, alpha=ab_alpha, method=_sm)[0].sum()))
     case(_cid, _cid, ab_args, _rej, atol=0.0)
 
+# ============================ Pack TS - time-series / return diagnostics ============================
+# Independent reference: numpy recompute of the Lo-MacKinlay variance ratio, and statsmodels
+# runstest_1samp / het_arch for the runs test and ARCH-LM(1) statistic.
+
+from statsmodels.sandbox.stats.runs import runstest_1samp as _runs  # noqa: E402
+from statsmodels.stats.diagnostic import het_arch as _hetarch  # noqa: E402
+
+ts_rets = list(uniforms(8801, 120, -0.03, 0.03))
+ts_q = 4
+_tr = np.array(ts_rets)
+_tn = len(_tr)
+_mu = _tr.mean()
+_sa = float(((_tr - _mu) ** 2).sum() / (_tn - 1))
+_mm = ts_q * (_tn - ts_q + 1) * (1.0 - ts_q / _tn)
+_sc = float(np.sum([(np.sum(_tr[t - ts_q + 1:t + 1]) - ts_q * _mu) ** 2
+                    for t in range(ts_q - 1, _tn)]) / _mm)
+ts_vr = _sc / _sa
+case("variance_ratio", "variance_ratio", {"rets": ts_rets, "q": ts_q}, ts_vr, atol=1e-10)
+
+ts_runs_z = float(_runs(np.array(ts_rets), cutoff=0, correction=True)[0])
+case("runs_test", "runs_test", {"xs": ts_rets}, ts_runs_z, atol=1e-10)
+ts_runs_small = list(uniforms(8802, 24, -0.02, 0.02))   # n < 50 -> exercises the SAS 0.5 correction
+case("runs_test_small", "runs_test", {"xs": ts_runs_small},
+     float(_runs(np.array(ts_runs_small), cutoff=0, correction=True)[0]), atol=1e-10)
+
+ts_arch_lm = float(_hetarch(np.array(ts_rets), nlags=1)[0])
+case("arch_lm", "arch_lm", {"xs": ts_rets}, ts_arch_lm, atol=1e-9)
+
 # ============================ write ============================
 
 doc = {

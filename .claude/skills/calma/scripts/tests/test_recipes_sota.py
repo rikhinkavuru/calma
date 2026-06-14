@@ -399,6 +399,10 @@ KINDS = {
     "holm_sidak_rejections": lambda a: N.holm_sidak_rejections(a["pvals"], a["alpha"]),
     "hochberg_rejections": lambda a: N.hochberg_rejections(a["pvals"], a["alpha"]),
     "benjamini_yekutieli": lambda a: N.benjamini_yekutieli(a["pvals"], a["alpha"]),
+    # pack TS - time-series / return diagnostics
+    "variance_ratio": lambda a: N.variance_ratio(a["rets"], a["q"]),
+    "runs_test": lambda a: N.runs_test(a["xs"]),
+    "arch_lm": lambda a: N.arch_lm(a["xs"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -526,10 +530,12 @@ EXPECTED = {
     # pack AB - multiple-testing corrections (5)
     "bonferroni_rejections", "sidak_rejections", "holm_sidak_rejections",
     "hochberg_rejections", "benjamini_yekutieli",
+    # pack TS - time-series / return diagnostics (3)
+    "variance_ratio", "runs_test", "arch_lm",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 326 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 329 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

@@ -53,6 +53,15 @@ export const FAMILIES: Family[] = [
         ref: "NumPy",
       },
       {
+        id: "variance_ratio",
+        name: "Variance ratio",
+        claim: "“VR(4) 0.98 (random walk)”",
+        what: "Is the return series a random walk, mean-reverting (<1), or trending (>1)?",
+        how: "Lo-MacKinlay overlapping unbiased σ²_q/σ²_1 from the return column; horizon q from the claim.",
+        ref: "Lo & MacKinlay (1988)",
+        conv: "q=<int>",
+      },
+      {
         id: "volatility",
         name: "Volatility",
         claim: "“annualized vol 18%”",
@@ -1853,6 +1862,22 @@ export const FAMILIES: Family[] = [
         how: "Standard biased ACF at the claimed lag.",
         ref: "statsmodels acf",
         conv: "lag=<k> (1)",
+      },
+      {
+        id: "runs_test",
+        name: "Wald-Wolfowitz runs test",
+        claim: "“signs are random (z = 0.20)”",
+        what: "Are the up/down moves in a series random, or do they cluster/alternate?",
+        how: "z of the run count vs its null mean/variance on the sign indicator; SAS 0.5 correction below n=50.",
+        ref: "statsmodels runstest_1samp",
+      },
+      {
+        id: "arch_lm",
+        name: "Engle ARCH-LM",
+        claim: "“no ARCH effect (LM = 0.04)”",
+        what: "Volatility clustering — do big residuals follow big residuals?",
+        how: "nobs·R² from regressing squared residuals on their first lag; χ²(1).",
+        ref: "statsmodels het_arch (nlags=1)",
       },
       {
         id: "point_biserial",

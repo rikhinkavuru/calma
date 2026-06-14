@@ -4555,3 +4555,83 @@ def benjamini_yekutieli(pvals, alpha):
         if sp[k - 1] <= (k / (m * c)) * alpha:
             maxk = k
     return float(maxk)
+
+
+# ======================================================================================
+# Pack TS - time-series / return diagnostics. The Lo-MacKinlay variance ratio (random-walk
+# / mean-reversion), the Wald-Wolfowitz runs test (sign randomness, continuity-corrected),
+# and Engle's ARCH-LM(1) test for volatility clustering. Validated against documented
+# closed forms and statsmodels (runstest_1samp, het_arch).
+# ======================================================================================
+
+def variance_ratio(rets, q):
+    """Lo-MacKinlay (1988) overlapping unbiased variance ratio VR(q): sigma_c^2 / sigma_a^2,
+    1 for a random walk, <1 mean-reverting, >1 trending. q-period vs 1-period variance."""
+    n = len(rets)
+    if not rets or _has_nan(rets) or q < 2 or n <= q:
+        return float("nan")
+    mu = fmean(rets)
+    sa = math.fsum((r - mu) ** 2 for r in rets) / (n - 1)
+    if sa == 0:
+        return float("nan")
+    m = q * (n - q + 1) * (1.0 - q / n)
+    if m <= 0:
+        return float("nan")
+    parts = []
+    for t in range(q - 1, n):
+        s = math.fsum(rets[t - q + 1:t + 1])
+        parts.append((s - q * mu) ** 2)
+    sc = math.fsum(parts) / m
+    return sc / sa
+
+
+def runs_test(xs, cutoff=0.0):
+    """Wald-Wolfowitz runs test z-statistic for sign randomness (indicator x_t >= cutoff).
+    Matches statsmodels runstest_1samp: the SAS 0.5 continuity correction is applied only
+    for n < 50."""
+    n = len(xs)
+    if n < 2 or _has_nan(xs):
+        return float("nan")
+    ind = [1 if v >= cutoff else 0 for v in xs]
+    n1 = sum(ind)
+    n2 = n - n1
+    if n1 == 0 or n2 == 0:
+        return float("nan")
+    runs = 1 + sum(1 for i in range(1, n) if ind[i] != ind[i - 1])
+    exp = 2.0 * n1 * n2 / n + 1.0
+    var = 2.0 * n1 * n2 * (2.0 * n1 * n2 - n) / (n * n * (n - 1))
+    if var <= 0:
+        return float("nan")
+    rdemean = runs - exp
+    if n >= 50:
+        z = rdemean
+    elif rdemean > 0.5:
+        z = rdemean - 0.5
+    elif rdemean < 0.5:
+        z = rdemean + 0.5
+    else:
+        z = 0.0
+    return z / math.sqrt(var)
+
+
+def arch_lm(resid):
+    """Engle ARCH-LM(1) statistic: nobs * R^2 from regressing squared residuals on their
+    first lag (with intercept); chi-square(1) under no ARCH effect (statsmodels het_arch)."""
+    n = len(resid)
+    if n < 3 or _has_nan(resid):
+        return float("nan")
+    e2 = [r * r for r in resid]
+    y = e2[1:]
+    x = e2[:-1]
+    nn = len(y)
+    mx, my = fmean(x), fmean(y)
+    sxx = math.fsum((a - mx) ** 2 for a in x)
+    if sxx == 0:
+        return float("nan")
+    b = math.fsum((a - mx) * (c - my) for a, c in zip(x, y)) / sxx
+    a0 = my - b * mx
+    ssr = math.fsum((c - (a0 + b * a)) ** 2 for a, c in zip(x, y))
+    sst = math.fsum((c - my) ** 2 for c in y)
+    if sst == 0:
+        return float("nan")
+    return nn * (1.0 - ssr / sst)

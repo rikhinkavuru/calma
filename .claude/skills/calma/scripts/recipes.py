@@ -2200,3 +2200,28 @@ def _ab_reject(fn, method):
 for _mid, _method in _AB_METHOD.items():
     register(_mid, family="stats", required_tags=["value"], set_maturity="reviewed",
              accepted_conventions=["alpha=<frac>"])(_ab_reject(getattr(N, _mid), _method))
+
+
+# ======================================================================================
+# Pack TS - time-series / return diagnostics. A return (or residual) column drives the
+# variance ratio, runs test and ARCH-LM(1) statistic.
+# ======================================================================================
+
+@register("variance_ratio", family="quant", required_tags=["return"],
+          set_maturity="reviewed", accepted_conventions=["q=<int>"])
+def variance_ratio(cols, binding, convention=None):
+    rets = cols[binding["return"]]
+    q = _conv_int(convention, "q", 2)
+    return _result(N.variance_ratio(rets, q), {"n": len(rets), "q": q})
+
+
+@register("runs_test", family="stats", required_tags=["value"], set_maturity="reviewed")
+def runs_test(cols, binding, convention=None):
+    xs = cols[binding["value"]]
+    return _result(N.runs_test(xs), {"n": len(xs)})
+
+
+@register("arch_lm", family="stats", required_tags=["value"], set_maturity="reviewed")
+def arch_lm(cols, binding, convention=None):
+    xs = cols[binding["value"]]
+    return _result(N.arch_lm(xs), {"n": len(xs)})
