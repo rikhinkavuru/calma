@@ -2220,6 +2220,33 @@ case("err_at_k", "err_at_k", rnk_args, _err_ref(rnk_k), atol=1e-12)
 case("success_at_k", "success_at_k", rnk_args, _succ_ref(rnk_k), atol=1e-12)
 case("arhr_at_k", "arhr_at_k", rnk_args, _arhr_ref(rnk_k), atol=1e-12)
 
+# ============================ Pack SH - robust distribution shape ============================
+# Independent reference: numpy recompute of the quantile-based Bowley skewness / Moors
+# kurtosis and the Hosking sample L-moment ratios (L-skewness, L-kurtosis).
+
+sh_x = list(uniforms(3401, 90, -2.0, 12.0))
+_sx = np.array(sh_x)
+_q1, _q2, _q3 = np.quantile(_sx, 0.25), np.quantile(_sx, 0.50), np.quantile(_sx, 0.75)
+sh_bowley = float((_q3 + _q1 - 2.0 * _q2) / (_q3 - _q1))
+_e = [float(np.quantile(_sx, kk / 8.0)) for kk in range(1, 8)]
+sh_moors = ((_e[6] - _e[4]) + (_e[2] - _e[0])) / (_e[5] - _e[1])
+_ss = np.sort(_sx)
+_nn = len(_ss)
+_idx = np.arange(_nn)
+_b0 = float(_ss.mean())
+_b1 = float(np.sum(_idx / (_nn - 1) * _ss) / _nn)
+_b2 = float(np.sum(_idx * (_idx - 1) / ((_nn - 1) * (_nn - 2)) * _ss) / _nn)
+_b3 = float(np.sum(_idx * (_idx - 1) * (_idx - 2) / ((_nn - 1) * (_nn - 2) * (_nn - 3)) * _ss) / _nn)
+_l2 = 2.0 * _b1 - _b0
+_l3 = 6.0 * _b2 - 6.0 * _b1 + _b0
+_l4 = 20.0 * _b3 - 30.0 * _b2 + 12.0 * _b1 - _b0
+sh_lskew = _l3 / _l2
+sh_lkurt = _l4 / _l2
+case("bowley_skewness", "bowley_skewness", {"xs": sh_x}, sh_bowley, atol=1e-12)
+case("moors_kurtosis", "moors_kurtosis", {"xs": sh_x}, sh_moors, atol=1e-12)
+case("l_skewness", "l_skewness", {"xs": sh_x}, sh_lskew, atol=1e-12)
+case("l_kurtosis", "l_kurtosis", {"xs": sh_x}, sh_lkurt, atol=1e-12)
+
 # ============================ write ============================
 
 doc = {

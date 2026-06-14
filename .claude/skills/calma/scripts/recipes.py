@@ -2661,3 +2661,19 @@ for _mid in ("err_at_k", "success_at_k", "arhr_at_k"):
     register(_mid, family="retrieval", required_tags=["query", "rank", "relevance"],
              set_maturity="reviewed", string_tags=["query"],
              accepted_conventions=["k=<int>"])(_rnk_recipe(getattr(N, _mid)))
+
+
+# ======================================================================================
+# Pack SH - robust distribution shape. A single value column.
+# ======================================================================================
+
+def _sh_recipe(fn):
+    def recipe(cols, binding, convention=None):
+        xs = cols[binding["value"]]
+        return _result(fn(xs), {"n": len(xs)})
+    return recipe
+
+
+for _mid in ("bowley_skewness", "moors_kurtosis", "l_skewness", "l_kurtosis"):
+    register(_mid, family="stats", required_tags=["value"],
+             set_maturity="reviewed")(_sh_recipe(getattr(N, _mid)))

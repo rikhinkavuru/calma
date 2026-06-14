@@ -5755,3 +5755,69 @@ def arhr_at_k(queries, ranks, rels, k):
     for _, rows in per.items():
         scores.append(math.fsum(1.0 / (i + 1.0) for i, (_r, rel) in enumerate(rows[:k]) if rel > 0))
     return fmean(scores) if scores else float("nan")
+
+
+# ======================================================================================
+# Pack SH - robust distribution shape. A value column gives the quantile-based Bowley
+# skewness and Moors kurtosis and the L-moment ratios (L-skewness, L-kurtosis) - robust
+# alternatives to the classical moment skewness / kurtosis. Validated against numpy.
+# ======================================================================================
+
+def _sh_ok(xs):
+    return bool(xs) and not _has_nan(xs)
+
+
+def bowley_skewness(xs):
+    """Bowley (quartile) skewness: (Q3 + Q1 - 2*Q2) / (Q3 - Q1), in [-1, 1]."""
+    if not _sh_ok(xs) or len(xs) < 3:
+        return float("nan")
+    q1, q2, q3 = quantile(xs, 0.25), quantile(xs, 0.50), quantile(xs, 0.75)
+    if q3 - q1 == 0:
+        return float("nan")
+    return (q3 + q1 - 2.0 * q2) / (q3 - q1)
+
+
+def moors_kurtosis(xs):
+    """Moors (octile) kurtosis: ((E7-E5)+(E3-E1))/(E6-E2), E_k the k/8 quantile."""
+    if not _sh_ok(xs) or len(xs) < 8:
+        return float("nan")
+    e = [quantile(xs, k / 8.0) for k in range(1, 8)]
+    den = e[5] - e[1]
+    if den == 0:
+        return float("nan")
+    return ((e[6] - e[4]) + (e[2] - e[0])) / den
+
+
+def _l_moments(xs):
+    s = sorted(xs)
+    n = len(s)
+    if n < 4:
+        return None
+    b0 = fmean(s)
+    b1 = math.fsum(i / (n - 1) * s[i] for i in range(n)) / n
+    b2 = math.fsum(i * (i - 1) / ((n - 1) * (n - 2)) * s[i] for i in range(n)) / n
+    b3 = math.fsum(i * (i - 1) * (i - 2) / ((n - 1) * (n - 2) * (n - 3)) * s[i] for i in range(n)) / n
+    l2 = 2.0 * b1 - b0
+    l3 = 6.0 * b2 - 6.0 * b1 + b0
+    l4 = 20.0 * b3 - 30.0 * b2 + 12.0 * b1 - b0
+    return b0, l2, l3, l4
+
+
+def l_skewness(xs):
+    """L-skewness (Hosking): L3 / L2, a bounded robust skewness in (-1, 1)."""
+    if not _sh_ok(xs):
+        return float("nan")
+    m = _l_moments(xs)
+    if m is None or m[1] == 0:
+        return float("nan")
+    return m[2] / m[1]
+
+
+def l_kurtosis(xs):
+    """L-kurtosis (Hosking): L4 / L2, a robust kurtosis ratio."""
+    if not _sh_ok(xs):
+        return float("nan")
+    m = _l_moments(xs)
+    if m is None or m[1] == 0:
+        return float("nan")
+    return m[3] / m[1]

@@ -499,6 +499,11 @@ KINDS = {
     "err_at_k": lambda a: N.err_at_k(a["queries"], a["ranks"], a["rels"], a["k"]),
     "success_at_k": lambda a: N.success_at_k(a["queries"], a["ranks"], a["rels"], a["k"]),
     "arhr_at_k": lambda a: N.arhr_at_k(a["queries"], a["ranks"], a["rels"], a["k"]),
+    # pack SH - robust distribution shape
+    "bowley_skewness": lambda a: N.bowley_skewness(a["xs"]),
+    "moors_kurtosis": lambda a: N.moors_kurtosis(a["xs"]),
+    "l_skewness": lambda a: N.l_skewness(a["xs"]),
+    "l_kurtosis": lambda a: N.l_kurtosis(a["xs"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -670,10 +675,12 @@ EXPECTED = {
     "distance_correlation", "somers_d", "goodman_kruskal_gamma",
     # pack RNK - ranking / IR depth (3)
     "err_at_k", "success_at_k", "arhr_at_k",
+    # pack SH - robust distribution shape (4)
+    "bowley_skewness", "moors_kurtosis", "l_skewness", "l_kurtosis",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 408 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 412 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402
