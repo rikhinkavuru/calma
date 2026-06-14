@@ -411,6 +411,13 @@ KINDS = {
     "long_short_ratio": lambda a: N.long_short_ratio(a["exposure"]),
     "largest_position": lambda a: N.largest_position(a["exposure"]),
     "liquidity_coverage": lambda a: N.liquidity_coverage(a["weight"], a["days"], a["threshold"]),
+    # pack FX - single-factor market-model risk
+    "idiosyncratic_volatility": lambda a: N.idiosyncratic_volatility(a["ret"], a["bench"]),
+    "alpha_tstat": lambda a: N.alpha_tstat(a["ret"], a["bench"]),
+    "beta_tstat": lambda a: N.beta_tstat(a["ret"], a["bench"]),
+    "bull_beta": lambda a: N.bull_beta(a["ret"], a["bench"]),
+    "bear_beta": lambda a: N.bear_beta(a["ret"], a["bench"]),
+    "up_down_beta_ratio": lambda a: N.up_down_beta_ratio(a["ret"], a["bench"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -543,10 +550,13 @@ EXPECTED = {
     # pack OPS - exposure, leverage & ODD metrics (7)
     "gross_exposure", "net_exposure", "long_exposure", "short_exposure",
     "long_short_ratio", "largest_position", "liquidity_coverage",
+    # pack FX - single-factor market-model risk (6)
+    "idiosyncratic_volatility", "alpha_tstat", "beta_tstat",
+    "bull_beta", "bear_beta", "up_down_beta_ratio",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 336 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 342 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

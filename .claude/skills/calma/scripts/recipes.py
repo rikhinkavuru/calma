@@ -2253,3 +2253,21 @@ def liquidity_coverage(cols, binding, convention=None):
     w, d = cols[binding["weight"]], cols[binding["days_to_liquidate"]]
     threshold = _conv_float(convention, "threshold", 5.0)
     return _result(N.liquidity_coverage(w, d, threshold), {"n": len(w), "threshold": threshold})
+
+
+# ======================================================================================
+# Pack FX - single-factor market-model risk. Bind asset return + benchmark return columns;
+# the market model is fit by OLS for idiosyncratic vol, alpha/beta t-stats and bull/bear beta.
+# ======================================================================================
+
+def _fx_rb(fn):
+    def recipe(cols, binding, convention=None):
+        r, b = cols[binding["return"]], cols[binding["benchmark"]]
+        return _result(fn(r, b), {"n": len(r)})
+    return recipe
+
+
+for _mid in ("idiosyncratic_volatility", "alpha_tstat", "beta_tstat",
+             "bull_beta", "bear_beta", "up_down_beta_ratio"):
+    register(_mid, family="quant", required_tags=["return", "benchmark"],
+             set_maturity="reviewed")(_fx_rb(getattr(N, _mid)))

@@ -4706,3 +4706,96 @@ def liquidity_coverage(weight, days, threshold):
     if g == 0:
         return float("nan")
     return math.fsum(abs(w) for w, d in zip(weight, days) if d <= threshold) / g
+
+
+# ======================================================================================
+# Pack FX - single-factor market-model risk. Regress asset returns on benchmark returns
+# (OLS with intercept) for idiosyncratic vol and the alpha / beta t-statistics; split the
+# sample on the sign of the market for bull / bear beta. Validated against statsmodels OLS.
+# ======================================================================================
+
+def _mm_fit(ret, bench):
+    """OLS r = alpha + beta*m: returns (alpha, beta, ssr, Sxx, mbar, n) or None."""
+    n = len(ret)
+    if n < 3 or len(bench) != n or _has_nan(ret) or _has_nan(bench):
+        return None
+    mbar, rbar = fmean(bench), fmean(ret)
+    sxx = math.fsum((m - mbar) ** 2 for m in bench)
+    if sxx == 0:
+        return None
+    sxy = math.fsum((m - mbar) * (r - rbar) for m, r in zip(bench, ret))
+    beta = sxy / sxx
+    alpha = rbar - beta * mbar
+    ssr = math.fsum((r - (alpha + beta * m)) ** 2 for m, r in zip(bench, ret))
+    return alpha, beta, ssr, sxx, mbar, n
+
+
+def idiosyncratic_volatility(ret, bench):
+    """Residual (idiosyncratic) volatility of the market model: sqrt(SSR/(n-2))."""
+    f = _mm_fit(ret, bench)
+    if f is None:
+        return float("nan")
+    _, _, ssr, _, _, n = f
+    return math.sqrt(ssr / (n - 2))
+
+
+def alpha_tstat(ret, bench):
+    """t-statistic of the market-model intercept (Jensen's alpha): alpha / SE(alpha)."""
+    f = _mm_fit(ret, bench)
+    if f is None:
+        return float("nan")
+    alpha, _, ssr, sxx, mbar, n = f
+    s = math.sqrt(ssr / (n - 2))
+    se = s * math.sqrt(1.0 / n + mbar * mbar / sxx)
+    if se == 0:
+        return float("nan")
+    return alpha / se
+
+
+def beta_tstat(ret, bench):
+    """t-statistic of the market-model slope (beta): beta / SE(beta)."""
+    f = _mm_fit(ret, bench)
+    if f is None:
+        return float("nan")
+    _, beta, ssr, sxx, _, n = f
+    s = math.sqrt(ssr / (n - 2))
+    se = s / math.sqrt(sxx)
+    if se == 0:
+        return float("nan")
+    return beta / se
+
+
+def _subset_beta(ret, bench, want_up):
+    pairs = [(m, r) for m, r in zip(bench, ret) if (m > 0) == want_up and m != 0]
+    if len(pairs) < 2:
+        return float("nan")
+    ms = [m for m, _ in pairs]
+    rs = [r for _, r in pairs]
+    mbar, rbar = fmean(ms), fmean(rs)
+    sxx = math.fsum((m - mbar) ** 2 for m in ms)
+    if sxx == 0:
+        return float("nan")
+    return math.fsum((m - mbar) * (r - rbar) for m, r in zip(ms, rs)) / sxx
+
+
+def bull_beta(ret, bench):
+    """Beta estimated only on up-market days (benchmark > 0)."""
+    if len(ret) != len(bench) or _has_nan(ret) or _has_nan(bench):
+        return float("nan")
+    return _subset_beta(ret, bench, True)
+
+
+def bear_beta(ret, bench):
+    """Beta estimated only on down-market days (benchmark < 0)."""
+    if len(ret) != len(bench) or _has_nan(ret) or _has_nan(bench):
+        return float("nan")
+    return _subset_beta(ret, bench, False)
+
+
+def up_down_beta_ratio(ret, bench):
+    """Market-timing ratio: bull beta / bear beta (>1 = convex, captures up more than down)."""
+    bu = bull_beta(ret, bench)
+    bd = bear_beta(ret, bench)
+    if bu != bu or bd != bd or bd == 0:
+        return float("nan")
+    return bu / bd

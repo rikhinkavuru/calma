@@ -1759,6 +1759,39 @@ case("largest_position", "largest_position", ops_eargs, ops_largest, atol=1e-12)
 case("liquidity_coverage", "liquidity_coverage",
      {"weight": ops_exp, "days": ops_days, "threshold": ops_thresh}, ops_liq, atol=1e-12)
 
+# ============================ Pack FX - single-factor market-model risk ============================
+# Independent reference: statsmodels OLS for idiosyncratic vol and the alpha / beta t-stats,
+# numpy slope on the up/down-market subsets for bull / bear beta.
+
+import statsmodels.api as _smapi  # noqa: E402
+
+fx_bench = list(uniforms(6601, 90, -0.035, 0.035))
+fx_ret = [0.0006 + 1.15 * b + e for b, e in zip(fx_bench, uniforms(6602, 90, -0.012, 0.012))]
+_fxX = _smapi.add_constant(np.array(fx_bench))
+_fxres = _smapi.OLS(np.array(fx_ret), _fxX).fit()
+fx_idio = float(np.sqrt(_fxres.mse_resid))
+fx_at = float(_fxres.tvalues[0])
+fx_bt = float(_fxres.tvalues[1])
+
+
+def _np_subset_beta(up):
+    ms = [m for m in fx_bench if (m > 0) == up and m != 0]
+    rs = [r for m, r in zip(fx_bench, fx_ret) if (m > 0) == up and m != 0]
+    am, ar = np.array(ms), np.array(rs)
+    return float(np.cov(am, ar, ddof=1)[0, 1] / np.var(am, ddof=1))
+
+
+fx_bull = _np_subset_beta(True)
+fx_bear = _np_subset_beta(False)
+fx_ratio = fx_bull / fx_bear
+fx_args = {"ret": fx_ret, "bench": fx_bench}
+case("idiosyncratic_volatility", "idiosyncratic_volatility", fx_args, fx_idio, atol=1e-12)
+case("alpha_tstat", "alpha_tstat", fx_args, fx_at, atol=1e-9)
+case("beta_tstat", "beta_tstat", fx_args, fx_bt, atol=1e-9)
+case("bull_beta", "bull_beta", fx_args, fx_bull, atol=1e-12)
+case("bear_beta", "bear_beta", fx_args, fx_bear, atol=1e-12)
+case("up_down_beta_ratio", "up_down_beta_ratio", fx_args, fx_ratio, atol=1e-12)
+
 # ============================ write ============================
 
 doc = {
