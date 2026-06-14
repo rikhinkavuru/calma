@@ -649,6 +649,13 @@ KINDS = {
     "share_turnover": lambda a: N.share_turnover(a["volume"], a["shares"]),
     "realized_spread_bps": lambda a: N.realized_spread_bps(a["exec"], a["midf"], a["qty"], a["side"]),
     "price_impact_bps": lambda a: N.price_impact_bps(a["mid"], a["midf"], a["qty"], a["side"]),
+    # pack SK - sklearn-validated classification / regression depth
+    "cohen_kappa_linear": lambda a: N.cohen_kappa_linear(a["pred"], a["label"]),
+    "cohen_kappa_quadratic": lambda a: N.cohen_kappa_quadratic(a["pred"], a["label"]),
+    "balanced_accuracy_adjusted": lambda a: N.balanced_accuracy_adjusted(a["pred"], a["label"]),
+    "jaccard_macro": lambda a: N.jaccard_macro(a["pred"], a["label"]),
+    "d2_pinball_score": lambda a: N.d2_pinball_score(a["pred"], a["target"], a["alpha"]),
+    "d2_log_loss_score": lambda a: N.d2_log_loss_score(a["prob"], a["label"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -899,10 +906,13 @@ EXPECTED = {
     # pack MS - market-microstructure / execution depth (6)
     "corwin_schultz_spread", "abdi_ranaldo_spread", "order_flow_imbalance",
     "share_turnover", "realized_spread_bps", "price_impact_bps",
+    # pack SK - sklearn-validated classification / regression depth (6)
+    "cohen_kappa_linear", "cohen_kappa_quadratic", "balanced_accuracy_adjusted",
+    "jaccard_macro", "d2_pinball_score", "d2_log_loss_score",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 542 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 548 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

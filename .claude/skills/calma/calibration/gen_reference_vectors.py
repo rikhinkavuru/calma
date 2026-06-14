@@ -2927,6 +2927,32 @@ case("price_impact_bps", "price_impact_bps",
      {"mid": ms_mid, "midf": ms_midf, "qty": ms_qty, "side": ms_side},
      ms_side * 2.0 * _pi_num / _pi_den * 1e4, atol=1e-9, rtol=1e-12)
 
+# ============================ Pack SK - sklearn-validated classification / regression depth ============================
+# Independent reference: scikit-learn cohen_kappa_score (weighted), balanced_accuracy_score
+# (adjusted), jaccard_score (macro), d2_pinball_score and d2_log_loss_score. The classification
+# recipes bind (prediction, label) -> sklearn(y_true=label, y_pred=prediction).
+
+sk_n = 80
+sk_pred = [float(int(u * 5) % 5) for u in uniforms(8101, sk_n, 0, 1)]
+sk_label = [float(int(u * 5) % 5) for u in uniforms(8102, sk_n, 0, 1)]
+case("cohen_kappa_linear", "cohen_kappa_linear", {"pred": sk_pred, "label": sk_label},
+     float(skm.cohen_kappa_score(sk_pred, sk_label, weights="linear")), atol=1e-12)
+case("cohen_kappa_quadratic", "cohen_kappa_quadratic", {"pred": sk_pred, "label": sk_label},
+     float(skm.cohen_kappa_score(sk_pred, sk_label, weights="quadratic")), atol=1e-12)
+case("balanced_accuracy_adjusted", "balanced_accuracy_adjusted", {"pred": sk_pred, "label": sk_label},
+     float(skm.balanced_accuracy_score(sk_label, sk_pred, adjusted=True)), atol=1e-12)
+case("jaccard_macro", "jaccard_macro", {"pred": sk_pred, "label": sk_label},
+     float(skm.jaccard_score(sk_label, sk_pred, average="macro", zero_division=0)), atol=1e-12)
+sk_t = list(uniforms(8103, sk_n, 0, 50))
+sk_p = [x + e for x, e in zip(sk_t, uniforms(8104, sk_n, -5, 5))]
+sk_alpha = 0.7
+case("d2_pinball_score", "d2_pinball_score", {"pred": sk_p, "target": sk_t, "alpha": sk_alpha},
+     float(skm.d2_pinball_score(sk_t, sk_p, alpha=sk_alpha)), atol=1e-12)
+sk_yb = [float(u < 0.5) for u in uniforms(8105, sk_n, 0, 1)]
+sk_pb = [min(max(u, 1e-6), 1 - 1e-6) for u in uniforms(8106, sk_n, 0, 1)]
+case("d2_log_loss_score", "d2_log_loss_score", {"prob": sk_pb, "label": sk_yb},
+     float(skm.d2_log_loss_score(sk_yb, np.c_[1 - np.array(sk_pb), np.array(sk_pb)])), atol=1e-12)
+
 # ============================ write ============================
 
 doc = {

@@ -7474,3 +7474,105 @@ def price_impact_bps(mid_px, mid_future_px, qty, side):
     """Price impact in bps: 2*side*sum(q(mid_future - mid))/sum(q*mid)*1e4 - how far the
     quote moved against the trade after execution."""
     return _signed_cost_bps(mid_future_px, mid_px, qty, side, mult=2.0)
+
+
+# ======================================================================================
+# Pack SK - sklearn-validated classification / regression depth. Weighted Cohen's kappa
+# (ordinal agreement), chance-adjusted balanced accuracy, macro-averaged Jaccard, and the
+# D^2 skill scores for pinball and log loss. Validated against scikit-learn.
+# ======================================================================================
+
+def _weighted_kappa(pred, label, quadratic):
+    if _has_nan(pred) or _has_nan(label) or not label or len(pred) != len(label):
+        return float("nan")
+    labs = sorted(set(label) | set(pred))
+    idx = {c: i for i, c in enumerate(labs)}
+    k = len(labs)
+    n = len(label)
+    conf = [[0] * k for _ in range(k)]
+    for p, y in zip(pred, label):
+        conf[idx[y]][idx[p]] += 1
+    s1 = [sum(conf[i]) for i in range(k)]
+    s0 = [sum(conf[i][j] for i in range(k)) for j in range(k)]
+    num = 0.0
+    den = 0.0
+    for i in range(k):
+        for j in range(k):
+            w = (i - j) ** 2 if quadratic else abs(i - j)
+            num += w * conf[i][j]
+            den += w * s1[i] * s0[j] / n
+    if den == 0:
+        return float("nan")
+    return 1.0 - num / den
+
+
+def cohen_kappa_linear(pred, label):
+    """Linearly-weighted Cohen's kappa for ordinal agreement (sklearn weights='linear')."""
+    return _weighted_kappa(pred, label, quadratic=False)
+
+
+def cohen_kappa_quadratic(pred, label):
+    """Quadratically-weighted Cohen's kappa for ordinal agreement (sklearn weights='quadratic')."""
+    return _weighted_kappa(pred, label, quadratic=True)
+
+
+def balanced_accuracy_adjusted(pred, label):
+    """Chance-adjusted balanced accuracy: (bACC - 1/n_classes)/(1 - 1/n_classes), so 0 = chance
+    (sklearn balanced_accuracy_score adjusted=True)."""
+    ba = balanced_accuracy(pred, label)
+    if ba != ba:
+        return float("nan")
+    ncl = len(set(label))
+    if ncl < 2:
+        return float("nan")
+    chance = 1.0 / ncl
+    return (ba - chance) / (1.0 - chance)
+
+
+def jaccard_macro(pred, label):
+    """Macro-averaged Jaccard index over the union of present classes; empty class -> 0
+    (sklearn jaccard_score average='macro', zero_division=0)."""
+    if _has_nan(pred) or _has_nan(label) or not label or len(pred) != len(label):
+        return float("nan")
+    labs = sorted(set(pred) | set(label))
+    total = 0.0
+    for c in labs:
+        tp = sum(1 for p, y in zip(pred, label) if p == c and y == c)
+        fp = sum(1 for p, y in zip(pred, label) if p == c and y != c)
+        fn = sum(1 for p, y in zip(pred, label) if p != c and y == c)
+        d = tp + fp + fn
+        total += tp / d if d > 0 else 0.0
+    return total / len(labs)
+
+
+def d2_pinball_score(pred, target, alpha=0.5):
+    """D^2 pinball skill score: 1 - pinball(target, pred) / pinball(target, alpha-quantile)
+    (sklearn d2_pinball_score); the null model predicts the alpha-quantile of the target."""
+    if not (0.0 < alpha < 1.0):
+        return float("nan")
+    num = pinball(pred, target, alpha)
+    qa = quantile(target, alpha)
+    if num != num or qa != qa:
+        return float("nan")
+    den = pinball([qa] * len(target), target, alpha)
+    if den != den or den == 0:
+        return float("nan")
+    return 1.0 - num / den
+
+
+def d2_log_loss_score(prob, label):
+    """D^2 log-loss skill score: 1 - logloss(label, prob) / logloss(label, base-rate)
+    (sklearn d2_log_loss_score); the null model predicts the empirical class rate."""
+    n = len(label)
+    if n == 0 or len(prob) != n or _has_nan(prob) or _has_nan(label):
+        return float("nan")
+    if any(p <= 0.0 or p >= 1.0 for p in prob) or any(y not in (0.0, 1.0) for y in label):
+        return float("nan")
+    ll = math.fsum(-(y * dlog(p) + (1.0 - y) * dlog(1.0 - p)) for p, y in zip(prob, label)) / n
+    ybar = fmean(label)
+    if ybar <= 0.0 or ybar >= 1.0:
+        return float("nan")
+    ll0 = -(ybar * dlog(ybar) + (1.0 - ybar) * dlog(1.0 - ybar))
+    if ll0 == 0:
+        return float("nan")
+    return 1.0 - ll / ll0

@@ -391,6 +391,18 @@
       ],
       "description": "Average of per-class recall, robust to class imbalance."
     },
+    "balanced_accuracy_adjusted": {
+      "aliases": [
+        "adjusted balanced accuracy",
+        "chance-adjusted balanced accuracy",
+        "balanced accuracy above chance",
+        "informedness-like score",
+        "balanced accuracy adjusted",
+        "how much better than random per class",
+        "adjusted recall average"
+      ],
+      "description": "Balanced accuracy rescaled so chance performance equals zero."
+    },
     "bartlett": {
       "aliases": [
         "bartlett test",
@@ -1134,6 +1146,30 @@
       ],
       "description": "Inter-rater agreement corrected for chance agreement."
     },
+    "cohen_kappa_linear": {
+      "aliases": [
+        "linear weighted kappa",
+        "cohen kappa linear",
+        "weighted kappa linear",
+        "ordinal agreement linear",
+        "how well two ordinal ratings agree",
+        "linear kappa",
+        "weighted agreement linear"
+      ],
+      "description": "Linearly-weighted Cohen's kappa for ordinal rater agreement."
+    },
+    "cohen_kappa_quadratic": {
+      "aliases": [
+        "quadratic weighted kappa",
+        "qwk",
+        "cohen kappa quadratic",
+        "weighted kappa quadratic",
+        "ordinal agreement quadratic",
+        "how well ordinal scores agree",
+        "quadratic kappa"
+      ],
+      "description": "Quadratically-weighted Cohen's kappa for ordinal rater agreement."
+    },
     "cohens_f": {
       "aliases": [
         "cohen's f",
@@ -1475,6 +1511,30 @@
         "portion of the absolute error the model gets rid of"
       ],
       "description": "Fraction of absolute error explained relative to a median baseline."
+    },
+    "d2_log_loss_score": {
+      "aliases": [
+        "d2 log loss score",
+        "log loss r-squared",
+        "logistic skill score",
+        "explained log loss",
+        "how much better than predicting the base rate",
+        "mcfadden-like score",
+        "d2 logistic"
+      ],
+      "description": "Fraction of log loss explained over the base-rate baseline."
+    },
+    "d2_pinball_score": {
+      "aliases": [
+        "d2 pinball score",
+        "quantile r-squared",
+        "pinball skill score",
+        "explained quantile loss",
+        "how good is the quantile forecast",
+        "d2 quantile",
+        "pinball d-squared"
+      ],
+      "description": "Fraction of pinball (quantile) loss explained over the quantile baseline."
     },
     "d2_tweedie_score": {
       "aliases": [
@@ -2684,6 +2744,18 @@
         "tanimoto"
       ],
       "description": "Intersection over union of predicted and true positive sets."
+    },
+    "jaccard_macro": {
+      "aliases": [
+        "macro jaccard",
+        "jaccard macro",
+        "macro intersection over union",
+        "average class overlap",
+        "mean jaccard across classes",
+        "macro iou",
+        "jaccard similarity macro"
+      ],
+      "description": "Macro-averaged Jaccard overlap across all classes."
     },
     "jarque_bera": {
       "aliases": [

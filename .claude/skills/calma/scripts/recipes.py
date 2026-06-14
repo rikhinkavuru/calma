@@ -3298,3 +3298,37 @@ def price_impact_bps(cols, binding, convention=None):
     m0, m1, q = cols[binding["mid_price"]], cols[binding["mid_future_price"]], cols[binding["quantity"]]
     side = _tca_side(convention)
     return _result(N.price_impact_bps(m0, m1, q, side), {"n": len(m0), "side": "sell" if side < 0 else "buy"})
+
+
+# ======================================================================================
+# Pack SK - sklearn-validated classification / regression depth. Agreement / accuracy /
+# overlap metrics bind (prediction, label); d2_pinball binds (prediction, target) + an alpha;
+# d2_log_loss binds (prob, label).
+# ======================================================================================
+
+def _pl_recipe(fn):
+    def recipe(cols, binding, convention=None):
+        p, l = cols[binding["prediction"]], cols[binding["label"]]
+        return _result(fn(p, l), {"n": len(l)})
+    return recipe
+
+
+for _mid in ("cohen_kappa_linear", "cohen_kappa_quadratic", "balanced_accuracy_adjusted",
+             "jaccard_macro"):
+    register(_mid, family="classification", required_tags=["prediction", "label"],
+             set_maturity="reviewed")(_pl_recipe(getattr(N, _mid)))
+
+
+@register("d2_pinball_score", family="regression", required_tags=["prediction", "target"],
+          set_maturity="reviewed", accepted_conventions=["alpha=<float>"])
+def d2_pinball_score(cols, binding, convention=None):
+    p, t = cols[binding["prediction"]], cols[binding["target"]]
+    alpha = _conv_float(convention, "alpha", 0.5)
+    return _result(N.d2_pinball_score(p, t, alpha), {"n": len(t), "alpha": alpha})
+
+
+@register("d2_log_loss_score", family="classification", required_tags=["prob", "label"],
+          set_maturity="reviewed")
+def d2_log_loss_score(cols, binding, convention=None):
+    p, l = cols[binding["prob"]], cols[binding["label"]]
+    return _result(N.d2_log_loss_score(p, l), {"n": len(l)})
