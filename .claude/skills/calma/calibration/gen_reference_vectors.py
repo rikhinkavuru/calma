@@ -1792,6 +1792,36 @@ case("bull_beta", "bull_beta", fx_args, fx_bull, atol=1e-12)
 case("bear_beta", "bear_beta", fx_args, fx_bear, atol=1e-12)
 case("up_down_beta_ratio", "up_down_beta_ratio", fx_args, fx_ratio, atol=1e-12)
 
+# ============================ Pack AR - credit-quality / covenant ratios ============================
+# Independent reference: numpy recompute of the leverage / coverage ratio definitions over a
+# deterministic multi-entity balance sheet.
+
+ar_ca = [120.0, 80.0, 200.0]
+ar_inv = [40.0, 25.0, 60.0]
+ar_cl = [90.0, 60.0, 150.0]
+ar_ebit = [50.0, 30.0, 70.0]
+ar_int = [10.0, 8.0, 12.0]
+ar_debt = [200.0, 150.0, 400.0]
+ar_equity = [180.0, 120.0, 300.0]
+ar_ebitda = [70.0, 45.0, 95.0]
+ar_cash = [30.0, 20.0, 50.0]
+ar_rev = [300.0, 180.0, 420.0]
+_s = lambda xs: float(np.sum(xs))
+case("current_ratio", "current_ratio", {"ca": ar_ca, "cl": ar_cl},
+     _s(ar_ca) / _s(ar_cl), atol=1e-12)
+case("quick_ratio", "quick_ratio", {"ca": ar_ca, "inv": ar_inv, "cl": ar_cl},
+     (_s(ar_ca) - _s(ar_inv)) / _s(ar_cl), atol=1e-12)
+case("interest_coverage", "interest_coverage", {"ebit": ar_ebit, "interest": ar_int},
+     _s(ar_ebit) / _s(ar_int), atol=1e-12)
+case("debt_to_equity", "debt_to_equity", {"debt": ar_debt, "equity": ar_equity},
+     _s(ar_debt) / _s(ar_equity), atol=1e-12)
+case("debt_to_ebitda", "debt_to_ebitda", {"debt": ar_debt, "ebitda": ar_ebitda},
+     _s(ar_debt) / _s(ar_ebitda), atol=1e-12)
+case("net_debt_to_ebitda", "net_debt_to_ebitda", {"debt": ar_debt, "cash": ar_cash, "ebitda": ar_ebitda},
+     (_s(ar_debt) - _s(ar_cash)) / _s(ar_ebitda), atol=1e-12)
+case("ebitda_margin", "ebitda_margin", {"ebitda": ar_ebitda, "revenue": ar_rev},
+     _s(ar_ebitda) / _s(ar_rev), atol=1e-12)
+
 # ============================ write ============================
 
 doc = {

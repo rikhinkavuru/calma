@@ -4799,3 +4799,70 @@ def up_down_beta_ratio(ret, bench):
     if bu != bu or bd != bd or bd == 0:
         return float("nan")
     return bu / bd
+
+
+# ======================================================================================
+# Pack AR - credit-quality / covenant ratios. Balance-sheet and income columns (summed
+# across the entities / line items) give the leverage and coverage ratios credit analysts
+# and covenant monitors verify. All definitional ratios under correctly-rounded summation.
+# ======================================================================================
+
+def _ar_ok(*cols):
+    n = len(cols[0])
+    return n > 0 and all(len(c) == n for c in cols) and not any(_has_nan(c) for c in cols)
+
+
+def _ar_ratio(num, den):
+    if den == 0:
+        return float("nan")
+    return num / den
+
+
+def current_ratio(current_assets, current_liabilities):
+    """Current ratio: sum(current_assets) / sum(current_liabilities)."""
+    if not _ar_ok(current_assets, current_liabilities):
+        return float("nan")
+    return _ar_ratio(math.fsum(current_assets), math.fsum(current_liabilities))
+
+
+def quick_ratio(current_assets, inventory, current_liabilities):
+    """Quick (acid-test) ratio: (sum(current_assets) - sum(inventory)) / sum(current_liabilities)."""
+    if not _ar_ok(current_assets, inventory, current_liabilities):
+        return float("nan")
+    return _ar_ratio(math.fsum(current_assets) - math.fsum(inventory),
+                     math.fsum(current_liabilities))
+
+
+def interest_coverage(ebit, interest_expense):
+    """Interest coverage (times interest earned): sum(EBIT) / sum(interest_expense)."""
+    if not _ar_ok(ebit, interest_expense):
+        return float("nan")
+    return _ar_ratio(math.fsum(ebit), math.fsum(interest_expense))
+
+
+def debt_to_equity(debt, equity):
+    """Debt-to-equity (gearing): sum(debt) / sum(equity)."""
+    if not _ar_ok(debt, equity):
+        return float("nan")
+    return _ar_ratio(math.fsum(debt), math.fsum(equity))
+
+
+def debt_to_ebitda(debt, ebitda):
+    """Leverage ratio: sum(debt) / sum(EBITDA)."""
+    if not _ar_ok(debt, ebitda):
+        return float("nan")
+    return _ar_ratio(math.fsum(debt), math.fsum(ebitda))
+
+
+def net_debt_to_ebitda(debt, cash, ebitda):
+    """Net leverage: (sum(debt) - sum(cash)) / sum(EBITDA)."""
+    if not _ar_ok(debt, cash, ebitda):
+        return float("nan")
+    return _ar_ratio(math.fsum(debt) - math.fsum(cash), math.fsum(ebitda))
+
+
+def ebitda_margin(ebitda, revenue):
+    """EBITDA margin: sum(EBITDA) / sum(revenue)."""
+    if not _ar_ok(ebitda, revenue):
+        return float("nan")
+    return _ar_ratio(math.fsum(ebitda), math.fsum(revenue))

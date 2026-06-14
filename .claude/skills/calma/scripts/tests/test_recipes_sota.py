@@ -418,6 +418,14 @@ KINDS = {
     "bull_beta": lambda a: N.bull_beta(a["ret"], a["bench"]),
     "bear_beta": lambda a: N.bear_beta(a["ret"], a["bench"]),
     "up_down_beta_ratio": lambda a: N.up_down_beta_ratio(a["ret"], a["bench"]),
+    # pack AR - credit-quality / covenant ratios
+    "current_ratio": lambda a: N.current_ratio(a["ca"], a["cl"]),
+    "quick_ratio": lambda a: N.quick_ratio(a["ca"], a["inv"], a["cl"]),
+    "interest_coverage": lambda a: N.interest_coverage(a["ebit"], a["interest"]),
+    "debt_to_equity": lambda a: N.debt_to_equity(a["debt"], a["equity"]),
+    "debt_to_ebitda": lambda a: N.debt_to_ebitda(a["debt"], a["ebitda"]),
+    "net_debt_to_ebitda": lambda a: N.net_debt_to_ebitda(a["debt"], a["cash"], a["ebitda"]),
+    "ebitda_margin": lambda a: N.ebitda_margin(a["ebitda"], a["revenue"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -553,10 +561,13 @@ EXPECTED = {
     # pack FX - single-factor market-model risk (6)
     "idiosyncratic_volatility", "alpha_tstat", "beta_tstat",
     "bull_beta", "bear_beta", "up_down_beta_ratio",
+    # pack AR - credit-quality / covenant ratios (7)
+    "current_ratio", "quick_ratio", "interest_coverage", "debt_to_equity",
+    "debt_to_ebitda", "net_debt_to_ebitda", "ebitda_margin",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 342 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 349 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

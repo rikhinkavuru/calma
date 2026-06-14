@@ -2271,3 +2271,31 @@ for _mid in ("idiosyncratic_volatility", "alpha_tstat", "beta_tstat",
              "bull_beta", "bear_beta", "up_down_beta_ratio"):
     register(_mid, family="quant", required_tags=["return", "benchmark"],
              set_maturity="reviewed")(_fx_rb(getattr(N, _mid)))
+
+
+# ======================================================================================
+# Pack AR - credit-quality / covenant ratios. Balance-sheet and income columns drive the
+# leverage and coverage ratios; each recipe binds the line-item columns it needs.
+# ======================================================================================
+
+_AR_BIND = {
+    "current_ratio": ["current_assets", "current_liabilities"],
+    "quick_ratio": ["current_assets", "inventory", "current_liabilities"],
+    "interest_coverage": ["ebit", "interest_expense"],
+    "debt_to_equity": ["debt", "equity"],
+    "debt_to_ebitda": ["debt", "ebitda"],
+    "net_debt_to_ebitda": ["debt", "cash", "ebitda"],
+    "ebitda_margin": ["ebitda", "revenue"],
+}
+
+
+def _ar_recipe(fn, tags):
+    def recipe(cols, binding, convention=None):
+        a = [cols[binding[t]] for t in tags]
+        return _result(fn(*a), {"n": len(a[0])})
+    return recipe
+
+
+for _mid, _tags in _AR_BIND.items():
+    register(_mid, family="credit", required_tags=list(_tags),
+             set_maturity="reviewed")(_ar_recipe(getattr(N, _mid), _tags))
