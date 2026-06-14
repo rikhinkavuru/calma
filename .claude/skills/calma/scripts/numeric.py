@@ -7650,3 +7650,77 @@ def fixed_charge_coverage(ebit, lease, interest):
     if den == 0:
         return float("nan")
     return (math.fsum(ebit) + math.fsum(lease)) / den
+
+
+# ======================================================================================
+# Pack TSF - time-series / signal-shape features over a single ordered value column. Zero-
+# crossing and turning-point rates, the Hjorth mobility / complexity descriptors, and the L1/
+# L2 successive-difference summaries. Validated against the numpy reference.
+# ======================================================================================
+
+def zero_crossing_rate(xs):
+    """Zero-crossing rate: fraction of consecutive pairs whose sign differs (0 counts as
+    non-negative, matching numpy signbit)."""
+    n = len(xs)
+    if n < 2 or _has_nan(xs):
+        return float("nan")
+    c = sum(1 for i in range(1, n) if (xs[i - 1] < 0) != (xs[i] < 0))
+    return c / (n - 1)
+
+
+def hjorth_mobility(xs):
+    """Hjorth mobility: sqrt(var(diff(x)) / var(x)) (population variance) - a normalized mean
+    frequency of the signal."""
+    n = len(xs)
+    if n < 2 or _has_nan(xs):
+        return float("nan")
+    d = [xs[i] - xs[i - 1] for i in range(1, n)]
+    v0 = fvar(xs, 0)
+    if v0 <= 0:
+        return float("nan")
+    return math.sqrt(fvar(d, 0) / v0)
+
+
+def hjorth_complexity(xs):
+    """Hjorth complexity: mobility(diff(x)) / mobility(x) - how much the signal's frequency
+    content varies (1.0 for a pure sinusoid)."""
+    n = len(xs)
+    if n < 3 or _has_nan(xs):
+        return float("nan")
+    d = [xs[i] - xs[i - 1] for i in range(1, n)]
+    dd = [d[i] - d[i - 1] for i in range(1, len(d))]
+    v0, v1, v2 = fvar(xs, 0), fvar(d, 0), fvar(dd, 0)
+    if v0 <= 0 or v1 <= 0:
+        return float("nan")
+    mob_x = math.sqrt(v1 / v0)
+    mob_d = math.sqrt(v2 / v1)
+    if mob_x == 0:
+        return float("nan")
+    return mob_d / mob_x
+
+
+def turning_point_rate(xs):
+    """Turning-point rate: fraction of interior points that are local maxima or minima
+    (product of the two surrounding first differences is negative)."""
+    n = len(xs)
+    if n < 3 or _has_nan(xs):
+        return float("nan")
+    c = sum(1 for i in range(1, n - 1) if (xs[i] - xs[i - 1]) * (xs[i + 1] - xs[i]) < 0)
+    return c / (n - 2)
+
+
+def rms_successive_differences(xs):
+    """Root mean square of successive differences (RMSSD): sqrt(mean((x_t - x_{t-1})^2))."""
+    n = len(xs)
+    if n < 2 or _has_nan(xs):
+        return float("nan")
+    d = [xs[i] - xs[i - 1] for i in range(1, n)]
+    return math.sqrt(math.fsum(v * v for v in d) / len(d))
+
+
+def mean_absolute_change(xs):
+    """Mean absolute change: mean(|x_t - x_{t-1}|) over the ordered series."""
+    n = len(xs)
+    if n < 2 or _has_nan(xs):
+        return float("nan")
+    return math.fsum(abs(xs[i] - xs[i - 1]) for i in range(1, n)) / (n - 1)

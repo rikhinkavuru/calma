@@ -2988,6 +2988,27 @@ case("cash_conversion_cycle", "cash_conversion_cycle",
 case("fixed_charge_coverage", "fixed_charge_coverage", {"ebit": cf_ebit, "lease": cf_lease, "interest": cf_int},
      float((np.sum(cf_ebit) + np.sum(cf_lease)) / (np.sum(cf_int) + np.sum(cf_lease))), atol=1e-12)
 
+# ============================ Pack TSF - time-series / signal-shape features ============================
+# Independent reference: numpy for zero-crossing / turning-point rates, the Hjorth descriptors
+# (population variances of x, diff(x), diff(diff(x))), and the L1/L2 successive-difference summaries.
+
+tsf_x = list(uniforms(9201, 120, -1.0, 1.0))
+_tx = np.array(tsf_x)
+_td = np.diff(_tx)
+_tdd = np.diff(_td)
+tsf_args = {"xs": tsf_x}
+case("zero_crossing_rate", "zero_crossing_rate", tsf_args,
+     float(np.sum(np.signbit(_tx[1:]) != np.signbit(_tx[:-1])) / (len(_tx) - 1)), atol=1e-12)
+case("hjorth_mobility", "hjorth_mobility", tsf_args,
+     float(np.sqrt(np.var(_td) / np.var(_tx))), atol=1e-12)
+_mob = lambda z: np.sqrt(np.var(np.diff(z)) / np.var(z))
+case("hjorth_complexity", "hjorth_complexity", tsf_args, float(_mob(_td) / _mob(_tx)), atol=1e-12)
+case("turning_point_rate", "turning_point_rate", tsf_args,
+     float(np.sum(_td[:-1] * _td[1:] < 0) / (len(_tx) - 2)), atol=1e-12)
+case("rms_successive_differences", "rms_successive_differences", tsf_args,
+     float(np.sqrt(np.mean(_td ** 2))), atol=1e-12)
+case("mean_absolute_change", "mean_absolute_change", tsf_args, float(np.mean(np.abs(_td))), atol=1e-12)
+
 # ============================ write ============================
 
 doc = {

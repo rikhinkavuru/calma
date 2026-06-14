@@ -3388,3 +3388,13 @@ _CF_BIND = {
 for _mid, _tags in _CF_BIND.items():
     register(_mid, family="finance", required_tags=list(_tags),
              set_maturity="reviewed")(_biz_recipe(getattr(N, _mid), _tags))
+
+
+# ======================================================================================
+# Pack TSF - time-series / signal-shape features over a single ordered value column.
+# ======================================================================================
+
+for _mid in ("zero_crossing_rate", "hjorth_mobility", "hjorth_complexity",
+             "turning_point_rate", "rms_successive_differences", "mean_absolute_change"):
+    register(_mid, family="stats", required_tags=["value"],
+             set_maturity="reviewed")(_mom_recipe(getattr(N, _mid)))

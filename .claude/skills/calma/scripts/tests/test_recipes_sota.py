@@ -664,6 +664,13 @@ KINDS = {
     "days_payable_outstanding": lambda a: N.days_payable_outstanding(a["pay"], a["cogs"]),
     "cash_conversion_cycle": lambda a: N.cash_conversion_cycle(a["recv"], a["inv"], a["pay"], a["rev"], a["cogs"]),
     "fixed_charge_coverage": lambda a: N.fixed_charge_coverage(a["ebit"], a["lease"], a["interest"]),
+    # pack TSF - time-series / signal-shape features
+    "zero_crossing_rate": lambda a: N.zero_crossing_rate(a["xs"]),
+    "hjorth_mobility": lambda a: N.hjorth_mobility(a["xs"]),
+    "hjorth_complexity": lambda a: N.hjorth_complexity(a["xs"]),
+    "turning_point_rate": lambda a: N.turning_point_rate(a["xs"]),
+    "rms_successive_differences": lambda a: N.rms_successive_differences(a["xs"]),
+    "mean_absolute_change": lambda a: N.mean_absolute_change(a["xs"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -921,10 +928,13 @@ EXPECTED = {
     "modified_irr", "profitability_index", "equivalent_annual_annuity",
     "days_inventory_outstanding", "days_payable_outstanding", "cash_conversion_cycle",
     "fixed_charge_coverage",
+    # pack TSF - time-series / signal-shape features (6)
+    "zero_crossing_rate", "hjorth_mobility", "hjorth_complexity",
+    "turning_point_rate", "rms_successive_differences", "mean_absolute_change",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 555 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 561 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

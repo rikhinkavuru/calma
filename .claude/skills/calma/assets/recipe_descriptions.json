@@ -2614,6 +2614,30 @@
       ],
       "description": "Margin-based loss penalizing predictions inside the margin."
     },
+    "hjorth_complexity": {
+      "aliases": [
+        "hjorth complexity",
+        "complexity parameter",
+        "frequency variation of signal",
+        "how much the wiggle rate changes",
+        "deviation from a sine wave",
+        "hjorth shape complexity",
+        "signal complexity hjorth"
+      ],
+      "description": "Hjorth complexity: how much a signal's frequency content varies."
+    },
+    "hjorth_mobility": {
+      "aliases": [
+        "hjorth mobility",
+        "mobility parameter",
+        "mean frequency of signal",
+        "how fast the signal wiggles",
+        "hjorth mean frequency",
+        "normalized derivative spread",
+        "signal mobility"
+      ],
+      "description": "Hjorth mobility: normalized mean frequency of a signal."
+    },
     "hochberg_rejections": {
       "aliases": [
         "hochberg correction",
@@ -3595,6 +3619,18 @@
         "absolute deviation"
       ],
       "description": "Average absolute distance of values from their mean."
+    },
+    "mean_absolute_change": {
+      "aliases": [
+        "mean absolute change",
+        "average step size",
+        "mean absolute difference of consecutive points",
+        "how much it moves each step",
+        "average jump",
+        "mean abs first difference",
+        "waveform length per step"
+      ],
+      "description": "Average absolute difference between consecutive samples."
     },
     "mean_arctangent_ape": {
       "aliases": [
@@ -4982,6 +5018,18 @@
       ],
       "description": "Absolute difference in outcome probability between treatment and control."
     },
+    "rms_successive_differences": {
+      "aliases": [
+        "rmssd",
+        "root mean square of successive differences",
+        "rms successive differences",
+        "short-term variability",
+        "beat-to-beat variation",
+        "how much it jumps step to step",
+        "successive difference rms"
+      ],
+      "description": "Root mean square of differences between consecutive samples."
+    },
     "rmse": {
       "aliases": [
         "rmse",
@@ -5680,6 +5728,18 @@
       ],
       "description": "Tschuprow's T association between two categorical variables."
     },
+    "turning_point_rate": {
+      "aliases": [
+        "turning point rate",
+        "turning points",
+        "local extrema rate",
+        "how jagged the series is",
+        "peaks and troughs frequency",
+        "reversal rate",
+        "number of turning points"
+      ],
+      "description": "Fraction of interior points that are local peaks or troughs."
+    },
     "tvpi": {
       "aliases": [
         "total value to paid-in",
@@ -6103,6 +6163,18 @@
         "credit spread over curve"
       ],
       "description": "Constant spread over the zero curve that prices a bond."
+    },
+    "zero_crossing_rate": {
+      "aliases": [
+        "zero crossing rate",
+        "zcr",
+        "sign change rate",
+        "how often it crosses zero",
+        "zero crossings per step",
+        "sign flip frequency",
+        "crossings of zero"
+      ],
+      "description": "Fraction of consecutive samples where the signal changes sign."
     },
     "zmijewski_score": {
       "aliases": [
