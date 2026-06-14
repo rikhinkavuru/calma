@@ -2863,6 +2863,22 @@ for _mid, _tags in _BIZ_BIND.items():
 
 
 # ======================================================================================
+# Pack AC - profitability margin ratios. Each binds the two line-item columns it needs.
+# ======================================================================================
+
+_AC_BIND = {
+    "operating_margin": ["operating_income", "revenue"],
+    "net_margin": ["net_income", "revenue"],
+    "free_cash_flow_margin": ["fcf", "revenue"],
+    "dividend_payout_ratio": ["dividends", "net_income"],
+}
+
+for _mid, _tags in _AC_BIND.items():
+    register(_mid, family="finance", required_tags=list(_tags),
+             set_maturity="reviewed")(_biz_recipe(getattr(N, _mid), _tags))
+
+
+# ======================================================================================
 # Pack DD - drawdown / path-risk depth. A return column; drawdown-at-risk takes a level.
 # ======================================================================================
 

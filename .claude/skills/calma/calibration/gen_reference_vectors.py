@@ -2508,6 +2508,21 @@ case("asset_turnover", "asset_turnover", {"rev": biz_rev, "assets": biz_assets},
 case("days_sales_outstanding", "days_sales_outstanding", {"recv": biz_recv, "rev": biz_rev},
      float(np.sum(biz_recv) / np.sum(biz_rev) * 365.0), atol=1e-11)
 
+# Pack AC - profitability margin ratios (numpy recompute)
+ac_oi = [80.0, 45.0, 110.0]
+ac_ni = [40.0, 25.0, 60.0]
+ac_fcf = [55.0, 30.0, 75.0]
+ac_div = [12.0, 8.0, 20.0]
+ac_rev = [500.0, 280.0, 720.0]
+case("operating_margin", "operating_margin", {"oi": ac_oi, "rev": ac_rev},
+     float(np.sum(ac_oi) / np.sum(ac_rev)), atol=1e-12)
+case("net_margin", "net_margin", {"ni": ac_ni, "rev": ac_rev},
+     float(np.sum(ac_ni) / np.sum(ac_rev)), atol=1e-12)
+case("free_cash_flow_margin", "free_cash_flow_margin", {"fcf": ac_fcf, "rev": ac_rev},
+     float(np.sum(ac_fcf) / np.sum(ac_rev)), atol=1e-12)
+case("dividend_payout_ratio", "dividend_payout_ratio", {"div": ac_div, "ni": ac_ni},
+     float(np.sum(ac_div) / np.sum(ac_ni)), atol=1e-12)
+
 # ============================ Pack DD - drawdown / path-risk depth ============================
 # Independent reference: numpy drawdown series with the running peak floored at the initial
 # capital 1.0 (matching the engine), then time-underwater, the DaR quantile and the std.

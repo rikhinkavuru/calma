@@ -6321,6 +6321,28 @@ def days_sales_outstanding(receivables, revenue):
     return _biz_ratio(receivables, revenue, 365.0)
 
 
+# Pack AC - profitability margin ratios (fundamental / credit analysis).
+
+def operating_margin(operating_income, revenue):
+    """Operating margin: sum(operating_income) / sum(revenue)."""
+    return _biz_ratio(operating_income, revenue)
+
+
+def net_margin(net_income, revenue):
+    """Net profit margin: sum(net_income) / sum(revenue)."""
+    return _biz_ratio(net_income, revenue)
+
+
+def free_cash_flow_margin(fcf, revenue):
+    """Free-cash-flow margin: sum(FCF) / sum(revenue)."""
+    return _biz_ratio(fcf, revenue)
+
+
+def dividend_payout_ratio(dividends, net_income):
+    """Dividend payout ratio: sum(dividends) / sum(net_income)."""
+    return _biz_ratio(dividends, net_income)
+
+
 # ======================================================================================
 # Pack DD - drawdown / path-risk depth. A return column drives the time-underwater fraction,
 # the drawdown-at-risk quantile and the drawdown deviation (std of the drawdown series).

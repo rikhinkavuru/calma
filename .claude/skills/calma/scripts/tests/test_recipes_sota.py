@@ -557,6 +557,10 @@ KINDS = {
     "return_on_invested_capital": lambda a: N.return_on_invested_capital(a["nopat"], a["ic"]),
     "asset_turnover": lambda a: N.asset_turnover(a["rev"], a["assets"]),
     "days_sales_outstanding": lambda a: N.days_sales_outstanding(a["recv"], a["rev"]),
+    "operating_margin": lambda a: N.operating_margin(a["oi"], a["rev"]),
+    "net_margin": lambda a: N.net_margin(a["ni"], a["rev"]),
+    "free_cash_flow_margin": lambda a: N.free_cash_flow_margin(a["fcf"], a["rev"]),
+    "dividend_payout_ratio": lambda a: N.dividend_payout_ratio(a["div"], a["ni"]),
     # pack DD - drawdown / path-risk depth
     "time_underwater": lambda a: N.time_underwater(a["rets"]),
     "drawdown_deviation": lambda a: N.drawdown_deviation(a["rets"]),
@@ -790,6 +794,8 @@ EXPECTED = {
     # pack BIZ - return-on-capital & efficiency ratios (5)
     "return_on_equity", "return_on_assets", "return_on_invested_capital",
     "asset_turnover", "days_sales_outstanding",
+    # pack AC - profitability margin ratios (4)
+    "operating_margin", "net_margin", "free_cash_flow_margin", "dividend_payout_ratio",
     # pack DD - drawdown / path-risk depth (3)
     "time_underwater", "drawdown_deviation", "drawdown_at_risk",
     # pack FC2 - forecasting accuracy depth (3)
@@ -807,7 +813,7 @@ EXPECTED = {
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 485 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 489 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402
