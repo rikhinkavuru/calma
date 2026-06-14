@@ -2450,3 +2450,28 @@ def _pme_recipe(fn):
 for _mid in ("ks_pme", "direct_alpha", "pme_plus_lambda"):
     register(_mid, family="finance", required_tags=["contribution", "distribution", "index"],
              set_maturity="reviewed", accepted_conventions=["nav=<float>"])(_pme_recipe(getattr(N, _mid)))
+
+
+# ======================================================================================
+# Pack IC - information criteria / model selection. A residual column; the penalized
+# criteria take the fitted-parameter count k via convention (default 2).
+# ======================================================================================
+
+@register("log_likelihood_gaussian", family="regression", required_tags=["residual"],
+          set_maturity="reviewed")
+def log_likelihood_gaussian(cols, binding, convention=None):
+    r = cols[binding["residual"]]
+    return _result(N.log_likelihood_gaussian(r), {"n": len(r)})
+
+
+def _ic_k(fn):
+    def recipe(cols, binding, convention=None):
+        r = cols[binding["residual"]]
+        k = _conv_int(convention, "k", 2)
+        return _result(fn(r, k), {"n": len(r), "k": k})
+    return recipe
+
+
+for _mid in ("aic", "bic", "aicc", "hqic"):
+    register(_mid, family="regression", required_tags=["residual"],
+             set_maturity="reviewed", accepted_conventions=["k=<int>"])(_ic_k(getattr(N, _mid)))

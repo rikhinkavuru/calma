@@ -455,6 +455,12 @@ KINDS = {
     "ks_pme": lambda a: N.ks_pme(a["c"], a["d"], a["index"], a["nav"]),
     "direct_alpha": lambda a: N.direct_alpha(a["c"], a["d"], a["index"], a["nav"]),
     "pme_plus_lambda": lambda a: N.pme_plus_lambda(a["c"], a["d"], a["index"], a["nav"]),
+    # pack IC - information criteria / model selection
+    "log_likelihood_gaussian": lambda a: N.log_likelihood_gaussian(a["resid"]),
+    "aic": lambda a: N.aic(a["resid"], a["k"]),
+    "bic": lambda a: N.bic(a["resid"], a["k"]),
+    "aicc": lambda a: N.aicc(a["resid"], a["k"]),
+    "hqic": lambda a: N.hqic(a["resid"], a["k"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -607,10 +613,12 @@ EXPECTED = {
     "effective_spread_bps", "participation_rate",
     # pack PME - private-market benchmarking (3)
     "ks_pme", "direct_alpha", "pme_plus_lambda",
+    # pack IC - information criteria / model selection (5)
+    "log_likelihood_gaussian", "aic", "bic", "aicc", "hqic",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 373 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 378 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

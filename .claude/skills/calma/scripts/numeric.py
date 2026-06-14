@@ -5219,3 +5219,63 @@ def pme_plus_lambda(contribution, distribution, index, nav):
         return float("nan")
     cnum = math.fsum(c * it / i for c, i in zip(contribution, index))
     return (cnum - nav) / dden
+
+
+# ======================================================================================
+# Pack IC - information criteria / model selection. A residual column and the number of
+# fitted parameters k give the Gaussian log-likelihood and the AIC / BIC / AICc / HQIC
+# penalties. Matches statsmodels' OLS Gaussian-MLE conventions.
+# ======================================================================================
+
+_LN2PI = 1.8378770664093453  # ln(2*pi)
+
+
+def _ic_llf(resid):
+    """Gaussian MLE log-likelihood from residuals: -n/2 (ln(2pi) + ln(SSR/n) + 1). None if degenerate."""
+    n = len(resid)
+    if n < 2 or _has_nan(resid):
+        return None
+    ssr = math.fsum(r * r for r in resid)
+    if ssr <= 0:
+        return None
+    return -n / 2.0 * (_LN2PI + dlog(ssr / n) + 1.0)
+
+
+def log_likelihood_gaussian(resid):
+    """Gaussian (normal-MLE) log-likelihood of a residual series."""
+    llf = _ic_llf(resid)
+    return float("nan") if llf is None else llf
+
+
+def aic(resid, k):
+    """Akaike information criterion: -2 logL + 2k (Gaussian)."""
+    llf = _ic_llf(resid)
+    if llf is None or k < 0:
+        return float("nan")
+    return -2.0 * llf + 2.0 * k
+
+
+def bic(resid, k):
+    """Bayesian (Schwarz) information criterion: -2 logL + k ln n."""
+    llf = _ic_llf(resid)
+    if llf is None or k < 0:
+        return float("nan")
+    return -2.0 * llf + k * dlog(len(resid))
+
+
+def aicc(resid, k):
+    """Small-sample corrected AIC: AIC + 2k(k+1)/(n-k-1)."""
+    a = aic(resid, k)
+    n = len(resid)
+    if a != a or (n - k - 1) <= 0:
+        return float("nan")
+    return a + 2.0 * k * (k + 1) / (n - k - 1)
+
+
+def hqic(resid, k):
+    """Hannan-Quinn information criterion: -2 logL + 2k ln(ln n)."""
+    llf = _ic_llf(resid)
+    n = len(resid)
+    if llf is None or k < 0 or n < 3:
+        return float("nan")
+    return -2.0 * llf + 2.0 * k * dlog(dlog(n))

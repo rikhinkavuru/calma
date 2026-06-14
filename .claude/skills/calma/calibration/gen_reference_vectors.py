@@ -1962,6 +1962,29 @@ case("ks_pme", "ks_pme", pme_args, pme_ks, atol=1e-12)
 case("direct_alpha", "direct_alpha", pme_args, pme_da, atol=1e-9)
 case("pme_plus_lambda", "pme_plus_lambda", pme_args, pme_lam, atol=1e-12)
 
+# ============================ Pack IC - information criteria / model selection ============================
+# Independent reference: statsmodels OLS for the Gaussian log-likelihood / AIC / BIC of the
+# fitted residuals; the AICc / HQIC closed forms recomputed in numpy from the same llf.
+
+ic_x1 = list(uniforms(7701, 60, -2.0, 2.0))
+ic_x2 = list(uniforms(7702, 60, -1.0, 1.0))
+ic_y = [0.5 + 1.2 * a - 0.7 * b + e for a, b, e in zip(ic_x1, ic_x2, uniforms(7703, 60, -0.5, 0.5))]
+_icX = _smapi.add_constant(np.column_stack([ic_x1, ic_x2]))
+_icres = _smapi.OLS(ic_y, _icX).fit()
+ic_resid = [float(r) for r in _icres.resid]
+ic_k = int(_icX.shape[1])
+ic_n = len(ic_resid)
+ic_llf = float(_icres.llf)
+ic_aic = float(_icres.aic)
+ic_bic = float(_icres.bic)
+ic_aicc = ic_aic + 2.0 * ic_k * (ic_k + 1) / (ic_n - ic_k - 1)
+ic_hqic = -2.0 * ic_llf + 2.0 * ic_k * np.log(np.log(ic_n))
+case("log_likelihood_gaussian", "log_likelihood_gaussian", {"resid": ic_resid}, ic_llf, atol=1e-9)
+case("aic", "aic", {"resid": ic_resid, "k": ic_k}, ic_aic, atol=1e-9)
+case("bic", "bic", {"resid": ic_resid, "k": ic_k}, ic_bic, atol=1e-9)
+case("aicc", "aicc", {"resid": ic_resid, "k": ic_k}, ic_aicc, atol=1e-9)
+case("hqic", "hqic", {"resid": ic_resid, "k": ic_k}, float(ic_hqic), atol=1e-9)
+
 # ============================ write ============================
 
 doc = {
