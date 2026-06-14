@@ -1,5 +1,7 @@
 # Calma
 
+calma1.vercel.app (for now lol)
+
 **Calma checks whether a result is actually true — by re-running the code and recomputing the number itself, instead of trusting what was reported.**
 
 Software (and AI agents) produce numbers all day: a model's accuracy, a trading backtest's return, "I cleaned
