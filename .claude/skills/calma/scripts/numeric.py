@@ -6364,6 +6364,56 @@ def comprehensive_concentration_index(xs):
 
 
 # ======================================================================================
+# Pack NP - nonparametric scale / location tests. Two samples give Mood's and Ansari-
+# Bradley's scale-test statistics and the Brunner-Munzel statistic (a robust Mann-Whitney
+# alternative for unequal variances). Validated against scipy (continuous / no-tie data).
+# ======================================================================================
+
+def mood_test(a, b):
+    """Mood's two-sample scale-test z statistic (scipy.stats.mood; no-tie variance)."""
+    na, nb = len(a), len(b)
+    if na < 1 or nb < 1 or _has_nan(a) or _has_nan(b):
+        return float("nan")
+    n = na + nb
+    r = _avg_ranks(list(a) + list(b))
+    t = math.fsum((r[i] - (n + 1) / 2.0) ** 2 for i in range(na))
+    et = na * (n * n - 1) / 12.0
+    var = na * nb * (n + 1) * (n * n - 4) / 180.0
+    if var <= 0:
+        return float("nan")
+    return (t - et) / math.sqrt(var)
+
+
+def ansari_bradley(a, b):
+    """Ansari-Bradley scale-test statistic: sum of min(R, N+1-R) over sample a (scipy.stats.ansari)."""
+    na, nb = len(a), len(b)
+    if na < 1 or nb < 1 or _has_nan(a) or _has_nan(b):
+        return float("nan")
+    n = na + nb
+    r = _avg_ranks(list(a) + list(b))
+    return math.fsum(min(r[i], n + 1 - r[i]) for i in range(na))
+
+
+def brunner_munzel(a, b):
+    """Brunner-Munzel statistic (scipy.stats.brunnermunzel) - a robust Mann-Whitney alternative
+    that does not assume equal variances."""
+    na, nb = len(a), len(b)
+    if na < 2 or nb < 2 or _has_nan(a) or _has_nan(b):
+        return float("nan")
+    n = na + nb
+    r = _avg_ranks(list(a) + list(b))
+    r1, r2 = r[:na], r[na:]
+    ria, rib = _avg_ranks(list(a)), _avg_ranks(list(b))
+    m1, m2 = fmean(r1), fmean(r2)
+    s1 = math.fsum((r1[i] - ria[i] - m1 + (na + 1) / 2.0) ** 2 for i in range(na)) / (na - 1)
+    s2 = math.fsum((r2[j] - rib[j] - m2 + (nb + 1) / 2.0) ** 2 for j in range(nb)) / (nb - 1)
+    den = n * math.sqrt(na * s1 + nb * s2)
+    if den == 0:
+        return float("nan")
+    return na * nb * (m2 - m1) / den
+
+
+# ======================================================================================
 # Pack WIN - winsorized / trimmed robust statistics. A value column with a symmetric trim
 # fraction gives the winsorized mean and std (extremes clamped) and the trimmed std
 # (extremes dropped). Matches scipy.stats.mstats winsorize / trimmed_std (floor counts).

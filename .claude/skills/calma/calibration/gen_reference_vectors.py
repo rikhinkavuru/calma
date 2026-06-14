@@ -1700,6 +1700,16 @@ case("normalized_hhi", "normalized_hhi", {"xs": cn_x}, cn_nhhi, atol=1e-12)
 case("rosenbluth_index", "rosenbluth_index", {"xs": cn_x}, cn_rb, atol=1e-12)
 case("comprehensive_concentration_index", "comprehensive_concentration_index", {"xs": cn_x}, cn_cci, atol=1e-12)
 
+# Pack NP - nonparametric scale / location tests (scipy)
+from scipy.stats import mood as _sp_mood, ansari as _sp_ansari, brunnermunzel as _sp_bm  # noqa: E402
+
+np_a = list(uniforms(2601, 35, 0.0, 5.0))
+np_b = list(uniforms(2602, 40, -1.0, 7.0))
+np_args = {"a": np_a, "b": np_b}
+case("mood_test", "mood_test", np_args, float(_sp_mood(np_a, np_b)[0]), atol=1e-9)
+case("ansari_bradley", "ansari_bradley", np_args, float(_sp_ansari(np_a, np_b)[0]), atol=1e-9)
+case("brunner_munzel", "brunner_munzel", np_args, float(_sp_bm(np_a, np_b)[0]), atol=1e-9)
+
 # ============================ Pack PA - portfolio construction & attribution ============================
 # Independent reference: vectorized numpy recompute of Brinson-Hood-Beebower attribution
 # and the weight-based metrics over a deterministic 6-segment book.

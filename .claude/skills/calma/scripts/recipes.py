@@ -2894,6 +2894,22 @@ for _mid in ("normalized_hhi", "rosenbluth_index", "comprehensive_concentration_
         return _result(_fn(xs), {"n": len(xs)})
 
 
+# ======================================================================================
+# Pack NP - nonparametric scale / location tests. Two samples (sample_a / sample_b).
+# ======================================================================================
+
+def _np_ab(fn):
+    def recipe(cols, binding, convention=None):
+        a, b = cols[binding["sample_a"]], cols[binding["sample_b"]]
+        return _result(fn(a, b), {"n_a": len(a), "n_b": len(b)})
+    return recipe
+
+
+for _mid in ("mood_test", "ansari_bradley", "brunner_munzel"):
+    register(_mid, family="stats", required_tags=["sample_a", "sample_b"],
+             set_maturity="reviewed")(_np_ab(getattr(N, _mid)))
+
+
 @register("hill_number", family="analytics", required_tags=["value"],
           set_maturity="reviewed", accepted_conventions=["q=<float>"])
 def hill_number(cols, binding, convention=None):

@@ -385,6 +385,9 @@ KINDS = {
     "normalized_hhi": lambda a: N.normalized_hhi(a["xs"]),
     "rosenbluth_index": lambda a: N.rosenbluth_index(a["xs"]),
     "comprehensive_concentration_index": lambda a: N.comprehensive_concentration_index(a["xs"]),
+    "mood_test": lambda a: N.mood_test(a["a"], a["b"]),
+    "ansari_bradley": lambda a: N.ansari_bradley(a["a"], a["b"]),
+    "brunner_munzel": lambda a: N.brunner_munzel(a["a"], a["b"]),
     # pack PA - portfolio construction & attribution
     "brinson_allocation": lambda a: N.brinson_allocation(a["wp"], a["wb"], a["rb"]),
     "brinson_selection": lambda a: N.brinson_selection(a["wb"], a["rp"], a["rb"]),
@@ -686,6 +689,8 @@ EXPECTED = {
     # pack CN - concentration-ratio depth (4)
     "concentration_ratio", "normalized_hhi", "rosenbluth_index",
     "comprehensive_concentration_index",
+    # pack NP - nonparametric scale / location tests (3)
+    "mood_test", "ansari_bradley", "brunner_munzel",
     # pack PA - portfolio construction & attribution (7)
     "brinson_allocation", "brinson_selection", "brinson_interaction", "brinson_total_active",
     "active_share", "portfolio_turnover", "effective_number_of_bets",
@@ -766,7 +771,7 @@ EXPECTED = {
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 460 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 463 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402
