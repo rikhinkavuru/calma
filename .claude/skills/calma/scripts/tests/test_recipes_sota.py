@@ -378,6 +378,9 @@ KINDS = {
     "batting_average": lambda a: N.batting_average(a["rets"], a["bench"]),
     "bias_ratio": lambda a: N.bias_ratio(a["rets"]),
     "max_consecutive_losses": lambda a: N.max_consecutive_losses(a["rets"]),
+    "hinge_loss": lambda a: N.hinge_loss(a["scores"], a["labels"]),
+    "squared_hinge_loss": lambda a: N.squared_hinge_loss(a["scores"], a["labels"]),
+    "exponential_loss": lambda a: N.exponential_loss(a["scores"], a["labels"]),
     # pack PA - portfolio construction & attribution
     "brinson_allocation": lambda a: N.brinson_allocation(a["wp"], a["wb"], a["rb"]),
     "brinson_selection": lambda a: N.brinson_selection(a["wb"], a["rp"], a["rb"]),
@@ -674,6 +677,8 @@ EXPECTED = {
     "purity", "bcubed_precision", "bcubed_recall", "bcubed_f1",
     # pack PERF2 - consistency & ODD-flag metrics (3)
     "batting_average", "bias_ratio", "max_consecutive_losses",
+    # pack ML2 - margin classification losses (3)
+    "hinge_loss", "squared_hinge_loss", "exponential_loss",
     # pack PA - portfolio construction & attribution (7)
     "brinson_allocation", "brinson_selection", "brinson_interaction", "brinson_total_active",
     "active_share", "portfolio_turnover", "effective_number_of_bets",
@@ -754,7 +759,7 @@ EXPECTED = {
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 453 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 456 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

@@ -2054,6 +2054,22 @@ def max_consecutive_losses(cols, binding, convention=None):
 
 
 # ======================================================================================
+# Pack ML2 - margin classification losses. Decision-score + binary-label columns.
+# ======================================================================================
+
+def _ml2_recipe(fn):
+    def recipe(cols, binding, convention=None):
+        s, y = cols[binding["score"]], cols[binding["label"]]
+        return _result(fn(s, y), {"n": len(s)})
+    return recipe
+
+
+for _mid in ("hinge_loss", "squared_hinge_loss", "exponential_loss"):
+    register(_mid, family="classification", required_tags=["score", "label"],
+             set_maturity="reviewed")(_ml2_recipe(getattr(N, _mid)))
+
+
+# ======================================================================================
 # Pack PA - portfolio construction & attribution. Per-segment portfolio/benchmark weight
 # and return columns drive Brinson attribution; weight vectors drive active share,
 # turnover and the effective number of bets.

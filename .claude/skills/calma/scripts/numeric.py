@@ -4456,6 +4456,42 @@ def max_consecutive_losses(rets):
 
 
 # ======================================================================================
+# Pack ML2 - margin classification losses. Decision-score + binary-label (0/1) columns give
+# the hinge, squared-hinge and exponential (AdaBoost) losses. y is mapped to +/-1.
+# Validated against scikit-learn / numpy.
+# ======================================================================================
+
+def _margin_ok(scores, labels):
+    return bool(scores) and len(scores) == len(labels) and not _has_nan(scores) and not _has_nan(labels)
+
+
+def hinge_loss(scores, labels):
+    """Mean hinge loss (sklearn): mean(max(0, 1 - (2y-1)*score)) for labels in {0,1}."""
+    if not _margin_ok(scores, labels):
+        return float("nan")
+    return fmean([max(0.0, 1.0 - (2.0 * (1.0 if y == 1 else 0.0) - 1.0) * s)
+                  for s, y in zip(scores, labels)])
+
+
+def squared_hinge_loss(scores, labels):
+    """Mean squared hinge loss: mean(max(0, 1 - (2y-1)*score)^2)."""
+    if not _margin_ok(scores, labels):
+        return float("nan")
+    out = []
+    for s, y in zip(scores, labels):
+        m = max(0.0, 1.0 - (2.0 * (1.0 if y == 1 else 0.0) - 1.0) * s)
+        out.append(m * m)
+    return fmean(out)
+
+
+def exponential_loss(scores, labels):
+    """Mean AdaBoost exponential loss: mean(exp(-(2y-1)*score))."""
+    if not _margin_ok(scores, labels):
+        return float("nan")
+    return fmean([dexp(-(2.0 * (1.0 if y == 1 else 0.0) - 1.0) * s) for s, y in zip(scores, labels)])
+
+
+# ======================================================================================
 # Pack PA - portfolio construction & attribution. Per-segment portfolio/benchmark weight
 # and return columns drive Brinson-Hood-Beebower attribution; weight vectors drive active
 # share, turnover and the effective number of bets. All definitional weighted sums.

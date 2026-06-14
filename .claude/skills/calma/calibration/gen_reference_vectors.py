@@ -1672,6 +1672,20 @@ case("batting_average", "batting_average", {"rets": p2_rets, "bench": p2_bench},
 case("bias_ratio", "bias_ratio", {"rets": p2_rets}, p2_bias, atol=1e-12)
 case("max_consecutive_losses", "max_consecutive_losses", {"rets": p2_rets}, p2_mcl, atol=1e-12)
 
+# Pack ML2 - margin classification losses (sklearn hinge; numpy squared-hinge / exponential)
+from sklearn.metrics import hinge_loss as _sk_hinge  # noqa: E402
+
+ml2_labels = [1 if u < 0.5 else 0 for u in uniforms(2501, 80, 0.0, 1.0)]
+ml2_scores = list(uniforms(2502, 80, -2.5, 2.5))
+_ml2z = [2.0 * y - 1.0 for y in ml2_labels]
+ml2_hinge = float(_sk_hinge(ml2_labels, ml2_scores))
+ml2_sq = float(np.mean([max(0.0, 1.0 - z * s) ** 2 for z, s in zip(_ml2z, ml2_scores)]))
+ml2_exp = float(np.mean([np.exp(-z * s) for z, s in zip(_ml2z, ml2_scores)]))
+ml2_args = {"scores": ml2_scores, "labels": ml2_labels}
+case("hinge_loss", "hinge_loss", ml2_args, ml2_hinge, atol=1e-12)
+case("squared_hinge_loss", "squared_hinge_loss", ml2_args, ml2_sq, atol=1e-12)
+case("exponential_loss", "exponential_loss", ml2_args, ml2_exp, atol=1e-11)
+
 # ============================ Pack PA - portfolio construction & attribution ============================
 # Independent reference: vectorized numpy recompute of Brinson-Hood-Beebower attribution
 # and the weight-based metrics over a deterministic 6-segment book.
