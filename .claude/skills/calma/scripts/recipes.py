@@ -2055,6 +2055,24 @@ def max_consecutive_losses(cols, binding, convention=None):
 
 
 # ======================================================================================
+# Pack QR - tail-risk-adjusted reward ratios. A return column; the tail level via convention.
+# ======================================================================================
+
+def _qr_ratio(fn):
+    def recipe(cols, binding, convention=None):
+        r = cols[binding["return"]]
+        q = _conv_q(convention)
+        level = q if (q == q and 0.5 < q < 1.0) else 0.95
+        return _result(fn(r, level), {"n": len(r), "level": level})
+    return recipe
+
+
+for _mid in ("reward_to_var_ratio", "starr_ratio", "modified_sharpe_ratio"):
+    register(_mid, family="quant", required_tags=["return"], set_maturity="reviewed",
+             accepted_conventions=["p95", "p99"])(_qr_ratio(getattr(N, _mid)))
+
+
+# ======================================================================================
 # Pack ML2 - margin classification losses. Decision-score + binary-label columns.
 # ======================================================================================
 

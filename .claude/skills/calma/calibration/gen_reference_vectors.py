@@ -1693,6 +1693,28 @@ case("batting_average", "batting_average", {"rets": p2_rets, "bench": p2_bench},
 case("bias_ratio", "bias_ratio", {"rets": p2_rets}, p2_bias, atol=1e-12)
 case("max_consecutive_losses", "max_consecutive_losses", {"rets": p2_rets}, p2_mcl, atol=1e-12)
 
+# Pack QR - tail-risk-adjusted reward ratios (independent numpy / scipy recompute)
+from scipy.stats import skew as _sp_skew, kurtosis as _sp_kurt, norm as _qn  # noqa: E402
+
+qr_rets = list(uniforms(2801, 250, -0.04, 0.045))
+qr_level = 0.95
+_qa = np.array(qr_rets)
+_qmu = float(_qa.mean())
+_qcut = float(np.quantile(_qa, 1.0 - qr_level))
+_qvar = -_qcut
+_qcvar = -float(_qa[_qa <= _qcut].mean())
+_qsd = float(_qa.std(ddof=1))
+_qs = float(_sp_skew(_qa, bias=True))
+_qk = float(_sp_kurt(_qa, fisher=True, bias=True))
+_qz = float(_qn.ppf(1.0 - qr_level))
+_qzcf = (_qz + (_qz ** 2 - 1) * _qs / 6.0 + (_qz ** 3 - 3 * _qz) * _qk / 24.0
+         - (2 * _qz ** 3 - 5 * _qz) * _qs ** 2 / 36.0)
+_qcfvar = -(_qmu + _qzcf * _qsd)
+qr_args = {"rets": qr_rets, "level": qr_level}
+case("reward_to_var_ratio", "reward_to_var_ratio", qr_args, _qmu / _qvar, atol=1e-10)
+case("starr_ratio", "starr_ratio", qr_args, _qmu / _qcvar, atol=1e-10)
+case("modified_sharpe_ratio", "modified_sharpe_ratio", qr_args, _qmu / _qcfvar, atol=1e-9)
+
 # Pack ML2 - margin classification losses (sklearn hinge; numpy squared-hinge / exponential)
 from sklearn.metrics import hinge_loss as _sk_hinge  # noqa: E402
 

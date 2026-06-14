@@ -4497,6 +4497,42 @@ def max_consecutive_losses(rets):
 
 
 # ======================================================================================
+# Pack QR - tail-risk-adjusted reward ratios. Per-period mean return over a tail-risk
+# measure: VaR (reward-to-VaR), CVaR (STARR ratio) and Cornish-Fisher VaR (modified Sharpe).
+# Reuses the validated VaR / CVaR / CF-VaR kernels.
+# ======================================================================================
+
+def reward_to_var_ratio(rets, level):
+    """Per-period reward-to-VaR: mean(return) / historical VaR(level)."""
+    if not rets or _has_nan(rets):
+        return float("nan")
+    v = value_at_risk(rets, level)
+    if v != v or v <= 0:
+        return float("nan")
+    return fmean(rets) / v
+
+
+def starr_ratio(rets, level):
+    """STARR ratio: mean(return) / CVaR(level) (reward to expected shortfall)."""
+    if not rets or _has_nan(rets):
+        return float("nan")
+    c = cvar(rets, level)
+    if c != c or c <= 0:
+        return float("nan")
+    return fmean(rets) / c
+
+
+def modified_sharpe_ratio(rets, level):
+    """Modified (Gregoriou-Gueyie) Sharpe: mean(return) / Cornish-Fisher VaR(level)."""
+    if not rets or _has_nan(rets):
+        return float("nan")
+    m = cornish_fisher_var(rets, level)
+    if m != m or m <= 0:
+        return float("nan")
+    return fmean(rets) / m
+
+
+# ======================================================================================
 # Pack ML2 - margin classification losses. Decision-score + binary-label (0/1) columns give
 # the hinge, squared-hinge and exponential (AdaBoost) losses. y is mapped to +/-1.
 # Validated against scikit-learn / numpy.
