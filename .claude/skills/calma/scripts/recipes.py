@@ -2547,3 +2547,35 @@ def _vol_ohlc(fn):
 for _mid in ("garman_klass_volatility", "rogers_satchell_volatility", "yang_zhang_volatility"):
     register(_mid, family="quant", required_tags=["open", "high", "low", "close"],
              set_maturity="reviewed")(_vol_ohlc(getattr(N, _mid)))
+
+
+# ======================================================================================
+# Pack RGD - regression / GLM deviance depth. Prediction + target columns; Tweedie takes a
+# power convention. RMSLE reuses the existing msle kernel with root=True.
+# ======================================================================================
+
+@register("mean_squared_error", family="regression", required_tags=["prediction", "target"],
+          set_maturity="reviewed")
+def mean_squared_error(cols, binding, convention=None):
+    p, a = cols[binding["prediction"]], cols[binding["target"]]
+    return _result(N.mean_squared_error(p, a), {"n": len(p)})
+
+
+@register("rmsle", family="regression", required_tags=["prediction", "target"],
+          set_maturity="reviewed")
+def rmsle(cols, binding, convention=None):
+    p, a = cols[binding["prediction"]], cols[binding["target"]]
+    return _result(N.msle(p, a, root=True), {"n": len(p)})
+
+
+def _rgd_tweedie(fn):
+    def recipe(cols, binding, convention=None):
+        p, a = cols[binding["prediction"]], cols[binding["target"]]
+        power = _conv_float(convention, "power", 1.5)
+        return _result(fn(p, a, power), {"n": len(p), "power": power})
+    return recipe
+
+
+for _mid in ("mean_tweedie_deviance", "d2_tweedie_score"):
+    register(_mid, family="regression", required_tags=["prediction", "target"],
+             set_maturity="reviewed", accepted_conventions=["power=<float>"])(_rgd_tweedie(getattr(N, _mid)))

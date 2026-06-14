@@ -5464,3 +5464,59 @@ def yang_zhang_volatility(open_, high, low, close):
     k = 0.34 / (1.34 + (m + 1.0) / (m - 1.0))
     v = vo + k * vc + (1.0 - k) * vrs
     return math.sqrt(v) if v >= 0 else float("nan")
+
+
+# ======================================================================================
+# Pack RGD - regression / GLM deviance depth. Prediction + target columns give the mean
+# squared error and the Tweedie deviance / D2 Tweedie score (power generalizes Poisson at
+# p=1 and Gamma at p=2). y = actual (target), f = pred. Validated against sklearn.
+# ======================================================================================
+
+def mean_squared_error(pred, actual):
+    """Mean squared error: mean((pred - actual)^2) (sklearn mean_squared_error)."""
+    if not pred or len(actual) != len(pred) or _has_nan(pred) or _has_nan(actual):
+        return float("nan")
+    return math.fsum((p - a) ** 2 for p, a in zip(pred, actual)) / len(pred)
+
+
+def _tweedie_unit(y, f, p):
+    if p == 0.0:
+        return (y - f) ** 2
+    if p == 1.0:
+        return 2.0 * ((y * dlog(y / f) - y + f) if y > 0 else f)
+    if p == 2.0:
+        return 2.0 * (dlog(f / y) + y / f - 1.0)
+    return 2.0 * (y ** (2.0 - p) / ((1.0 - p) * (2.0 - p))
+                  - y * f ** (1.0 - p) / (1.0 - p) + f ** (2.0 - p) / (2.0 - p))
+
+
+def _tweedie_ok(actual, pred, power):
+    if any(f <= 0 for f in pred):
+        return power == 0.0
+    if power >= 1.0 and any(a < 0 for a in actual):
+        return False
+    if power >= 2.0 and any(a <= 0 for a in actual):
+        return False
+    return True
+
+
+def mean_tweedie_deviance(pred, actual, power=1.5):
+    """Mean Tweedie deviance at the given power (sklearn mean_tweedie_deviance);
+    power=0 normal, 1 Poisson, 2 Gamma, 1<power<2 compound Poisson-gamma."""
+    if not pred or len(actual) != len(pred) or _has_nan(pred) or _has_nan(actual):
+        return float("nan")
+    if not _tweedie_ok(actual, pred, power):
+        return float("nan")
+    return math.fsum(_tweedie_unit(a, f, power) for f, a in zip(pred, actual)) / len(actual)
+
+
+def d2_tweedie_score(pred, actual, power=1.5):
+    """D2 Tweedie score (fraction of Tweedie deviance explained): 1 - dev(y,f)/dev(y,ybar)."""
+    dev = mean_tweedie_deviance(pred, actual, power)
+    if dev != dev:
+        return float("nan")
+    ybar = fmean(actual)
+    base = mean_tweedie_deviance([ybar] * len(actual), actual, power)
+    if base != base or base == 0:
+        return float("nan")
+    return 1.0 - dev / base

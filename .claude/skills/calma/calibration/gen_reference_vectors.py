@@ -2060,6 +2060,28 @@ case("garman_klass_volatility", "garman_klass_volatility", vol_ohlc, vol_gk, ato
 case("rogers_satchell_volatility", "rogers_satchell_volatility", vol_ohlc, vol_rs, atol=1e-12)
 case("yang_zhang_volatility", "yang_zhang_volatility", vol_ohlc, vol_yz, atol=1e-12)
 
+# ============================ Pack RGD - regression / GLM deviance depth ============================
+# Independent reference: sklearn mean_squared_error, root_mean_squared_log_error,
+# mean_tweedie_deviance and d2_tweedie_score.
+
+from sklearn.metrics import (mean_squared_error as _sk_mse,  # noqa: E402
+                             root_mean_squared_log_error as _sk_rmsle,
+                             mean_tweedie_deviance as _sk_twd,
+                             d2_tweedie_score as _sk_d2twd)
+
+rgd_actual = [abs(x) + 0.5 for x in uniforms(5601, 50, 0.5, 8.0)]
+rgd_pred = [abs(x) + 0.4 for x in uniforms(5602, 50, 0.4, 8.0)]
+rgd_power = 1.5
+rgd_args = {"pred": rgd_pred, "actual": rgd_actual, "power": rgd_power}
+case("mean_squared_error", "mean_squared_error", {"pred": rgd_pred, "actual": rgd_actual},
+     float(_sk_mse(rgd_actual, rgd_pred)), atol=1e-12)
+case("rmsle", "rmsle", {"pred": rgd_pred, "actual": rgd_actual},
+     float(_sk_rmsle(rgd_actual, rgd_pred)), atol=1e-12)
+case("mean_tweedie_deviance", "mean_tweedie_deviance", rgd_args,
+     float(_sk_twd(rgd_actual, rgd_pred, power=rgd_power)), atol=1e-11)
+case("d2_tweedie_score", "d2_tweedie_score", rgd_args,
+     float(_sk_d2twd(rgd_actual, rgd_pred, power=rgd_power)), atol=1e-11)
+
 # ============================ write ============================
 
 doc = {

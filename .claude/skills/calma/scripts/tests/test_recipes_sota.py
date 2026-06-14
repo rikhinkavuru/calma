@@ -476,6 +476,11 @@ KINDS = {
     "garman_klass_volatility": lambda a: N.garman_klass_volatility(a["open"], a["high"], a["low"], a["close"]),
     "rogers_satchell_volatility": lambda a: N.rogers_satchell_volatility(a["open"], a["high"], a["low"], a["close"]),
     "yang_zhang_volatility": lambda a: N.yang_zhang_volatility(a["open"], a["high"], a["low"], a["close"]),
+    # pack RGD - regression / GLM deviance depth
+    "mean_squared_error": lambda a: N.mean_squared_error(a["pred"], a["actual"]),
+    "rmsle": lambda a: N.msle(a["pred"], a["actual"], True),
+    "mean_tweedie_deviance": lambda a: N.mean_tweedie_deviance(a["pred"], a["actual"], a["power"]),
+    "d2_tweedie_score": lambda a: N.d2_tweedie_score(a["pred"], a["actual"], a["power"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -637,10 +642,12 @@ EXPECTED = {
     # pack VOL - range-based volatility estimators (4)
     "parkinson_volatility", "garman_klass_volatility",
     "rogers_satchell_volatility", "yang_zhang_volatility",
+    # pack RGD - regression / GLM deviance depth (4)
+    "mean_squared_error", "rmsle", "mean_tweedie_deviance", "d2_tweedie_score",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 390 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 394 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402
