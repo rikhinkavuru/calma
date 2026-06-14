@@ -171,7 +171,17 @@ export function FeatureAscii({ variant }: { variant: AsciiVariant }) {
       const SS = 2; // supersample for smoother edges
       off.width = Math.max(2, cols * SS);
       off.height = Math.max(2, rows * SS);
+      // Each character cell renders ch/cw (~1.85x) taller than wide, so a circle
+      // drawn round in this cell grid would stretch vertically on screen. Pre-
+      // compress the icon vertically by cw/ch about the buffer center so it
+      // renders with the correct (un-smushed) aspect ratio.
+      og.save();
+      og.clearRect(0, 0, off.width, off.height);
+      og.translate(off.width / 2, off.height / 2);
+      og.scale(1, cw / ch);
+      og.translate(-off.width / 2, -off.height / 2);
       drawIcon(og, variant, off.width, off.height);
+      og.restore();
       const data = og.getImageData(0, 0, off.width, off.height).data;
       base = new Float32Array(cols * rows);
       for (let ry = 0; ry < rows; ry++) {
