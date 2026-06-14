@@ -5,7 +5,7 @@
   "scipy": "1.17.1",
   "sklearn": "1.9.0"
  },
- "n_cases": 605,
+ "n_cases": 612,
  "cases": [
   {
    "id": "total_return",
@@ -106520,7 +106520,7 @@
      -1.8997410835051982
     ]
    },
-   "expected": 0.7476666698368369,
+   "expected": 0.7476666698368367,
    "atol": 1e-11,
    "rtol": 1e-12
   },
@@ -161177,6 +161177,150 @@
    },
    "expected": 0.02135672235443753,
    "atol": 1e-09,
+   "rtol": 1e-12
+  },
+  {
+   "id": "gross_exposure",
+   "kind": "gross_exposure",
+   "args": {
+    "exposure": [
+     0.3,
+     0.25,
+     0.2,
+     0.15,
+     -0.2,
+     -0.15,
+     -0.1,
+     -0.05
+    ]
+   },
+   "expected": 1.4,
+   "atol": 1e-12,
+   "rtol": 1e-12
+  },
+  {
+   "id": "net_exposure",
+   "kind": "net_exposure",
+   "args": {
+    "exposure": [
+     0.3,
+     0.25,
+     0.2,
+     0.15,
+     -0.2,
+     -0.15,
+     -0.1,
+     -0.05
+    ]
+   },
+   "expected": 0.4,
+   "atol": 1e-12,
+   "rtol": 1e-12
+  },
+  {
+   "id": "long_exposure",
+   "kind": "long_exposure",
+   "args": {
+    "exposure": [
+     0.3,
+     0.25,
+     0.2,
+     0.15,
+     -0.2,
+     -0.15,
+     -0.1,
+     -0.05
+    ]
+   },
+   "expected": 0.9,
+   "atol": 1e-12,
+   "rtol": 1e-12
+  },
+  {
+   "id": "short_exposure",
+   "kind": "short_exposure",
+   "args": {
+    "exposure": [
+     0.3,
+     0.25,
+     0.2,
+     0.15,
+     -0.2,
+     -0.15,
+     -0.1,
+     -0.05
+    ]
+   },
+   "expected": 0.49999999999999994,
+   "atol": 1e-12,
+   "rtol": 1e-12
+  },
+  {
+   "id": "long_short_ratio",
+   "kind": "long_short_ratio",
+   "args": {
+    "exposure": [
+     0.3,
+     0.25,
+     0.2,
+     0.15,
+     -0.2,
+     -0.15,
+     -0.1,
+     -0.05
+    ]
+   },
+   "expected": 1.8000000000000003,
+   "atol": 1e-12,
+   "rtol": 1e-12
+  },
+  {
+   "id": "largest_position",
+   "kind": "largest_position",
+   "args": {
+    "exposure": [
+     0.3,
+     0.25,
+     0.2,
+     0.15,
+     -0.2,
+     -0.15,
+     -0.1,
+     -0.05
+    ]
+   },
+   "expected": 0.2142857142857143,
+   "atol": 1e-12,
+   "rtol": 1e-12
+  },
+  {
+   "id": "liquidity_coverage",
+   "kind": "liquidity_coverage",
+   "args": {
+    "weight": [
+     0.3,
+     0.25,
+     0.2,
+     0.15,
+     -0.2,
+     -0.15,
+     -0.1,
+     -0.05
+    ],
+    "days": [
+     1.0,
+     3.0,
+     5.0,
+     10.0,
+     2.0,
+     7.0,
+     1.0,
+     20.0
+    ],
+    "threshold": 5.0
+   },
+   "expected": 0.7500000000000001,
+   "atol": 1e-12,
    "rtol": 1e-12
   }
  ]

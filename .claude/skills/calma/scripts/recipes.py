@@ -2225,3 +2225,31 @@ def runs_test(cols, binding, convention=None):
 def arch_lm(cols, binding, convention=None):
     xs = cols[binding["value"]]
     return _result(N.arch_lm(xs), {"n": len(xs)})
+
+
+# ======================================================================================
+# Pack OPS - exposure, leverage & operational-due-diligence metrics. A signed exposure
+# column (position as a fraction of NAV) drives the exposure / leverage / concentration
+# metrics; a weight + days-to-liquidate column drives liquidity coverage.
+# ======================================================================================
+
+def _ops_exp(fn):
+    def recipe(cols, binding, convention=None):
+        e = cols[binding["exposure"]]
+        return _result(fn(e), {"n": len(e)})
+    return recipe
+
+
+for _mid in ("gross_exposure", "net_exposure", "long_exposure", "short_exposure",
+             "long_short_ratio", "largest_position"):
+    register(_mid, family="exposure", required_tags=["exposure"],
+             set_maturity="reviewed")(_ops_exp(getattr(N, _mid)))
+
+
+@register("liquidity_coverage", family="exposure",
+          required_tags=["weight", "days_to_liquidate"], set_maturity="reviewed",
+          accepted_conventions=["threshold=<days>"])
+def liquidity_coverage(cols, binding, convention=None):
+    w, d = cols[binding["weight"]], cols[binding["days_to_liquidate"]]
+    threshold = _conv_float(convention, "threshold", 5.0)
+    return _result(N.liquidity_coverage(w, d, threshold), {"n": len(w), "threshold": threshold})

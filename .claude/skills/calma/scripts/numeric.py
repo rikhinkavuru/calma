@@ -4635,3 +4635,74 @@ def arch_lm(resid):
     if sst == 0:
         return float("nan")
     return nn * (1.0 - ssr / sst)
+
+
+# ======================================================================================
+# Pack OPS - exposure, leverage & operational-due-diligence metrics. A signed exposure
+# column (each position as a fraction of NAV) gives gross / net / long / short exposure,
+# the long-short ratio and the largest position; a weight + days-to-liquidate column gives
+# the liquidity-coverage fraction. All definitional sums an ODD team can re-derive.
+# ======================================================================================
+
+def _ops_ok(*cols):
+    n = len(cols[0])
+    return n > 0 and all(len(c) == n for c in cols) and not any(_has_nan(c) for c in cols)
+
+
+def gross_exposure(exposure):
+    """Gross exposure as a fraction of NAV: sum_i |w_i| (e.g. 1.80 = 180% gross)."""
+    if not _ops_ok(exposure):
+        return float("nan")
+    return math.fsum(abs(w) for w in exposure)
+
+
+def net_exposure(exposure):
+    """Net exposure as a fraction of NAV: sum_i w_i (longs minus shorts)."""
+    if not _ops_ok(exposure):
+        return float("nan")
+    return math.fsum(exposure)
+
+
+def long_exposure(exposure):
+    """Long exposure as a fraction of NAV: sum of the positive weights."""
+    if not _ops_ok(exposure):
+        return float("nan")
+    return math.fsum(w for w in exposure if w > 0)
+
+
+def short_exposure(exposure):
+    """Short exposure as a fraction of NAV, reported positive: -sum of the negative weights."""
+    if not _ops_ok(exposure):
+        return float("nan")
+    return -math.fsum(w for w in exposure if w < 0)
+
+
+def long_short_ratio(exposure):
+    """Long/short ratio: sum(longs) / |sum(shorts)|."""
+    if not _ops_ok(exposure):
+        return float("nan")
+    s = -math.fsum(w for w in exposure if w < 0)
+    if s == 0:
+        return float("nan")
+    return math.fsum(w for w in exposure if w > 0) / s
+
+
+def largest_position(exposure):
+    """Largest single position as a fraction of gross exposure: max|w_i| / sum|w_i|."""
+    if not _ops_ok(exposure):
+        return float("nan")
+    g = math.fsum(abs(w) for w in exposure)
+    if g == 0:
+        return float("nan")
+    return max(abs(w) for w in exposure) / g
+
+
+def liquidity_coverage(weight, days, threshold):
+    """Fraction of gross exposure liquidatable within `threshold` days:
+    sum|w_i| over positions with days_i <= threshold, divided by total gross."""
+    if not _ops_ok(weight, days):
+        return float("nan")
+    g = math.fsum(abs(w) for w in weight)
+    if g == 0:
+        return float("nan")
+    return math.fsum(abs(w) for w, d in zip(weight, days) if d <= threshold) / g

@@ -1733,6 +1733,32 @@ case("runs_test_small", "runs_test", {"xs": ts_runs_small},
 ts_arch_lm = float(_hetarch(np.array(ts_rets), nlags=1)[0])
 case("arch_lm", "arch_lm", {"xs": ts_rets}, ts_arch_lm, atol=1e-9)
 
+# ============================ Pack OPS - exposure, leverage & ODD metrics ============================
+# Independent reference: numpy recompute of the exposure / leverage / concentration and
+# liquidity-coverage definitions over a deterministic long-short book.
+
+ops_exp = [0.30, 0.25, 0.20, 0.15, -0.20, -0.15, -0.10, -0.05]
+ops_days = [1.0, 3.0, 5.0, 10.0, 2.0, 7.0, 1.0, 20.0]
+ops_thresh = 5.0
+_oe = np.array(ops_exp)
+ops_gross = float(np.abs(_oe).sum())
+ops_net = float(_oe.sum())
+ops_long = float(_oe[_oe > 0].sum())
+ops_short = float(-_oe[_oe < 0].sum())
+ops_ls = ops_long / ops_short
+ops_largest = float(np.abs(_oe).max() / np.abs(_oe).sum())
+_od = np.array(ops_days)
+ops_liq = float(np.abs(_oe)[_od <= ops_thresh].sum() / np.abs(_oe).sum())
+ops_eargs = {"exposure": ops_exp}
+case("gross_exposure", "gross_exposure", ops_eargs, ops_gross, atol=1e-12)
+case("net_exposure", "net_exposure", ops_eargs, ops_net, atol=1e-12)
+case("long_exposure", "long_exposure", ops_eargs, ops_long, atol=1e-12)
+case("short_exposure", "short_exposure", ops_eargs, ops_short, atol=1e-12)
+case("long_short_ratio", "long_short_ratio", ops_eargs, ops_ls, atol=1e-12)
+case("largest_position", "largest_position", ops_eargs, ops_largest, atol=1e-12)
+case("liquidity_coverage", "liquidity_coverage",
+     {"weight": ops_exp, "days": ops_days, "threshold": ops_thresh}, ops_liq, atol=1e-12)
+
 # ============================ write ============================
 
 doc = {

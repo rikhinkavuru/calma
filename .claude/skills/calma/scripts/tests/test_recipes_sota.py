@@ -403,6 +403,14 @@ KINDS = {
     "variance_ratio": lambda a: N.variance_ratio(a["rets"], a["q"]),
     "runs_test": lambda a: N.runs_test(a["xs"]),
     "arch_lm": lambda a: N.arch_lm(a["xs"]),
+    # pack OPS - exposure, leverage & ODD metrics
+    "gross_exposure": lambda a: N.gross_exposure(a["exposure"]),
+    "net_exposure": lambda a: N.net_exposure(a["exposure"]),
+    "long_exposure": lambda a: N.long_exposure(a["exposure"]),
+    "short_exposure": lambda a: N.short_exposure(a["exposure"]),
+    "long_short_ratio": lambda a: N.long_short_ratio(a["exposure"]),
+    "largest_position": lambda a: N.largest_position(a["exposure"]),
+    "liquidity_coverage": lambda a: N.liquidity_coverage(a["weight"], a["days"], a["threshold"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -532,10 +540,13 @@ EXPECTED = {
     "hochberg_rejections", "benjamini_yekutieli",
     # pack TS - time-series / return diagnostics (3)
     "variance_ratio", "runs_test", "arch_lm",
+    # pack OPS - exposure, leverage & ODD metrics (7)
+    "gross_exposure", "net_exposure", "long_exposure", "short_exposure",
+    "long_short_ratio", "largest_position", "liquidity_coverage",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 329 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 336 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402
