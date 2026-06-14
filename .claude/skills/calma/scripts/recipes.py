@@ -2336,3 +2336,21 @@ for _mid in ("brier_skill_score", "calibration_in_the_large", "spiegelhalter_z")
 def sharpness(cols, binding, convention=None):
     p = cols[binding["probability"]]
     return _result(N.sharpness(p), {"n": len(p)})
+
+
+# ======================================================================================
+# Pack DIST - distribution-distance depth. Two histogram / share columns (p, q),
+# sum-normalized to distributions, matching the existing KL / JS bindings.
+# ======================================================================================
+
+def _dist_pq(fn):
+    def recipe(cols, binding, convention=None):
+        p, q = cols[binding["p"]], cols[binding["q"]]
+        return _result(fn(p, q), {"bins": len(p)})
+    return recipe
+
+
+for _mid in ("hellinger_distance", "total_variation_distance", "bhattacharyya_distance",
+             "jeffreys_divergence", "chi_square_distance"):
+    register(_mid, family="stats", required_tags=["p", "q"],
+             set_maturity="reviewed")(_dist_pq(getattr(N, _mid)))

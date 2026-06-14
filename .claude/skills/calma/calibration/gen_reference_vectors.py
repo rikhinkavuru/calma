@@ -1862,6 +1862,26 @@ case("calibration_in_the_large", "calibration_in_the_large", cal_pl, cal_citl, a
 case("spiegelhalter_z", "spiegelhalter_z", cal_pl, cal_spie, atol=1e-11)
 case("sharpness", "sharpness", {"probs": cal_probs}, cal_sharp, atol=1e-12)
 
+# ============================ Pack DIST - distribution-distance depth ============================
+# Independent reference: numpy recompute of the Hellinger / total-variation / Bhattacharyya /
+# Jeffreys / chi-square distances over two sum-normalized histograms.
+
+dist_p = [12.0, 30.0, 25.0, 18.0, 9.0, 6.0]
+dist_q = [8.0, 22.0, 28.0, 24.0, 12.0, 6.0]
+_dp = np.array(dist_p) / np.sum(dist_p)
+_dq = np.array(dist_q) / np.sum(dist_q)
+dist_hell = float(np.sqrt(0.5 * np.sum((np.sqrt(_dp) - np.sqrt(_dq)) ** 2)))
+dist_tv = float(0.5 * np.sum(np.abs(_dp - _dq)))
+dist_bhat = float(-np.log(np.sum(np.sqrt(_dp * _dq))))
+dist_jeff = float(np.sum((_dp - _dq) * np.log(_dp / _dq)))
+dist_chi = float(np.sum((_dp - _dq) ** 2 / (_dp + _dq)))
+dist_args = {"p": dist_p, "q": dist_q}
+case("hellinger_distance", "hellinger_distance", dist_args, dist_hell, atol=1e-12)
+case("total_variation_distance", "total_variation_distance", dist_args, dist_tv, atol=1e-12)
+case("bhattacharyya_distance", "bhattacharyya_distance", dist_args, dist_bhat, atol=1e-12)
+case("jeffreys_divergence", "jeffreys_divergence", dist_args, dist_jeff, atol=1e-12)
+case("chi_square_distance", "chi_square_distance", dist_args, dist_chi, atol=1e-12)
+
 # ============================ write ============================
 
 doc = {

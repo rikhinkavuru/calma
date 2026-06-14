@@ -434,6 +434,12 @@ KINDS = {
     "calibration_in_the_large": lambda a: N.calibration_in_the_large(a["probs"], a["labels"]),
     "spiegelhalter_z": lambda a: N.spiegelhalter_z(a["probs"], a["labels"]),
     "sharpness": lambda a: N.sharpness(a["probs"]),
+    # pack DIST - distribution-distance depth
+    "hellinger_distance": lambda a: N.hellinger_distance(a["p"], a["q"]),
+    "total_variation_distance": lambda a: N.total_variation_distance(a["p"], a["q"]),
+    "bhattacharyya_distance": lambda a: N.bhattacharyya_distance(a["p"], a["q"]),
+    "jeffreys_divergence": lambda a: N.jeffreys_divergence(a["p"], a["q"]),
+    "chi_square_distance": lambda a: N.chi_square_distance(a["p"], a["q"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -575,10 +581,13 @@ EXPECTED = {
     # pack CAL - probability-calibration depth (7)
     "maximum_calibration_error", "brier_reliability", "brier_resolution",
     "brier_skill_score", "calibration_in_the_large", "spiegelhalter_z", "sharpness",
+    # pack DIST - distribution-distance depth (5)
+    "hellinger_distance", "total_variation_distance", "bhattacharyya_distance",
+    "jeffreys_divergence", "chi_square_distance",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 356 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 361 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

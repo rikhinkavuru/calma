@@ -4958,3 +4958,85 @@ def sharpness(probs):
     if not probs or _has_nan(probs) or len(probs) < 2:
         return float("nan")
     return fstd(probs, 1)
+
+
+# ======================================================================================
+# Pack DIST - distribution-distance depth (drift / stability monitoring). Two histogram /
+# share columns, sum-normalized to distributions (matching KL/JS/PSI), give the Hellinger,
+# total-variation, Bhattacharyya, Jeffreys (symmetric KL) and chi-square distances.
+# ======================================================================================
+
+def _dist_ok(p, q):
+    return (len(p) == len(q) and bool(p) and not _has_nan(p) and not _has_nan(q)
+            and not any(x < 0 for x in p) and not any(x < 0 for x in q))
+
+
+def _dist_norm(p, q):
+    sp, sq = math.fsum(p), math.fsum(q)
+    if sp <= 0 or sq <= 0:
+        return None
+    return [pi / sp for pi in p], [qi / sq for qi in q]
+
+
+def hellinger_distance(p, q):
+    """Hellinger distance between two distributions: sqrt(0.5 * sum (sqrt(a)-sqrt(b))^2), in [0,1]."""
+    if not _dist_ok(p, q):
+        return float("nan")
+    nn = _dist_norm(p, q)
+    if nn is None:
+        return float("nan")
+    a, b = nn
+    return math.sqrt(0.5 * math.fsum((math.sqrt(ai) - math.sqrt(bi)) ** 2 for ai, bi in zip(a, b)))
+
+
+def total_variation_distance(p, q):
+    """Total-variation distance: 0.5 * sum |a_i - b_i|, in [0,1]."""
+    if not _dist_ok(p, q):
+        return float("nan")
+    nn = _dist_norm(p, q)
+    if nn is None:
+        return float("nan")
+    a, b = nn
+    return 0.5 * math.fsum(abs(ai - bi) for ai, bi in zip(a, b))
+
+
+def bhattacharyya_distance(p, q):
+    """Bhattacharyya distance: -ln(sum sqrt(a_i b_i)); inf when the supports are disjoint."""
+    if not _dist_ok(p, q):
+        return float("nan")
+    nn = _dist_norm(p, q)
+    if nn is None:
+        return float("nan")
+    a, b = nn
+    bc = math.fsum(math.sqrt(ai * bi) for ai, bi in zip(a, b))
+    if bc <= 0:
+        return float("inf")
+    return -dlog(bc)
+
+
+def jeffreys_divergence(p, q):
+    """Jeffreys divergence (symmetric KL): sum (a_i - b_i) ln(a_i / b_i)."""
+    if not _dist_ok(p, q):
+        return float("nan")
+    nn = _dist_norm(p, q)
+    if nn is None:
+        return float("nan")
+    a, b = nn
+    tot = 0.0
+    for ai, bi in zip(a, b):
+        if ai > 0 and bi > 0:
+            tot += (ai - bi) * dlog(ai / bi)
+        elif (ai > 0 and bi <= 0) or (bi > 0 and ai <= 0):
+            return float("inf")
+    return tot
+
+
+def chi_square_distance(p, q):
+    """Symmetric chi-square distance between distributions: sum (a_i - b_i)^2 / (a_i + b_i)."""
+    if not _dist_ok(p, q):
+        return float("nan")
+    nn = _dist_norm(p, q)
+    if nn is None:
+        return float("nan")
+    a, b = nn
+    return math.fsum((ai - bi) ** 2 / (ai + bi) for ai, bi in zip(a, b) if (ai + bi) > 0)
