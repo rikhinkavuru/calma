@@ -3110,6 +3110,43 @@ case("symmetric_uncertainty", "symmetric_uncertainty", _it, 2.0 * _it_mi / (_it_
 case("normalized_variation_of_information", "normalized_variation_of_information", _it,
      (_it_hx + _it_hy - 2.0 * _it_mi) / (_it_hx + _it_hy - _it_mi), atol=1e-12)
 
+# ============================ Pack CAL2 - probability calibration & decision-curve depth ============================
+# Independent reference: numpy equal-width L2 binning (RMSCE), numpy.array_split equal-mass
+# binning (ACE), and the Vickers net-benefit / PABAK / prevalence-threshold closed forms.
+
+cal_n = 120
+cal_p = list(uniforms(4001, cal_n, 0.02, 0.98))
+cal_y = [1.0 if u < pi else 0.0 for u, pi in zip(uniforms(4002, cal_n, 0, 1), cal_p)]
+cal_bins = 15
+cal_pt = 0.3
+_cp, _cy = np.array(cal_p), np.array(cal_y)
+_edges = np.clip(np.ceil(_cp * cal_bins).astype(int) - 1, 0, cal_bins - 1)
+_rms = 0.0
+for b in range(cal_bins):
+    m = _edges == b
+    if m.sum():
+        _rms += (np.mean(_cy[m]) - np.mean(_cp[m])) ** 2 * m.sum() / cal_n
+case("rms_calibration_error", "rms_calibration_error", {"probs": cal_p, "labels": cal_y, "bins": cal_bins},
+     float(np.sqrt(_rms)), atol=1e-12)
+_order = np.argsort(_cp, kind="stable")
+_chunks = np.array_split(_order, cal_bins)
+_ace = float(np.mean([abs(np.mean(_cy[c]) - np.mean(_cp[c])) for c in _chunks if len(c)]))
+case("adaptive_calibration_error", "adaptive_calibration_error",
+     {"probs": cal_p, "labels": cal_y, "bins": cal_bins}, _ace, atol=1e-12)
+_nb = float(np.sum((_cp >= cal_pt) & (_cy == 1)) / cal_n
+            - np.sum((_cp >= cal_pt) & (_cy == 0)) / cal_n * (cal_pt / (1 - cal_pt)))
+case("net_benefit", "net_benefit", {"probs": cal_p, "labels": cal_y, "pt": cal_pt}, _nb, atol=1e-12)
+cal_pred = [1.0 if pi >= 0.5 else 0.0 for pi in cal_p]
+_po = float(np.mean(np.array(cal_pred) == _cy))
+case("pabak", "pabak", {"preds": cal_pred, "labels": cal_y}, 2.0 * _po - 1.0, atol=1e-12)
+_tp = float(np.sum((np.array(cal_pred) == 1) & (_cy == 1)))
+_fn = float(np.sum((np.array(cal_pred) == 0) & (_cy == 1)))
+_tn = float(np.sum((np.array(cal_pred) == 0) & (_cy == 0)))
+_fp = float(np.sum((np.array(cal_pred) == 1) & (_cy == 0)))
+_tpr, _tnr = _tp / (_tp + _fn), _tn / (_tn + _fp)
+case("prevalence_threshold", "prevalence_threshold", {"preds": cal_pred, "labels": cal_y},
+     float((np.sqrt(_tpr * (1 - _tnr)) + _tnr - 1) / (_tpr + _tnr - 1)), atol=1e-12)
+
 # ============================ write ============================
 
 doc = {

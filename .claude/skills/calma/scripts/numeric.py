@@ -8028,3 +8028,91 @@ def normalized_variation_of_information(x, y):
     if joint <= 0:
         return float("nan")
     return (hc + hk - 2.0 * mi) / joint
+
+
+# ======================================================================================
+# Pack CAL2 - probability calibration & decision-curve depth. RMS calibration error (L2 ECE)
+# and adaptive (equal-mass) calibration error; Vickers net benefit; prevalence-adjusted bias-
+# adjusted kappa; and the prevalence threshold. Validated against the numpy reference.
+# ======================================================================================
+
+def rms_calibration_error(probs, labels, bins=15):
+    """Root-mean-square calibration error: sqrt(sum_b (n_b/n)(acc_b - conf_b)^2) over equal-
+    width confidence bins (the L2 analogue of ECE)."""
+    if not probs or len(probs) != len(labels) or _has_nan(probs) or _has_nan(labels) or bins < 1:
+        return float("nan")
+    n = len(probs)
+    bsum_p = [0.0] * bins
+    bsum_y = [0.0] * bins
+    bn = [0] * bins
+    for p, y in zip(probs, labels):
+        idx = min(max(int(math.ceil(p * bins)) - 1, 0), bins - 1)
+        bsum_p[idx] += p
+        bsum_y[idx] += 1.0 if y == 1 else 0.0
+        bn[idx] += 1
+    return math.sqrt(math.fsum((bsum_y[i] / bn[i] - bsum_p[i] / bn[i]) ** 2 * bn[i] / n
+                               for i in range(bins) if bn[i]))
+
+
+def adaptive_calibration_error(probs, labels, bins=15):
+    """Adaptive calibration error (Nixon et al. 2019): mean over equal-mass bins of
+    |acc_b - conf_b|. Bins split the confidence-sorted points like numpy.array_split."""
+    n = len(probs)
+    if not probs or len(probs) != len(labels) or _has_nan(probs) or _has_nan(labels) or bins < 1:
+        return float("nan")
+    order = sorted(range(n), key=lambda i: probs[i])
+    base, rem = divmod(n, bins)
+    gaps = []
+    pos = 0
+    for b in range(bins):
+        sz = base + (1 if b < rem else 0)
+        if sz == 0:
+            continue
+        idxs = order[pos:pos + sz]
+        pos += sz
+        acc = math.fsum(1.0 if labels[i] == 1 else 0.0 for i in idxs) / sz
+        conf = math.fsum(probs[i] for i in idxs) / sz
+        gaps.append(abs(acc - conf))
+    if not gaps:
+        return float("nan")
+    return math.fsum(gaps) / len(gaps)
+
+
+def net_benefit(probs, labels, threshold=0.5):
+    """Vickers (2006) decision-curve net benefit at a probability threshold pt: TP/n -
+    (FP/n)(pt/(1-pt)), classifying positive when p >= pt."""
+    n = len(probs)
+    if (not probs or len(probs) != len(labels) or _has_nan(probs) or _has_nan(labels)
+            or not (0.0 < threshold < 1.0)):
+        return float("nan")
+    tp = sum(1 for p, y in zip(probs, labels) if p >= threshold and y == 1)
+    fp = sum(1 for p, y in zip(probs, labels) if p >= threshold and y == 0)
+    return tp / n - fp / n * (threshold / (1.0 - threshold))
+
+
+def pabak(pred, label):
+    """Prevalence-adjusted bias-adjusted kappa: 2*p_o - 1, p_o the observed agreement."""
+    n = len(pred)
+    if n == 0 or len(label) != n or _has_nan(pred) or _has_nan(label):
+        return float("nan")
+    po = sum(1 for a, b in zip(pred, label) if a == b) / n
+    return 2.0 * po - 1.0
+
+
+def prevalence_threshold(pred, label):
+    """Prevalence threshold (Balayla 2020): (sqrt(TPR(1-TNR)) + TNR - 1)/(TPR + TNR - 1) -
+    the prevalence below which a binary classifier's PPV collapses."""
+    if not pred or len(pred) != len(label) or _has_nan(pred) or _has_nan(label):
+        return float("nan")
+    tp = sum(1 for a, b in zip(pred, label) if a == 1 and b == 1)
+    fn = sum(1 for a, b in zip(pred, label) if a == 0 and b == 1)
+    tn = sum(1 for a, b in zip(pred, label) if a == 0 and b == 0)
+    fp = sum(1 for a, b in zip(pred, label) if a == 1 and b == 0)
+    if tp + fn == 0 or tn + fp == 0:
+        return float("nan")
+    tpr = tp / (tp + fn)
+    tnr = tn / (tn + fp)
+    den = tpr + tnr - 1.0
+    if den == 0:
+        return float("nan")
+    return (math.sqrt(tpr * (1.0 - tnr)) + tnr - 1.0) / den

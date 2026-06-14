@@ -77,6 +77,18 @@
       ],
       "description": "Fraction of a portfolio that differs from its benchmark holdings."
     },
+    "adaptive_calibration_error": {
+      "aliases": [
+        "adaptive calibration error",
+        "ace",
+        "equal-mass calibration error",
+        "quantile-binned ece",
+        "calibration error with equal-count bins",
+        "adaptive ece",
+        "balanced-bin calibration gap"
+      ],
+      "description": "Calibration error using equal-mass confidence bins."
+    },
     "adjusted_r2": {
       "aliases": [
         "adjusted r2",
@@ -4257,6 +4269,18 @@
       ],
       "description": "Nonparametric estimate of cumulative hazard over time."
     },
+    "net_benefit": {
+      "aliases": [
+        "net benefit",
+        "decision curve net benefit",
+        "vickers net benefit",
+        "clinical usefulness of the model",
+        "benefit of treating based on the score",
+        "decision-analytic value",
+        "net true positives"
+      ],
+      "description": "Decision-curve net benefit of acting on a model at a threshold."
+    },
     "net_debt_to_ebitda": {
       "aliases": [
         "net leverage",
@@ -4472,6 +4496,18 @@
         "how surprising this outcome would be if there were no true difference"
       ],
       "description": "Probability of results this extreme if the null hypothesis holds."
+    },
+    "pabak": {
+      "aliases": [
+        "pabak",
+        "prevalence-adjusted bias-adjusted kappa",
+        "prevalence adjusted kappa",
+        "agreement corrected for prevalence",
+        "2 times accuracy minus one",
+        "bias-adjusted agreement",
+        "byrt kappa"
+      ],
+      "description": "Prevalence-adjusted bias-adjusted kappa from observed agreement."
     },
     "pain_index": {
       "aliases": [
@@ -4798,6 +4834,18 @@
         "calibration parity gap"
       ],
       "description": "Difference in positive predictive value across protected groups."
+    },
+    "prevalence_threshold": {
+      "aliases": [
+        "prevalence threshold",
+        "pt",
+        "balayla prevalence threshold",
+        "tipping prevalence for ppv",
+        "where the test stops being useful",
+        "critical prevalence",
+        "screening threshold"
+      ],
+      "description": "Prevalence below which a classifier's positive predictive value collapses."
     },
     "price_impact_bps": {
       "aliases": [
@@ -5302,6 +5350,18 @@
         "difference in risk"
       ],
       "description": "Absolute difference in outcome probability between treatment and control."
+    },
+    "rms_calibration_error": {
+      "aliases": [
+        "rms calibration error",
+        "rmsce",
+        "root mean square calibration error",
+        "l2 calibration error",
+        "squared calibration gap",
+        "how miscalibrated the probabilities are (l2)",
+        "quadratic ece"
+      ],
+      "description": "Root-mean-square gap between confidence and accuracy across bins."
     },
     "rms_successive_differences": {
       "aliases": [

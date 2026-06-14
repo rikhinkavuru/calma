@@ -3472,3 +3472,31 @@ for _mid in ("conditional_entropy", "joint_entropy", "variation_of_information",
              "normalized_variation_of_information"):
     register(_mid, family="stats", required_tags=["x", "y"], string_tags=["x", "y"],
              set_maturity="reviewed")(_xy_recipe(getattr(N, _mid)))
+
+
+# ======================================================================================
+# Pack CAL2 - probability calibration & decision-curve depth. Calibration errors bind
+# (prob, label) with a bins convention; net benefit takes a threshold; PABAK / prevalence
+# threshold bind (prediction, label).
+# ======================================================================================
+
+for _mid in ("rms_calibration_error", "adaptive_calibration_error"):
+    @register(_mid, family="classification", required_tags=["prob", "label"],
+              set_maturity="reviewed", accepted_conventions=["bins=<int>"])
+    def _cal2(cols, binding, convention=None, _fn=getattr(N, _mid)):
+        p, l = cols[binding["prob"]], cols[binding["label"]]
+        bins = _conv_int(convention, "bins", 15)
+        return _result(_fn(p, l, bins), {"n": len(l), "bins": bins})
+
+
+@register("net_benefit", family="classification", required_tags=["prob", "label"],
+          set_maturity="reviewed", accepted_conventions=["threshold=<float>"])
+def net_benefit(cols, binding, convention=None):
+    p, l = cols[binding["prob"]], cols[binding["label"]]
+    pt = _conv_float(convention, "threshold", 0.5)
+    return _result(N.net_benefit(p, l, pt), {"n": len(l), "threshold": pt})
+
+
+for _mid in ("pabak", "prevalence_threshold"):
+    register(_mid, family="classification", required_tags=["prediction", "label"],
+             set_maturity="reviewed")(_pl_recipe(getattr(N, _mid)))

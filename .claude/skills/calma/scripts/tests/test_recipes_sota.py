@@ -703,6 +703,12 @@ KINDS = {
     "uncertainty_coefficient": lambda a: N.uncertainty_coefficient(a["x"], a["y"]),
     "symmetric_uncertainty": lambda a: N.symmetric_uncertainty(a["x"], a["y"]),
     "normalized_variation_of_information": lambda a: N.normalized_variation_of_information(a["x"], a["y"]),
+    # pack CAL2 - probability calibration & decision-curve depth
+    "rms_calibration_error": lambda a: N.rms_calibration_error(a["probs"], a["labels"], a["bins"]),
+    "adaptive_calibration_error": lambda a: N.adaptive_calibration_error(a["probs"], a["labels"], a["bins"]),
+    "net_benefit": lambda a: N.net_benefit(a["probs"], a["labels"], a["pt"]),
+    "pabak": lambda a: N.pabak(a["preds"], a["labels"]),
+    "prevalence_threshold": lambda a: N.prevalence_threshold(a["preds"], a["labels"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -977,10 +983,13 @@ EXPECTED = {
     "conditional_entropy", "joint_entropy", "variation_of_information",
     "uncertainty_coefficient", "symmetric_uncertainty",
     "normalized_variation_of_information",
+    # pack CAL2 - probability calibration & decision-curve depth (5)
+    "rms_calibration_error", "adaptive_calibration_error", "net_benefit",
+    "pabak", "prevalence_threshold",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 589 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 594 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402
