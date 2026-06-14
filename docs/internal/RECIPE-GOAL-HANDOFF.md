@@ -69,7 +69,8 @@ highest quality." User does not care what order packs are added in.
   OLS tvalues/mse_resid), lifelines (KM/NA/RMST), and documented closed forms
   (Acerbi-Szekely, Basel, Brinson, Lo-MacKinlay, Murphy/Brier decomposition,
   distribution distances) recomputed in numpy. All deterministic; venv unchanged.
-- **NOTE the commit gotcha (step 8): use `git commit -- <7 files>` pathspec form.**
+- **NOTE the commit gotcha (step 8): use `git commit -- <8 files>` pathspec form** (now
+  includes `recipe_descriptions.json` — the suggester enrichment; see step 4b).
 
 **Target:** the marketing intent was "100+" → "500+", i.e. **~500 total recipes** — **now
 reached (500 total).** To push past 500, keep going on the same workflow: there is no hard
@@ -87,10 +88,27 @@ When the user wants to pause, they interrupt (as they did to request this doc).
 
 ---
 
-## The non-negotiable per-pack workflow (5 touchpoints + website + commit)
+## ⚠️ NEW since the 500 milestone — the suggester (READ THIS FIRST)
 
-Every recipe touches exactly these files. Skipping the reference-vector validation is
-the one thing that breaks Calma, so never skip it.
+Calma now has a recipe **suggester** (`calma suggest` + auto-"did you mean?" inside
+`verify`). It is backed by `assets/recipe_descriptions.json` (a description + aliases per
+recipe), and **`tests/test_suggest.py` FAILS CLOSED if any registered recipe is missing an
+entry or has <2 aliases.** So the per-pack workflow below now has an extra mandatory
+touchpoint (step 4b) and an extra test in step 5, and the commit list is **8 files, not 7**.
+A pack that skips enrichment will not pass tests. The authoritative spec is the
+**"Definition of done for a NEW recipe"** block at the top of
+`.claude/skills/calma/references/recipes.md` — this handoff mirrors it; if they ever
+disagree, recipes.md wins.
+
+The lesson baked in there (don't relearn it): enrich with **conceptual paraphrases** (how a
+user describes the quantity WITHOUT its name), not just the formal term. Formal-name-only
+enrichment measured 88.8% paraphrase recall@8; adding everyday phrasings lifted it to 94.4%.
+
+## The non-negotiable per-pack workflow (6 touchpoints + website + commit)
+
+Every recipe touches exactly these files. Skipping the reference-vector validation breaks
+Calma's verdict; skipping the suggester enrichment (4b) breaks `calma suggest` AND fails the
+test suite. Never skip either.
 
 Paths are relative to repo root `/Users/rikhinkavuru/calma`.
 
@@ -137,14 +155,36 @@ Paths are relative to repo root `/Users/rikhinkavuru/calma`.
      for retrieval; `qr`/`qbench`/`ddq` floored drawdown series for quant).
    - **NEVER** use `Date.now()`/`random` — determinism is the whole point.
 
+4b. **Suggester enrichment (MANDATORY)** → `.claude/skills/calma/assets/recipe_descriptions.json`
+   - Under the top-level `"recipes"` object, add one entry per new `metric_id`:
+     ```json
+     "your_metric_id": {
+       "description": "one plain-language sentence (<=16 words) of what it measures",
+       "aliases": ["full spelled-out name", "common abbreviation",
+                   "<3-6 CONCEPTUAL paraphrases: how a user describes it WITHOUT the name>"]
+     }
+     ```
+   - The conceptual paraphrases are the part that carries paraphrase recall — write them as a
+     user who forgot the term would (lowercase, 5-8 aliases total). e.g. for a Brinson
+     allocation effect: `["did over/underweighting sectors help","value added by where i put money",
+     "allocation contribution to outperformance"]`, not just `["brinson allocation"]`.
+   - `>=2 aliases` and a non-empty `description` are HARD requirements (the test enforces them).
+   - **Claim routing (only when the metric has a common SPOKEN name a report would use):** also
+     add a `("phrase", "metric_id")` pair to `CLAIM_METRIC_HINTS` in
+     `.claude/skills/calma/scripts/draft_contract.py` so a written claim auto-routes to it. This
+     is SEPARATE from enrichment (enrichment feeds only the suggester; this feeds the zero-touch
+     hook / `--metric`-free verify). Skip it for obscure metrics nobody states by name.
+
 5. **Run the harness until green** (must use the reference venv for the generator):
    ```
    cd /Users/rikhinkavuru/calma/.claude/skills/calma
    /Users/rikhinkavuru/calma-refvenv/bin/python calibration/gen_reference_vectors.py
    python3 scripts/tests/test_recipes_sota.py        # want: "N checks, 0 failures"
+   python3 scripts/tests/test_suggest.py             # enrichment coverage + recall floors
    ```
    The generator writes `assets/reference_vectors.json` (commit it). A `data.ts mirrors
-   the registry` FAIL just means step 6 isn't done yet — finish it, rerun.
+   the registry` FAIL just means step 6 isn't done yet — finish it, rerun. A `test_suggest`
+   coverage FAIL means a new recipe has no `recipe_descriptions.json` entry — finish step 4b.
 
 6. **Website entry** → `app/recipes/data.ts`
    - Add one object `{ id, name, claim, what, how, ref, conv? }` per recipe into the
@@ -159,8 +199,8 @@ Paths are relative to repo root `/Users/rikhinkavuru/calma`.
    - Bump line 1: `# Recipe catalog (NNN recipes, all SOTA-validated)` to the new total
      (500 now). NNN here is the TOTAL (reviewed + compiled), not just reviewed.
 
-8. **Commit ONLY these 7 files** (never stage parallel-session pilot-hardening files).
-   **Use a pathspec-scoped commit** — `git commit -- <the 7 files>` — so it can't absorb
+8. **Commit ONLY these 8 files** (never stage parallel-session pilot-hardening files).
+   **Use a pathspec-scoped commit** — `git commit -- <the files>` — so it can't absorb
    changes a parallel session has staged in the index. (Plain `git add … && git commit`
    bit us once: between two packs the other session staged a batch of `rehearsals/` +
    `PLAN.md` deletions, and the no-pathspec commit swept them in. Fixed with a mixed reset
@@ -172,10 +212,13 @@ Paths are relative to repo root `/Users/rikhinkavuru/calma`.
      .claude/skills/calma/scripts/tests/test_recipes_sota.py \
      .claude/skills/calma/calibration/gen_reference_vectors.py \
      .claude/skills/calma/assets/reference_vectors.json \
+     .claude/skills/calma/assets/recipe_descriptions.json \
      .claude/skills/calma/references/recipes.md \
      app/recipes/data.ts
    ```
-   (You can `git add` the 7 first for review, but the pathspec on `commit` is the guard.)
+   (Add `.claude/skills/calma/scripts/draft_contract.py` as a 9th file in any pack where you
+   added a `CLAIM_METRIC_HINTS` pair. You can `git add` first for review, but the pathspec on
+   `commit` is the guard.)
    Message: `recipes: Pack XX — <topic> (OLD→NEW)` + a body line on what was validated
    against, ending with:
    `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`
@@ -185,11 +228,12 @@ Paths are relative to repo root `/Users/rikhinkavuru/calma`.
 
 ## The two count numbers (don't confuse them)
 
-- **Total** = reviewed + compiled = **274**. Goes in `recipes.md` header and is what
-  `RECIPE_COUNT` shows on the site.
-- **Reviewed** = **272**. Goes in the `test_recipes_sota.py` `truth(...)` literal and
-  the `EXPECTED` set. Compiled-validated recipes (the 2) are NOT in `EXPECTED`.
+- **Total** = reviewed + compiled = **500** (498 reviewed + 2 compiled). Goes in the
+  `recipes.md` header and is what `RECIPE_COUNT` shows on the site.
+- **Reviewed** = **498**. Goes in the `test_recipes_sota.py` `truth(...)` literal and the
+  `EXPECTED` set. Compiled-validated recipes (the 2) are NOT in `EXPECTED`.
 - Each pack of N reviewed recipes: total += N, reviewed += N, both literals move by N.
+  (Also +N entries in `recipe_descriptions.json`, enforced by `test_suggest.py`.)
 
 ## Counter on the website — already dynamic, no manual bump
 
@@ -285,9 +329,18 @@ canonical library implementation — that's both the validation source and the S
 
 ## First action in the new session
 
-1. `cd /Users/rikhinkavuru/calma && git log --oneline -3` to confirm you're on
-   `01cac9c` (Pack FI) and the tree is clean.
-2. Dump `_REGISTRY` (command above) to see the live 274.
-3. Pick the next pack (Options/Greeks #1 and ES-backtests #4 are the highest-value
-   open items for the buyer list), build it through the 8-step workflow, commit green.
-4. Repeat until ~500. The Stop hook will keep you honest on the count.
+1. `cd /Users/rikhinkavuru/calma && git log --oneline -3` and `git status` — confirm a clean
+   tree at the current `main` HEAD (the suggester + handoff work landed; do NOT expect the old
+   `01cac9c`/274 state — the engine is at **500** now).
+2. Dump `_REGISTRY` (command above) to see the live 500 by family.
+3. Read the **"Definition of done for a NEW recipe"** block at the top of
+   `.claude/skills/calma/references/recipes.md` — that plus this handoff is the full workflow,
+   now including suggester enrichment (step 4b) and `test_suggest` (step 5).
+4. Pick the next pack, build it through the workflow (all 8/9 files), and confirm BOTH
+   `test_recipes_sota.py` AND `test_suggest.py` are green before committing.
+5. For a large run, give the new recipes the same blind-benchmark treatment the 500 got:
+   after the packs land, generate 2 blind asks per new recipe (named + conceptual paraphrase,
+   by agents who don't see the ranker), append to `tests/suggest_bench/gold.json`, re-run
+   `bench.py`, and re-enrich whatever the weak-recipe report flags. Coverage alone (the test
+   guard) guarantees every recipe HAS enrichment; the benchmark is what makes it GOOD.
+6. The Stop hook keeps you honest on the count.
