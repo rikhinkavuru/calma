@@ -5569,3 +5569,64 @@ def coverage_deviation(lower, upper, actual, alpha):
     if cov != cov or not (0.0 < alpha < 1.0):
         return float("nan")
     return cov - (1.0 - alpha)
+
+
+# ======================================================================================
+# Pack AG - inter-rater agreement coefficients (annotation QA / labeled-data validation).
+# Two rater label columns give the raw agreement plus the chance-corrected Scott's pi,
+# Brennan-Prediger and Gwet's AC1 - each a different model of expected agreement.
+# ======================================================================================
+
+def _ag_ok(a, b):
+    return bool(a) and len(a) == len(b) and not _has_nan(a) and not _has_nan(b)
+
+
+def _ag_stats(a, b):
+    n = len(a)
+    cats = set(a) | set(b)
+    po = sum(1 for x, y in zip(a, b) if x == y) / n
+    pbar = {c: ((sum(1 for x in a if x == c) / n) + (sum(1 for y in b if y == c) / n)) / 2.0
+            for c in cats}
+    return n, len(cats), po, pbar
+
+
+def percentage_agreement(a, b):
+    """Raw observed agreement: fraction of items the two raters labeled identically."""
+    if not _ag_ok(a, b):
+        return float("nan")
+    return sum(1 for x, y in zip(a, b) if x == y) / len(a)
+
+
+def scott_pi(a, b):
+    """Scott's pi: (Po - Pe)/(1 - Pe) with Pe = sum of squared pooled category proportions."""
+    if not _ag_ok(a, b):
+        return float("nan")
+    _, _, po, pbar = _ag_stats(a, b)
+    pe = math.fsum(p * p for p in pbar.values())
+    if pe >= 1.0:
+        return float("nan")
+    return (po - pe) / (1.0 - pe)
+
+
+def brennan_prediger(a, b):
+    """Brennan-Prediger (Bennett's S): (Po - 1/k)/(1 - 1/k), k = number of categories."""
+    if not _ag_ok(a, b):
+        return float("nan")
+    _, k, po, _ = _ag_stats(a, b)
+    if k <= 1:
+        return float("nan")
+    pe = 1.0 / k
+    return (po - pe) / (1.0 - pe)
+
+
+def gwet_ac1(a, b):
+    """Gwet's AC1: (Po - Pe)/(1 - Pe) with Pe = (1/(k-1)) sum p(1-p) over pooled proportions."""
+    if not _ag_ok(a, b):
+        return float("nan")
+    _, k, po, pbar = _ag_stats(a, b)
+    if k <= 1:
+        return float("nan")
+    pe = (1.0 / (k - 1)) * math.fsum(p * (1.0 - p) for p in pbar.values())
+    if pe >= 1.0:
+        return float("nan")
+    return (po - pe) / (1.0 - pe)

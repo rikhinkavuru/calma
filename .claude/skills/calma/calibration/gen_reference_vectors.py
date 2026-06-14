@@ -2105,6 +2105,30 @@ case("mean_interval_width", "mean_interval_width", {"lower": fci_lower, "upper":
 case("winkler_score", "winkler_score", fci_a, fci_wink, atol=1e-12)
 case("coverage_deviation", "coverage_deviation", fci_a, fci_covdev, atol=1e-12)
 
+# ============================ Pack AG - inter-rater agreement coefficients ============================
+# Independent reference: plain-Python recompute of the documented agreement closed forms
+# over two deterministic rater label streams.
+
+ag_ra = [int(u * 4) for u in uniforms(8801, 120, 0.0, 0.999)]
+ag_rb = [(r if u < 0.7 else int(u2 * 4))
+         for r, u, u2 in zip(ag_ra, uniforms(8802, 120, 0.0, 1.0), uniforms(8803, 120, 0.0, 0.999))]
+_agn = len(ag_ra)
+_agcats = set(ag_ra) | set(ag_rb)
+_agk = len(_agcats)
+ag_po = sum(1 for x, y in zip(ag_ra, ag_rb) if x == y) / _agn
+_agpbar = {c: ((sum(1 for x in ag_ra if x == c) / _agn) + (sum(1 for y in ag_rb if y == c) / _agn)) / 2.0
+           for c in _agcats}
+_agpe_scott = sum(p * p for p in _agpbar.values())
+ag_scott = (ag_po - _agpe_scott) / (1.0 - _agpe_scott)
+ag_bp = (ag_po - 1.0 / _agk) / (1.0 - 1.0 / _agk)
+_agpe_gwet = (1.0 / (_agk - 1)) * sum(p * (1.0 - p) for p in _agpbar.values())
+ag_gwet = (ag_po - _agpe_gwet) / (1.0 - _agpe_gwet)
+ag_args = {"ra": ag_ra, "rb": ag_rb}
+case("percentage_agreement", "percentage_agreement", ag_args, ag_po, atol=1e-12)
+case("scott_pi", "scott_pi", ag_args, ag_scott, atol=1e-12)
+case("brennan_prediger", "brennan_prediger", ag_args, ag_bp, atol=1e-12)
+case("gwet_ac1", "gwet_ac1", ag_args, ag_gwet, atol=1e-12)
+
 # ============================ write ============================
 
 doc = {

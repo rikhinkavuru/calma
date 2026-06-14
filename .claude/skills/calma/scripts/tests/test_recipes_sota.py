@@ -486,6 +486,11 @@ KINDS = {
     "mean_interval_width": lambda a: N.mean_interval_width(a["lower"], a["upper"]),
     "winkler_score": lambda a: N.winkler_score(a["lower"], a["upper"], a["actual"], a["alpha"]),
     "coverage_deviation": lambda a: N.coverage_deviation(a["lower"], a["upper"], a["actual"], a["alpha"]),
+    # pack AG - inter-rater agreement coefficients
+    "percentage_agreement": lambda a: N.percentage_agreement(a["ra"], a["rb"]),
+    "scott_pi": lambda a: N.scott_pi(a["ra"], a["rb"]),
+    "brennan_prediger": lambda a: N.brennan_prediger(a["ra"], a["rb"]),
+    "gwet_ac1": lambda a: N.gwet_ac1(a["ra"], a["rb"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -651,10 +656,12 @@ EXPECTED = {
     "mean_squared_error", "rmsle", "mean_tweedie_deviance", "d2_tweedie_score",
     # pack FCI - prediction-interval / probabilistic-forecast eval (4)
     "interval_coverage", "mean_interval_width", "winkler_score", "coverage_deviation",
+    # pack AG - inter-rater agreement coefficients (4)
+    "percentage_agreement", "scott_pi", "brennan_prediger", "gwet_ac1",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 398 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 402 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

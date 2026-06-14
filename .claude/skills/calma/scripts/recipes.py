@@ -2611,3 +2611,19 @@ def _fci_alpha(fn):
 for _mid in ("winkler_score", "coverage_deviation"):
     register(_mid, family="forecasting", required_tags=["lower", "upper", "actual"],
              set_maturity="reviewed", accepted_conventions=["alpha=<frac>"])(_fci_alpha(getattr(N, _mid)))
+
+
+# ======================================================================================
+# Pack AG - inter-rater agreement coefficients. Two categorical rater columns.
+# ======================================================================================
+
+def _ag_recipe(fn):
+    def recipe(cols, binding, convention=None):
+        a, b = cols[binding["rater_a"]], cols[binding["rater_b"]]
+        return _result(fn(a, b), {"n": len(a)})
+    return recipe
+
+
+for _mid in ("percentage_agreement", "scott_pi", "brennan_prediger", "gwet_ac1"):
+    register(_mid, family="classification", required_tags=["rater_a", "rater_b"],
+             string_tags=["rater_a", "rater_b"], set_maturity="reviewed")(_ag_recipe(getattr(N, _mid)))
