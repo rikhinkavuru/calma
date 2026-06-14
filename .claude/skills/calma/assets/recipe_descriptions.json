@@ -1178,7 +1178,9 @@
         "weighted kappa quadratic",
         "ordinal agreement quadratic",
         "how well ordinal scores agree",
-        "quadratic kappa"
+        "quadratic kappa",
+        "agreement penalizing bigger rating gaps more heavily",
+        "ordinal agreement with large-disagreement penalty"
       ],
       "description": "Quadratically-weighted Cohen's kappa for ordinal rater agreement."
     },
@@ -1190,7 +1192,9 @@
         "anova effect size f",
         "how large is the group effect",
         "f for power analysis",
-        "standardized anova effect"
+        "standardized anova effect",
+        "effect size for an anova power calculation",
+        "effect size for sample-size planning across groups"
       ],
       "description": "Cohen's f effect size derived from eta-squared in ANOVA."
     },
@@ -2417,7 +2421,9 @@
         "multiplicative spread",
         "how much values vary on a ratio scale",
         "spread of log-normal data",
-        "times-or-divide variability"
+        "times-or-divide variability",
+        "typical multiplicative spread factor",
+        "typical fold-change up or down from the center"
       ],
       "description": "Multiplicative spread: the exponential of the standard deviation of log values."
     },
@@ -3264,7 +3270,10 @@
         "absolute-error skill score",
         "how much better than predicting the mean",
         "l-m efficiency",
-        "mean absolute efficiency"
+        "mean absolute efficiency",
+        "e1",
+        "beats predicting the average using absolute errors",
+        "mean absolute error efficiency vs the mean"
       ],
       "description": "Absolute-error skill score: 1 minus mean abs error over mean abs deviation."
     },
@@ -3659,7 +3668,11 @@
         "systematic error",
         "is the forecast too high or too low on average",
         "additive bias",
-        "mean error"
+        "mean error",
+        "do my predictions run high or low on average",
+        "average signed gap between prediction and actual",
+        "average over- or under-prediction",
+        "predictions sit above the actuals on average"
       ],
       "description": "Mean of forecast minus actual, in the original units."
     },
@@ -4060,7 +4073,11 @@
         "is the data normal",
         "test for gaussianity",
         "k-squared statistic",
-        "normaltest"
+        "normaltest",
+        "combined check of skew and tail-heaviness",
+        "could the data be bell-shaped",
+        "joint skew and kurtosis normality check",
+        "test if the data could plausibly be gaussian"
       ],
       "description": "D'Agostino-Pearson omnibus K-squared test for normality."
     },
@@ -4561,7 +4578,11 @@
         "value per dollar invested",
         "present value index",
         "is the project worth it per dollar",
-        "pv ratio"
+        "pv ratio",
+        "present value of inflows divided by the investment",
+        "value created per dollar invested",
+        "pv of inflows over the upfront cash",
+        "benefit per dollar put in"
       ],
       "description": "Present value of inflows per unit of initial outlay."
     },
@@ -4943,7 +4964,11 @@
         "renyi diversity",
         "tunable entropy measure",
         "how concentrated the shares are",
-        "alpha-order entropy"
+        "alpha-order entropy",
+        "order-q uncertainty of the shares",
+        "order-2 entropy of the distribution",
+        "generalized spread of the share distribution at order q",
+        "tunable uncertainty of category shares"
       ],
       "description": "Generalized order-q entropy; q=1 recovers Shannon, q=2 collision entropy."
     },
@@ -5171,7 +5196,10 @@
         "welfare-adjusted average",
         "mean discounted by inequality",
         "sen 1976 index",
-        "equity-adjusted income"
+        "equity-adjusted income",
+        "average income knocked down for inequality",
+        "mean adjusted down for how unequally it is spread",
+        "inequality-penalized average income"
       ],
       "description": "Sen's welfare index: mean income discounted by inequality, mean*(1-Gini)."
     },
@@ -5254,7 +5282,9 @@
         "how equally distributed across categories",
         "balance of the shares",
         "inverse simpson over richness",
-        "equitability"
+        "equitability",
+        "how equally the total splits across the categories present",
+        "balance of the distribution across present groups"
       ],
       "description": "Evenness: inverse Simpson diversity divided by the number of types."
     },
@@ -5277,7 +5307,11 @@
         "is the data skewed",
         "test for asymmetry",
         "normality test on skew",
-        "skewness z-score"
+        "skewness z-score",
+        "too lopsided to be normal",
+        "is the data too skewed to be gaussian",
+        "asymmetry test against normality",
+        "test whether the data is too one-sided to be normal"
       ],
       "description": "D'Agostino z-test for whether sample skewness departs from normal."
     },
