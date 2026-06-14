@@ -4400,6 +4400,11 @@ def asrf_rwa(pd, lgd, ead, rho, q=0.999):
     return float("nan") if cap != cap else cap * 12.5
 
 
+def recovery_rate(recovery, exposure):
+    """Realized recovery rate: sum(recovery) / sum(exposure) (= 1 - LGD)."""
+    return _biz_ratio(recovery, exposure)
+
+
 # ======================================================================================
 # Pack CLU - clustering agreement depth (entity resolution / segmentation eval). Predicted
 # cluster + true class label columns give the purity and the B-cubed precision / recall / F1.

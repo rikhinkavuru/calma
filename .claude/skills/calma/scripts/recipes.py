@@ -2016,6 +2016,32 @@ def vasicek_conditional_pd(cols, binding, convention=None):
 
 
 # ======================================================================================
+# Pack CX - credit recovery & exposure-weighting. Realized recovery rate plus the
+# exposure-weighted PD / maturity (reusing the weighted-mean kernel).
+# ======================================================================================
+
+@register("recovery_rate", family="credit", required_tags=["recovery", "exposure"],
+          set_maturity="reviewed")
+def recovery_rate(cols, binding, convention=None):
+    rec, exp = cols[binding["recovery"]], cols[binding["exposure"]]
+    return _result(N.recovery_rate(rec, exp), {"n": len(rec)})
+
+
+@register("exposure_weighted_pd", family="credit", required_tags=["pd", "ead"],
+          set_maturity="reviewed")
+def exposure_weighted_pd(cols, binding, convention=None):
+    p, e = cols[binding["pd"]], cols[binding["ead"]]
+    return _result(N.weighted_mean(p, e), {"n": len(p)})
+
+
+@register("exposure_weighted_maturity", family="credit", required_tags=["maturity", "ead"],
+          set_maturity="reviewed")
+def exposure_weighted_maturity(cols, binding, convention=None):
+    m, e = cols[binding["maturity"]], cols[binding["ead"]]
+    return _result(N.weighted_mean(m, e), {"n": len(m)})
+
+
+# ======================================================================================
 # Pack CLU - clustering agreement depth. Predicted cluster + true class label columns.
 # ======================================================================================
 

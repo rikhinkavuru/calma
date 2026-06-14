@@ -5,7 +5,7 @@
   "scipy": "1.17.1",
   "sklearn": "1.9.0"
  },
- "n_cases": 765,
+ "n_cases": 768,
  "cases": [
   {
    "id": "total_return",
@@ -159937,6 +159937,75 @@
    },
    "expected": 0.18469954743928985,
    "atol": 1e-10,
+   "rtol": 1e-12
+  },
+  {
+   "id": "recovery_rate",
+   "kind": "recovery_rate",
+   "args": {
+    "rec": [
+     38.0,
+     22.0,
+     55.0,
+     60.0,
+     70.0
+    ],
+    "exp": [
+     100.0,
+     200.0,
+     150.0,
+     120.0,
+     180.0
+    ]
+   },
+   "expected": 0.32666666666666666,
+   "atol": 1e-12,
+   "rtol": 1e-12
+  },
+  {
+   "id": "exposure_weighted_pd",
+   "kind": "exposure_weighted_pd",
+   "args": {
+    "pd": [
+     0.01,
+     0.02,
+     0.05,
+     0.008,
+     0.03
+    ],
+    "ead": [
+     100.0,
+     200.0,
+     150.0,
+     120.0,
+     180.0
+    ]
+   },
+   "expected": 0.025146666666666664,
+   "atol": 1e-12,
+   "rtol": 1e-12
+  },
+  {
+   "id": "exposure_weighted_maturity",
+   "kind": "exposure_weighted_maturity",
+   "args": {
+    "mat": [
+     2.5,
+     4.0,
+     1.5,
+     3.0,
+     5.0
+    ],
+    "ead": [
+     100.0,
+     200.0,
+     150.0,
+     120.0,
+     180.0
+    ]
+   },
+   "expected": 3.38,
+   "atol": 1e-12,
    "rtol": 1e-12
   },
   {

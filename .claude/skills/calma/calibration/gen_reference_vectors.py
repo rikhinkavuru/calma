@@ -1649,6 +1649,17 @@ case("asrf_rwa", "asrf_rwa",
 case("vasicek_conditional_pd", "vasicek_conditional_pd",
      {"pd": cr2_pd, "rho": cr2_rho}, cr2_condpd, atol=1e-10)
 
+# Pack CX - credit recovery & exposure-weighting (numpy recompute)
+cx_rec = [38.0, 22.0, 55.0, 60.0, 70.0]
+cx_exp = [100.0, 200.0, 150.0, 120.0, 180.0]
+cx_mat = [2.5, 4.0, 1.5, 3.0, 5.0]
+case("recovery_rate", "recovery_rate", {"rec": cx_rec, "exp": cx_exp},
+     float(np.sum(cx_rec) / np.sum(cx_exp)), atol=1e-12)
+case("exposure_weighted_pd", "exposure_weighted_pd", {"pd": cr2_pd, "ead": cx_exp},
+     float(np.sum(np.array(cr2_pd) * np.array(cx_exp)) / np.sum(cx_exp)), atol=1e-12)
+case("exposure_weighted_maturity", "exposure_weighted_maturity", {"mat": cx_mat, "ead": cx_exp},
+     float(np.sum(np.array(cx_mat) * np.array(cx_exp)) / np.sum(cx_exp)), atol=1e-12)
+
 # Pack CLU - clustering agreement depth (plain-python recompute)
 clu_pred = [int(u * 4) for u in uniforms(7401, 90, 0.0, 0.999)]
 clu_label = [(p if u < 0.75 else int(u2 * 4))

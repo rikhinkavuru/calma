@@ -374,6 +374,9 @@ KINDS = {
     "asrf_capital_requirement": lambda a: N.asrf_capital_requirement(a["pd"], a["lgd"], a["ead"], a["rho"]),
     "asrf_rwa": lambda a: N.asrf_rwa(a["pd"], a["lgd"], a["ead"], a["rho"]),
     "vasicek_conditional_pd": lambda a: N.vasicek_conditional_pd(a["pd"], a["rho"]),
+    "recovery_rate": lambda a: N.recovery_rate(a["rec"], a["exp"]),
+    "exposure_weighted_pd": lambda a: N.weighted_mean(a["pd"], a["ead"]),
+    "exposure_weighted_maturity": lambda a: N.weighted_mean(a["mat"], a["ead"]),
     "purity": lambda a: N.purity(a["pred"], a["label"]),
     "bcubed_precision": lambda a: N.bcubed_precision(a["pred"], a["label"]),
     "bcubed_recall": lambda a: N.bcubed_recall(a["pred"], a["label"]),
@@ -708,6 +711,8 @@ EXPECTED = {
     "altman_z", "altman_z_prime", "merton_distance_to_default", "merton_pd",
     # pack CR2 - Basel ASRF / Vasicek credit-portfolio capital (3)
     "asrf_capital_requirement", "asrf_rwa", "vasicek_conditional_pd",
+    # pack CX - credit recovery & exposure-weighting (3)
+    "recovery_rate", "exposure_weighted_pd", "exposure_weighted_maturity",
     # pack CLU - clustering agreement depth (4)
     "purity", "bcubed_precision", "bcubed_recall", "bcubed_f1",
     # pack PERF2 - consistency & ODD-flag metrics (3)
@@ -813,7 +818,7 @@ EXPECTED = {
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 489 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 492 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402
