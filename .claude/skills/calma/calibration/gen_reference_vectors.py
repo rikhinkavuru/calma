@@ -1882,6 +1882,28 @@ case("bhattacharyya_distance", "bhattacharyya_distance", dist_args, dist_bhat, a
 case("jeffreys_divergence", "jeffreys_divergence", dist_args, dist_jeff, atol=1e-12)
 case("chi_square_distance", "chi_square_distance", dist_args, dist_chi, atol=1e-12)
 
+# ============================ Pack SV - survival / time-to-event ============================
+# Independent reference: lifelines KaplanMeierFitter / NelsonAalenFitter and its RMST util.
+
+from lifelines import KaplanMeierFitter as _KMF, NelsonAalenFitter as _NAF  # noqa: E402
+from lifelines.utils import restricted_mean_survival_time as _rmst_util  # noqa: E402
+
+sv_dur = [round(x, 2) for x in uniforms(11001, 50, 1.0, 50.0)]
+sv_ev = [1 if u < 0.7 else 0 for u in uniforms(11002, 50, 0.0, 1.0)]
+sv_t = 20.0
+sv_h = 30.0
+_kmf = _KMF().fit(sv_dur, sv_ev)
+_naf = _NAF().fit(sv_dur, sv_ev)
+sv_args = {"dur": sv_dur, "ev": sv_ev}
+case("km_median_survival", "km_median_survival", sv_args,
+     float(_kmf.median_survival_time_), atol=1e-9)
+case("km_survival_at", "km_survival_at", {"dur": sv_dur, "ev": sv_ev, "t": sv_t},
+     float(_kmf.predict(sv_t)), atol=1e-10)
+case("nelson_aalen_cumhaz", "nelson_aalen_cumhaz", {"dur": sv_dur, "ev": sv_ev, "t": sv_t},
+     float(_naf.predict(sv_t)), atol=1e-10)
+case("restricted_mean_survival_time", "restricted_mean_survival_time",
+     {"dur": sv_dur, "ev": sv_ev, "horizon": sv_h}, float(_rmst_util(_kmf, t=sv_h)), atol=1e-9)
+
 # ============================ write ============================
 
 doc = {

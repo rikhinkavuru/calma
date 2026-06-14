@@ -2354,3 +2354,40 @@ for _mid in ("hellinger_distance", "total_variation_distance", "bhattacharyya_di
              "jeffreys_divergence", "chi_square_distance"):
     register(_mid, family="stats", required_tags=["p", "q"],
              set_maturity="reviewed")(_dist_pq(getattr(N, _mid)))
+
+
+# ======================================================================================
+# Pack SV - survival / time-to-event. Duration + event (1=observed, 0=censored) columns;
+# the point-in-time metrics take a t / horizon convention.
+# ======================================================================================
+
+@register("km_median_survival", family="stats", required_tags=["duration", "event"],
+          set_maturity="reviewed")
+def km_median_survival(cols, binding, convention=None):
+    d, e = cols[binding["duration"]], cols[binding["event"]]
+    return _result(N.km_median_survival(d, e), {"n": len(d)}, path_dependent=True)
+
+
+@register("km_survival_at", family="stats", required_tags=["duration", "event"],
+          set_maturity="reviewed", accepted_conventions=["t=<float>"])
+def km_survival_at(cols, binding, convention=None):
+    d, e = cols[binding["duration"]], cols[binding["event"]]
+    t = _conv_float(convention, "t", 1.0)
+    return _result(N.km_survival_at(d, e, t), {"n": len(d), "t": t}, path_dependent=True)
+
+
+@register("nelson_aalen_cumhaz", family="stats", required_tags=["duration", "event"],
+          set_maturity="reviewed", accepted_conventions=["t=<float>"])
+def nelson_aalen_cumhaz(cols, binding, convention=None):
+    d, e = cols[binding["duration"]], cols[binding["event"]]
+    t = _conv_float(convention, "t", 1.0)
+    return _result(N.nelson_aalen_cumhaz(d, e, t), {"n": len(d), "t": t}, path_dependent=True)
+
+
+@register("restricted_mean_survival_time", family="stats", required_tags=["duration", "event"],
+          set_maturity="reviewed", accepted_conventions=["horizon=<float>"])
+def restricted_mean_survival_time(cols, binding, convention=None):
+    d, e = cols[binding["duration"]], cols[binding["event"]]
+    horizon = _conv_float(convention, "horizon", 1.0)
+    return _result(N.restricted_mean_survival_time(d, e, horizon),
+                   {"n": len(d), "horizon": horizon}, path_dependent=True)

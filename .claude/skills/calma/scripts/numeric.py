@@ -5040,3 +5040,84 @@ def chi_square_distance(p, q):
         return float("nan")
     a, b = nn
     return math.fsum((ai - bi) ** 2 / (ai + bi) for ai, bi in zip(a, b) if (ai + bi) > 0)
+
+
+# ======================================================================================
+# Pack SV - survival / time-to-event (time-to-default, churn timing). Duration + event
+# (1 = observed, 0 = censored) columns drive Kaplan-Meier survival, Nelson-Aalen cumulative
+# hazard and the restricted mean survival time. Validated against lifelines.
+# ======================================================================================
+
+def _surv_ok(duration, event):
+    n = len(duration)
+    return (n > 0 and len(event) == n and not _has_nan(duration) and not _has_nan(event)
+            and all(d >= 0 for d in duration))
+
+
+def _km_curve(duration, event):
+    """Kaplan-Meier survival at each distinct event time: list of (t, S(t))."""
+    ev_times = sorted(set(d for d, e in zip(duration, event) if e == 1))
+    curve = []
+    s = 1.0
+    for t in ev_times:
+        at_risk = sum(1 for d in duration if d >= t)
+        deaths = sum(1 for d, e in zip(duration, event) if e == 1 and d == t)
+        if at_risk > 0:
+            s *= 1.0 - deaths / at_risk
+        curve.append((t, s))
+    return curve
+
+
+def km_median_survival(duration, event):
+    """Kaplan-Meier median survival time: smallest event time with S(t) <= 0.5 (inf if never)."""
+    if not _surv_ok(duration, event):
+        return float("nan")
+    for t, s in _km_curve(duration, event):
+        if s <= 0.5:
+            return t
+    return float("inf")
+
+
+def km_survival_at(duration, event, t):
+    """Kaplan-Meier survival probability S(t) at time t (right-continuous step function)."""
+    if not _surv_ok(duration, event):
+        return float("nan")
+    s = 1.0
+    for ti, si in _km_curve(duration, event):
+        if ti <= t:
+            s = si
+        else:
+            break
+    return s
+
+
+def nelson_aalen_cumhaz(duration, event, t):
+    """Nelson-Aalen cumulative hazard H(t) = sum_{t_i <= t} d_i / n_i."""
+    if not _surv_ok(duration, event):
+        return float("nan")
+    h = 0.0
+    for ti in sorted(set(d for d, e in zip(duration, event) if e == 1)):
+        if ti > t:
+            break
+        at_risk = sum(1 for d in duration if d >= ti)
+        deaths = sum(1 for d, e in zip(duration, event) if e == 1 and d == ti)
+        if at_risk > 0:
+            h += deaths / at_risk
+    return h
+
+
+def restricted_mean_survival_time(duration, event, horizon):
+    """Restricted mean survival time: area under the KM survival curve from 0 to horizon."""
+    if not _surv_ok(duration, event) or horizon <= 0:
+        return float("nan")
+    area = 0.0
+    prev_t, prev_s = 0.0, 1.0
+    for t, s in _km_curve(duration, event):
+        tt = min(t, horizon)
+        area += prev_s * (tt - prev_t)
+        if t >= horizon:
+            return area
+        prev_t, prev_s = t, s
+    if prev_t < horizon:
+        area += prev_s * (horizon - prev_t)
+    return area
