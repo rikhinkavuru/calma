@@ -1753,6 +1753,20 @@ case("mood_test", "mood_test", np_args, float(_sp_mood(np_a, np_b)[0]), atol=1e-
 case("ansari_bradley", "ansari_bradley", np_args, float(_sp_ansari(np_a, np_b)[0]), atol=1e-9)
 case("brunner_munzel", "brunner_munzel", np_args, float(_sp_bm(np_a, np_b)[0]), atol=1e-9)
 
+# Pack MOM - robust moment & dispersion depth (numpy recompute)
+mom_x = list(uniforms(3801, 80, -3.0, 15.0))
+_mx = np.array(mom_x)
+_msd = float(_mx.std(ddof=1))
+_mmu = float(_mx.mean())
+mom_pms = 3.0 * (_mmu - float(np.quantile(_mx, 0.5))) / _msd
+mom_sr = (float(_mx.max()) - float(_mx.min())) / _msd
+mom_rmd = float(np.mean(np.abs(_mx - _mmu))) / abs(_mmu)
+mom_mh = 0.5 * (float(np.quantile(_mx, 0.25)) + float(np.quantile(_mx, 0.75)))
+case("pearson_median_skewness", "pearson_median_skewness", {"xs": mom_x}, mom_pms, atol=1e-12)
+case("studentized_range", "studentized_range", {"xs": mom_x}, mom_sr, atol=1e-12)
+case("relative_mean_deviation", "relative_mean_deviation", {"xs": mom_x}, mom_rmd, atol=1e-12)
+case("midhinge", "midhinge", {"xs": mom_x}, mom_mh, atol=1e-12)
+
 # ============================ Pack PA - portfolio construction & attribution ============================
 # Independent reference: vectorized numpy recompute of Brinson-Hood-Beebower attribution
 # and the weight-based metrics over a deterministic 6-segment book.

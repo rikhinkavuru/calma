@@ -2929,6 +2929,22 @@ for _mid in ("mood_test", "ansari_bradley", "brunner_munzel"):
              set_maturity="reviewed")(_np_ab(getattr(N, _mid)))
 
 
+# ======================================================================================
+# Pack MOM - robust moment & dispersion depth. A single value column.
+# ======================================================================================
+
+def _mom_recipe(fn):
+    def recipe(cols, binding, convention=None):
+        xs = cols[binding["value"]]
+        return _result(fn(xs), {"n": len(xs)})
+    return recipe
+
+
+for _mid in ("pearson_median_skewness", "studentized_range", "relative_mean_deviation", "midhinge"):
+    register(_mid, family="analytics", required_tags=["value"],
+             set_maturity="reviewed")(_mom_recipe(getattr(N, _mid)))
+
+
 @register("hill_number", family="analytics", required_tags=["value"],
           set_maturity="reviewed", accepted_conventions=["q=<float>"])
 def hill_number(cols, binding, convention=None):

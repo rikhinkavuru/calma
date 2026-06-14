@@ -6441,6 +6441,49 @@ def comprehensive_concentration_index(xs):
 
 
 # ======================================================================================
+# Pack MOM - robust moment & dispersion depth. A value column gives the Pearson median
+# skewness, the studentized range, the relative mean deviation and the midhinge.
+# Definitional; validated against numpy.
+# ======================================================================================
+
+def pearson_median_skewness(xs):
+    """Pearson's second (median) skewness coefficient: 3*(mean - median)/std."""
+    if not xs or _has_nan(xs) or len(xs) < 2:
+        return float("nan")
+    sd = fstd(xs, 1)
+    if sd <= 0:
+        return float("nan")
+    return 3.0 * (fmean(xs) - quantile(xs, 0.5)) / sd
+
+
+def studentized_range(xs):
+    """Studentized range: (max - min) / std(ddof=1)."""
+    if not xs or _has_nan(xs) or len(xs) < 2:
+        return float("nan")
+    sd = fstd(xs, 1)
+    if sd <= 0:
+        return float("nan")
+    return (max(xs) - min(xs)) / sd
+
+
+def relative_mean_deviation(xs):
+    """Relative mean deviation (coefficient of mean deviation): mean(|x-mean|) / |mean|."""
+    if not xs or _has_nan(xs):
+        return float("nan")
+    m = fmean(xs)
+    if m == 0:
+        return float("nan")
+    return fmean([abs(x - m) for x in xs]) / abs(m)
+
+
+def midhinge(xs):
+    """Midhinge: (Q1 + Q3) / 2, a robust measure of center."""
+    if not xs or _has_nan(xs):
+        return float("nan")
+    return 0.5 * (quantile(xs, 0.25) + quantile(xs, 0.75))
+
+
+# ======================================================================================
 # Pack NP - nonparametric scale / location tests. Two samples give Mood's and Ansari-
 # Bradley's scale-test statistics and the Brunner-Munzel statistic (a robust Mann-Whitney
 # alternative for unequal variances). Validated against scipy (continuous / no-tie data).
