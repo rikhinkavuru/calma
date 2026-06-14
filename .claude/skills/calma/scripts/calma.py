@@ -20,6 +20,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import attest
 import backtest_checks as BC
+import leakage_checks as LC
 import compare as CMP
 import draft_contract as DC
 import intake as INTAKE
@@ -200,12 +201,17 @@ def _reconcile_claim(contract, claim, metric):
                "%g" % committed_v if isinstance(committed_v, (int, float)) else committed_v)), None
 
 
-def _not_verified(metric_ids):
-    """Honest 'what we did NOT check' list, phrased for the family actually verified."""
+def _not_verified(metric_ids, leakage_status=None):
+    """Honest 'what we did NOT check' list. Leakage is now a real family: list it as a gap ONLY when it
+    was NOT-APPLICABLE (no train/test split or keys to assess) - never claim it as a gap once it ran.
+    Overfitting / deflated-Sharpe / PBO remain roadmap until their detector ships."""
+    out = []
+    if leakage_status in (None, "not-applicable"):
+        out.append("data leakage (no train/test split or keys declared)")
+    out.append("overfitting / deflated-Sharpe / PBO statistics (roadmap)")
     if any(m in QUANT_METRICS for m in metric_ids):
-        return ["deflated-Sharpe / PBO overfitting stats (CLI roadmap)",
-                "survivorship-free vendor data (managed roadmap)"]
-    return ["leakage re-run (roadmap)", "overfitting statistics (roadmap)"]
+        out.append("survivorship-free vendor data (managed roadmap)")
+    return out
 
 
 def _metric_suggestions(target, claim, k=4):
@@ -271,7 +277,7 @@ def _inconclusive_ledger(run_res, finding=None, target_name=None):
     return led
 
 
-def _assemble_ledger(contract, diff, run_res):
+def _assemble_ledger(contract, diff, run_res, claim_text=None):
     claims, findings = [], []
     for i, m in enumerate(diff["metrics"]):
         cid = "c%d" % (i + 1)
@@ -367,11 +373,18 @@ def _assemble_ledger(contract, diff, run_res):
     # WS4 backtest catches (omitted costs / cherry-picked window / survivorship universe) - additive
     # findings off the bound artifact. Only when the run actually reproduced (exit 0) and there is a
     # claim to judge; deck-vs-code mismatch is already handled above by the recompute+verdict path.
+    leak_fam = None
     if claims and run_res.get("exit_code", 0) == 0:
         _base = run_res.get("base") or (
             os.path.dirname(os.path.dirname(run_res["run_dir"])) if run_res.get("run_dir") else None)
         if _base:
             findings.extend(BC.run_checks(contract, _base, claims[0]["id"]))
+            # WS-leakage: additive leakage findings, then promote the (reproduced) headline verdict per
+            # the findings + the claim scope (INVALIDATED / CAN'T-CONFIRM / CAVEAT). Never manufactures
+            # REFUTED - that stays the gap-gated recompute path (+ the leakage-corrected re-run, Step 4).
+            findings.extend(LC.run_checks(contract, _base, claims[0]["id"]))
+            LC.apply_validity(claims, findings, contract, claim_text)
+            leak_fam = LC.family_status(contract, findings)
     metric_ids = [m["metric_id"] for m in diff["metrics"]]
     # surface which binding was auto-picked (the one surface the producer influences)
     binding_note = None
@@ -393,8 +406,9 @@ def _assemble_ledger(contract, diff, run_res):
             "binding_note": binding_note,
             "families": {"reproducibility": "checked" if run_res.get("exit_code", 0) == 0 else "FAILED",
                          "recomputation": "checked",
-                         "baseline": "checked" if bl else "not-applicable"},
-            "not_verified": _not_verified(metric_ids),
+                         "baseline": "checked" if bl else "not-applicable",
+                         **({"leakage": leak_fam} if leak_fam else {})},
+            "not_verified": _not_verified(metric_ids, leak_fam),
         },
         "repo_verdict": None,
     }
@@ -843,7 +857,7 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
                               "within the calibrated budget" if _dm.get("verdict") in
                               ("CONFIRMED", "CONFIRMED-WITH-CAVEATS")
                               else "OUTSIDE the calibrated budget"))
-            led = _assemble_ledger(contract, diff, run_res)
+            led = _assemble_ledger(contract, diff, run_res, claim_text=claim)
             # calma AUTO-PICKED the metric (producer didn't pin it) and it didn't confirm -> the
             # ask was unclear. Offer ranked alternatives from the claim + data columns and let the
             # user pick, instead of silently standing on a guessed metric. Only here: a confirmed

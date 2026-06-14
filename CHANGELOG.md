@@ -29,10 +29,20 @@ need. Serial, leakage-first; each step keeps the full suite green.
   `*_train`/`*_test` pairs, or a single file + a `split`/`fold` column), `keys` ({id, time, target}),
   and `features` (the model-input columns). All absent → the leakage family is NOT-APPLICABLE (an honest
   abstention, never a false pass); an ordinary single-metric artifact stays clean (no noisy keys).
+- **Leakage detectors** (`scripts/leakage_checks.py`, dimension `leakage`, on the findings rail) — five
+  deterministic catches off the bound artifacts: train/test **row overlap** (canonical sha256 row hash),
+  **entity/id overlap**, **temporal look-ahead** (with optional embargo), **duplicate inflation** in the
+  eval set, and **target leakage** (a feature identical to the target → authoritative; `|pearson_r|≥0.999`
+  → LABELED HEURISTIC). Wired into `_assemble_ledger` beside `backtest_checks`. The verdict follows the
+  claim's scope (`apply_validity` + `oos_status`): authoritative contamination on an **out-of-sample**
+  claim → INVALIDATED; **in-sample** or heuristic → CONFIRMED-WITH-CAVEATS (exit 0); **indeterminate**
+  scope → CAN'T-CONFIRM ("declare whether out-of-sample"). REFUTED is never manufactured here. The
+  honest "did NOT assess" list drops leakage once it runs (overfitting stays roadmap).
 - Tests: +14 `test_verdict`, +12 `test_ledger`, +3 `test_registry` (attest→registry round-trip), incl. a
-  fail-closed unknown-verdict property; +17 `test_draft` (split/keys/features detection + validation).
-  Detectors, kernels, and reference vectors land in the following steps. Design of record:
-  `.claude/skills/calma/PLAN.md`.
+  fail-closed unknown-verdict property; +17 `test_draft` (split/keys/features detection + validation);
+  +43 `test_leakage_checks` (five detectors with exact magnitudes, the OOS scope-guard, the full verdict
+  lattice through real ledgers, and an end-to-end `_assemble_ledger` wiring check). Kernels and reference
+  vectors land in the following steps. Design of record: `.claude/skills/calma/PLAN.md`.
 
 ## 0.9.1 — 2026-06-14
 
