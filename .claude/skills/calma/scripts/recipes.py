@@ -2817,3 +2817,27 @@ def _win_recipe(fn):
 for _mid in ("winsorized_mean", "winsorized_std", "trimmed_std"):
     register(_mid, family="analytics", required_tags=["value"],
              set_maturity="reviewed", accepted_conventions=["trim=<frac>"])(_win_recipe(getattr(N, _mid)))
+
+
+# ======================================================================================
+# Pack BD2 - fixed-income spread analytics. Cashflow + zero-curve columns; Z-spread needs a price.
+# ======================================================================================
+
+def _bd2_dur(fn):
+    def recipe(cols, binding, convention=None):
+        cf, z, t = cols[binding["cashflow"]], cols[binding["zero_rate"]], cols[binding["time"]]
+        return _result(fn(cf, z, t), {"n": len(cf)})
+    return recipe
+
+
+for _mid in ("spread_duration", "spread_dv01"):
+    register(_mid, family="finance", required_tags=["cashflow", "zero_rate", "time"],
+             set_maturity="reviewed")(_bd2_dur(getattr(N, _mid)))
+
+
+@register("z_spread", family="finance", required_tags=["cashflow", "zero_rate", "time"],
+          set_maturity="reviewed", accepted_conventions=["price=<float>"])
+def z_spread(cols, binding, convention=None):
+    cf, z, t = cols[binding["cashflow"]], cols[binding["zero_rate"]], cols[binding["time"]]
+    price = _conv_float(convention, "price", 100.0)
+    return _result(N.z_spread(cf, z, t, price), {"n": len(cf), "price": price})

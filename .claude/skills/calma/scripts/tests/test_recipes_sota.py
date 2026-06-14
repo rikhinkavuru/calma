@@ -531,6 +531,10 @@ KINDS = {
     "winsorized_mean": lambda a: N.winsorized_mean(a["xs"], a["trim"]),
     "winsorized_std": lambda a: N.winsorized_std(a["xs"], a["trim"]),
     "trimmed_std": lambda a: N.trimmed_std(a["xs"], a["trim"]),
+    # pack BD2 - fixed-income spread analytics
+    "spread_duration": lambda a: N.spread_duration(a["cashflow"], a["zero"], a["time"]),
+    "spread_dv01": lambda a: N.spread_dv01(a["cashflow"], a["zero"], a["time"]),
+    "z_spread": lambda a: N.z_spread(a["cashflow"], a["zero"], a["time"], a["price"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -717,10 +721,12 @@ EXPECTED = {
     "shannon_diversity", "hill_number", "pielou_evenness", "berger_parker",
     # pack WIN - winsorized / trimmed robust statistics (3)
     "winsorized_mean", "winsorized_std", "trimmed_std",
+    # pack BD2 - fixed-income spread analytics (3)
+    "spread_duration", "spread_dv01", "z_spread",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 433 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 436 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

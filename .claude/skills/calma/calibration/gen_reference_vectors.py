@@ -2350,6 +2350,31 @@ case("winsorized_mean", "winsorized_mean", win_args, win_mean, atol=1e-11)
 case("winsorized_std", "winsorized_std", win_args, win_std, atol=1e-11)
 case("trimmed_std", "trimmed_std", win_args, win_tstd, atol=1e-11)
 
+# ============================ Pack BD2 - fixed-income spread analytics ============================
+# Independent reference: numpy parallel-spread bump-and-reprice for spread duration / DV01,
+# and scipy.optimize.brentq for the Z-spread (constant spread that reprices the cashflows).
+
+bd_cf = [4.0, 4.0, 4.0, 4.0, 104.0]
+bd_zero = [0.030, 0.034, 0.037, 0.039, 0.040]
+bd_time = [1.0, 2.0, 3.0, 4.0, 5.0]
+bd_bump = 1e-4
+
+
+def _bd_pv(s):
+    return float(np.sum([cf / (1.0 + z + s) ** t for cf, z, t in zip(bd_cf, bd_zero, bd_time)]))
+
+
+bd_p0 = _bd_pv(0.0)
+bd_sd = (_bd_pv(-bd_bump) - _bd_pv(bd_bump)) / (2.0 * bd_p0 * bd_bump)
+bd_dv01 = bd_sd * bd_p0 * 1e-4
+bd_target = 99.0
+bd_z = float(brentq(lambda s: _bd_pv(s) - bd_target, -0.5, 5.0, xtol=1e-14))
+bd_args = {"cashflow": bd_cf, "zero": bd_zero, "time": bd_time}
+case("spread_duration", "spread_duration", bd_args, bd_sd, atol=1e-9)
+case("spread_dv01", "spread_dv01", bd_args, bd_dv01, atol=1e-12)
+case("z_spread", "z_spread", {"cashflow": bd_cf, "zero": bd_zero, "time": bd_time, "price": bd_target},
+     bd_z, atol=1e-9)
+
 # ============================ write ============================
 
 doc = {

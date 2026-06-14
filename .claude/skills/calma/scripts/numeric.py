@@ -6074,3 +6074,59 @@ def trimmed_std(xs, trim=0.1):
     if len(t) < 2:
         return float("nan")
     return fstd(t, 1)
+
+
+# ======================================================================================
+# Pack BD2 - fixed-income spread analytics. A cashflow + zero-curve binding gives spread
+# duration / spread DV01 (sensitivity to a parallel spread shift on the curve) and the
+# Z-spread (the constant spread that reprices the bond). Reuses the discrete-DF discounting.
+# ======================================================================================
+
+def _curve_pv_spread(cashflow, zero, time, s):
+    return math.fsum(cf / (1.0 + z + s) ** t for cf, z, t in zip(cashflow, zero, time))
+
+
+def spread_duration(cashflow, zero, time, bump=1e-4):
+    """Spread duration: (PV(-d) - PV(+d)) / (2 PV(0) d) for a +/-1bp parallel spread shift."""
+    if not _rc_ok(cashflow, zero, time) or any(z <= -1.0 for z in zero):
+        return float("nan")
+    p0 = _curve_pv_spread(cashflow, zero, time, 0.0)
+    pu = _curve_pv_spread(cashflow, zero, time, bump)
+    pd = _curve_pv_spread(cashflow, zero, time, -bump)
+    if p0 != p0 or pu != pu or pd != pd or p0 == 0:
+        return float("nan")
+    return (pd - pu) / (2.0 * p0 * bump)
+
+
+def spread_dv01(cashflow, zero, time, bump=1e-4):
+    """Spread DV01: spread_duration * PV * 1e-4 (dollar value of a 1bp spread move)."""
+    sd = spread_duration(cashflow, zero, time, bump)
+    p0 = _curve_pv_spread(cashflow, zero, time, 0.0)
+    if sd != sd or p0 != p0:
+        return float("nan")
+    return sd * p0 * 1e-4
+
+
+def z_spread(cashflow, zero, time, price):
+    """Z-spread: the constant spread s added to every zero rate that reprices the cashflows to
+    `price`, solved by bisection on [-0.5, 5]."""
+    if not _rc_ok(cashflow, zero, time) or any(z <= -1.0 for z in zero) or price <= 0:
+        return float("nan")
+
+    def f(s):
+        return _curve_pv_spread(cashflow, zero, time, s) - price
+
+    lo, hi = -0.5, 5.0
+    flo, fhi = f(lo), f(hi)
+    if flo != flo or fhi != fhi or flo * fhi > 0:
+        return float("nan")
+    for _ in range(200):
+        mid = 0.5 * (lo + hi)
+        fm = f(mid)
+        if fm == 0.0:
+            return mid
+        if flo * fm < 0:
+            hi = mid
+        else:
+            lo, flo = mid, fm
+    return 0.5 * (lo + hi)
