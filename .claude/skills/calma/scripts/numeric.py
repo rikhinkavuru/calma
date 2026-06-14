@@ -6580,6 +6580,35 @@ def midhinge(xs):
 
 
 # ======================================================================================
+# Pack RL - robust location estimators. A value column gives Tukey's trimean, the one-sample
+# Hodges-Lehmann estimator (median of Walsh averages) and the Gastwirth location estimator.
+# Definitional; validated against numpy.
+# ======================================================================================
+
+def trimean(xs):
+    """Tukey's trimean: 0.25*Q1 + 0.5*Q2 + 0.25*Q3."""
+    if not xs or _has_nan(xs):
+        return float("nan")
+    return 0.25 * quantile(xs, 0.25) + 0.5 * quantile(xs, 0.5) + 0.25 * quantile(xs, 0.75)
+
+
+def hodges_lehmann_estimator(xs):
+    """One-sample Hodges-Lehmann estimator: median of all pairwise averages (Walsh averages)."""
+    if not xs or _has_nan(xs):
+        return float("nan")
+    n = len(xs)
+    walsh = [(xs[i] + xs[j]) / 2.0 for i in range(n) for j in range(i, n)]
+    return quantile(walsh, 0.5)
+
+
+def gastwirth_location(xs):
+    """Gastwirth (1966) location estimator: 0.3*Q(1/3) + 0.4*median + 0.3*Q(2/3)."""
+    if not xs or _has_nan(xs):
+        return float("nan")
+    return 0.3 * quantile(xs, 1.0 / 3.0) + 0.4 * quantile(xs, 0.5) + 0.3 * quantile(xs, 2.0 / 3.0)
+
+
+# ======================================================================================
 # Pack NP - nonparametric scale / location tests. Two samples give Mood's and Ansari-
 # Bradley's scale-test statistics and the Brunner-Munzel statistic (a robust Mann-Whitney
 # alternative for unequal variances). Validated against scipy (continuous / no-tie data).

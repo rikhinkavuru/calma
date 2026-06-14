@@ -2972,7 +2972,8 @@ def _mom_recipe(fn):
     return recipe
 
 
-for _mid in ("pearson_median_skewness", "studentized_range", "relative_mean_deviation", "midhinge"):
+for _mid in ("pearson_median_skewness", "studentized_range", "relative_mean_deviation", "midhinge",
+             "trimean", "hodges_lehmann_estimator", "gastwirth_location"):
     register(_mid, family="analytics", required_tags=["value"],
              set_maturity="reviewed")(_mom_recipe(getattr(N, _mid)))
 

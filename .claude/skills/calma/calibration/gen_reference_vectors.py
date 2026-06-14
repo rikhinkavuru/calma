@@ -1779,6 +1779,18 @@ case("studentized_range", "studentized_range", {"xs": mom_x}, mom_sr, atol=1e-12
 case("relative_mean_deviation", "relative_mean_deviation", {"xs": mom_x}, mom_rmd, atol=1e-12)
 case("midhinge", "midhinge", {"xs": mom_x}, mom_mh, atol=1e-12)
 
+# Pack RL - robust location estimators (numpy recompute)
+rl_x = list(uniforms(3901, 70, -4.0, 18.0))
+_rlx = np.array(rl_x)
+rl_tri = 0.25 * float(np.quantile(_rlx, 0.25)) + 0.5 * float(np.quantile(_rlx, 0.5)) + 0.25 * float(np.quantile(_rlx, 0.75))
+_rln = len(rl_x)
+_walsh = np.array([(rl_x[i] + rl_x[j]) / 2.0 for i in range(_rln) for j in range(i, _rln)])
+rl_hl = float(np.quantile(_walsh, 0.5))
+rl_gw = 0.3 * float(np.quantile(_rlx, 1.0 / 3.0)) + 0.4 * float(np.quantile(_rlx, 0.5)) + 0.3 * float(np.quantile(_rlx, 2.0 / 3.0))
+case("trimean", "trimean", {"xs": rl_x}, rl_tri, atol=1e-12)
+case("hodges_lehmann_estimator", "hodges_lehmann_estimator", {"xs": rl_x}, rl_hl, atol=1e-12)
+case("gastwirth_location", "gastwirth_location", {"xs": rl_x}, rl_gw, atol=1e-12)
+
 # ============================ Pack PA - portfolio construction & attribution ============================
 # Independent reference: vectorized numpy recompute of Brinson-Hood-Beebower attribution
 # and the weight-based metrics over a deterministic 6-segment book.
