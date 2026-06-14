@@ -203,6 +203,18 @@ leakage-re-run + deflation "Shipping" → "Today"; note for the benchmark sessio
 
 ---
 
+## 6b. Step-5 coordination (shared files with the parallel recipe session)
+`numeric.py` / `gen_reference_vectors.py` / `test_recipes_sota.py` are edited by the parallel recipe
+session. Per the owner's protocol — do NOT blind-rebase onto their landings, do NOT block on them:
+- **Known-good base recorded** (the additive starting point): last-commit `14c4897`; blobs —
+  `numeric.py 28c8a3c`, `gen_reference_vectors.py 1ae308e`, `test_recipes_sota.py 5029ac3`.
+- Land the overfitting kernels + DSR/PBO reference vectors ADDITIVELY; then merge the recipe deltas in
+  as a reviewed diff (not the reverse). Treat their `numeric.py` as an input to verify, not a base to
+  inherit: after merging, **regenerate the DSR/PBO reference vectors in the pinned calibration venv** and
+  re-run the full suite. Accept the merged `numeric.py` only if the stdlib kernels still hit the Bailey
+  paper worked examples bit-close (rel-tol 1e-9) AND the suite is green.
+- **Bring the `numeric.py` diff to the owner before finalizing Step 5.**
+
 ## 7. Open sub-decision still flagged (proceeding on default; cheap to flip)
 - **Target leakage exact `feature==target` on a non-OOS / indeterminate claim** — default: route via the
   same scope-guard (correctable → REFUTED; OOS → INVALIDATED; indeterminate → CAN'T-CONFIRM;
