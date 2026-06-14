@@ -1437,6 +1437,18 @@
       ],
       "description": "Fraction of comparable pairs whose predicted risk ordering matches observed survival."
     },
+    "conditional_entropy": {
+      "aliases": [
+        "conditional entropy",
+        "h(y|x)",
+        "entropy of y given x",
+        "uncertainty left after knowing x",
+        "how much is still unknown given the other",
+        "residual uncertainty",
+        "conditional uncertainty"
+      ],
+      "description": "Remaining uncertainty in one variable given another."
+    },
     "confidence_interval": {
       "aliases": [
         "ci",
@@ -3051,6 +3063,17 @@
       ],
       "description": "Rows dropped or added when joining tables, detecting unintended row loss or fan-out."
     },
+    "joint_entropy": {
+      "aliases": [
+        "joint entropy",
+        "h(x,y)",
+        "combined entropy",
+        "total uncertainty of the pair",
+        "entropy of the joint distribution",
+        "how unpredictable the pair is together"
+      ],
+      "description": "Total uncertainty in the pair of two categorical variables."
+    },
     "js_divergence": {
       "aliases": [
         "jensen shannon divergence",
@@ -4289,6 +4312,18 @@
         "overlap of information between groupings adjusted so size doesn't skew it"
       ],
       "description": "Mutual information scaled to a zero-to-one clustering agreement score."
+    },
+    "normalized_variation_of_information": {
+      "aliases": [
+        "normalized variation of information",
+        "normalized vi",
+        "nvi",
+        "scaled information distance",
+        "bounded clustering distance",
+        "vi over joint entropy",
+        "normalized information distance"
+      ],
+      "description": "Variation of information scaled to [0,1] by the joint entropy."
     },
     "normaltest": {
       "aliases": [
@@ -5747,6 +5782,17 @@
       ],
       "description": "Whether at least one relevant item appears in the top-k results."
     },
+    "symmetric_uncertainty": {
+      "aliases": [
+        "symmetric uncertainty",
+        "symmetrical uncertainty",
+        "normalized mutual information symmetric",
+        "balanced shared information",
+        "how much two categories share symmetrically",
+        "su measure"
+      ],
+      "description": "Symmetric normalized mutual information between two variables."
+    },
     "tail_latency_ratio": {
       "aliases": [
         "tail latency ratio",
@@ -6054,6 +6100,18 @@
       ],
       "description": "Root-mean-square of drawdowns; depth-and-duration measure of downside pain."
     },
+    "uncertainty_coefficient": {
+      "aliases": [
+        "uncertainty coefficient",
+        "theil's u",
+        "theil u",
+        "proficiency",
+        "fraction of entropy explained",
+        "how much one category predicts another",
+        "entropy coefficient"
+      ],
+      "description": "Fraction of one variable's entropy explained by another (Theil's U)."
+    },
     "unexpected_loss": {
       "aliases": [
         "ul",
@@ -6198,6 +6256,18 @@
         "cuped efficiency"
       ],
       "description": "Fraction of outcome variance removed by CUPED covariate adjustment."
+    },
+    "variation_of_information": {
+      "aliases": [
+        "variation of information",
+        "vi distance",
+        "meila vi",
+        "information distance between clusterings",
+        "how different two partitions are",
+        "clustering distance metric",
+        "vi metric"
+      ],
+      "description": "Information-theoretic distance between two clusterings or labelings."
     },
     "vasicek_conditional_pd": {
       "aliases": [

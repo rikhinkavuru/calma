@@ -696,6 +696,13 @@ KINDS = {
     "canberra_distance": lambda a: N.canberra_distance(a["x"], a["y"]),
     "correlation_distance": lambda a: N.correlation_distance(a["x"], a["y"]),
     "minkowski_distance": lambda a: N.minkowski_distance(a["x"], a["y"], a["p"]),
+    # pack IT - information-theoretic association
+    "conditional_entropy": lambda a: N.conditional_entropy(a["x"], a["y"]),
+    "joint_entropy": lambda a: N.joint_entropy(a["x"], a["y"]),
+    "variation_of_information": lambda a: N.variation_of_information(a["x"], a["y"]),
+    "uncertainty_coefficient": lambda a: N.uncertainty_coefficient(a["x"], a["y"]),
+    "symmetric_uncertainty": lambda a: N.symmetric_uncertainty(a["x"], a["y"]),
+    "normalized_variation_of_information": lambda a: N.normalized_variation_of_information(a["x"], a["y"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -966,10 +973,14 @@ EXPECTED = {
     "euclidean_distance", "squared_euclidean_distance", "manhattan_distance",
     "chebyshev_distance", "cosine_distance", "braycurtis_distance",
     "canberra_distance", "correlation_distance", "minkowski_distance",
+    # pack IT - information-theoretic association (6)
+    "conditional_entropy", "joint_entropy", "variation_of_information",
+    "uncertainty_coefficient", "symmetric_uncertainty",
+    "normalized_variation_of_information",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 583 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 589 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

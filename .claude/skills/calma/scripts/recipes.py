@@ -3461,3 +3461,14 @@ def minkowski_distance(cols, binding, convention=None):
     x, y = cols[binding["x"]], cols[binding["y"]]
     p = _conv_float(convention, "p", 2.0)
     return _result(N.minkowski_distance(x, y, p), {"n": len(x), "p": p})
+
+
+# ======================================================================================
+# Pack IT - information-theoretic association between two categorical columns (x, y strings).
+# ======================================================================================
+
+for _mid in ("conditional_entropy", "joint_entropy", "variation_of_information",
+             "uncertainty_coefficient", "symmetric_uncertainty",
+             "normalized_variation_of_information"):
+    register(_mid, family="stats", required_tags=["x", "y"], string_tags=["x", "y"],
+             set_maturity="reviewed")(_xy_recipe(getattr(N, _mid)))

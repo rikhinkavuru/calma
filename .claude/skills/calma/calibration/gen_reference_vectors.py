@@ -3087,6 +3087,29 @@ case("correlation_distance", "correlation_distance", _vd, float(_spd.correlation
 case("minkowski_distance", "minkowski_distance", {"x": vd_x, "y": vd_y, "p": vd_p},
      float(_spd.minkowski(vd_x, vd_y, vd_p)), atol=1e-9, rtol=1e-9)
 
+# ============================ Pack IT - information-theoretic association ============================
+# Independent reference: sklearn.metrics.mutual_info_score and scipy.stats.entropy (natural log)
+# composed into conditional / joint entropy, variation of information, uncertainty coefficient,
+# symmetric uncertainty and normalized VI.
+
+from collections import Counter as _Counter  # noqa: E402
+
+it_gx = ["a", "b", "c"]
+it_gy = ["p", "q", "r", "s"]
+it_x = [it_gx[int(u * 3) % 3] for u in uniforms(3001, 90, 0, 1)]
+it_y = [it_gy[int(u * 4) % 4] for u in uniforms(3002, 90, 0, 1)]
+_it_mi = float(skm.mutual_info_score(it_x, it_y))
+_it_hx = float(stats.entropy(list(_Counter(it_x).values())))
+_it_hy = float(stats.entropy(list(_Counter(it_y).values())))
+_it = {"x": it_x, "y": it_y}
+case("conditional_entropy", "conditional_entropy", _it, _it_hy - _it_mi, atol=1e-12)
+case("joint_entropy", "joint_entropy", _it, _it_hx + _it_hy - _it_mi, atol=1e-12)
+case("variation_of_information", "variation_of_information", _it, _it_hx + _it_hy - 2.0 * _it_mi, atol=1e-12)
+case("uncertainty_coefficient", "uncertainty_coefficient", _it, _it_mi / _it_hy, atol=1e-12)
+case("symmetric_uncertainty", "symmetric_uncertainty", _it, 2.0 * _it_mi / (_it_hx + _it_hy), atol=1e-12)
+case("normalized_variation_of_information", "normalized_variation_of_information", _it,
+     (_it_hx + _it_hy - 2.0 * _it_mi) / (_it_hx + _it_hy - _it_mi), atol=1e-12)
+
 # ============================ write ============================
 
 doc = {

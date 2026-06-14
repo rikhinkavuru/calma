@@ -7966,3 +7966,65 @@ def minkowski_distance(x, y, p=2.0):
     if not _xy_ok(x, y) or p != p or p < 1.0:
         return float("nan")
     return dpow(math.fsum(dpow(abs(a - b), p) for a, b in zip(x, y)), 1.0 / p)
+
+
+# ======================================================================================
+# Pack IT - information-theoretic association between two categorical columns (natural log).
+# All are built from the mutual information and the two marginal entropies, so they validate
+# against sklearn.metrics.mutual_info_score and scipy.stats.entropy.
+# ======================================================================================
+
+def conditional_entropy(x, y):
+    """Conditional entropy H(Y|X) = H(Y) - MI(X,Y) in nats; remaining uncertainty in y given x."""
+    if not _ck_ok(x, y):
+        return float("nan")
+    mi, hc, hk = _ck_marginals(x, y)
+    return hk - mi
+
+
+def joint_entropy(x, y):
+    """Joint entropy H(X,Y) = H(X) + H(Y) - MI(X,Y) in nats."""
+    if not _ck_ok(x, y):
+        return float("nan")
+    mi, hc, hk = _ck_marginals(x, y)
+    return hc + hk - mi
+
+
+def variation_of_information(x, y):
+    """Variation of information (Meila 2003): H(X) + H(Y) - 2*MI = H(X|Y)+H(Y|X), a metric."""
+    if not _ck_ok(x, y):
+        return float("nan")
+    mi, hc, hk = _ck_marginals(x, y)
+    return hc + hk - 2.0 * mi
+
+
+def uncertainty_coefficient(x, y):
+    """Theil's uncertainty coefficient U(Y|X) = MI(X,Y) / H(Y) in [0,1]; fraction of y's
+    entropy explained by x."""
+    if not _ck_ok(x, y):
+        return float("nan")
+    mi, hc, hk = _ck_marginals(x, y)
+    if hk <= 0:
+        return float("nan")
+    return mi / hk
+
+
+def symmetric_uncertainty(x, y):
+    """Symmetric uncertainty: 2*MI(X,Y) / (H(X) + H(Y)) in [0,1] (symmetric normalized MI)."""
+    if not _ck_ok(x, y):
+        return float("nan")
+    mi, hc, hk = _ck_marginals(x, y)
+    if hc + hk <= 0:
+        return float("nan")
+    return 2.0 * mi / (hc + hk)
+
+
+def normalized_variation_of_information(x, y):
+    """Normalized variation of information: VI / H(X,Y) in [0,1]."""
+    if not _ck_ok(x, y):
+        return float("nan")
+    mi, hc, hk = _ck_marginals(x, y)
+    joint = hc + hk - mi
+    if joint <= 0:
+        return float("nan")
+    return (hc + hk - 2.0 * mi) / joint
