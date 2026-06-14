@@ -379,6 +379,13 @@ KINDS = {
     "curve_pv": lambda a: N.curve_pv(a["cashflow"], a["zero"], a["time"]),
     "effective_duration": lambda a: N.effective_duration(a["cashflow"], a["time"], a["ytm"]),
     "effective_convexity": lambda a: N.effective_convexity(a["cashflow"], a["time"], a["ytm"]),
+    # pack FM - fund / LP economics
+    "dpi": lambda a: N.dpi(a["contribution"], a["distribution"]),
+    "rvpi": lambda a: N.rvpi(a["contribution"], a["nav"]),
+    "tvpi": lambda a: N.tvpi(a["contribution"], a["distribution"], a["nav"]),
+    "called_pct": lambda a: N.called_pct(a["contribution"], a["committed"]),
+    "carried_interest": lambda a: N.carried_interest(a["contribution"], a["distribution"], a["carry"]),
+    "realization_ratio": lambda a: N.realization_ratio(a["distribution"], a["nav"]),
 }
 
 doc = json.load(open(VECTORS))
@@ -498,10 +505,12 @@ EXPECTED = {
     # pack RC - rates / curve analytics (6)
     "par_yield", "annuity_factor", "forward_rate", "curve_pv",
     "effective_duration", "effective_convexity",
+    # pack FM - fund / LP economics (6)
+    "dpi", "rvpi", "tvpi", "called_pct", "carried_interest", "realization_ratio",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 309 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 315 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

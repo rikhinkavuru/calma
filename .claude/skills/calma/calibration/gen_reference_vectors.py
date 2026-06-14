@@ -1635,6 +1635,28 @@ case("effective_duration", "effective_duration",
 case("effective_convexity", "effective_convexity",
      {"cashflow": rc_cf, "time": rc_time, "ytm": rc_y}, rc_ec, atol=1e-6)
 
+# ============================ Pack FM - fund / LP economics ============================
+# Independent reference: numpy recompute of the LP performance multiples over a
+# deterministic capital-call / distribution schedule.
+
+fm_contrib = [20.0, 30.0, 25.0, 15.0, 10.0]     # capital calls, sum = 100
+fm_dist = [10.0, 20.0, 30.0, 40.0, 30.0]        # distributions, sum = 130
+fm_nav, fm_committed, fm_carry = 45.0, 120.0, 0.20
+_sc, _sd = float(np.sum(fm_contrib)), float(np.sum(fm_dist))
+fm_dpi = _sd / _sc
+fm_rvpi = fm_nav / _sc
+fm_tvpi = (_sd + fm_nav) / _sc
+fm_called = _sc / fm_committed
+fm_carried = fm_carry * max(_sd - _sc, 0.0)
+fm_real = _sd / (_sd + fm_nav)
+case("dpi", "dpi", {"contribution": fm_contrib, "distribution": fm_dist}, fm_dpi, atol=1e-12)
+case("rvpi", "rvpi", {"contribution": fm_contrib, "nav": fm_nav}, fm_rvpi, atol=1e-12)
+case("tvpi", "tvpi", {"contribution": fm_contrib, "distribution": fm_dist, "nav": fm_nav}, fm_tvpi, atol=1e-12)
+case("called_pct", "called_pct", {"contribution": fm_contrib, "committed": fm_committed}, fm_called, atol=1e-12)
+case("carried_interest", "carried_interest",
+     {"contribution": fm_contrib, "distribution": fm_dist, "carry": fm_carry}, fm_carried, atol=1e-12)
+case("realization_ratio", "realization_ratio", {"distribution": fm_dist, "nav": fm_nav}, fm_real, atol=1e-12)
+
 # ============================ write ============================
 
 doc = {

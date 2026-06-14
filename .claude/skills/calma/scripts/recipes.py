@@ -2078,3 +2078,55 @@ def _rc_bump(fn):
 for _mid in ("effective_duration", "effective_convexity"):
     register(_mid, family="finance", required_tags=["cashflow", "time"],
              set_maturity="reviewed", accepted_conventions=["ytm=<frac>"])(_rc_bump(getattr(N, _mid)))
+
+
+# ======================================================================================
+# Pack FM - fund / LP economics. Capital-call (contribution) and distribution columns
+# drive the LP performance multiples; residual NAV, commitment and carry are conventions.
+# ======================================================================================
+
+@register("dpi", family="finance", required_tags=["contribution", "distribution"],
+          set_maturity="reviewed")
+def dpi(cols, binding, convention=None):
+    c, d = cols[binding["contribution"]], cols[binding["distribution"]]
+    return _result(N.dpi(c, d), {"n": len(c)})
+
+
+@register("rvpi", family="finance", required_tags=["contribution"],
+          set_maturity="reviewed", accepted_conventions=["nav=<float>"])
+def rvpi(cols, binding, convention=None):
+    c = cols[binding["contribution"]]
+    nav = _conv_float(convention, "nav", 0.0)
+    return _result(N.rvpi(c, nav), {"n": len(c), "nav": nav})
+
+
+@register("tvpi", family="finance", required_tags=["contribution", "distribution"],
+          set_maturity="reviewed", accepted_conventions=["nav=<float>"])
+def tvpi(cols, binding, convention=None):
+    c, d = cols[binding["contribution"]], cols[binding["distribution"]]
+    nav = _conv_float(convention, "nav", 0.0)
+    return _result(N.tvpi(c, d, nav), {"n": len(c), "nav": nav})
+
+
+@register("called_pct", family="finance", required_tags=["contribution"],
+          set_maturity="reviewed", accepted_conventions=["committed=<float>"])
+def called_pct(cols, binding, convention=None):
+    c = cols[binding["contribution"]]
+    committed = _conv_float(convention, "committed", 0.0)
+    return _result(N.called_pct(c, committed), {"n": len(c), "committed": committed})
+
+
+@register("carried_interest", family="finance", required_tags=["contribution", "distribution"],
+          set_maturity="reviewed", accepted_conventions=["carry=<frac>"])
+def carried_interest(cols, binding, convention=None):
+    c, d = cols[binding["contribution"]], cols[binding["distribution"]]
+    carry = _conv_float(convention, "carry", 0.20)
+    return _result(N.carried_interest(c, d, carry), {"n": len(c), "carry": carry})
+
+
+@register("realization_ratio", family="finance", required_tags=["distribution"],
+          set_maturity="reviewed", accepted_conventions=["nav=<float>"])
+def realization_ratio(cols, binding, convention=None):
+    d = cols[binding["distribution"]]
+    nav = _conv_float(convention, "nav", 0.0)
+    return _result(N.realization_ratio(d, nav), {"n": len(d), "nav": nav})

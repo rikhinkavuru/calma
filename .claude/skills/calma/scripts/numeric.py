@@ -4346,3 +4346,71 @@ def effective_convexity(cashflow, time, y, bump=1e-4):
     if p0 != p0 or pu != pu or pd != pd or p0 == 0:
         return float("nan")
     return (pu + pd - 2.0 * p0) / (p0 * bump * bump)
+
+
+# ======================================================================================
+# Pack FM - fund / LP economics. Capital-call (contribution) and distribution columns,
+# with residual NAV / committed / carry conventions, give the LP performance multiples
+# allocators and ODD teams quote: DPI, RVPI, TVPI, called %, carry and realization. All
+# definitional ratios under correctly-rounded summation.
+# ======================================================================================
+
+def _fm_ok(*cols):
+    n = len(cols[0])
+    return n > 0 and all(len(c) == n for c in cols) and not any(_has_nan(c) for c in cols)
+
+
+def dpi(contribution, distribution):
+    """Distributions to paid-in: sum(distribution) / sum(contribution)."""
+    if not _fm_ok(contribution, distribution):
+        return float("nan")
+    c = math.fsum(contribution)
+    if c <= 0:
+        return float("nan")
+    return math.fsum(distribution) / c
+
+
+def rvpi(contribution, nav):
+    """Residual value to paid-in: NAV / sum(contribution)."""
+    if not _fm_ok(contribution):
+        return float("nan")
+    c = math.fsum(contribution)
+    if c <= 0:
+        return float("nan")
+    return nav / c
+
+
+def tvpi(contribution, distribution, nav):
+    """Total value to paid-in: (sum(distribution) + NAV) / sum(contribution)."""
+    if not _fm_ok(contribution, distribution):
+        return float("nan")
+    c = math.fsum(contribution)
+    if c <= 0:
+        return float("nan")
+    return (math.fsum(distribution) + nav) / c
+
+
+def called_pct(contribution, committed):
+    """Called / drawn fraction of the commitment: sum(contribution) / committed."""
+    if not _fm_ok(contribution) or committed <= 0:
+        return float("nan")
+    return math.fsum(contribution) / committed
+
+
+def carried_interest(contribution, distribution, carry_rate):
+    """European-waterfall carry on the net gain: rate * max(sum(dist) - sum(contrib), 0)."""
+    if not _fm_ok(contribution, distribution) or not (0.0 <= carry_rate <= 1.0):
+        return float("nan")
+    gain = math.fsum(distribution) - math.fsum(contribution)
+    return carry_rate * gain if gain > 0 else 0.0
+
+
+def realization_ratio(distribution, nav):
+    """Fraction of total value already realized in cash: sum(dist) / (sum(dist) + NAV)."""
+    if not _fm_ok(distribution):
+        return float("nan")
+    d = math.fsum(distribution)
+    tot = d + nav
+    if tot <= 0:
+        return float("nan")
+    return d / tot
