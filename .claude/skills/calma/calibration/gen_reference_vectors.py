@@ -1512,6 +1512,27 @@ case("bs_zomma", "bs_zomma", _opt_args(True), _opt_book(_opt_zomma, True), atol=
 case("bs_charm", "bs_charm", _opt_args(True), _opt_book(_opt_charm, True), atol=1e-10)
 case("bs_color", "bs_color", _opt_args(True), _opt_book(_opt_color, True), atol=1e-11)
 
+
+def _opt_veta(s, k, t, v, r, c):
+    d1, d2 = _opt_d1d2(s, k, t, v, r)
+    rt = v * _opt_m.sqrt(t)
+    return s * _spn.pdf(d1) * _opt_m.sqrt(t) * (r * d1 / rt - (1.0 + d1 * d2) / (2.0 * t))
+
+
+def _opt_ultima(s, k, t, v, r, c):
+    d1, d2 = _opt_d1d2(s, k, t, v, r)
+    vega = s * _spn.pdf(d1) * _opt_m.sqrt(t)
+    return -vega / (v * v) * (d1 * d2 * (1.0 - d1 * d2) + d1 * d1 + d2 * d2)
+
+
+_opt_lam_num = float(np.sum([q * _spn.cdf(_opt_d1d2(s, k, t, v, r)[0]) * s
+                             for s, k, t, v, r, q in zip(opt_S, opt_K, opt_T, opt_sig, opt_r, opt_qty)]))
+_opt_lam_den = float(np.sum([q * _opt_px(s, k, t, v, r, True)
+                             for s, k, t, v, r, q in zip(opt_S, opt_K, opt_T, opt_sig, opt_r, opt_qty)]))
+case("bs_veta", "bs_veta", _opt_args(True), _opt_book(_opt_veta, True), atol=1e-9)
+case("bs_ultima", "bs_ultima", _opt_args(True), _opt_book(_opt_ultima, True), atol=1e-9)
+case("bs_lambda", "bs_lambda", _opt_args(True), _opt_lam_num / _opt_lam_den, atol=1e-10)
+
 # implied vol: price each call at a known sigma, recover it with brentq, average across rows
 iv_price = [_opt_px(s, k, t, v, r, True)
             for s, k, t, v, r in zip(opt_S, opt_K, opt_T, opt_sig, opt_r)]

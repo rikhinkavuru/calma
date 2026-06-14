@@ -4087,6 +4087,47 @@ def bs_color(S, K, T, sig, r, qty, is_call):
     return _bs_book(S, K, T, sig, r, qty, is_call, _bs_color_pos)
 
 
+# Pack OPT3 - vega decay (veta), third-order vol (ultima) and book elasticity (lambda).
+
+def _bs_veta_pos(s, k, t, v, r, is_call):
+    d1, d2 = _bs_d1d2(s, k, t, v, r)
+    rt = v * math.sqrt(t)
+    return s * _norm_pdf(d1) * math.sqrt(t) * (r * d1 / rt - (1.0 + d1 * d2) / (2.0 * t))
+
+
+def _bs_ultima_pos(s, k, t, v, r, is_call):
+    d1, d2 = _bs_d1d2(s, k, t, v, r)
+    vega = s * _norm_pdf(d1) * math.sqrt(t)
+    return -vega / (v * v) * (d1 * d2 * (1.0 - d1 * d2) + d1 * d1 + d2 * d2)
+
+
+def bs_veta(S, K, T, sig, r, qty, is_call):
+    """Book veta sum_i qty_i * dVega/dt_i, vega decay per calendar year (call=put)."""
+    return _bs_book(S, K, T, sig, r, qty, is_call, _bs_veta_pos)
+
+
+def bs_ultima(S, K, T, sig, r, qty, is_call):
+    """Book ultima sum_i qty_i * d3Price/dsigma3_i (call=put)."""
+    return _bs_book(S, K, T, sig, r, qty, is_call, _bs_ultima_pos)
+
+
+def bs_lambda(S, K, T, sig, r, qty, is_call):
+    """Book elasticity (lambda / leverage): sum(qty*delta*S) / sum(qty*price), the percent
+    change in book value per percent change in spot."""
+    if not _bs_ok(S, K, T, sig, r, qty):
+        return float("nan")
+    num, den = [], []
+    for s, k, t, v, rr, q in zip(S, K, T, sig, r, qty):
+        if s <= 0 or k <= 0 or t <= 0 or v <= 0:
+            return float("nan")
+        num.append(q * _bs_delta_pos(s, k, t, v, rr, is_call) * s)
+        den.append(q * _bs_px(s, k, t, v, rr, is_call))
+    d = math.fsum(den)
+    if d == 0:
+        return float("nan")
+    return math.fsum(num) / d
+
+
 def _bs_implied_one(s, k, t, r, price, is_call):
     """Implied vol of a single option by bisection on the monotone price(sigma)."""
     def f(v):

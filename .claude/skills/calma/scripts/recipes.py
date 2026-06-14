@@ -1881,7 +1881,8 @@ def _opt_book(fn):
 
 
 for _mid in ("bs_value", "bs_delta", "bs_gamma", "bs_vega", "bs_theta",
-             "bs_rho", "bs_vanna", "bs_volga", "bs_speed", "bs_zomma", "bs_charm", "bs_color"):
+             "bs_rho", "bs_vanna", "bs_volga", "bs_speed", "bs_zomma", "bs_charm", "bs_color",
+             "bs_veta", "bs_ultima", "bs_lambda"):
     register(_mid, family="derivatives",
              required_tags=["spot", "strike", "time", "vol", "rate", "quantity"],
              set_maturity="reviewed",
