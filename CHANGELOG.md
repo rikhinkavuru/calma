@@ -58,8 +58,18 @@ need. Serial, leakage-first; each step keeps the full suite green.
   [0.45,0.55] over 200 **seeded** realisations. Conventions pinned to scipy defaults (skew g1, kurt g2,
   V=sample variance). A gating accuracy check vs scipy passed before any freeze: **Φ⁻¹ vs
   `scipy.special.ndtri` to 1.5e-15 across the deep tail (N up to 1000)**, and the full DSR composition +
-  PBO bit-close to scipy/numpy references. The frozen reference vectors + manifest + the `deflated_sharpe`
-  recipe and the overfitting findings rail land next (Step 5/6 in progress).
+  PBO bit-close to scipy/numpy references.
+- **Frozen overfitting reference vectors** (`assets/overfitting_reference_vectors.json` + `.manifest.json`,
+  generated once by `calibration/gen_overfitting_vectors.py` in a pinned venv) — 14 cases: 7 DSR
+  (scipy-from-paper), 3 PBO constructed-truth (always-overfit→1.0, rank-preserving→0.0, exact-tie→0.5),
+  4 PBO seeded-noise (vs a numpy CSCV reference). The from-paper reference is **gated on reproducing the
+  constructed-truth before it mints any vector**. `test_overfitting_vectors` (+20) validates the stdlib
+  kernels against the frozen file at rel-tol 1e-9, checks the manifest sha256 (tamper-evident), and
+  asserts the **CI path imports no reference lib**. These vectors live in their own file (not the recipe
+  library's `reference_vectors.json`) so the freeze never touches the parallel recipe session's
+  generator. *(The registered `deflated_sharpe` recipe — the REFUTED-via-recipe-rail path for a
+  user-claimed deflated number — is deferred to avoid entangling with that session's recipe-count /
+  enrichment / site-mirror gates; DSR/PBO ship as kernels + frozen vectors + the findings rail.)*
 - Tests: +14 `test_verdict`, +12 `test_ledger`, +3 `test_registry` (attest→registry round-trip), incl. a
   fail-closed unknown-verdict property; +17 `test_draft` (split/keys/features detection + validation);
   +53 `test_leakage_checks` (five detectors with exact magnitudes, the OOS scope-guard, the full verdict

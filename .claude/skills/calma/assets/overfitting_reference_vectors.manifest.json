@@ -1,0 +1,18 @@
+{
+  "schema": "calma/overfitting-reference@1",
+  "generated_with": {
+    "python": "3.14.5",
+    "numpy": "2.4.6",
+    "scipy": "1.17.1",
+    "sklearn": "1.9.0"
+  },
+  "pbo_noise_seed": 7919,
+  "n_cases": 14,
+  "anchors": {
+    "scipy-from-paper": 7,
+    "constructed-truth": 3,
+    "numpy-cscv": 4
+  },
+  "cases_sha256": "1775d507e7ce9fbeca6045a306b49201893ecf2bdd50062d89ddec973380969e",
+  "note": "Pure-stdlib kernels in numeric.py are validated against these frozen vectors at rel-tol 1e-9; the reference libs are NEVER needed at run/CI time. Trust chain: constructed-truth/analytic -> scipy/numpy from-paper reference (gated on reproducing them) -> stdlib kernel. (Literal published worked-example numbers from Bailey-LdP 2014 / Bailey-Borwein-LdP-Zhu 2016 can be pinned additionally from the PDFs - the analytic + scipy-from-paper anchors here are the reproducible substitute.)"
+}
