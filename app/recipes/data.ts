@@ -53,6 +53,15 @@ export const FAMILIES: Family[] = [
         ref: "NumPy",
       },
       {
+        id: "deflated_sharpe",
+        name: "Deflated Sharpe ratio",
+        claim: "“Sharpe 0.3, the best of 1000 backtests”",
+        what: "The probability the strategy's true Sharpe beats the multiple-testing-deflated benchmark — 1 minus it is the chance the edge is just selection luck.",
+        how: "PSR against the expected max Sharpe of N no-skill trials; per-period Sharpe from the raw returns, search size carried in the convention.",
+        ref: "Bailey & López de Prado (2014)",
+        conv: "trials=N,var_sr=V",
+      },
+      {
         id: "variance_ratio",
         name: "Variance ratio",
         claim: "“VR(4) 0.98 (random walk)”",

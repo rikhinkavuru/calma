@@ -202,7 +202,7 @@ def _assess(contract, base, claim_id, sig):
     if pbo == pbo:
         bits.append("PBO=%.3f" % pbo)
     if dsr == dsr:
-        bits.append("DSR=%.3f (p=%.3f)" % (dsr, 1.0 - dsr))
+        bits.append("DSR=%.3f (1-DSR=%.3f)" % (dsr, 1.0 - dsr))
     return [_finding(
         claim_id, "multiple-testing", "blocker", "authoritative",
         "the edge does not survive multiple-testing correction over N=%d trials: %s"

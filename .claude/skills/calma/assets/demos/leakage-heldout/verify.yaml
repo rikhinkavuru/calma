@@ -1,0 +1,22 @@
+{
+  "_note": "Leakage demo: a held-out AUC that isn't held-out. 30 of 100 test rows are exact duplicates of training rows. calma recomputes AUC=1.0 (CONFIRMED), detects the train/test contamination, and tries the leakage-corrected recompute: the contaminated rows are separable everywhere so de-contaminating barely moves the AUC (it survives correction) - but the held-out claim is still INVALIDATED because the split was contaminated.",
+  "run": {"entrypoint": "gen_fixture.py", "network": "off", "cwd": "."},
+  "env": {"ecosystem": "python-stdlib", "trust": "own-code"},
+  "artifacts": [
+    {"path": "runs/test.csv", "re_emit": true,
+     "columns": {"id": {"tag": "id", "dtype": "int", "na_policy": "error"},
+                 "score": {"tag": "score", "dtype": "float", "na_policy": "error"},
+                 "y_true": {"tag": "label", "dtype": "int", "na_policy": "error"}}}
+  ],
+  "metrics": [
+    {"metric_id": "auc", "artifact": "runs/test.csv",
+     "binding": {"score": "score", "label": "y_true"}, "convention": "roc-auc",
+     "claimed_value": 1.0, "headline": true,
+     "binding_status": "independently-bound", "claim_confirmed": true,
+     "_claim": "author reported AUC 1.0 on the held-out test set"}
+  ],
+  "split": {"train": "runs/train.csv", "test": "runs/test.csv"},
+  "keys": {"id": "id", "target": "y_true"},
+  "features": ["score"],
+  "baselines": []
+}

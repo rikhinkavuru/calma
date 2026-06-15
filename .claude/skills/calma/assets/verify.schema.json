@@ -63,6 +63,67 @@
         }
       }
     },
-    "baselines": {"type": "array", "items": {"type": "object"}}
+    "baselines": {"type": "array", "items": {"type": "object"}},
+
+    "split": {
+      "type": "object",
+      "description": "leakage family: train/test split. Either {train, test} file paths, or {file, column, test_value} for a single file with a split/fold column. Absent -> leakage NOT-APPLICABLE.",
+      "properties": {
+        "train": {"type": "string"}, "test": {"type": "string"},
+        "file": {"type": "string"}, "column": {"type": "string"},
+        "test_value": {"type": ["string", "number"]}, "embargo": {"type": "number"}
+      }
+    },
+    "keys": {
+      "type": "object",
+      "description": "leakage family: the id / time / target columns used for entity-overlap, look-ahead, and target-leakage checks.",
+      "properties": {"id": {"type": "string"}, "time": {"type": "string"}, "target": {"type": "string"}}
+    },
+    "features": {
+      "type": "array", "items": {"type": "string"},
+      "description": "leakage family: the model-input columns (for target-leakage detection)."
+    },
+    "trials": {
+      "type": "integer", "minimum": 1,
+      "description": "overfitting family: the multiple-testing search size N (the number of backtested configs). Never guessed - declared here or counted from trials_artifact."
+    },
+    "trials_artifact": {
+      "type": "string",
+      "description": "overfitting family: path to a per-period returns matrix, one column per candidate strategy (drives PBO/CSCV and counts N)."
+    },
+    "var_sr": {
+      "type": "number", "minimum": 0,
+      "description": "overfitting family: the sample (ddof=1) variance of the per-trial per-period Sharpes (for the Deflated Sharpe benchmark). NOTE: the `deflated_sharpe` RECIPE reads trials/var_sr from its convention string ('trials=N,var_sr=V'), not from this top-level field."
+    },
+    "frictions": {
+      "type": "object",
+      "description": "execution-realism family: the friction model deflated onto the return series. Absent -> realism NOT-APPLICABLE; a friction not declared is never guessed. Unknown keys are rejected (a typo is silently un-applied otherwise).",
+      "additionalProperties": false,
+      "properties": {
+        "fee_bps": {"type": "number", "minimum": 0, "description": "transaction cost in bps, per unit turnover"},
+        "slippage_bps": {"type": "number", "minimum": 0, "description": "slippage in bps, per unit turnover"},
+        "borrow_bps": {"type": "number", "minimum": 0, "description": "short-borrow / financing rate in bps, per period"},
+        "short_frac": {"type": "number", "minimum": 0, "description": "fraction of the book that is short (borrow applies to it)"},
+        "turnover_col": {"type": "string", "description": "per-period turnover column in the return artifact"},
+        "turnover": {"type": "number", "minimum": 0, "description": "flat per-period turnover (if no column)"},
+        "adv": {"type": "number", "minimum": 0, "description": "average daily volume (same units as size)"},
+        "size": {"type": "number", "minimum": 0, "description": "per-rebalance traded notional (size/adv = participation)"},
+        "participation": {"type": "number", "minimum": 0, "description": "fraction of ADV traded (>=1 => uninvestable at size)"},
+        "impact_model": {"type": "string", "enum": ["sqrt"], "description": "market-impact model (square-root)"},
+        "impact_coef": {"type": "number", "minimum": 0, "description": "market-impact coefficient (default 1.0)"},
+        "leverage": {"type": "number", "minimum": 0, "description": "book leverage; (L-1)*borrow is charged as financing per period"},
+        "fill": {"type": "string", "description": "fill assumption (close/vwap/midpoint -> optimistic-fill caveat)"}
+      }
+    },
+    "corpus": {
+      "type": "object",
+      "description": "contamination family: the known/pretraining corpus to check the eval against. Absent -> contamination NOT-APPLICABLE; the corpus is never guessed.",
+      "additionalProperties": false,
+      "properties": {
+        "manifest": {"type": "string", "description": "path to the corpus file: one item per line (raw text, or a 64-hex precomputed sha256)"},
+        "eval": {"type": "string", "description": "path to the eval table (defaults to split.test or the headline artifact)"},
+        "eval_col": {"type": "string", "description": "the eval text column to check (defaults to a canonical row hash)"}
+      }
+    }
   }
 }

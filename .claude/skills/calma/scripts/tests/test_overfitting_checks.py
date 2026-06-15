@@ -178,5 +178,34 @@ truth(_cav["verdict"] == V.CAVEATS, "a soft validity caveat starts at CONFIRMED-
 OC.apply_validity([_cav], fB, cB, "the best Sharpe of 1000 backtested configs")
 truth(_cav["verdict"] == V.INVALIDATED, "authoritative overfitting escalates a soft CAVEATS headline to INVALIDATED (worst-wins)")
 
+# ---- all FOUR families compose order-safely (realism + contamination are no-ops on a non-clean headline) ----
+import realism_checks as RLC  # noqa: E402
+import contamination_checks as CNC  # noqa: E402
+
+_inv_r = _confirmed_claim()
+_inv_r["verdict"] = V.REFUTED  # already refuted (say, by the core recompute)
+RLC.apply_validity([_inv_r], [{"dimension": "execution-realism", "realism_kind": "deflation",
+                               "validity_class": "authoritative", "severity": "blocker"}],
+                   {"frictions": {"fee_bps": 50}}, "net Sharpe after costs", base=None)
+truth(_inv_r["verdict"] == V.REFUTED, "realism is a no-op on an already-REFUTED headline (order-safe)")
+
+_inv_c = _confirmed_claim()
+_inv_c["verdict"] = V.INVALIDATED  # already invalidated (say, by leakage or realism)
+CNC.apply_validity([_inv_c], [{"dimension": "contamination", "contamination_kind": "memorization",
+                               "validity_class": "authoritative", "severity": "blocker"}],
+                   {"corpus": {"manifest": "c.txt"}}, "held-out zero-shot accuracy")
+truth(_inv_c["verdict"] == V.INVALIDATED, "contamination is a no-op on an already-INVALIDATED headline (order-safe)")
+
+# worst-wins across the new families: authoritative contamination escalates a soft (realism) CAVEATS headline
+_cav2 = _confirmed_claim()
+_cav2["verdict_inputs"]["soft_validity_caveat"] = True   # e.g. a soft realism fill caveat
+_cav2["verdict"] = V.verdict(_cav2["verdict_inputs"])
+truth(_cav2["verdict"] == V.CAVEATS, "a soft realism caveat starts at CONFIRMED-WITH-CAVEATS")
+CNC.apply_validity([_cav2], [{"dimension": "contamination", "contamination_kind": "memorization",
+                              "validity_class": "authoritative", "severity": "blocker", "claim_id": "c1"}],
+                   {"corpus": {"manifest": "c.txt"}}, "held-out zero-shot accuracy")
+truth(_cav2["verdict"] == V.INVALIDATED,
+      "authoritative contamination escalates a soft CAVEATS headline to INVALIDATED (worst-wins, all 4 families)")
+
 print("overfitting_checks: %d checks, %d failures" % (_n, _fail))
 sys.exit(1 if _fail else 0)

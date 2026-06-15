@@ -137,5 +137,17 @@ truth(DC.validate_contract(dict(_base, keys={"id": 123})), "non-string key colum
 truth(DC.validate_contract(dict(_base, features="x1")), "non-list features rejected")
 truth(DC.validate_contract(dict(_base, features=[1, 2])), "non-string feature names rejected")
 
+# validity surfaces: well-formed frictions / corpus validate; UNKNOWN keys are rejected (a typo'd
+# friction would otherwise be silently never applied - dev-experience audit 2026-06-16)
+truth(not DC.validate_contract(dict(_base, frictions={"fee_bps": 10, "slippage_bps": 5, "leverage": 2,
+      "turnover_col": "t", "fill": "vwap"})), "a well-formed frictions block validates")
+truth(DC.validate_contract(dict(_base, frictions={"slippage": 5})),
+      "an unknown friction key (slippage vs slippage_bps) is rejected, not silently ignored")
+truth(DC.validate_contract(dict(_base, frictions={"fee_bps": -1})), "a negative friction is rejected")
+truth(not DC.validate_contract(dict(_base, corpus={"manifest": "c.txt", "eval_col": "p"})),
+      "a well-formed corpus block validates")
+truth(DC.validate_contract(dict(_base, corpus={"manifest": "c.txt", "evalcol": "p"})),
+      "an unknown corpus key (evalcol vs eval_col) is rejected")
+
 print("draft_contract: %d checks, %d failures" % (_n, _fail))
 sys.exit(1 if _fail else 0)

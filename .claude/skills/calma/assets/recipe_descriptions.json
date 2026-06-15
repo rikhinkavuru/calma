@@ -1791,6 +1791,20 @@
       ],
       "description": "Defects per unit of size, such as defects per KLOC."
     },
+    "deflated_sharpe": {
+      "aliases": [
+        "deflated sharpe ratio",
+        "multiple-testing-corrected sharpe",
+        "is the sharpe real after trying many strategies",
+        "probability the edge survives the backtest search",
+        "does the sharpe beat the best-of-N no-skill benchmark",
+        "selection-bias-adjusted sharpe",
+        "deflated sharpe",
+        "is my best backtest just luck from trying so many"
+      ],
+      "description": "Probability the strategy's true Sharpe beats the multiple-testing-deflated benchmark (Bailey-Lopez de Prado); 1 minus this is the chance the edge is a selection artefact.",
+      "convention": "trials=N,var_sr=V  -  N = number of backtested configs searched; V = sample (ddof=1) variance of their per-period trial Sharpes. Both required, e.g. 'trials=1000,var_sr=0.01'. Without them the recompute is degenerate (CAN'T-CONFIRM), never a guessed pass."
+    },
     "demographic_parity_difference": {
       "aliases": [
         "demographic parity difference",

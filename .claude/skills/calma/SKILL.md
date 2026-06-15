@@ -17,9 +17,11 @@ description: >-
   (CAGR/NPV/IRR/churn/margin/reconciliation), and forecasting (MAPE/sMAPE/WAPE/MASE/pinball/Nash-Sutcliffe).
   Runs Python/R/Julia/C++/Rust as a black box.
   Validity checks - data leakage (train/test row/id/temporal overlap + target leakage, with a
-  leakage-corrected re-run) and overfitting (Deflated Sharpe + PBO/CSCV) - are DELIVERED, producing the
-  INVALIDATED verdict ("the number reproduces, but the result is invalid"); realism deflators and
-  contamination remain roadmap. Triggers: "verify", "is this result real", "did the number reproduce", "recompute this metric",
+  leakage-corrected re-run), overfitting (Deflated Sharpe + PBO/CSCV), execution-realism deflators
+  (transaction cost / slippage / borrow / square-root market impact, with a friction-deflated re-run)
+  and eval/benchmark contamination (corpus hash overlap + near-duplicate minhash) - are DELIVERED,
+  producing the INVALIDATED verdict ("the number reproduces, but the result is invalid"). Triggers:
+  "verify", "is this result real", "did the number reproduce", "recompute this metric",
   "check this backtest/AUC/accuracy/p95/speedup/pass@k", "I processed N rows", "the total is", "the experiment was significant", "before I report this".
 ---
 
@@ -152,8 +154,9 @@ committed claim and says so in the report and `--json` (`note`).
 2. **Recompute + diff** - `scripts/recompute.py` (reference-deterministic, no transcendentals/numpy) then
    `scripts/compare.py` -> the calibrated tolerance diff; calls the shared `verdict()`.
 3. **Family re-runs** - baseline edge, data-leakage (row/id/temporal/target, with a leakage-corrected
-   re-run) and overfitting (Deflated Sharpe + PBO/CSCV) ship now -> the INVALIDATED verdict; realism /
-   contamination are named roadmap (M3-M4).
+   re-run), overfitting (Deflated Sharpe + PBO/CSCV), execution-realism deflators (cost/slippage/borrow/
+   square-root market impact, with a friction-deflated re-run) and eval/benchmark contamination (corpus
+   hash overlap + near-duplicate minhash) all ship now -> the INVALIDATED verdict.
 4. **Gate** - `scripts/ledger.py validate` -> the single CLEAN/NOT-CLEAN authority (strict lattice +
    findings-floor). Exit 0 clean, 1 not-clean, 2 invalid. CI: `--fail-on refuted` fails only on a break.
 5. **Verdict + attestation** - `scripts/attest.py` -> a content-addressed manifest (in-toto/SLSA statement

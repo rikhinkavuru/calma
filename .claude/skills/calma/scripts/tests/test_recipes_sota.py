@@ -1032,10 +1032,12 @@ EXPECTED = {
     # pack OLS - simple OLS regression inference (5)
     "ols_slope", "ols_intercept", "residual_standard_error",
     "regression_f_statistic", "regression_t_statistic",
+    # pack DSR - deflated Sharpe (multiple-testing-corrected, the direct REFUTED-via-recipe path) (1)
+    "deflated_sharpe",
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 620 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 621 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402
@@ -1065,6 +1067,21 @@ truth(R.get("percentile")({"v": [1.0, 2.0]}, {"value": "v"}, None)["degenerate"]
       "percentile without a quantile convention degrades to degenerate")
 approx(R.get("percentile")({"v": [1.0, 2.0, 3.0, 4.0]}, {"value": "v"}, "q=0.75")["value"],
        3.25, 1e-12, 0, "percentile q=0.75 spelling")
+
+# deflated_sharpe recipe: parses the 'trials=N,var_sr=V' convention, computes the PER-PERIOD Sharpe from
+# the return column, and returns the raw DSR probability == the frozen-vector kernel on the same inputs.
+_dsr_rets = [0.01, -0.005, 0.02, 0.0, 0.015, -0.01, 0.008, 0.012, -0.003, 0.006] * 5
+_dsr_sr = N.fmean(_dsr_rets) / N.fstd(_dsr_rets, ddof=1)
+_dsr_want = N.deflated_sharpe_ratio(_dsr_sr, len(_dsr_rets), N.skewness(_dsr_rets),
+                                    N.kurtosis_excess(_dsr_rets), 1000, 0.002)
+_dsr_res = R.get("deflated_sharpe")({"r": _dsr_rets}, {"return": "r"}, "trials=1000,var_sr=0.002")
+approx(_dsr_res["value"], _dsr_want, 1e-15, 0, "deflated_sharpe recipe == kernel on per-period Sharpe")
+truth(_dsr_res["terms"]["n_trials"] == 1000 and _dsr_res["terms"]["sr_per_period"] == _dsr_sr,
+      "deflated_sharpe parses trials=1000 and reports the per-period (non-annualised) Sharpe")
+truth(R.get("deflated_sharpe")({"r": _dsr_rets}, {"return": "r"}, None)["degenerate"],
+      "deflated_sharpe with no trials/var_sr declared is degenerate (never a guessed deflation)")
+truth(R.get("deflated_sharpe")({"r": _dsr_rets}, {"return": "r"}, "trials=1,var_sr=0.002")["degenerate"],
+      "deflated_sharpe with N<2 is degenerate (a single trial has no search to deflate)")
 
 rq = {"q": ["a", "a", "b", "b"], "r": [1.0, 2.0, 1.0, 2.0], "rel": [0.0, 1.0, 1.0, 0.0]}
 res = R.get("recall_at_k")(rq, {"query": "q", "rank": "r", "relevance": "rel"}, "k=1")

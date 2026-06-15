@@ -739,6 +739,43 @@ def validate_contract(contract):
     vs = contract.get("var_sr")
     if vs is not None and not (isinstance(vs, (int, float)) and not isinstance(vs, bool) and vs >= 0):
         errs.append("var_sr must be a non-negative number (cross-trial Sharpe variance)")
+    # WS-realism: optional execution-realism frictions. All absent -> realism is NOT-APPLICABLE; only the
+    # SHAPE is checked here (a friction the author did not declare is never guessed by the detector).
+    _FRICTION_NUM = ("fee_bps", "slippage_bps", "borrow_bps", "short_frac", "adv", "size",
+                     "participation", "impact_coef", "turnover", "leverage")
+    _FRICTION_STR = ("turnover_col", "fill", "impact_model")
+    frc = contract.get("frictions")
+    if frc is not None:
+        if not isinstance(frc, dict):
+            errs.append("frictions must be a mapping (e.g. {fee_bps, slippage_bps, turnover_col, adv, size})")
+        else:
+            for k in _FRICTION_NUM:
+                if frc.get(k) is not None and not (isinstance(frc[k], (int, float))
+                                                   and not isinstance(frc[k], bool) and frc[k] >= 0):
+                    errs.append("frictions.%s must be a non-negative number" % k)
+            for k in _FRICTION_STR:
+                if frc.get(k) is not None and not isinstance(frc[k], str):
+                    errs.append("frictions.%s must be a string" % k)
+            # an UNKNOWN friction key is almost always a typo (e.g. `slippage` for `slippage_bps`) that
+            # would be silently never applied - reject it so the author isn't lulled into thinking costs
+            # are modeled when they aren't.
+            for k in frc:
+                if k not in _FRICTION_NUM and k not in _FRICTION_STR:
+                    errs.append("frictions.%s is not a recognized key (known: %s)"
+                                % (k, ", ".join(_FRICTION_NUM + _FRICTION_STR)))
+    # WS-contamination: optional known-corpus declaration for eval/benchmark contamination. All absent ->
+    # contamination is NOT-APPLICABLE; only the SHAPE is checked (the corpus is never guessed).
+    cp = contract.get("corpus")
+    if cp is not None:
+        if not isinstance(cp, dict) or not isinstance(cp.get("manifest"), str):
+            errs.append("corpus must be a mapping with a manifest path ({manifest, eval, eval_col})")
+        else:
+            for k in ("eval", "eval_col"):
+                if cp.get(k) is not None and not isinstance(cp[k], str):
+                    errs.append("corpus.%s must be a string" % k)
+            for k in cp:
+                if k not in ("manifest", "eval", "eval_col"):
+                    errs.append("corpus.%s is not a recognized key (known: manifest, eval, eval_col)" % k)
     return errs
 
 

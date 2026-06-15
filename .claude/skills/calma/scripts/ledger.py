@@ -22,14 +22,14 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import verdict as V  # noqa: E402
 
 DIMENSIONS = {
-    "leakage", "overfitting", "execution-realism", "data-integrity", "baseline",
+    "leakage", "overfitting", "contamination", "execution-realism", "data-integrity", "baseline",
     "metric-appropriateness", "selection", "reproducibility", "metric-mismatch",
     "isolation-security", "input-binding", "contract-grounding", "metric-population-coverage",
     "selective-reporting", "artifact-provenance", "environment-selected",
 }
 # dimensions that are derived from execution and so may NOT be re-verified by a static re-read
 EXEC_DIMENSIONS = {
-    "reproducibility", "execution-realism", "leakage", "overfitting", "baseline",
+    "reproducibility", "execution-realism", "leakage", "overfitting", "contamination", "baseline",
     "selection", "metric-population-coverage", "environment-selected", "metric-mismatch",
 }
 SEVERITIES = {"blocker", "major", "minor", "info"}

@@ -1,0 +1,19 @@
+{
+  "_note": "Realism demo: a high-turnover daily strategy with gross annual Sharpe ~3.13 whose entire edge is transaction costs + slippage. The producer reports the GROSS number as the NET/live Sharpe. calma recomputes the gross (CONFIRMED), then applies the declared friction model: the net Sharpe collapses to ~-0.05, so the NET claim is REFUTED (driving dimension execution-realism).",
+  "run": {"entrypoint": "gen_fixture.py", "network": "off", "cwd": "."},
+  "env": {"ecosystem": "python-stdlib", "trust": "own-code"},
+  "artifacts": [
+    {"path": "runs/returns.csv", "re_emit": true,
+     "columns": {"strat_return": {"tag": "return", "dtype": "float", "na_policy": "error"},
+                 "turnover": {"tag": "value", "dtype": "float", "na_policy": "error"}}}
+  ],
+  "metrics": [
+    {"metric_id": "sharpe", "artifact": "runs/returns.csv",
+     "binding": {"return": "strat_return"}, "convention": "252",
+     "claimed_value": 3.1326231407, "headline": true,
+     "binding_status": "independently-bound", "claim_confirmed": true,
+     "_claim": "author reported net Sharpe 3.13 after costs (it is the GROSS, frictionless number)"}
+  ],
+  "frictions": {"fee_bps": 10, "slippage_bps": 10, "turnover_col": "turnover"},
+  "baselines": []
+}

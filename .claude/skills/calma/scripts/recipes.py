@@ -66,6 +66,56 @@ def max_drawdown(cols, binding, convention=None):
     return _result(N.max_drawdown(rets), {"n": len(rets)}, path_dependent=True)
 
 
+def _conv_kv_str(convention):
+    """Parse a comma-separated key=value convention -> {key: value-string}. e.g.
+    'trials=1000,var_sr=0.002' -> {'trials': '1000', 'var_sr': '0.002'}. (String-valued; distinct from the
+    float-coercing `_conv_kv` in Pack CF - keep the names separate so each caller binds its own parser.)"""
+    out = {}
+    for part in _conv_str(convention).split(","):
+        if "=" in part:
+            k, _, v = part.partition("=")
+            out[k.strip()] = v.strip()
+    return out
+
+
+@register("deflated_sharpe", family="quant", required_tags=["return"], set_maturity="reviewed",
+          accepted_conventions=["trials=N,var_sr=V"])
+def deflated_sharpe(cols, binding, convention=None):
+    """Deflated Sharpe Ratio (Bailey-Lopez de Prado 2014): the probability the strategy's TRUE per-period
+    Sharpe beats the multiple-testing-deflated benchmark - the per-period Sharpe a no-skill strategy is
+    expected to reach as the best of N trials. The search is carried in the convention
+    ('trials=1000,var_sr=0.002': N candidates and the sample (ddof=1) variance of their trial Sharpes).
+    The per-period Sharpe is mean/std (ddof=1) of the RAW returns - NEVER annualised (DSR's n_obs is the
+    period count). Returns the RAW probability; the decision rule (1-DSR > 0.05 -> the edge is likely a
+    selection artefact) lives in the claim/caller, never inverted here. With no/under-specified search
+    (no trials/var_sr, N<2) the deflation is undefined -> degenerate (calma reports CAN'T-CONFIRM, never a
+    guessed pass)."""
+    rets = cols[binding["return"]]
+    kv = _conv_kv_str(convention)
+    n_trials = var_sr = None
+    if kv.get("trials"):
+        try:
+            t = float(kv["trials"])
+            n_trials = int(t) if math.isfinite(t) else None  # reject trials=1e999/inf/nan (OverflowError)
+        except (ValueError, OverflowError):
+            n_trials = None
+    if kv.get("var_sr"):
+        try:
+            v = float(kv["var_sr"])
+            var_sr = v if math.isfinite(v) else None
+        except (ValueError, OverflowError):
+            var_sr = None
+    if len(rets) < 2:
+        return _result(float("nan"))
+    sd = N.fstd(rets, ddof=1)
+    if not (sd > 0.0):
+        return _result(float("nan"), {"n_obs": len(rets)}, near_zero_vol=True)
+    sr = N.fmean(rets) / sd
+    dsr = N.deflated_sharpe_ratio(sr, len(rets), N.skewness(rets), N.kurtosis_excess(rets),
+                                  n_trials, var_sr)
+    return _result(dsr, {"sr_per_period": sr, "n_obs": len(rets), "n_trials": n_trials, "var_sr": var_sr})
+
+
 # ---- general / classification family ----
 @register("accuracy", family="classification", required_tags=["label", "prediction"],
           set_maturity="reviewed", accepted_conventions=["argmax"])

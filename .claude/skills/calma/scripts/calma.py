@@ -22,6 +22,8 @@ import attest
 import backtest_checks as BC
 import leakage_checks as LC
 import overfitting_checks as OC
+import realism_checks as RLC
+import contamination_checks as CNC
 import compare as CMP
 import draft_contract as DC
 import intake as INTAKE
@@ -202,15 +204,20 @@ def _reconcile_claim(contract, claim, metric):
                "%g" % committed_v if isinstance(committed_v, (int, float)) else committed_v)), None
 
 
-def _not_verified(metric_ids, leakage_status=None, overfitting_status=None):
-    """Honest 'what we did NOT check' list. Leakage and overfitting are now real families: each is listed
-    as a gap ONLY when it was NOT-APPLICABLE (nothing to assess) - never claimed as a gap once it ran,
-    and never called 'roadmap' now that it exists."""
+def _not_verified(metric_ids, leakage_status=None, overfitting_status=None,
+                  realism_status=None, contamination_status=None):
+    """Honest 'what we did NOT check' list. Leakage / overfitting / realism / contamination are now real
+    families: each is listed as a gap ONLY when it was NOT-APPLICABLE (nothing to assess) - never claimed
+    as a gap once it ran, and never called 'roadmap' now that it exists."""
     out = []
     if leakage_status in (None, "not-applicable"):
         out.append("data leakage (no train/test split or keys declared)")
     if overfitting_status in (None, "not-applicable"):
         out.append("overfitting / deflated-Sharpe / PBO (no trials:N or grid-search log declared)")
+    if realism_status in (None, "not-applicable") and any(m in QUANT_METRICS for m in metric_ids):
+        out.append("execution realism (no frictions declared)")
+    if contamination_status in (None, "not-applicable"):
+        out.append("eval/benchmark contamination (no corpus declared)")
     if any(m in QUANT_METRICS for m in metric_ids):
         out.append("survivorship-free vendor data (managed roadmap)")
     return out
@@ -375,7 +382,7 @@ def _assemble_ledger(contract, diff, run_res, claim_text=None):
     # WS4 backtest catches (omitted costs / cherry-picked window / survivorship universe) - additive
     # findings off the bound artifact. Only when the run actually reproduced (exit 0) and there is a
     # claim to judge; deck-vs-code mismatch is already handled above by the recompute+verdict path.
-    leak_fam = over_fam = None
+    leak_fam = over_fam = real_fam = cont_fam = None
     if claims and run_res.get("exit_code", 0) == 0:
         _base = run_res.get("base") or (
             os.path.dirname(os.path.dirname(run_res["run_dir"])) if run_res.get("run_dir") else None)
@@ -392,6 +399,38 @@ def _assemble_ledger(contract, diff, run_res, claim_text=None):
             findings.extend(OC.run_checks(contract, _base, claims[0]["id"], claim_text=claim_text))
             OC.apply_validity(claims, findings, contract, claim_text)
             over_fam = OC.family_status(contract, _base, findings, claim_text)
+            # WS-realism: execution-realism deflators (transaction cost / slippage / borrow / square-root
+            # market impact). Silent unless a `frictions` block is declared; same scope-guarded promotion -
+            # REFUTED via the friction-deflated recompute (net claim), INVALIDATED (uninvestable at size),
+            # CAN'T-CONFIRM (declare net vs gross), or CAVEAT (gross / soft fill).
+            findings.extend(RLC.run_checks(contract, _base, claims[0]["id"], claim_text=claim_text))
+            RLC.apply_validity(claims, findings, contract, claim_text, base=_base)
+            real_fam = RLC.family_status(contract, findings)
+            # WS-contamination: eval-set / benchmark contamination (corpus hash overlap + near-dup minhash).
+            # Silent unless a `corpus` block is declared; INVALIDATED on exact eval-in-corpus for a
+            # held-out / uncontaminated claim, CAVEAT for near-dup, CAN'T-CONFIRM for indeterminate scope.
+            findings.extend(CNC.run_checks(contract, _base, claims[0]["id"], claim_text=claim_text))
+            CNC.apply_validity(claims, findings, contract, claim_text)
+            cont_fam = CNC.family_status(contract, findings)
+    # every broken stamp must be reproducible. A family-promoted REFUTED/INVALIDATED (leakage / realism /
+    # overfitting / contamination) carries the family's artifact-recheck reproduction but no runnable
+    # command - attach the same offline `replay` command the core REFUTED path uses, so a counterparty
+    # can re-derive the verdict byte-for-byte from the run dir.
+    _rd = run_res.get("run_dir")
+    if _rd:
+        try:
+            _rel = os.path.relpath(_rd)
+            _rd_disp = _rel if not _rel.startswith("..") else _rd
+        except ValueError:
+            _rd_disp = _rd
+        _replay = _redact_home("%s replay %s" % (_invocation(), _rd_disp))
+        for c in claims:
+            if c.get("verdict") in V.CATCH_VERDICTS:
+                rep = c.get("reproduction_or_reverify") or {}
+                if not rep.get("command"):
+                    rep["command"] = _replay
+                    rep.setdefault("manifest_ref", run_res.get("manifest_ref", "sha256:unavailable"))
+                    c["reproduction_or_reverify"] = rep
     metric_ids = [m["metric_id"] for m in diff["metrics"]]
     # surface which binding was auto-picked (the one surface the producer influences)
     binding_note = None
@@ -415,8 +454,10 @@ def _assemble_ledger(contract, diff, run_res, claim_text=None):
                          "recomputation": "checked",
                          "baseline": "checked" if bl else "not-applicable",
                          **({"leakage": leak_fam} if leak_fam else {}),
-                         **({"overfitting": over_fam} if over_fam else {})},
-            "not_verified": _not_verified(metric_ids, leak_fam, over_fam),
+                         **({"overfitting": over_fam} if over_fam else {}),
+                         **({"realism": real_fam} if real_fam else {}),
+                         **({"contamination": cont_fam} if cont_fam else {})},
+            "not_verified": _not_verified(metric_ids, leak_fam, over_fam, real_fam, cont_fam),
         },
         "repo_verdict": None,
     }
@@ -1515,7 +1556,7 @@ def main():
             return 0
         if a.cmd == "teardown":
             res = verify(a.target, a.claim_text or a.claim, a.metric, "teardown", force=a.force)
-            print(res.get("teardown") or "(no teardown: result was not REFUTED)")
+            print(res.get("teardown") or "(no teardown: the result is clean or inconclusive, not broken)")
             if a.svg and res.get("teardown"):
                 svg = REP.svg_card(res["ledger"])
                 if svg:
