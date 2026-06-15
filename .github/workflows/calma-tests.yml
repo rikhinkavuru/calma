@@ -2,14 +2,45 @@ name: calma-tests
 on: [push, pull_request, workflow_dispatch]
 jobs:
   test:
-    runs-on: macos-latest   # Calma's supported isolation tier is macOS seatbelt; the suite is
-                            # green on macOS. Linux/Docker isolation is the in-flight 0.9.0 WS1 work;
-                            # re-enable ubuntu here once that lands.
+    runs-on: macos-latest   # macOS Seatbelt own-code tier; the suite is green on macOS.
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
       - name: Run Calma test suite (pure stdlib, no deps)
+        run: python3 .claude/skills/calma/scripts/tests/run_all.py
+
+  # Native-Linux own-code tier (bubblewrap, no daemon). Proves the CAVEAT cap LIFTS on Linux:
+  # `calma doctor` must stamp bwrap-verified (zero leaks under bwrap), and the full suite - now
+  # exercising the live bwrap doctor + hostile marquee - stays green.
+  test-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Install bubblewrap + allow unprivileged user namespaces
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends bubblewrap
+          # Ubuntu 24.04 ships AppArmor unprivileged-userns restriction ON; bwrap is unprivileged,
+          # so allow it (a clean older-Linux host permits this by default). If this ever cannot be
+          # granted, the doctor honestly stamps host-not-isolated and the assert below fails LOUD -
+          # the stamp never lies.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+          bwrap --version
+      - name: Assert the Linux own-code tier verifies (the CAVEAT cap lifts)
+        run: |
+          set -e
+          python3 .claude/skills/calma/scripts/run_hermetic.py doctor \
+            --base .claude/skills/calma/assets/btc --isolation bwrap | tee /tmp/bwrap_doctor.json
+          tier=$(python3 -c "import json;print(json.load(open('/tmp/bwrap_doctor.json'))['tier'])")
+          if [ "$tier" != "bwrap-verified" ]; then
+            echo "EXPECTED bwrap-verified, got: $tier (the native Linux tier did not verify on this runner)"
+            exit 1
+          fi
+          echo "Linux own-code tier verified: $tier"
+      - name: Run Calma test suite on Linux (live bwrap doctor + hostile marquee)
         run: python3 .claude/skills/calma/scripts/tests/run_all.py
 
   # the shipped Action must actually work for a consumer: the flagship fixture

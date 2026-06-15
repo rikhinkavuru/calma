@@ -143,7 +143,9 @@ ancs = H._ancestors(BTC)
 truth("(allow file-read-metadata" in prof, "profile grants file-read-metadata on ancestors")
 truth(all(('(literal "%s")' % a) in prof for a in ancs), "every base ancestor is a metadata literal")
 truth("(deny file-read*\n  (subpath \"/Users\")" in prof, "directory listing / content reads under /Users still denied")
-truth("/Users" in ancs and os.path.dirname(os.path.realpath(BTC)) in ancs, "_ancestors spans /Users down to the parent")
+_rbtc = os.path.realpath(BTC)
+truth(os.path.dirname(_rbtc) in ancs and "/" in ancs and _rbtc not in ancs,
+      "_ancestors spans from / down to the parent (excludes the base itself)")
 
 # WS3: a RESTORED venv's base interpreter (uv/pyenv/conda) lives under $HOME; the profile re-allows
 # the interpreter DEPOT roots (broad but safe - never secret dirs) so the venv python can be exec'd.
@@ -400,6 +402,61 @@ _conf_host = _V.confidence(dict(_vi, isolation_tier="host-not-isolated"), _V.CON
 truth(round(_conf_bw - _conf_host, 2) == 0.15, "verdict: bwrap-verified earns the +0.15 isolation bump")
 truth("host tier not isolated" not in _V._caveat_reasons(_V._norm(_vi)),
       "verdict: bwrap-verified is NOT flagged as host-not-isolated")
+
+# (e) MARQUEE: a deliberately hostile OWN-CODE repo is fully contained under bwrap - egress (ip/dns/
+# curl), host-secret reads (abs + ~), writes outside <base> (/etc, $HOME), and .calma writes are ALL
+# denied; only the base itself is writable; the run stamps bwrap-verified. Skipped honestly off a
+# verified bwrap host (macOS / a host without unprivileged userns) - the structural + fail-loud walls
+# above still run there.
+_bw_live = H._have_bwrap() and H.bwrap_doctor(BTC).get("tier") == "bwrap-verified"
+if _bw_live:
+    _bh = tempfile.mkdtemp()
+    os.makedirs(os.path.join(_bh, ".calma"), exist_ok=True)
+    open(os.path.join(_bh, ".calma", "cache.json"), "w").write('{"planted": false}')
+    _bsec = os.path.join(os.path.realpath(os.path.expanduser("~")), ".calma_bwrap_hostile_secret")
+    open(_bsec, "w").write("HOST-SECRET")
+    _bevil = (
+        "import socket, subprocess, os\n"
+        "res = []\n"
+        "for tag, h in [('ip', ('1.1.1.1', 80)), ('dns', ('example.com', 80))]:\n"
+        "    try: socket.create_connection(h, timeout=3); res.append('EGRESS_' + tag)\n"
+        "    except Exception: pass\n"
+        "try:\n"
+        "    r = subprocess.run(['curl', '-s', '-m', '3', 'http://1.1.1.1'], capture_output=True)\n"
+        "    if r.returncode == 0 and r.stdout: res.append('EGRESS_curl')\n"
+        "except Exception: pass\n"
+        "for p in [%r, os.path.expanduser('~/.calma_bwrap_hostile_secret')]:\n"
+        "    try: open(p).read(); res.append('READ_SECRET')\n"
+        "    except Exception: pass\n"
+        "for p in ['/etc/calma_evil', os.path.expanduser('~/calma_evil')]:\n"
+        "    try: open(p, 'w').write('x'); res.append('WROTE_OUTSIDE')\n"
+        "    except Exception: pass\n"
+        "try: open('.calma/cache.json', 'w').write('{\"planted\": true}'); res.append('WROTE_CALMA')\n"
+        "except Exception: pass\n"
+        "try: open('ok.txt', 'w').write('ok'); res.append('WROTE_BASE')\n"
+        "except Exception: pass\n"
+        "print('HOSTILE=' + (','.join(res) if res else 'CONTAINED'))\n"
+    ) % _bsec
+    open(os.path.join(_bh, "evil.py"), "w").write(_bevil)
+    json.dump({"run": {"entrypoint": "evil.py"}, "env": {"trust": "own-code"}, "artifacts": [], "metrics": []},
+              open(os.path.join(_bh, "verify.yaml"), "w"))
+    _rbh = H.run(os.path.join(_bh, "verify.yaml"), base=_bh, timeout=60, isolation="bwrap")
+    try:
+        os.unlink(_bsec)
+    except OSError:
+        pass
+    _obh = _rbh.get("stdout_tail", "")
+    truth(_rbh.get("isolation_tier") == "bwrap-verified" and _rbh.get("exit_code") == 0,
+          "bwrap marquee: hostile own-code runs under bwrap (tier %s exit %s)"
+          % (_rbh.get("isolation_tier"), _rbh.get("exit_code")))
+    truth("EGRESS" not in _obh, "bwrap marquee: ALL network egress blocked (ip/dns/curl)")
+    truth("READ_SECRET" not in _obh, "bwrap marquee: planted host secret UNREADABLE ($HOME not in namespace)")
+    truth("WROTE_OUTSIDE" not in _obh, "bwrap marquee: cannot write outside <base> (/etc, $HOME)")
+    truth("WROTE_CALMA" not in _obh, "bwrap marquee: cannot write/plant .calma verdict state")
+    truth(open(os.path.join(_bh, ".calma", "cache.json")).read() == '{"planted": false}',
+          "bwrap marquee: pre-existing .calma bytes untouched")
+    truth("WROTE_BASE" in _obh, "bwrap marquee: the base itself stays writable (outputs land for recompute)")
+    _sh.rmtree(_bh, ignore_errors=True)
 
 print("run_hermetic: %d checks, %d failures" % (_n, _fail))
 sys.exit(1 if _fail else 0)
