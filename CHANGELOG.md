@@ -4,8 +4,9 @@ All notable changes to the calma skill/CLI. Dates are UTC.
 
 ## Unreleased — validity families (leakage + overfitting)
 
-In progress: two new validity-family detectors on the findings rail, plus a new verdict shape they
-need. Serial, leakage-first; each step keeps the full suite green.
+Two new validity-family detectors on the findings rail, plus a new verdict shape they need. Serial,
+leakage-first; each step keeps the full suite green. SKILL.md no longer lists leakage/overfitting as
+"named roadmap (M3-M4), not yet delivered" — they are delivered (realism/contamination remain roadmap).
 
 - **New verdict `INVALIDATED`** — "the number reproduces while the result is invalid." A first-class,
   gap-free third shape (distinct from `CONFIRMED` and the gap-gated `REFUTED`), reached only by a
