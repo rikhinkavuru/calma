@@ -36,3 +36,10 @@ rehearsals/registry-scratch/
 rehearsals/repos/*/.calma/
 rehearsals/repos/*/.calma_venv/
 rehearsals/repos/*/runs/
+
+# internal/dev docs — not shipped to skill/CLI users (kept locally)
+docs/internal/
+.claude/skills/calma/BUILD-NOTES.md
+.claude/skills/calma/PLAN.md
+# local-only doc-sync hook (config lives in gitignored settings.local.json)
+.claude/hooks/

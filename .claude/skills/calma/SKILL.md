@@ -210,8 +210,7 @@ committed claim and says so in the report and `--json` (`note`).
    false FAIL.
 7. **Any "validity layer / five families / language-agnostic" claim carries the installed-milestone gate.**
 
-Build status + what is real vs deferred: `BUILD-NOTES.md`. Script I/O contract:
+Script I/O contract:
 `references/script-interfaces.md`. The recipe-catalog reference (binding tags, conventions, data
 layouts, reference implementations - representative families; `calma recipes` lists all 622 ids):
-`references/recipes.md`. Full spec
-(repo checkout only, not shipped with the skill folder): `docs/internal/calma-skill-blueprint.md`.
+`references/recipes.md`.

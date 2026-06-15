@@ -358,14 +358,21 @@ def _assemble_ledger(contract, diff, run_res, claim_text=None):
     # a failed re-execution is itself a blocking finding (the verdict guard already forced INCONCLUSIVE)
     rc = run_res.get("exit_code", 0)
     if rc not in (0, 3, 4):
+        stderr_tail = run_res.get("stderr_tail") or ""
+        missing_dep = any(s in stderr_tail for s in
+                          ("ModuleNotFoundError", "No module named", "ImportError"))
+        unblock = "make the entrypoint run to completion (exit 0), then re-run calma verify"
+        if missing_dep:
+            unblock = ("a dependency is missing in the network-off sandbox - re-run with --restore to "
+                       "install the repo's pinned deps (requirements.txt) into .calma_venv (network is "
+                       "used only in that phase); else make the entrypoint run to completion, then re-verify")
         findings.append({
             "id": "f-run-fail", "claim_id": claims[0]["id"] if claims else None,
             "dimension": "reproducibility", "severity": "blocker", "status": "open",
             "confidence": "deterministic", "fixable_by": "author",
             "locator": "the entrypoint exited non-zero - the result was NOT reproduced"
-                       + ((" | stderr: " + run_res["stderr_tail"].strip()[-200:])
-                          if run_res.get("stderr_tail") else ""),
-            "unblock": "make the entrypoint run to completion (exit 0), then re-run calma verify",
+                       + ((" | stderr: " + stderr_tail.strip()[-200:]) if stderr_tail else ""),
+            "unblock": unblock,
             "reverify": {"kind": "requires-reexecution", "source": "run",
                          "expected": "entrypoint exits 0"},
         })
@@ -1395,7 +1402,7 @@ def main():
     sx.add_argument("bundle", help="path to attestation.bundle.json")
     sx.add_argument("--out", help="output path (default: <bundle dir>/attestation.sigstore.json)")
     av = atsub.add_parser("verify", help="verify a bundle offline: signature + verdict re-derivation")
-    av.add_argument("bundle", help="path to attestation.bundle.json")
+    av.add_argument("bundle", help="path to attestation.bundle.json (or the run/project dir containing it)")
     av.add_argument("--key", help="pin the signer: hex public key, or a path to the .pub file")
     av.add_argument("--replay", action="store_true",
                     help="also re-execute the run next to the bundle and check the verdict reproduces")
@@ -1628,8 +1635,21 @@ def main():
                       % (info["out"], info.get("identity"), info.get("log_index")))
                 return 0
             if a.attest_cmd == "verify":
+                bpath = a.bundle
+                if os.path.isdir(bpath):
+                    # convenience: accept a run dir (or a project dir) and find the bundle inside,
+                    # so a counterparty can `calma attest verify <folder>` like every other command.
+                    cands = [os.path.join(bpath, attest.BUNDLE_NAME),
+                             os.path.join(bpath, ".calma", "run", attest.BUNDLE_NAME)]
+                    found = next((c for c in cands if os.path.isfile(c)), None)
+                    if found is None:
+                        d = bpath.rstrip(os.sep)
+                        print("error: no %s found in %s (looked in %s/ and %s/.calma/run/)"
+                              % (attest.BUNDLE_NAME, bpath, d, d), file=sys.stderr)
+                        return 2
+                    bpath = found
                 try:
-                    bundle = json.load(open(a.bundle))
+                    bundle = json.load(open(bpath))
                 except (OSError, ValueError) as e:
                     print("error: cannot read bundle: %s" % e, file=sys.stderr)
                     return 2
@@ -1639,7 +1659,7 @@ def main():
                 ok, checks = attest.verify_bundle(bundle, pinned_pub_hex=pinned)
                 print(attest.render_verify(bundle, ok, checks))
                 if ok and a.replay:
-                    rok, text = replay(os.path.dirname(os.path.realpath(a.bundle)))
+                    rok, text = replay(os.path.dirname(os.path.realpath(bpath)))
                     print("\n" + text)
                     ok = ok and rok
                 if not ok:
