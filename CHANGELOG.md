@@ -27,6 +27,12 @@ Pure stdlib (shells out like `sandbox-exec`); each step kept the full suite gree
 - **Dispatch.** `--isolation` gains `bwrap`; auto own-code selects bwrap on Linux, Seatbelt on macOS
   (byte-identical on macOS). One mechanism-generic `_exec_native` routes the compile + run steps to the
   achieved tier — the doctor proves the exact wrapper the run uses.
+- **Cross-language parity.** Python/shell/C/C++/Rust all run under bwrap. The compiler is re-bound into
+  the namespace (the `/usr/bin/cc → /etc/alternatives/cc → gcc` linker hop, and `/etc/alternatives`),
+  and the toolchain depots under `$HOME` are re-bound read-only (the same set Seatbelt re-allows:
+  `.rustup`/`.cargo`/`.pyenv`/`.conda`/`.julia`/…) so a `$HOME`-rooted rustup/pyenv/conda toolchain
+  resolves — `~/.ssh`/`~/.aws` and the planted doctor secret are NOT depots, so the positive-control
+  still proves zero leaks.
 - **Defence in depth + UX.** Each sandboxed process runs `--cap-drop ALL` + a pure-stdlib seccomp syscall
   denylist (mount/namespace/module/kexec/bpf/ptrace/keyctl/io_uring/… for x86_64 + aarch64) + setrlimit
   caps (file-size/fds/core, opt-in memory) that actually hold (cap-drop removes CAP_SYS_RESOURCE), and

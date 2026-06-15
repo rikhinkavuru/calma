@@ -40,14 +40,12 @@ jobs:
             exit 1
           fi
           echo "Linux own-code tier verified: $tier"
-      - name: Run the hermetic isolation suite on Linux (live bwrap doctor + marquee + hardening)
-        # This job's purpose is to prove the LINUX ISOLATION TIER: the doctor lift (above) + the full
-        # hermetic suite (live bwrap probe, hostile-own-code marquee, --cap-drop ALL, seccomp denials,
-        # /proc/sys read-only, resource bounds, C-compile under bwrap). The full cross-domain functional
-        # suite - including cross-language toolchains like Rust under isolation - runs on the macOS `test`
-        # job; bwrap's strict FS allowlist does not yet bind a $HOME-rooted rustup toolchain (seatbelt
-        # re-allows the depot), so a Rust run under bwrap is honestly INCONCLUSIVE, not a wrong verdict.
-        run: python3 .claude/skills/calma/scripts/tests/test_hermetic.py
+      - name: Run the full Calma test suite on Linux (live bwrap doctor + marquee + cross-language)
+        # The full run_all.py on a real Linux runner: the isolation tier (live bwrap probe, hostile
+        # marquee, --cap-drop ALL, seccomp denials, /proc/sys read-only, resource bounds, C-compile) plus
+        # the cross-language suite (incl. a $HOME-rooted rustup Rust toolchain, now resolved by the bwrap
+        # depot re-allow - parity with the Seatbelt depot binds).
+        run: python3 .claude/skills/calma/scripts/tests/run_all.py
 
   # the shipped Action must actually work for a consumer: the flagship fixture
   # is a known REFUTED, so the action step is EXPECTED to fail (claim broken).

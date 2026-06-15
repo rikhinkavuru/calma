@@ -315,8 +315,16 @@ _bw_home = os.path.realpath(os.path.expanduser("~"))
 truth(("--bind %s %s" % (_bw_home, _bw_home)) not in _bj
       and ("--ro-bind %s %s" % (_bw_home, _bw_home)) not in _bj
       and ("--ro-bind-try %s %s" % (_bw_home, _bw_home)) not in _bj,
-      "bwrap never binds $HOME (secrets stay outside the namespace)")
-truth("/root" not in _bj, "bwrap never binds /root")
+      "bwrap never binds the WHOLE $HOME (only specific toolchain depots, read-only)")
+truth(("%s/.ssh" % _bw_home) not in _bj and ("%s/.aws" % _bw_home) not in _bj,
+      "bwrap never binds ~/.ssh or ~/.aws (secrets stay absent from the namespace)")
+truth((".ssh" not in H._BWRAP_DEPOTS) and (".aws" not in H._BWRAP_DEPOTS)
+      and (".rustup" in H._BWRAP_DEPOTS) and (".pyenv" in H._BWRAP_DEPOTS),
+      "depot allowlist re-allows toolchains (rustup/pyenv/...) but never secret dirs")
+truth(("--ro-bind-try %s/.rustup %s/.rustup" % (_bw_home, _bw_home)) in _bj,
+      "bwrap re-binds the toolchain depots read-only (so a $HOME-rooted rustup/pyenv resolves)")
+truth("--ro-bind-try /etc/alternatives /etc/alternatives" in _bj,
+      "bwrap binds /etc/alternatives (the cc/c++ linker symlink hop) read-only")
 # probe variant: base mounted READ-ONLY (whole base ro -> no .calma re-bind needed)
 _pbargv = H._bwrap_argv("/X/base", ["python", "-c", "x"], writable=False)
 _pbj = " ".join(_pbargv)
@@ -495,7 +503,7 @@ if _bw_live:
         "for p in [%r, os.path.expanduser('~/.calma_bwrap_hostile_secret')]:\n"
         "    try: open(p).read(); res.append('READ_SECRET')\n"
         "    except Exception: pass\n"
-        "for p in ['/etc/calma_evil', os.path.expanduser('~/calma_evil')]:\n"
+        "for p in ['/usr/calma_evil', '/usr/lib/calma_evil']:\n"   # /usr is a read-only HOST bind
         "    try: open(p, 'w').write('x'); res.append('WROTE_OUTSIDE')\n"
         "    except Exception: pass\n"
         "try: open('.calma/cache.json', 'w').write('{\"planted\": true}'); res.append('WROTE_CALMA')\n"
@@ -518,7 +526,8 @@ if _bw_live:
           % (_rbh.get("isolation_tier"), _rbh.get("exit_code")))
     truth("EGRESS" not in _obh, "bwrap marquee: ALL network egress blocked (ip/dns/curl)")
     truth("READ_SECRET" not in _obh, "bwrap marquee: planted host secret UNREADABLE ($HOME not in namespace)")
-    truth("WROTE_OUTSIDE" not in _obh, "bwrap marquee: cannot write outside <base> (/etc, $HOME)")
+    truth("WROTE_OUTSIDE" not in _obh,
+          "bwrap marquee: cannot write a host-backed read-only path (/usr); the host FS is never modified")
     truth("WROTE_CALMA" not in _obh, "bwrap marquee: cannot write/plant .calma verdict state")
     truth(open(os.path.join(_bh, ".calma", "cache.json")).read() == '{"planted": false}',
           "bwrap marquee: pre-existing .calma bytes untouched")

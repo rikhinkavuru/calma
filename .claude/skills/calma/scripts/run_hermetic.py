@@ -284,6 +284,17 @@ def doctor(repo_root=None):
 # `try` paths is part of the secret boundary - they are read-only SYSTEM roots, never $HOME.
 _BWRAP_TRY_ROOTS = ("/lib", "/lib64", "/bin", "/sbin")
 
+# Language-runtime / interpreter depots under $HOME (package caches + toolchain installs, NOT secrets) -
+# the SAME set the Seatbelt profile re-allows. A toolchain frequently lives here via a $HOME-rooted proxy
+# the strict allowlist can't follow: a rustup `~/.cargo/bin/rustc` proxy execs `~/.rustup/toolchains/...`,
+# a pyenv/conda/julia base interpreter lives under its depot, etc. Bind these ROOTS read-only with
+# --ro-bind-try (skips the missing ones) so those toolchains resolve. This is parity with Seatbelt (NOT a
+# regression): ~/.ssh, ~/.aws, keychains, and the planted doctor secret are NOT depots, so they stay
+# absent and the doctor positive-control still proves zero leaks.
+_BWRAP_DEPOTS = (".julia", ".cargo", ".rustup", ".npm", ".nvm", ".node-gyp",
+                 ".pyenv", ".conda", "miniconda3", "anaconda3", "miniforge3", ".rye",
+                 ".local/share/uv", ".local/bin")
+
 
 def _bwrap_interp_dirs(*paths):
     """The interpreter dirs to bind read-only into the namespace. A restored venv's base python or a
@@ -324,6 +335,7 @@ def _bwrap_argv(base, inner_argv, interp_dirs=(), writable=True, deny_calma=True
     lives outside the system roots (see _bwrap_interp_dirs). `writable=False` (the doctor probe) binds
     the base read-only - proving the floor: even with nothing writable, egress + host-secret reads fail."""
     base = os.path.realpath(base)
+    home = os.path.realpath(os.path.expanduser("~"))
     argv = [shutil.which("bwrap") or "bwrap",
             "--unshare-user", "--unshare-pid", "--unshare-net", "--unshare-ipc", "--unshare-uts",
             "--die-with-parent", "--new-session",
@@ -344,8 +356,17 @@ def _bwrap_argv(base, inner_argv, interp_dirs=(), writable=True, deny_calma=True
              "--ro-bind", "/usr", "/usr"]
     for d in _BWRAP_TRY_ROOTS:
         argv += ["--ro-bind-try", d, d]
+    # /etc/alternatives: the symlink farm that cc/c++/etc. resolve through (e.g. the rust/C linker hop
+    # /usr/bin/cc -> /etc/alternatives/cc -> gcc). Symlinks to system binaries, no secrets.
+    argv += ["--ro-bind-try", "/etc/alternatives", "/etc/alternatives"]
     for d in interp_dirs:
         argv += ["--ro-bind-try", d, d]
+    # language-runtime depots under $HOME, read-only (parity with the Seatbelt depot re-allow) so a
+    # $HOME-rooted toolchain - rustup, pyenv, conda, julia, node - resolves. --ro-bind-try skips missing
+    # ones; ~/.ssh, ~/.aws, keychains, the planted secret are NOT depots, so they stay absent.
+    for d in _BWRAP_DEPOTS:
+        dp = os.path.join(home, d)
+        argv += ["--ro-bind-try", dp, dp]
     argv += [("--bind" if writable else "--ro-bind"), base, base]
     # only meaningful when the base is writable; a read-only base already denies every .calma write.
     if deny_calma and writable:
