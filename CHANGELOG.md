@@ -39,11 +39,114 @@ Pure stdlib (shells out like `sandbox-exec`); each step kept the full suite gree
   security / edge / dev / UX / token run to CLEAN — the loop caught and closed a real `/proc/sys`
   host-escape and an rlimit-bypass before sign-off. Verified on real Linux (Ubuntu 24.04 + bubblewrap).
 
+## Unreleased — validity families (realism + contamination) + the deflated_sharpe recipe
+
+The remaining M3–M4 validity ceiling, built on the leakage/overfitting findings-rail architecture below.
+Two more validity families plus the direct deflated-Sharpe recipe path. Each keeps the full suite green
+(29 suites). SKILL.md now lists all four families — leakage, overfitting, **execution-realism**, and
+**eval/benchmark contamination** — as DELIVERED; nothing remains "named roadmap (M3-M4)".
+
+- **Execution-realism deflators** (`scripts/realism_checks.py`, dimension `execution-realism`, on the
+  findings rail) — an optimistic backtest assumes frictionless fills; this deflates the per-period returns
+  to declared frictions (transaction cost + slippage **per turnover**, short-**borrow** carry, and a
+  square-root **market-impact** term from claimed size vs ADV) and **re-runs the headline recipe net-of-
+  friction**. The verdict follows the claim's NET/GROSS scope (`apply_validity` + `net_status`): a
+  **net/live** claim whose friction-deflated recompute lands outside budget → **REFUTED** via the gap path
+  (the claimed "net" number is really gross — e.g. *claimed Sharpe 3.13 → friction-deflated −0.05*); a
+  net/live claim that is **uninvestable at size** (participation = size/ADV ≥ 1) → INVALIDATED; a **gross/
+  paper** claim → CONFIRMED-WITH-CAVEATS; an **indeterminate** claim + a material friction → CAN'T-CONFIRM
+  ("declare net vs gross"). Activates only on a declared `frictions:{...}` block — a friction the author
+  did not declare is never guessed; the older `costs`/`universe` surface stays with `backtest_checks` (no
+  double-counting). The REFUTED path clears `convention_capped` (the deflation is convention-identical, so
+  a Sharpe annualization choice cannot explain the gap). Square-root impact (`sqrt_impact`) is elementary
+  closed-form arithmetic (no special functions → no reference-vector ceremony; exact unit magnitudes).
+- **Eval/benchmark contamination** (`scripts/contamination_checks.py`, new dimension `contamination`) —
+  broader than leakage's train/test overlap: the *evaluation itself* is contaminated by the model's
+  pretraining / a known corpus. Two stdlib detectors: **exact memorization** (an eval item whose
+  whitespace-canonical sha256 is present in a declared `corpus:{manifest}` — authoritative) and
+  **near-duplicate** (a 32-function minhash over word 3-shingles, Jaccard ≥ 0.80 — LABELED HEURISTIC →
+  soft). The verdict follows the claim's HELD-OUT scope (`contamination_status`): exact memorization on a
+  **held-out / zero-shot / uncontaminated** claim → INVALIDATED (*the number reproduces, but it is not a
+  held-out measurement*); a claim that **allows** contamination (few-shot / in-context) → CONFIRMED-WITH-
+  CAVEATS; an **indeterminate** claim → CAN'T-CONFIRM; a heuristic near-dup → always a caveat. Manifest
+  absent → NOT-APPLICABLE (the corpus is never guessed). `contamination` added to `ledger.DIMENSIONS` +
+  `EXEC_DIMENSIONS`.
+- **`deflated_sharpe` registered recipe** (`recipes.py`, family `quant`, the **direct REFUTED path**) —
+  a user claims a deflated number (`--metric deflated_sharpe`) and it is recomputed → CONFIRMED/REFUTED,
+  complementing the overfitting findings rail. The search is carried in the convention
+  (`trials=1000,var_sr=0.002`); per-period Sharpe is computed from the raw returns (never annualised) and
+  fed to the frozen `numeric.deflated_sharpe_ratio` kernel. Returns the raw probability (the decision rule
+  `1-DSR>0.05` lives in the claim, not the recipe); under-specified search (no trials / N<2) → degenerate
+  → CAN'T-CONFIRM, never a guessed pass. Registry → 621 reviewed recipes; `recipe_descriptions.json` and
+  the site `app/recipes/data.ts` mirror it.
+- **Wiring + composition.** All four families are wired into `_assemble_ledger` and compose **order-safely
+  / worst-wins**: each `apply_validity` only ever degrades a still-clean (CONFIRMED/CAVEATS) headline,
+  never resurrects a worse one — covered by an extended order-safety test across all four. New
+  context-free fresh-verifiers adversarially probed realism + contamination. Reproducible INVALIDATED/
+  REFUTED demo fixtures committed under `assets/demos/` (5 fixtures + a README of exact commands).
+- **Perf: contamination near-dup is now near-linear (LSH banding).** The minhash near-duplicate pass was
+  an O(eval × corpus) all-pairs scan (≈7s for 2000 × 4000, and the eval side was uncapped). It now bands
+  the 32-minhash signature into 8 bands of 4 (an `O(eval + corpus)` LSH candidate index), so only items
+  sharing a band are compared — the all-pairs compare drops to near-instant, and the old silent
+  `_NEARDUP_CAP=4000` corpus truncation is **removed**. The decision is unchanged (exact estimated-Jaccard
+  ≥ 0.80 on candidates); the band geometry gives ~98.5% recall at the boundary (~100% for real ≥0.9
+  paraphrases) — a soft heuristic, so the rare boundary miss only ever under-flags.
+- **UX: INVALIDATED gets a first-class shareable teardown.** `report.teardown_card` + `svg_card` (and the
+  `calma teardown` CLI) previously fired only for REFUTED/MIXED, so the new families' headline output —
+  the most sellable one — produced no card. INVALIDATED now renders its own framing: *the number
+  reproduces (recomputed shown == claimed), but the result is invalid*, led by the evidence (the blocker
+  locator + magnitude) and the fix. REFUTED keeps the *claimed X → really Y* framing.
+- **Realism depth: sortino + calmar deflation, leverage financing.** The friction-deflated recompute now
+  covers `sortino` (a ratio → a clean gap-gated REFUTED when the net collapses) and `calmar` (path-
+  dependent via max-drawdown, so a gap-REFUTED is blocked → it routes to INVALIDATED — "the live result
+  is invalid" — instead). The net-branch promotion was restructured to *try a gap-gated REFUTED, else
+  INVALIDATED*, which also routes a non-finite deflated net correctly. New `frictions.leverage`: a book
+  run at Lx pays `(L-1)·borrow` financing per period (folded into the net recompute when a borrow rate is
+  declared) and a soft leverage caveat surfaces the un-levered figure + the L× drawdown (no arbitrary
+  threshold — any leverage > 1 is noted).
+- **`deflated_sharpe` CONFIRMED demo + a multi-family integration test.** A `deflated-sharpe-survives`
+  fixture (strong edge → DSR ≈ 0.996 CONFIRMED) mirrors the REFUTED one, so the recipe is shown to be
+  two-sided. `test_validity_integration.py` locks the cross-family composition: one contract declaring
+  frictions + split + corpus at once assembles to a valid, worst-wins, byte-re-derivable ledger with no
+  double-promotion. (Suite: 30 green.)
+- **Adversarial audit + hardening (security · UX · token · DX).** A four-axis adversarial audit of the
+  whole session's work, fixed closed-loop:
+  - *Security.* The new detectors now route every file read (`corpus.manifest`/`eval`, `split.test`, the
+    metric `artifact`) through a `_safe_join` containment guard — an attacker-authored `verify.yaml` can
+    no longer read or exfiltrate files outside the contract base. The minhash near-dup pass is bounded
+    against DoS (a degenerate-band short-circuit + shingle/line caps) so an adversarial near-identical
+    corpus stays near-linear instead of O(eval×corpus). A 64-hex eval item that equals a corpus line is
+    no longer a false-clean (hex manifest lines also store their content-hash). Terminal output strips
+    ANSI/control chars from attacker-derived strings (no verdict-spoofing). `deflated_sharpe` no longer
+    raises on `trials=1e999`; manifests read fail-soft on invalid UTF-8.
+  - *Correctness.* The `deflated_sharpe` recipe bound a *shadowing* duplicate `_conv_kv` (a finance-pack
+    float parser) instead of its own — renamed to `_conv_kv_str` so it provably binds the intended parser.
+  - *UX.* A CONFIRMED-WITH-CAVEATS verdict now surfaces the actual caveat (leverage / capacity / fill /
+    near-dup) instead of a contradicting "matches the claim" line; every broken stamp (family REFUTED *and*
+    INVALIDATED) carries a runnable `reproduce:` replay command; the SVG share-card footer no longer clips
+    off the card; the limiter "why" line wraps like the scope lines; the doubled deflation locator and the
+    teardown gloss/locator restatement are removed; INVALIDATED's identical claimed==recomputed pair is
+    annotated "(reproduces — the result, not the number, is invalid)".
+  - *DX.* Unknown `frictions`/`corpus` keys are now rejected (a typo'd friction was silently un-applied);
+    the validity surfaces (`split`/`keys`/`features`/`trials`/`var_sr`/`frictions`/`corpus`) are documented
+    in `verify.schema.json`; the `deflated_sharpe` convention format is in `recipe_descriptions.json`.
+  - *Token.* The doubled locator (~220 B/run), the `not_verified` parentheticals, and a null `magnitude`
+    field were trimmed with no signal loss; the hot path stays zero-overhead when no surface is declared.
+  - A 7th demo (`realism-soft-caveats`, CONFIRMED-WITH-CAVEATS) rounds out the showcase. Two fresh
+    adversaries re-verified the fix set holds with no exploitable bugs and no regressions; the three LOW
+    residuals they then noted were also closed: a `_plain` regex-ordering bug (it stripped the ESC byte
+    before the CSI match, leaving inert `[31m` litter — now ordered correctly + applied to the SVG card),
+    an honest rewrite of the near-dup recall docstring (LSH loses zero recall *vs all-pairs*; the boundary
+    is MinHash estimate variance, not a banding effect), and a degenerate-net guard so an unphysical
+    friction (a per-period net return below −100% that compounds total_return/calmar to a nonsensical
+    large-positive) routes to INVALIDATED instead of a garbage REFUTED. Each is locked by a regression
+    test. (Suite: 30 green.)
+
 ## Unreleased — validity families (leakage + overfitting)
 
 Two new validity-family detectors on the findings rail, plus a new verdict shape they need. Serial,
 leakage-first; each step keeps the full suite green. SKILL.md no longer lists leakage/overfitting as
-"named roadmap (M3-M4), not yet delivered" — they are delivered (realism/contamination remain roadmap).
+"named roadmap (M3-M4), not yet delivered" — they are delivered.
 
 - **New verdict `INVALIDATED`** — "the number reproduces while the result is invalid." A first-class,
   gap-free third shape (distinct from `CONFIRMED` and the gap-gated `REFUTED`), reached only by a
