@@ -42,6 +42,8 @@ You get one of these answers:
 - **CONFIRMED** — it re-runs and the number checks out.
 - **CONFIRMED-WITH-CAVEATS** — it holds, but narrower than claimed (and the caveat is named).
 - **REFUTED** — the recomputed number contradicts the claim, with a reproduction you can run yourself.
+- **INVALIDATED** — the number reproduces, but the *result* is invalid: a data leak, an overfit, or a
+  contaminated benchmark means the held-out claim isn't real even though the arithmetic checks out.
 - **MIXED** — more than one claim was checked; at least one is REFUTED while the others hold.
 - **CAN'T-CONFIRM** — it can't be fully checked yet, plus a `fix:` line with the exact change to make it
   checkable (e.g. "set a fixed seed", "write predictions to a CSV"). Calma never cries wolf.
@@ -170,6 +172,24 @@ claim actually breaks.
 - **Does it beat a basic baseline?** (e.g. buy-and-hold, or majority-class.)
 - **Is it stable?** A calibrated tolerance so normal hardware/threading noise never causes a false alarm.
 
+And the deeper question — **is the result valid, or just reproducible?** A number can recompute perfectly
+and still be meaningless. Calma runs four validity families on the findings rail; any one can turn a
+would-be CONFIRMED into **INVALIDATED** (the number reproduces, but the held-out result doesn't):
+
+- **Data leakage** — train/test overlap (rows, ids, time) and target leakage. On a hit it re-runs the
+  metric on a leakage-corrected split and reports the honest number.
+- **Overfitting** — the Deflated Sharpe Ratio and PBO/CSCV (probability of backtest overfitting) from the
+  declared number of trials / grid-search log, so an in-sample winner can't pass as an out-of-sample one.
+- **Execution realism** — deflates a backtest to declared frictions (cost, slippage, borrow, square-root
+  market impact) and re-runs net-of-friction: a "net" claim that's really gross is REFUTED; one that's
+  uninvestable at size is INVALIDATED.
+- **Eval/benchmark contamination** — exact memorization (hash overlap with a declared corpus) and
+  near-duplicate (minhash), so a "held-out" score that's actually in the training corpus is caught.
+
+Each family is silent unless the contract declares what it needs (a split, a trials count, a `frictions`
+block, a corpus manifest) — Calma never invents a leak that wasn't there, and these checks only ever make
+a verdict *more* cautious, never inflate it.
+
 Built-in metrics cover **trading** (Sharpe, return, drawdown), **machine learning** (accuracy, AUC,
 F1/macro/micro, PR-AUC, log-loss, MCC, calibration/ECE, Brier), **regression & forecasting** (RMSE, MAE, R²,
 MAPE/sMAPE, MASE, pinball), **retrieval & LLM evals** (recall@k, NDCG, MRR, top-k, exact-match, pass@k),
@@ -195,8 +215,11 @@ Rust** — Calma treats your program as a black box and does the recompute itsel
    CONFIRMED-WITH-CAVEATS — the stamp never lies.
 3. **Recompute** each metric from the raw outputs, the same way every time (no floating-point surprises).
 4. **Compare** recomputed vs claimed, allowing for the claim's own measurement noise.
-5. **Verdict** from a single deterministic function — re-checked byte-for-byte so it can't be fudged.
-6. **Attest** with a content-addressed manifest (in-toto/SLSA statement + CycloneDX ML-BOM) — and, after a
+5. **Stress-test validity** — the leakage / overfitting / execution-realism / contamination families run on
+   the findings rail (each only when the contract declares what it needs), so a number that recomputes but
+   is invalid degrades to INVALIDATED instead of CONFIRMED.
+6. **Verdict** from a single deterministic function — re-checked byte-for-byte so it can't be fudged.
+7. **Attest** with a content-addressed manifest (in-toto/SLSA statement + CycloneDX ML-BOM) — and, after a
    one-time `calma attest keygen`, every verify is signed into a portable DSSE bundle whose predicate is a
    VSA-style verdict statement (`github.com/rikhinkavuru/calma/verdict/v1` — bundles signed under the
    legacy `calma.dev/verdict/v1` URI remain valid: verifier + version, the contract and calibration
@@ -209,7 +232,7 @@ Rust** — Calma treats your program as a black box and does the recompute itsel
    `calma attest timestamp` adds an RFC 3161 trusted timestamp (network needed only at stamping time; the
    token verifies offline forever), and `calma attest sigstore` (lab tier, needs sigstore-python)
    countersigns the same payload keylessly into the public Rekor transparency log.
-7. **Publish** (opt-in): `calma publish <run_dir>` appends a redacted entry — claim, metric, claimed vs
+8. **Publish** (opt-in): `calma publish <run_dir>` appends a redacted entry — claim, metric, claimed vs
    recomputed, verdict, content hashes; never code, never data — to a hash-chained, signed public registry
    (the catch history at `/registry`). Publish requires attest; `calma registry verify` audits the whole
    chain offline.
@@ -261,13 +284,23 @@ influences is which output column maps to the claim; a REFUTED is only allowed w
 independent sanity check AND the claim target is unambiguous (named in the claim or pinned with --metric).
 An ambiguous binding degrades to CAN'T-CONFIRM, never a verdict.
 
+**A number can reproduce perfectly and still be wrong — does Calma catch that?**
+Yes — that's the **INVALIDATED** verdict. Reproducing the arithmetic isn't the same as the result being
+valid. Calma runs four validity families on the findings rail — data leakage (train/test overlap + target
+leakage, with a leakage-corrected re-run), overfitting (Deflated Sharpe + PBO/CSCV), execution realism (a
+friction-deflated re-run), and eval/benchmark contamination (corpus hash overlap + near-duplicate minhash)
+— so a number that recomputes but is invalid is stamped INVALIDATED, not CONFIRMED. Each is silent unless
+the contract declares what it needs (a split, a trials count, a `frictions` block, a corpus manifest), so
+it never invents a leak; the checks only ever make a verdict more cautious, never inflate it.
+
 **Does it work if there's no specific number to check?**
 Yes. With a claim it recomputes-and-diffs; without one it still checks that the result reproduces and that
 any declared invariants hold.
 
 **Does my code or data leave my machine?**
-No. Everything runs locally; nothing is uploaded. On macOS the run is inside a verified network-off
-sandbox; on hosts without one, the verdict says so explicitly instead of pretending.
+No. Everything runs locally; nothing is uploaded. On macOS (Seatbelt) and Linux (bubblewrap) the run is
+inside a verified, network-off sandbox; on a host without one, the verdict says so explicitly instead of
+pretending.
 
 **Is it only for trading/quant?**
 No. It ships 622 metrics across trading, ML (classification, regression, retrieval/RAG, LLM evals),
