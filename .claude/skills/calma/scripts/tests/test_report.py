@@ -102,5 +102,72 @@ p2 = subprocess.run([sys.executable, "replay_verify.py"], cwd=fresh_bundle, env=
 truth(p2.returncode != 0, "a tampered (forged-verdict) bundle FAILS the offline replay")
 
 _sh.rmtree(fresh, ignore_errors=True)
+
+# --- INVALIDATED gets a first-class shareable teardown card + SVG (the new families' headline output) ---
+import verdict as V  # noqa: E402
+_inv_led = {
+    "schema": "calma/ledger@1", "target": "held-out-bench",
+    "claims": [{"id": "c1", "headline": True, "verdict": V.INVALIDATED, "metric": "accuracy",
+                "claimed_value": 0.92, "recomputed_value": 0.92, "driving_dimension": "contamination",
+                "input_binding_status": "independently-bound",
+                "verdict_inputs": {"validity_invalidated": True, "oos_claim_asserted": True,
+                                   "gap": 0.0, "effective_budget": 1e-9}}],
+    "findings": [{"id": "f1", "claim_id": "c1", "dimension": "contamination", "severity": "blocker",
+                  "status": "open", "locator": "10 of 25 eval items are present in the declared corpus",
+                  "unblock": "decontaminate against the corpus, then re-evaluate"}],
+    "scope": {"isolation_tier": "tier0", "determinism_mode": "controlled-to-bit"},
+    "repo_verdict": V.INVALIDATED,
+}
+_card = REP.teardown_card(_inv_led)
+truth(_card is not None and "INVALIDATED" in _card,
+      "an INVALIDATED result produces a shareable teardown card (not None)")
+truth("the number reproduces" in _card and "but the result is invalid" in _card.lower(),
+      "the INVALIDATED card leads with 'reproduces, but invalid' (distinct from REFUTED's claimed->really)")
+truth("why it's invalid:" in _card and "decontaminate" in _card,
+      "the INVALIDATED card carries the evidence + the fix")
+_svg = REP.svg_card(_inv_led)
+truth(_svg is not None and "INVALIDATED" in _svg and _svg.startswith("<svg"),
+      "an INVALIDATED result produces a shareable SVG card")
+# a clean result still produces no card (the gate stays honest)
+truth(REP.teardown_card({"repo_verdict": V.CONFIRMED, "claims": [], "findings": []}) is None
+      and REP.svg_card({"repo_verdict": V.CONFIRMED, "claims": [], "findings": []}) is None,
+      "a clean result yields no teardown / svg card")
+
+# --- render fixes (adversarial UX + security audit 2026-06-16) ---
+# (U2) a CAVEATS verdict driven by soft findings surfaces the CAVEAT, never the clean-pass reason
+_cav_led = {
+    "repo_verdict": V.CAVEATS, "scope": {"isolation_tier": "tier0", "determinism_mode": "controlled-to-bit"},
+    "claims": [{"id": "c1", "headline": True, "verdict": V.CAVEATS, "metric": "sharpe",
+                "claimed_value": 2.38, "recomputed_value": 2.38, "reason": "recomputed value matches the claim within the calibrated budget"}],
+    "findings": [{"id": "f1", "claim_id": "c1", "dimension": "execution-realism", "severity": "minor",
+                  "status": "open", "locator": "levered headline: the result is run at 3.0x leverage"},
+                 {"id": "f2", "claim_id": "c1", "dimension": "execution-realism", "severity": "minor",
+                  "status": "open", "locator": "optimistic fill: assumes a vwap fill"}],
+}
+_cav_out = REP.render(_cav_led)
+truth("levered headline" in _cav_out, "CAVEATS render surfaces the soft caveat (not hidden)")
+truth("matches the claim within the calibrated budget" not in _cav_out,
+      "CAVEATS render NEVER shows the contradicting clean-pass 'matches the claim' line")
+truth("+1 more caveat" in _cav_out, "CAVEATS render notes the additional caveats")
+
+# (S4) an ANSI/control-char payload in a finding locator is stripped from the terminal render (no
+# verdict spoofing) - the attacker bytes cannot repaint the line
+_atk_led = {
+    "repo_verdict": V.INVALIDATED, "scope": {"isolation_tier": "tier0", "determinism_mode": "controlled-to-bit"},
+    "claims": [{"id": "c1", "headline": True, "verdict": V.INVALIDATED, "metric": "accuracy",
+                "claimed_value": 0.9, "recomputed_value": 0.9, "driving_dimension": "contamination",
+                "verdict_inputs": {"validity_invalidated": True, "oos_claim_asserted": True}}],
+    "findings": [{"id": "f1", "claim_id": "c1", "dimension": "contamination", "severity": "blocker",
+                  "status": "open", "locator": "evil \x1b[2K\x1b[32mCONFIRMED all good\x1b[0m\nfake"}],
+}
+_atk_out = REP.render(_atk_led)
+truth("\x1b" not in _atk_out, "ANSI escapes in a finding locator are stripped from the render")
+truth("[2K" not in _atk_out and "[32m" not in _atk_out and "[0m" not in _atk_out,
+      "the inert CSI literal ([2K/[32m/[0m) is fully stripped too (not just the ESC byte)")
+truth("evil" in _atk_out and "fake" in _atk_out,
+      "the legitimate text around the payload survives (only the control sequence is removed)")
+truth("(reproduces - the result, not the number, is invalid)" in _atk_out,
+      "INVALIDATED topline is annotated so the identical claimed==recomputed pair doesn't read as a no-op")
+
 print("report: %d checks, %d failures" % (_n, _fail))
 sys.exit(1 if _fail else 0)

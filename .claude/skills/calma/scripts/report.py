@@ -8,11 +8,24 @@ CAN'T-CONFIRM (the display name of INCONCLUSIVE) / MIXED (multi-claim, at least 
 """
 import hashlib
 import os
+import re
 import shutil
 import subprocess
 import textwrap
 
 import verdict as V
+
+_CSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+
+
+def _plain(s):
+    """Strip ANSI escapes + control chars from an ATTACKER-DERIVED string (a finding locator, a target
+    name, a column) before it goes to the terminal, so a crafted value can't repaint a fake green
+    'CONFIRMED' over the real verdict line. Color the verifier adds itself is applied AFTER this, to its
+    own symbols - never to attacker content. Order matters: drop the CSI sequences FIRST (while the ESC
+    byte is intact) THEN replace any remaining control chars with a space, else stripping the ESC first
+    would leave the inert `[31m` literal behind."""
+    return re.sub(r"[\x00-\x1f\x7f]", " ", _CSI.sub("", str(s)))
 
 
 def _wrap(text, width=96):
@@ -180,18 +193,25 @@ def render(led, diff=None, color=False):
     limiter = None
     blockers = [f for f in led.get("findings", []) if f.get("severity") == "blocker"]
     majors = [f for f in led.get("findings", []) if f.get("severity") == "major"]
-    if rv in ("REFUTED", "MIXED"):
+    minors = [f for f in led.get("findings", []) if f.get("severity") == "minor"]
+    if rv in ("REFUTED", "MIXED", V.INVALIDATED):
         others = [f for f in blockers + majors if f.get("dimension") != "metric-mismatch"]
         if others:
-            limiter = "also: " + (others[0].get("locator") or "")
+            limiter = ("also: " if rv != V.INVALIDATED else "") + (others[0].get("locator") or "")
     elif blockers:
         limiter = blockers[0].get("locator")
+    elif rv == V.CAVEATS and minors:
+        # CAVEATS driven by soft findings (leverage / capacity / near-dup / in-sample contamination):
+        # surface the CAVEAT itself, never the clean-pass "matches the claim" reason (which contradicts
+        # the verdict word and hides the material caveat).
+        extra = " (+%d more caveat%s)" % (len(minors) - 1, "s" if len(minors) > 2 else "") if len(minors) > 1 else ""
+        limiter = (minors[0].get("locator") or "") + extra
     elif rv == V.INCONCLUSIVE and (c0.get("reason") or majors):
         limiter = c0.get("reason") or majors[0].get("locator")
     elif diff and diff.get("metrics"):
         limiter = diff["metrics"][0].get("reason")
     if limiter:
-        lines.append("  - " + limiter)
+        lines.append(_wrap("- " + _plain(limiter)))
     # the numeric collapse + reproduction for a break. With a multi-metric table above, the per-row
     # numbers are already shown - skip the single collapse (claims[0] may be a CONFIRMED row, which
     # would mislead) and just point reproduce at the first broken metric.
@@ -202,8 +222,12 @@ def render(led, diff=None, color=False):
             c = led["claims"][0]
             if c.get("claimed_value") is not None and c.get("recomputed_value") is not None:
                 mid = c.get("metric")
-                lines.append("  claimed %s  ->  recomputed %s" % (fmt_value(c["claimed_value"], mid),
-                                                                  fmt_value(c["recomputed_value"], mid)))
+                # INVALIDATED reproduces (claimed == recomputed) - annotate so the identical pair doesn't
+                # read as a no-op; the point is the RESULT is invalid, not the number.
+                note = ("   (reproduces - the result, not the number, is invalid)"
+                        if c.get("verdict") == V.INVALIDATED else "")
+                lines.append("  claimed %s  ->  recomputed %s%s" % (fmt_value(c["claimed_value"], mid),
+                                                                    fmt_value(c["recomputed_value"], mid), note))
         rep = broken.get("reproduction_or_reverify", {})
         if rep.get("command"):
             lines.append("  reproduce: " + rep["command"])
@@ -211,7 +235,7 @@ def render(led, diff=None, color=False):
     if rv != V.CONFIRMED:
         fix = _fix_line(led, diff)
         if fix and rv in (V.INCONCLUSIVE, V.CAVEATS, V.INVALIDATED):
-            lines.append("  fix: " + fix)
+            lines.append(_wrap("fix: " + _plain(fix)))
     # scope one-liner (the honest 'what we checked')
     sc = led.get("scope", {})
     if sc:
@@ -248,36 +272,49 @@ def _esc(s):
 
 
 def svg_card(led, width=820):
-    """A self-contained dark SVG share card for a REFUTED result - the local, no-SaaS version of an
-    OG image. Deterministic output (no timestamps)."""
-    if led.get("repo_verdict") not in ("REFUTED", "MIXED"):
+    """A self-contained dark SVG share card for a broken result - the local, no-SaaS version of an OG
+    image. REFUTED -> claimed vs a different recomputed (red). INVALIDATED -> the number reproduces
+    (recomputed shown in white == claimed) but the result is invalid (red verdict). Deterministic."""
+    rv = led.get("repo_verdict")
+    if rv not in ("REFUTED", "MIXED", V.INVALIDATED):
         return None
-    c = (led.get("claims") or [{}])[0]
+    claims = led.get("claims") or [{}]
+    c = next((x for x in claims if x.get("verdict") in (V.REFUTED, V.INVALIDATED)), claims[0])
     mid = c.get("metric")
+    invalid = c.get("verdict") == V.INVALIDATED
     claimed = fmt_value(c.get("claimed_value"), mid)
     recomputed = fmt_value(c.get("recomputed_value"), mid)
-    blockers = [f for f in led.get("findings", []) if f.get("severity") in ("blocker", "major")]
+    blockers = [f for f in led.get("findings", [])
+                if f.get("severity") in ("blocker", "major")
+                and (f.get("claim_id") == c.get("id") or f.get("claim_id") is None)] \
+        or [f for f in led.get("findings", []) if f.get("severity") in ("blocker", "major")]
     why = _DIMENSION_GLOSS.get(blockers[0].get("dimension"), blockers[0].get("dimension")) \
         if blockers else "the number doesn't recompute"
+    # INVALIDATED: the recomputed number IS the claim (it reproduces) - render it white, not red, and
+    # label the row so the story reads "the number is real, the result is what's invalid".
+    recomp_label = "RECOMPUTED — the number reproduces" if invalid else "RECOMPUTED — by re-running the code"
+    recomp_fill = "#FAFAFA" if invalid else "#F87171"
+    word = "INVALIDATED" if invalid else "REFUTED"
     sc = led.get("scope", {})
-    h = 430
+    h = 456
     return """<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d">
   <rect width="%d" height="%d" rx="16" fill="#0A0A0B"/>
   <rect x="1" y="1" width="%d" height="%d" rx="15" fill="none" stroke="#26262B" stroke-width="2"/>
   <text x="48" y="64" font-family="ui-monospace,Menlo,monospace" font-size="15" fill="#71717A" letter-spacing="3">CALMA TEARDOWN — %s</text>
   <text x="48" y="120" font-family="ui-monospace,Menlo,monospace" font-size="17" fill="#A1A1AA">CLAIMED</text>
   <text x="48" y="172" font-family="ui-monospace,Menlo,monospace" font-size="44" font-weight="700" fill="#FAFAFA">%s</text>
-  <text x="48" y="218" font-family="ui-monospace,Menlo,monospace" font-size="17" fill="#A1A1AA">RECOMPUTED — by re-running the code</text>
-  <text x="48" y="272" font-family="ui-monospace,Menlo,monospace" font-size="44" font-weight="700" fill="#F87171">%s</text>
+  <text x="48" y="218" font-family="ui-monospace,Menlo,monospace" font-size="17" fill="#A1A1AA">%s</text>
+  <text x="48" y="272" font-family="ui-monospace,Menlo,monospace" font-size="44" font-weight="700" fill="%s">%s</text>
   <rect x="48" y="300" width="%d" height="1" fill="#26262B"/>
-  <text x="48" y="336" font-family="ui-monospace,Menlo,monospace" font-size="15" fill="#FCA5A5">REFUTED — %s</text>
-  <text x="48" y="372" font-family="ui-monospace,Menlo,monospace" font-size="13" fill="#71717A">verified by RE-EXECUTION, not opinion · isolation: %s · determinism: %s</text>
-  <text x="48" y="398" font-family="ui-monospace,Menlo,monospace" font-size="13" fill="#4ADE80">$ calma verify · github.com/rikhinkavuru/calma</text>
+  <text x="48" y="336" font-family="ui-monospace,Menlo,monospace" font-size="15" fill="#FCA5A5">%s — %s</text>
+  <text x="48" y="376" font-family="ui-monospace,Menlo,monospace" font-size="13" fill="#71717A">verified by RE-EXECUTION, not opinion</text>
+  <text x="48" y="400" font-family="ui-monospace,Menlo,monospace" font-size="13" fill="#71717A">isolation: %s · determinism: %s</text>
+  <text x="48" y="430" font-family="ui-monospace,Menlo,monospace" font-size="13" fill="#4ADE80">$ calma verify · github.com/rikhinkavuru/calma</text>
 </svg>
 """ % (width, h, width, h, width, h, width - 2, h - 2,
-       _esc(led.get("target", "result")), _esc(claimed), _esc(recomputed),
-       width - 96, _esc(why),
-       _esc(sc.get("isolation_tier", "?")), _esc(sc.get("determinism_mode", "?")))
+       _esc(_plain(led.get("target", "result"))), _esc(claimed), _esc(recomp_label), recomp_fill, _esc(recomputed),
+       width - 96, word, _esc(_plain(why)),
+       _esc(sc.get("isolation_tier", "?")), _esc(_det(sc.get("determinism_mode"))))
 
 
 _DIMENSION_GLOSS = {
@@ -287,35 +324,55 @@ _DIMENSION_GLOSS = {
     "contract-grounding": "not enough structure to verify",
     "leakage": "the held-out set is contaminated",
     "overfitting": "the edge doesn't survive multiple-testing correction",
+    "execution-realism": "the edge doesn't survive realistic frictions",
+    "contamination": "the eval set is contaminated by the training corpus",
 }
 
 
 def teardown_card(led, diff=None):
-    """A copy-pasteable shareable card for a REFUTED result.
-    'claimed X -> really Y, here is why, here is the repro.'"""
-    if led.get("repo_verdict") not in ("REFUTED", "MIXED"):
+    """A copy-pasteable shareable card for a broken result. Two shapes, both led by the evidence:
+    REFUTED/MIXED -> 'claimed X -> really Y'; INVALIDATED -> 'the number reproduces, X == X, BUT the
+    result is invalid'. Returns None for a clean (or INCONCLUSIVE) result."""
+    rv = led.get("repo_verdict")
+    if rv not in ("REFUTED", "MIXED", V.INVALIDATED):
         return None
-    c = (led.get("claims") or [{}])[0]
+    # lead with the broken claim (a non-headline break can drive MIXED, so pick the broken one)
+    claims = led.get("claims") or [{}]
+    c = next((x for x in claims if x.get("verdict") in (V.REFUTED, V.INVALIDATED)), claims[0])
     mid = c.get("metric")
-    lines = ["CALMA TEARDOWN  -  %s" % led.get("target", "result"), ""]
+    invalid = c.get("verdict") == V.INVALIDATED
+    lines = ["CALMA TEARDOWN  -  %s" % _plain(led.get("target", "result")), ""]
     if c.get("claimed_value") is not None and c.get("recomputed_value") is not None:
         lines.append("  CLAIMED:     %s" % fmt_value(c["claimed_value"], mid))
-        lines.append("  RECOMPUTED:  %s   <- re-ran the code, recomputed from raw outputs"
-                     % fmt_value(c["recomputed_value"], mid))
+        if invalid:
+            # the number reproduces - that is the point: it is real, the RESULT is what's invalid.
+            lines.append("  RECOMPUTED:  %s   <- the number reproduces from the raw outputs"
+                         % fmt_value(c["recomputed_value"], mid))
+            lines.append("  VERDICT:     INVALIDATED   <- ...but the result is invalid (see below)")
+        else:
+            lines.append("  RECOMPUTED:  %s   <- re-ran the code, recomputed from raw outputs"
+                         % fmt_value(c["recomputed_value"], mid))
         lines.append("")
+    cid = c.get("id")
     blockers = [f for f in led.get("findings", []) if f.get("severity") in ("blocker", "major")]
-    if blockers:
-        lines.append("  why it breaks:")
-        for f in blockers[:4]:
-            gloss = _DIMENSION_GLOSS.get(f.get("dimension"), f.get("dimension"))
-            lines.append("   - %s: %s" % (gloss, f.get("locator")))
+    # for a per-claim break, lead with that claim's own blockers (the driving evidence)
+    own = [f for f in blockers if f.get("claim_id") == cid] or blockers
+    if own:
+        lines.append("  why it's invalid:" if invalid else "  why it breaks:")
+        for f in own[:4]:
+            # the locators are self-describing (they lead with the dimension in prose), so the gloss
+            # prefix only restated them - drop it and let the locator carry the line.
+            lines.append("   - %s" % _plain(f.get("locator")))
         lines.append("")
+        fix = next((f.get("unblock") for f in own if f.get("unblock")), None)
+        if fix:
+            lines.append("  fix:  %s" % _plain(fix))
     rep = c.get("reproduction_or_reverify", {})
     if rep.get("command"):
         lines.append("  reproduce:  %s" % rep["command"])
     sc = led.get("scope", {})
     lines.append("  verified by RE-EXECUTION, not opinion  -  isolation: %s | determinism: %s"
-                 % (sc.get("isolation_tier", "?"), sc.get("determinism_mode", "?")))
+                 % (sc.get("isolation_tier", "?"), _det(sc.get("determinism_mode"))))
     return "\n".join(lines)
 
 
