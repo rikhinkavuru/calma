@@ -46,6 +46,16 @@ need. Serial, leakage-first; each step keeps the full suite green.
   contaminated of 100 eval rows)"; if it survives correction the result stays INVALIDATED (the held-out
   set was still contaminated) and the surviving number is reported. An artifact subset recompute — no
   full re-execution. REFUTED is still never manufactured by a finding alone.
+- **Overfitting kernels** (`numeric.py`, pure stdlib, append-only) — the Deflated Sharpe Ratio
+  (Bailey–López de Prado 2014: `normal_cdf`, `expected_max_sharpe`, `probabilistic_sharpe_ratio_vs`,
+  `deflated_sharpe_ratio`) and PBO via CSCV (Bailey-Borwein-LdP-Zhu 2016: `pbo_cscv`, exact
+  `C(S,S/2)` combinatorics, deterministic). Built on the existing deterministic kernels
+  (`derfc`/`normal_sf`/`z_ppf`, `fmean`/`fstd`, `math.comb`); no numpy, no new deps. Validated against
+  analytic + constructed-truth anchors (`test_overfitting_kernels`, +25): Φ symmetry; PSR=0.5 at the
+  benchmark; E[max SR] increasing in N and ∝√var; DSR == PSR(SR0); PBO **always-overfit → 1.0** and
+  **rank-preserving → 0.0** (exact), symmetric noise → mean **0.48** over 200 realisations. The dense
+  bit-close validation vs a paper-gated scipy reference + frozen vectors + the `deflated_sharpe` recipe
+  and the overfitting findings rail land next (Step 5/6 in progress).
 - Tests: +14 `test_verdict`, +12 `test_ledger`, +3 `test_registry` (attest→registry round-trip), incl. a
   fail-closed unknown-verdict property; +17 `test_draft` (split/keys/features detection + validation);
   +53 `test_leakage_checks` (five detectors with exact magnitudes, the OOS scope-guard, the full verdict

@@ -8563,3 +8563,116 @@ def regression_t_statistic(x, y):
     if se == 0:
         return float("nan")
     return r[0][1] / se
+
+
+# ======================================================================================
+# WS2 - overfitting / multiple-testing kernels (Deflated Sharpe Ratio + PBO via CSCV).
+# Pure stdlib on the deterministic kernels above (derfc/normal_sf/z_ppf, fmean/fstd, math.comb).
+# References (pinned in calibration/gen_reference_vectors.py + tests):
+#   Bailey & Lopez de Prado (2014), "The Deflated Sharpe Ratio" - PSR/DSR + expected-max-Sharpe.
+#   Bailey, Borwein, Lopez de Prado & Zhu (2016), "The Probability of Backtest Overfitting" - CSCV.
+# ======================================================================================
+
+_EULER_GAMMA = 0.5772156649015328606  # Euler-Mascheroni constant
+
+
+def normal_cdf(x):
+    """Standard-normal CDF Phi(x) = 0.5*erfc(-x/sqrt(2)), via the deterministic complementary error
+    function (no platform erf). Phi(0)=0.5; Phi(1.96)~=0.975."""
+    return 0.5 * derfc(-x / math.sqrt(2.0))
+
+
+def expected_max_sharpe(n_trials, var_sr):
+    """E[max SR] across n_trials independent no-skill strategies (Bailey-Lopez de Prado 2014, eq. for the
+    deflated benchmark): sqrt(V) * [(1-gamma)*Phi^-1(1-1/N) + gamma*Phi^-1(1-1/(N*e))], where V=var_sr is
+    the cross-trial variance of the Sharpe estimates and N=n_trials. N=1 has no multiple-testing
+    inflation (returns 0). Per-period (non-annualised) Sharpe units."""
+    if n_trials is None or var_sr is None:
+        return float("nan")
+    if n_trials < 1 or var_sr < 0:
+        return float("nan")
+    if n_trials == 1:
+        return 0.0
+    a = z_ppf(1.0 - 1.0 / n_trials)
+    b = z_ppf(1.0 - 1.0 / (n_trials * math.e))
+    return math.sqrt(var_sr) * ((1.0 - _EULER_GAMMA) * a + _EULER_GAMMA * b)
+
+
+def probabilistic_sharpe_ratio_vs(sr, sr_benchmark, n_obs, skew, kurt_excess):
+    """PSR(sr*): P(true per-period Sharpe > sr_benchmark) given the observed per-period Sharpe `sr`, the
+    sample length `n_obs`, skewness, and EXCESS kurtosis (Bailey-Lopez de Prado 2014):
+        PSR = Phi( (sr - sr*) * sqrt(n_obs - 1) / sqrt(1 - skew*sr + (kurt_excess+2)/4 * sr^2) ).
+    (kurt_excess+2)/4 == (kurt_nonexcess-1)/4, the paper's form; for Gaussian returns it is 0.5."""
+    if n_obs is None or n_obs <= 1:
+        return float("nan")
+    denom = 1.0 - skew * sr + (kurt_excess + 2.0) / 4.0 * sr * sr
+    if not (denom > 0.0):
+        return float("nan")
+    z = (sr - sr_benchmark) * math.sqrt(n_obs - 1.0) / math.sqrt(denom)
+    return normal_cdf(z)
+
+
+def deflated_sharpe_ratio(sr, n_obs, skew, kurt_excess, n_trials, var_sr):
+    """DSR = PSR(SR0), where SR0 = expected_max_sharpe(n_trials, var_sr) is the multiple-testing-deflated
+    benchmark (the per-period Sharpe a no-skill strategy is expected to reach as the best of n_trials).
+    The probability the strategy's true Sharpe beats that inflated benchmark; p = 1 - DSR is the chance
+    the edge is an artefact of selection. `sr`/`n_obs`/`skew`/`kurt_excess` describe the realised track;
+    `n_trials`/`var_sr` describe the search that produced it. All Sharpes are per-period."""
+    sr0 = expected_max_sharpe(n_trials, var_sr)
+    return probabilistic_sharpe_ratio_vs(sr, sr0, n_obs, skew, kurt_excess)
+
+
+def _col_sharpe(rows, j):
+    """Per-period Sharpe (mean/std, ddof=1) of column j over `rows`; NaN if <2 rows or zero vol."""
+    col = [r[j] for r in rows]
+    if len(col) < 2:
+        return float("nan")
+    sd = fstd(col, ddof=1)
+    if not (sd > 0.0):
+        return float("nan")
+    return fmean(col) / sd
+
+
+def pbo_cscv(matrix, n_splits):
+    """Probability of Backtest Overfitting via CSCV (Bailey-Borwein-Lopez de Prado-Zhu 2016).
+
+    `matrix` is T rows (time) x N columns (candidate strategies/configs) of per-period performance.
+    Partition the T rows into `n_splits` (S, even) equal contiguous blocks; for each of the exact
+    C(S, S/2) ways to choose the in-sample (IS) half (the complement is out-of-sample, OOS): pick the
+    IS-best strategy n*, then take its OOS relative rank w = (#strategies it beats OOS)/(N-1) in [0,1].
+    PBO = fraction of splits where n* lands at/below the OOS median (logit(w) <= 0, i.e. w <= 0.5) - the
+    rate at which the in-sample winner is an out-of-sample also-ran. Deterministic; exact combinatorics.
+
+    Returns PBO in [0,1], or NaN if degenerate (T<S, S odd, N<2). Surplus rows (T mod S) are dropped so
+    blocks are equal-size, per CSCV."""
+    import itertools
+    T = len(matrix)
+    if T == 0 or n_splits < 2 or n_splits % 2 != 0:
+        return float("nan")
+    N = len(matrix[0]) if matrix else 0
+    if N < 2 or T < n_splits:
+        return float("nan")
+    bsize = T // n_splits
+    blocks = [matrix[i * bsize:(i + 1) * bsize] for i in range(n_splits)]
+    half = n_splits // 2
+    below = total = 0
+    for combo in itertools.combinations(range(n_splits), half):
+        cset = set(combo)
+        is_rows, oos_rows = [], []
+        for b in range(n_splits):
+            (is_rows if b in cset else oos_rows).extend(blocks[b])
+        is_sr = [_col_sharpe(is_rows, j) for j in range(N)]
+        oos_sr = [_col_sharpe(oos_rows, j) for j in range(N)]
+        # IS-best strategy; ties resolve to the lowest index (deterministic). NaN IS-Sharpe ranks last.
+        n_star = max(range(N), key=lambda j: (is_sr[j] if is_sr[j] == is_sr[j] else float("-inf")))
+        total += 1
+        ov = oos_sr[n_star]
+        if ov != ov:  # the IS winner has no OOS Sharpe -> treat as below the median (a failure)
+            below += 1
+            continue
+        wins = math.fsum(1.0 if ov > oos_sr[k] else 0.5 if ov == oos_sr[k] else 0.0
+                         for k in range(N) if k != n_star)
+        rel_rank = wins / (N - 1)
+        if rel_rank <= 0.5:
+            below += 1
+    return below / total if total else float("nan")
