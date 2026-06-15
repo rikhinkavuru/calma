@@ -54,7 +54,9 @@ calma verify <target> "<claim>" --timeout 300         # raise the re-execution b
 calma verify <target> "<claim>" --trust third-party   # counterparty code: auto-escalates to the
                                                       # container tier (refuses exit 3 if none is live)
 calma verify <target> "<claim>" --isolation docker    # run in a network-denied Linux container
-                                                      # (auto|seatbelt|docker|firecracker; fails loud if unavailable)
+                                                      # (auto|seatbelt|bwrap|docker|firecracker; fails loud if unavailable)
+calma verify <target> "<claim>" --isolation bwrap     # native Linux own-code tier (bubblewrap, no
+                                                      # daemon); auto picks it on Linux, Seatbelt on macOS
 calma verify <target> "<claim>" --restore             # restore + PIN the repo's declared deps into
                                                       # .calma_venv before the run (network used in this phase only)
 calma batch <dir>... | --manifest m.tsv   # verify MANY results in one run -> one summary table + roll-up exit
@@ -143,9 +145,10 @@ committed claim and says so in the report and `--json` (`note`).
    JSON or simple YAML; on a fresh project Calma re-drafts after the first run so outputs that only exist
    post-run still bind.
 1. **Verified isolated run** - `scripts/run_hermetic.py` -> run + interpreter startup under ONE verified
-   tier (macOS Seatbelt, proven by the `doctor` positive-control self-test). Hosts without a verified
-   sandbox are stamped `host-not-isolated` and the network stamp says NOT blocked - never a silent
-   verified-tier claim. A non-zero exit is a blocking finding: stale artifacts can never CONFIRM.
+   no-daemon own-code tier (macOS Seatbelt OR Linux bubblewrap, proven by the same `doctor` positive-
+   control self-test). Hosts without a verified sandbox are stamped `host-not-isolated` and the network
+   stamp says NOT blocked - never a silent verified-tier claim. A non-zero exit is a blocking finding:
+   stale artifacts can never CONFIRM.
 2. **Recompute + diff** - `scripts/recompute.py` (reference-deterministic, no transcendentals/numpy) then
    `scripts/compare.py` -> the calibrated tolerance diff; calls the shared `verdict()`.
 3. **Family re-runs** - baseline edge, data-leakage (row/id/temporal/target, with a leakage-corrected

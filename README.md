@@ -51,9 +51,10 @@ You get one of these answers:
 The skill is one self-contained folder with **no dependencies** (pure Python standard library,
 Python 3.9 or newer).
 
-Platforms: **macOS is first-class** (verified Seatbelt sandbox, proven by a built-in self-test);
-**Linux** runs with reduced isolation and says so in the ledger (`host-not-isolated` — the stamp
-never lies); **Windows is unsupported**.
+Platforms: **macOS** (verified Seatbelt sandbox) and **Linux** (verified bubblewrap sandbox, no
+daemon) are both first-class — each proven by the same built-in `doctor` self-test. A host where the
+self-test can't verify (sandbox binary absent, or unprivileged user namespaces disabled) is honestly
+stamped `host-not-isolated` in the ledger — the stamp never lies. **Windows is unsupported**.
 
 As a Claude Code plugin:
 
@@ -187,10 +188,11 @@ Rust** — Calma treats your program as a black box and does the recompute itsel
 `calma verify` runs a small pipeline, one script per step, so the result is auditable:
 
 1. **Detect** the entrypoint, output files, and which column is the metric (`verify.yaml`, auto-drafted).
-2. **Run** the code in a verified sandbox (macOS Seatbelt; network off). A built-in `doctor` self-test
-   proves the sandbox actually blocks secret-reads and network access before the tier is claimed. On hosts
-   without a verified sandbox (e.g. Linux CI) the code still runs, but the verdict is stamped
-   `host-not-isolated` and a clean pass is capped at CONFIRMED-WITH-CAVEATS — the stamp never lies.
+2. **Run** the code in a verified sandbox (macOS Seatbelt or Linux bubblewrap; network off, no daemon).
+   A built-in `doctor` self-test proves the sandbox actually blocks secret-reads and network access before
+   the tier is claimed. On a host where neither verifies (e.g. unprivileged user namespaces disabled) the
+   code still runs, but the verdict is stamped `host-not-isolated` and a clean pass is capped at
+   CONFIRMED-WITH-CAVEATS — the stamp never lies.
 3. **Recompute** each metric from the raw outputs, the same way every time (no floating-point surprises).
 4. **Compare** recomputed vs claimed, allowing for the claim's own measurement noise.
 5. **Verdict** from a single deterministic function — re-checked byte-for-byte so it can't be fudged.
@@ -215,10 +217,10 @@ Rust** — Calma treats your program as a black box and does the recompute itsel
 ## Limitations
 
 Calma proves a result is **real and reproduces** — not that it answered the *right* question. When it can't
-fully verify something, it says so and tells you the fix, rather than guessing. The verified-isolation tier
-ships on macOS today; on other platforms runs are honestly stamped as unisolated (a Linux tier is the top
-roadmap item). Running untrusted third-party code safely needs a container/VM (planned); for now such code
-is refused rather than run unsafely.
+fully verify something, it says so and tells you the fix, rather than guessing. The verified-isolation
+own-code tier ships on macOS (Seatbelt) and Linux (bubblewrap, no daemon); on a host where the self-test
+can't verify, runs are honestly stamped as unisolated. Running untrusted third-party code safely needs a
+container/VM; for now untrusted code without a verified container tier is refused rather than run unsafely.
 
 ## FAQ
 

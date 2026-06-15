@@ -2,6 +2,37 @@
 
 All notable changes to the calma skill/CLI. Dates are UTC.
 
+## Unreleased — native-Linux own-code isolation tier (bubblewrap)
+
+A no-daemon **bubblewrap** own-code tier beside the macOS Seatbelt tier, gated by the SAME `doctor`
+probe battery — so Linux stops being capped at `host-not-isolated` / CONFIRMED-WITH-CAVEATS. Distinct
+from the `--isolation docker` path (that one is for *untrusted* third-party code and needs a daemon).
+Pure stdlib (shells out like `sandbox-exec`); each step kept the full suite green.
+
+- **bubblewrap wrapper + `bwrap_doctor`.** `_bwrap_argv` builds an unprivileged, no-daemon namespace:
+  network OFF by construction (`--unshare-net`), filesystem ALLOWLIST-by-construction (only `/usr`,
+  `/lib*`, `/bin`, `/sbin` read-only + the run base are visible, so `$HOME`/secrets/`/root` are simply
+  absent — strictly stronger than Seatbelt's denylist), writes confined to the base, and `<base>/.calma`
+  re-bound read-only *after* the base (last-mount-wins) so code under test can never plant verdict state.
+  `bwrap_doctor` reuses the EXACT secret-read + egress probe battery under bwrap and stamps
+  `bwrap-verified` ONLY when the probe ran AND leaked nothing.
+- **The stamp never lies.** bwrap absent, the self-test leaking, or unprivileged user namespaces disabled
+  (so the probe never runs) → `host-not-isolated`, never a silent verified claim. An EXPLICIT
+  `--isolation bwrap` that does not verify is REFUSED (exit 3), never a host fallback; the auto path still
+  runs but stamps `host-not-isolated` honestly.
+- **Verdict lift.** `bwrap-verified` is wired into every verified-tier consumer (`run_hermetic`,
+  `calma.VERIFIED_TIERS`, `hook_stop.VERIFIED_TIERS`, `compare`, `verdict.confidence`); a clean Linux
+  reproduction now reaches CONFIRMED (network stamp `off`, hermeticity `vendored-snapshot`) instead of the
+  CAVEAT cap, and `calma doctor` + the agent Stop hook auto-pick this OS's native tier.
+- **Dispatch.** `--isolation` gains `bwrap`; auto own-code selects bwrap on Linux, Seatbelt on macOS
+  (byte-identical on macOS). One mechanism-generic `_exec_native` routes the compile + run steps to the
+  achieved tier — the doctor proves the exact wrapper the run uses.
+- **Adversarially verified.** An in-suite anti-drift guard + a hostile-own-code marquee (egress, host-
+  secret reads, and out-of-base/`.calma` writes all denied), an `ubuntu-latest` CI job that asserts the
+  lift, and an independent fresh red-team agent that broke nothing — zero leaks across raw-IP/DNS/UDP/
+  curl/`/dev/tcp` egress, abs/`..`/symlink//proc-root secret reads, env exfil, and out-of-base writes —
+  on a real Linux host (Ubuntu 24.04 + bubblewrap 0.9.0).
+
 ## Unreleased — validity families (leakage + overfitting)
 
 Two new validity-family detectors on the findings rail, plus a new verdict shape they need. Serial,

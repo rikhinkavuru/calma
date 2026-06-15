@@ -1,11 +1,17 @@
 """calma.run_hermetic - run the contract entrypoint under ONE verified isolation tier.
 
-On macOS the host tier is a deny-by-default `sandbox-exec` (Seatbelt) profile: network egress denied,
-$HOME reads denied (so secrets are unreadable), writes confined to the run output dir + temp. The tier
-is only stamped `seatbelt-verified` after a POSITIVE-CONTROL self-test (`calma doctor`) proves that, under
-the profile, a planted secret-read AND a network connect BOTH fail. If sandbox-exec is missing or the
-self-test leaks, the tier is `host-not-isolated` (a CAVEAT, never a silent host-tier stamp). Untrusted
-third-party code requires a container/VM tier (daemon) and is refused (exit 3) when none is live.
+There are TWO no-daemon host own-code tiers, one per OS, gated by the SAME positive-control self-test
+(`calma doctor`): a planted secret-read AND a network connect must BOTH fail under the tier.
+  - macOS: a deny-by-default `sandbox-exec` (Seatbelt) profile - network egress denied, $HOME reads
+    denied (secrets unreadable), writes confined to the base + temp; stamped `seatbelt-verified`.
+  - Linux: an unprivileged `bwrap` (bubblewrap) namespace - net OFF by construction (--unshare-net),
+    filesystem ALLOWLIST-by-construction (only system roots + the base are visible, so $HOME/secrets
+    are simply absent), writes confined to the base; stamped `bwrap-verified`. (bubblewrap 0.9.0 here.)
+If the tier's binary is missing, its self-test leaks, or (Linux) unprivileged userns is disabled so the
+probe never runs, the tier is `host-not-isolated` (a CAVEAT, never a silent host-tier stamp). An EXPLICIT
+--isolation seatbelt|bwrap that does not verify is REFUSED (exit 3), never a silent host fallback.
+Untrusted third-party code requires a container/VM tier (daemon) and is refused (exit 3) when none is
+live. Both host tiers share the host kernel and are NOT escape-isolated to microVM strength.
 
 The entrypoint runs in its own process group; on timeout the whole group is killed (exit 4 -> INCONCLUSIVE).
 Two more closed surfaces: <base>/.calma is write-DENIED inside the sandbox (code under test can never
