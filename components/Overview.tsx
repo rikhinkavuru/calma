@@ -43,7 +43,7 @@ export function Overview() {
             <div className="step step--out">
               <span className="step__n">04</span>
               <h3>Get the verdict</h3>
-              <p>Code compares rebuilt against claimed within a calibrated tolerance and returns one word — confirmed, refuted, or can&apos;t-confirm — with the exact gap, the fix, and a one-command replay.</p>
+              <p>Code compares rebuilt against claimed within a calibrated tolerance and returns one word — confirmed, refuted, invalidated, or can&apos;t-confirm — with the exact gap, the fix, and a one-command replay.</p>
             </div>
           </div>
         </Reveal>

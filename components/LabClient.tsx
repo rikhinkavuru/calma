@@ -40,7 +40,7 @@ const STEPS: [string, string, string][] = [
   [
     "03",
     "Report",
-    "Per claim: confirmed, refuted, confirmed-with-caveats, or can't-confirm — with the recomputed number, the gap, what was and wasn't verified, and a signed, trusted-timestamped attestation bundle your side checks offline: verify the signature with stock OpenSSH, re-derive every verdict, replay the entire run.",
+    "Per claim: confirmed, refuted, invalidated, confirmed-with-caveats, or can't-confirm — with the recomputed number, the gap, what was and wasn't verified, and a signed, trusted-timestamped attestation bundle your side checks offline: verify the signature with stock OpenSSH, re-derive every verdict, replay the entire run.",
   ],
   [
     "04",

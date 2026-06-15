@@ -64,7 +64,7 @@ const COMMANDS: { p: string; t?: string; c?: string }[] = [
 
 const EXIT_CODES: { code: string; meaning: string }[] = [
   { code: "0", meaning: "clean — CONFIRMED / CONFIRMED-WITH-CAVEATS" },
-  { code: "1", meaning: "not clean — REFUTED / MIXED / CAN'T-CONFIRM" },
+  { code: "1", meaning: "not clean — REFUTED / INVALIDATED / MIXED / CAN'T-CONFIRM" },
   { code: "2", meaning: "bad input — missing target, malformed contract, unknown --metric" },
   { code: "3", meaning: "refused — execution declined (e.g. third-party code, no verified sandbox)" },
   { code: "4", meaning: "killed — the re-execution exceeded the --timeout budget" },
