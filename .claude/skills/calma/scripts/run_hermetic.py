@@ -38,6 +38,10 @@ def _have_sandbox_exec():
     return shutil.which("sandbox-exec") is not None
 
 
+def _have_bwrap():
+    return shutil.which("bwrap") is not None
+
+
 def _within(base, rel):
     """Resolve rel under base; return (fullpath, ok). ok=False if it escapes (abs path / .. traversal)."""
     full = os.path.realpath(os.path.join(base, rel))
@@ -242,6 +246,146 @@ def doctor(repo_root=None):
     info.update(tier=tier, secret_read_blocked=secret_blocked, egress_blocked=egress_blocked,
                 leaks=leak_list,
                 note="host-kernel shared; verified = egress+secret-read denial, NOT escape isolation")
+    return info
+
+
+# ---------------------------------------------------------------------------
+# Native-Linux own-code tier (bubblewrap). Beside the macOS Seatbelt tier and gated by the SAME probe
+# battery (_PROBE), this is a NO-DAEMON host tier for OWN code - distinct from the --isolation docker
+# path (untrusted code, needs a daemon). bubblewrap runs UNPRIVILEGED via user namespaces: network is
+# OFF by construction (--unshare-net) and the filesystem is ALLOWLIST-by-construction - only /usr,/lib*,
+# /bin,/sbin (read-only) + the run base are visible, so $HOME (secrets), /root, and keychains are simply
+# ABSENT from the namespace (strictly stronger than Seatbelt's denylist). Like Seatbelt it shares the
+# host kernel and is NOT escape-isolated to microVM strength. The tier is stamped `bwrap-verified` ONLY
+# after bwrap_doctor proves zero leaks under the real wrapper on this host; bwrap missing, unprivileged
+# userns disabled (the probe never runs), or ANY leak -> host-not-isolated, never a silent host stamp.
+# ---------------------------------------------------------------------------
+
+# /usr is hard-required (the interpreter + shared libs live there); the rest are bound only when present
+# (--ro-bind-try) so arm64 / usrmerge hosts without /lib64 or a real /bin don't abort bwrap. None of the
+# `try` paths is part of the secret boundary - they are read-only SYSTEM roots, never $HOME.
+_BWRAP_TRY_ROOTS = ("/lib", "/lib64", "/bin", "/sbin")
+
+
+def _bwrap_interp_dirs(*paths):
+    """The interpreter dirs to bind read-only into the namespace. A restored venv's base python or a
+    host python (uv/pyenv/conda) can live OUTSIDE the bound system roots; without re-binding the
+    resolved interpreter's install prefix AND every symlink-chain directory on the way to it, execvp
+    fails ENOENT inside the namespace. We bind ONLY those exact dirs (never a broad $HOME subtree -
+    tighter than Seatbelt's whole-depot re-allow) and skip anything already covered by the system roots.
+    Same intent as _interp_reads, minus the macOS /Users-only filter."""
+    covered = ("/usr",) + _BWRAP_TRY_ROOTS
+    out = set()
+    for p in paths:
+        if not p:
+            continue
+        out |= _symlink_chain_dirs(p)
+        try:
+            rp = os.path.realpath(p)
+        except OSError:
+            continue
+        out.add(os.path.dirname(rp))                       # .../bin
+        out.add(os.path.dirname(os.path.dirname(rp)))      # the install prefix (bin/.. -> lib/include)
+    res = []
+    for d in sorted(out):
+        if not d or d == "/":
+            continue
+        if any(d == c or d.startswith(c + os.sep) for c in covered):
+            continue
+        res.append(d)
+    return res
+
+
+def _bwrap_argv(base, inner_argv, interp_dirs=(), writable=True, deny_calma=True):
+    """Build the full `bwrap` argv (a pure list of strings, like _docker_argv - no None ever leaks in).
+    Network is OFF by construction (--unshare-net); the FS is allowlist-by-construction (only the system
+    roots + base are visible, so $HOME/.ssh, /root, keychains, and any planted secret are absent). The
+    base is bind-mounted read-WRITE so outputs land for recompute; <base>/.calma is re-bound READ-ONLY
+    *after* the base (bwrap is last-mount-wins) so the code under test can never plant calma's own
+    verdict state (cache.json, ledgers, hook state). `interp_dirs` re-binds an interpreter prefix that
+    lives outside the system roots (see _bwrap_interp_dirs). `writable=False` (the doctor probe) binds
+    the base read-only - proving the floor: even with nothing writable, egress + host-secret reads fail."""
+    base = os.path.realpath(base)
+    argv = [shutil.which("bwrap") or "bwrap",
+            "--unshare-user", "--unshare-pid", "--unshare-net", "--unshare-ipc", "--unshare-uts",
+            "--die-with-parent", "--new-session",
+            "--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp",
+            "--ro-bind", "/usr", "/usr"]
+    for d in _BWRAP_TRY_ROOTS:
+        argv += ["--ro-bind-try", d, d]
+    for d in interp_dirs:
+        argv += ["--ro-bind-try", d, d]
+    argv += [("--bind" if writable else "--ro-bind"), base, base]
+    # only meaningful when the base is writable; a read-only base already denies every .calma write.
+    if deny_calma and writable:
+        calma = os.path.join(base, ".calma")
+        argv += ["--ro-bind-try", calma, calma]
+    argv += ["--chdir", base, "--"] + list(inner_argv)
+    return argv
+
+
+def _run_bwrapped(argv, cwd, timeout=120, env=None):
+    """Run a bwrap argv in its own process group. Returns (rc, out, err, killed). --die-with-parent +
+    --unshare-pid tear the sandboxed tree down with the parent; the process-group SIGKILL on timeout is
+    belt-and-suspenders (same discipline as _run_sandboxed). A bwrap that cannot even start (missing
+    binary / kernel support) returns rc!=0 with no output -> the doctor's `produced` check fails it."""
+    try:
+        p = subprocess.Popen(argv, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                             text=True, start_new_session=True, env=env or os.environ.copy())
+    except OSError as e:
+        return -1, "", "bwrap failed to start: %s" % e, False
+    try:
+        out, err = p.communicate(timeout=timeout)
+        return p.returncode, out, err, False
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(os.getpgid(p.pid), signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        p.communicate()
+        return -9, "", "timeout", True
+
+
+def bwrap_doctor(base):
+    """Native-Linux own-code positive-control (no daemon): under bubblewrap, the SAME probe battery as
+    the Seatbelt doctor - planted $HOME secret + keychain/root reads, and egress (raw IP, DNS, curl) -
+    must ALL fail. The secret is planted on the HOST under $HOME, which is NOT bound into the namespace,
+    so a clean pass also proves the allowlist exposes no host state. A probe that never produced a
+    LEAKS= line (bwrap could not create the namespaces - e.g. unprivileged userns disabled) is NOT a
+    verified tier. Any leak (or no probe) -> host-not-isolated, never a silent bwrap stamp."""
+    base = os.path.realpath(base)
+    info = {"backend": "bwrap", "bwrap_available": _have_bwrap()}
+    if not info["bwrap_available"]:
+        info.update(tier="host-not-isolated", secret_read_blocked=False, egress_blocked=False,
+                    note="bwrap (bubblewrap) not found on PATH; cannot verify a native Linux tier")
+        return info
+    secret = os.path.join(os.path.realpath(os.path.expanduser("~")), ".calma_doctor_secret")
+    out = ""
+    try:
+        with open(secret, "w") as fh:
+            fh.write("TOPSECRET-CALMA-DOCTOR")
+        argv = _bwrap_argv(base, [sys.executable, "-c", _PROBE.format(secret=secret)],
+                           interp_dirs=_bwrap_interp_dirs(sys.executable), writable=False)
+        _rc, out, _err, _killed = _run_bwrapped(argv, base, timeout=30)
+    finally:
+        if os.path.exists(secret):
+            os.unlink(secret)
+    produced = "LEAKS=" in (out or "")
+    leaks = ""
+    for line in (out or "").splitlines():
+        if line.startswith("LEAKS="):
+            leaks = line[len("LEAKS="):].strip()
+    leak_list = [x for x in leaks.split(",") if x]
+    secret_blocked = not any(x.startswith("read:") for x in leak_list)
+    egress_blocked = not any(x.startswith("egress:") for x in leak_list)
+    # `bwrap-verified` ONLY when the probe ran AND leaked nothing. A probe that never produced a LEAKS=
+    # line (userns disabled / kernel lockdown -> bwrap aborts) is NOT a verified tier.
+    tier = "bwrap-verified" if (produced and not leak_list) else "host-not-isolated"
+    info.update(tier=tier, secret_read_blocked=secret_blocked, egress_blocked=egress_blocked,
+                leaks=leak_list, probe_ran=produced,
+                note=("bubblewrap unprivileged user namespaces (no daemon): verified = egress denied + "
+                      "host-secret unreadable + writes confined to <base>; shares the host kernel, NOT "
+                      "escape-isolated to microVM strength (Firecracker tier not built yet)."))
     return info
 
 

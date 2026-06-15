@@ -289,5 +289,53 @@ if dk_ok:
     truth("calma_" not in leftover.stdout, "hostile: no container left behind (--rm + cleanup)")
     _sh.rmtree(hostile, ignore_errors=True)
 
+# === Native Linux own-code tier (bubblewrap) ===========================================
+# Structural locks run EVERYWHERE (incl. macOS where bwrap is absent); the live blocks below skip
+# honestly off a verified bwrap host - same discipline as the `if dk_ok:` container blocks.
+# (a) the _bwrap_argv wall-set is structurally locked - a future edit can't silently drop a wall.
+_bargv = H._bwrap_argv("/X/base", ["python", "-c", "x"], interp_dirs=["/opt/py/bin"], writable=True)
+_bj = " ".join(_bargv)
+for _flag in ("--unshare-net", "--unshare-user", "--unshare-pid", "--unshare-ipc", "--unshare-uts",
+              "--die-with-parent", "--new-session", "--proc", "--dev", "--tmpfs"):
+    truth(_flag in _bargv, "bwrap argv includes %s" % _flag)
+truth("--ro-bind /usr /usr" in _bj, "bwrap binds /usr read-only")
+truth("--bind /X/base /X/base" in _bj, "bwrap bind-mounts the base read-write")
+truth("--ro-bind-try /X/base/.calma /X/base/.calma" in _bj, "bwrap re-binds <base>/.calma read-only")
+truth(_bj.index("--bind /X/base /X/base") < _bj.index("/X/base/.calma"),
+      ".calma ro-bind comes AFTER the base bind (bwrap is last-mount-wins -> write-deny holds)")
+truth("--ro-bind-try /opt/py/bin /opt/py/bin" in _bj, "bwrap re-binds an out-of-root interpreter dir")
+# the boundary: $HOME / home / root are NEVER a bind target (allowlist-by-construction)
+_bw_home = os.path.realpath(os.path.expanduser("~"))
+truth(("--bind %s %s" % (_bw_home, _bw_home)) not in _bj
+      and ("--ro-bind %s %s" % (_bw_home, _bw_home)) not in _bj
+      and ("--ro-bind-try %s %s" % (_bw_home, _bw_home)) not in _bj,
+      "bwrap never binds $HOME (secrets stay outside the namespace)")
+truth("/root" not in _bj, "bwrap never binds /root")
+# probe variant: base mounted READ-ONLY (whole base ro -> no .calma re-bind needed)
+_pbargv = H._bwrap_argv("/X/base", ["python", "-c", "x"], writable=False)
+_pbj = " ".join(_pbargv)
+truth("--ro-bind /X/base /X/base" in _pbj, "bwrap probe mounts the base read-only")
+truth("/X/base/.calma" not in _pbj, "bwrap probe needs no .calma re-bind (base is already read-only)")
+
+# (b) _bwrap_interp_dirs skips system-root-covered paths, keeps $HOME-resident interpreters
+truth(H._bwrap_interp_dirs("/usr/bin/python3") == [],
+      "interp dirs under /usr are already covered -> not re-bound")
+_iD = H._bwrap_interp_dirs(os.path.join(_bw_home, ".pyenv", "versions", "3.12", "bin", "python"))
+truth(any(d.startswith(_bw_home) for d in _iD),
+      "a $HOME-resident interpreter prefix IS bound (else execvp ENOENT in the namespace)")
+
+# (c) bwrap_doctor is honest about availability (runs everywhere; macOS has no bwrap)
+_bdoc = H.bwrap_doctor(BTC)
+truth(_bdoc["backend"] == "bwrap", "bwrap_doctor reports its backend")
+if H._have_bwrap():
+    truth(_bdoc["tier"] in ("bwrap-verified", "host-not-isolated"), "bwrap doctor returns a real tier")
+    if _bdoc["tier"] == "bwrap-verified":
+        truth(_bdoc["secret_read_blocked"] and _bdoc["egress_blocked"],
+              "bwrap verified -> planted-secret read AND egress both blocked")
+        truth(_bdoc.get("probe_ran") is True, "bwrap verified -> the probe actually ran (not a false pass)")
+else:
+    truth(_bdoc["tier"] == "host-not-isolated", "no bwrap -> host-not-isolated (honest)")
+    truth(_bdoc["bwrap_available"] is False, "bwrap_available is False when bwrap is absent")
+
 print("run_hermetic: %d checks, %d failures" % (_n, _fail))
 sys.exit(1 if _fail else 0)
