@@ -19,6 +19,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import attest
+import autonomy as AUT
 import backtest_checks as BC
 import leakage_checks as LC
 import overfitting_checks as OC
@@ -1293,6 +1294,45 @@ def _render_batch(rows, color=False):
     return "\n".join(out)
 
 
+def _autonomy_followup(res, mode, base, quiet=False):
+    """The post-verdict ACTION for the active mode on a catch verdict. The verdict is already final
+    and deterministic; this only governs what Calma DOES next. auto -> add an RFC 3161 timestamp to
+    the already-signed bundle; suggest -> print the `seal` command; ask -> nothing. Fail-open."""
+    run_dir = res.get("run_dir")
+    if not run_dir or res.get("repo_verdict") not in V.CATCH_VERDICTS:
+        return
+    decision = AUT.gate(mode, "seal", outward=False, base=base)
+    if decision == "skip":
+        return
+    disp = _redact_home(run_dir)
+    if decision == "suggest":
+        if not quiet:
+            print("  suggest (mode=suggest): %s seal %s   # sign + timestamp + a counterparty proof"
+                  % (_invocation(), disp))
+        AUT.log(base, mode, "seal", "suggest")
+        return
+    # execute (auto): verify already signed the bundle when a key exists; add the trusted timestamp.
+    bpath = os.path.join(run_dir, attest.BUNDLE_NAME)
+    if not os.path.exists(bpath):
+        if not quiet:
+            print("  auto: no signing key yet - run `%s attest keygen` once to enable signed proofs"
+                  % _invocation())
+        AUT.log(base, mode, "seal", "skip", "no-key")
+        return
+    try:
+        import rfc3161
+        bundle = json.load(open(bpath))
+        rfc3161.timestamp_bundle(bundle, rfc3161.DEFAULT_TSA)
+        json.dump(bundle, open(bpath, "w"), indent=2)
+        if not quiet:
+            print("  auto: signed + RFC 3161 timestamped the verdict -> %s" % disp)
+        AUT.log(base, mode, "seal", "execute", "timestamped")
+    except (OSError, ValueError) as e:  # offline / TSA down: fail-open, the signed bundle still stands
+        if not quiet:
+            print("  auto: signed the verdict (timestamp skipped, %s) -> %s" % (type(e).__name__, disp))
+        AUT.log(base, mode, "seal", "execute", "timestamp-failed")
+
+
 def main():
     if sys.version_info < (3, 9):
         print("error: calma requires Python 3.9 or newer (this is Python %d.%d) - "
@@ -1336,6 +1376,11 @@ def main():
                         "run (uses the network in this phase only; the run itself stays network-denied)")
     v.add_argument("--check-determinism", action="store_true",
                    help="re-execute TWICE and require identical artifacts (catches FLAKY results)")
+    v.add_argument("--mode", choices=["ask", "suggest", "auto"], default=None,
+                   help="autonomy: ask (default; verdict + report only), suggest (also print the next "
+                        "command), or auto (also run safe follow-ons: seal/timestamp on a catch, and "
+                        "retry a missing dependency under --restore). Verdicts are ALWAYS deterministic; "
+                        "the mode governs only follow-on ACTIONS. Also CALMA_MODE / .calma/config.json")
     v.add_argument("--json", action="store_true", dest="as_json",
                    help="print a machine-readable verdict object instead of the report")
     b = sub.add_parser("batch", help="verify MANY targets at once + a summary table (CI/sprint use)")
@@ -1457,6 +1502,17 @@ def main():
             res = verify(a.target, a.claim_text or a.claim, a.metric, a.run_id,
                          force=a.force, check_determinism=a.check_determinism,
                          trust=a.trust, timeout=a.timeout, isolation=a.isolation, restore=a.restore)
+            _base = os.path.realpath(a.target)
+            mode = AUT.resolve_mode(a.mode, _base)
+            # autonomy (auto): transparently retry a missing-dependency failure under --restore
+            if mode == "auto" and not a.restore \
+                    and "re-run with --restore" in (res.get("report") or res.get("display") or ""):
+                AUT.log(_base, mode, "restore-retry", "execute")
+                if not a.as_json:
+                    print("  auto: a dependency was missing - retrying once with --restore ...")
+                res = verify(a.target, a.claim_text or a.claim, a.metric, a.run_id,
+                             force=True, check_determinism=a.check_determinism,
+                             trust=a.trust, timeout=a.timeout, isolation=a.isolation, restore=True)
             if a.fail_on == "refuted":
                 exit_code = 1 if res["repo_verdict"] in V.CATCH_VERDICTS else 0
             else:
@@ -1493,6 +1549,7 @@ def main():
                         label += ", with caveat findings"
                     tail = " - see --fail-on for the exit policy"
                 print("\n[exit %d (%s)%s]" % (exit_code, label, tail))
+            _autonomy_followup(res, mode, _base, quiet=a.as_json)
             return exit_code
         if a.cmd == "batch":
             if not a.targets and not a.manifest:

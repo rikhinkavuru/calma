@@ -52,6 +52,12 @@ calma verify <target> "<claim>"     # e.g. calma verify . "accuracy 0.87"  /  "+
 calma verify <target>               # no claim: checks the result reproduces (CONFIRMED scope=reproduction)
 calma verify <target> "<claim>" --json                # machine-readable verdict (agents: use this)
 calma verify <target> "<claim>" --check-determinism   # re-execute twice; FLAKY outputs -> INCONCLUSIVE
+calma verify <target> "<claim>" --mode auto           # autonomy: ask (default) | suggest | auto. mode
+                                                      # governs follow-on ACTIONS only (seal/timestamp on a
+                                                      # catch; retry a missing dep with --restore) - NEVER the
+                                                      # verdict, which is always deterministic. Outward actions
+                                                      # (publish) need an explicit opt-in even in auto. Also
+                                                      # CALMA_MODE / .calma/config.json {"mode"}; logged to auto_history.jsonl
 calma verify <target> "<claim>" --timeout 300         # raise the re-execution budget (default 120s)
 calma verify <target> "<claim>" --trust third-party   # counterparty code: auto-escalates to the
                                                       # container tier (refuses exit 3 if none is live)
