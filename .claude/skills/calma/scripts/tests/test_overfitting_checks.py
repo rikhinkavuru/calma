@@ -153,5 +153,30 @@ _ledA = C._assemble_ledger(_con(dA), _diff, dict(_rr, base=dA), claim_text="shar
 truth(_ledA["repo_verdict"] == V.CONFIRMED and _ledA["scope"]["families"].get("overfitting") in (None, "not-applicable"),
       "e2e: ordinary single backtest -> CONFIRMED, overfitting NOT-APPLICABLE (silent)")
 
+# ---- composition / order-safety: leakage + overfitting compose without conflict ----
+# Each family's apply_validity only ever promotes a still-clean (CONFIRMED/CAVEATS) headline, and only
+# DOWNWARD. So once one family has invalidated the headline, the other is a no-op (never resurrects or
+# downgrades it), and order does not matter - the worst outcome wins.
+import leakage_checks as LC  # noqa: E402
+
+_inv_o = _confirmed_claim()
+_inv_o["verdict"] = V.INVALIDATED  # already invalidated (say, by leakage)
+OC.apply_validity([_inv_o], fB, cB, "the best Sharpe of 1000 backtested configs")
+truth(_inv_o["verdict"] == V.INVALIDATED, "overfitting is a no-op on an already-INVALIDATED headline (order-safe)")
+
+_inv_l = _confirmed_claim()
+_inv_l["verdict"] = V.INVALIDATED  # already invalidated (say, by overfitting)
+LC.apply_validity([_inv_l], [{"dimension": "leakage", "validity_class": "authoritative", "severity": "blocker"}],
+                  {"split": {"train": "t", "test": "e"}}, "held-out", base=None)
+truth(_inv_l["verdict"] == V.INVALIDATED, "leakage is a no-op on an already-INVALIDATED headline (order-safe)")
+
+# worst-wins: an authoritative overfitting finding escalates a soft (leakage) CAVEATS headline to INVALIDATED
+_cav = _confirmed_claim()
+_cav["verdict_inputs"]["soft_validity_caveat"] = True
+_cav["verdict"] = V.verdict(_cav["verdict_inputs"])
+truth(_cav["verdict"] == V.CAVEATS, "a soft validity caveat starts at CONFIRMED-WITH-CAVEATS")
+OC.apply_validity([_cav], fB, cB, "the best Sharpe of 1000 backtested configs")
+truth(_cav["verdict"] == V.INVALIDATED, "authoritative overfitting escalates a soft CAVEATS headline to INVALIDATED (worst-wins)")
+
 print("overfitting_checks: %d checks, %d failures" % (_n, _fail))
 sys.exit(1 if _fail else 0)
