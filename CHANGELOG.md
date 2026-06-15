@@ -27,11 +27,17 @@ Pure stdlib (shells out like `sandbox-exec`); each step kept the full suite gree
 - **Dispatch.** `--isolation` gains `bwrap`; auto own-code selects bwrap on Linux, Seatbelt on macOS
   (byte-identical on macOS). One mechanism-generic `_exec_native` routes the compile + run steps to the
   achieved tier — the doctor proves the exact wrapper the run uses.
-- **Adversarially verified.** An in-suite anti-drift guard + a hostile-own-code marquee (egress, host-
-  secret reads, and out-of-base/`.calma` writes all denied), an `ubuntu-latest` CI job that asserts the
-  lift, and an independent fresh red-team agent that broke nothing — zero leaks across raw-IP/DNS/UDP/
-  curl/`/dev/tcp` egress, abs/`..`/symlink//proc-root secret reads, env exfil, and out-of-base writes —
-  on a real Linux host (Ubuntu 24.04 + bubblewrap 0.9.0).
+- **Defence in depth + UX.** Each sandboxed process runs `--cap-drop ALL` + a pure-stdlib seccomp syscall
+  denylist (mount/namespace/module/kexec/bpf/ptrace/keyctl/io_uring/… for x86_64 + aarch64) + setrlimit
+  caps (file-size/fds/core, opt-in memory) that actually hold (cap-drop removes CAP_SYS_RESOURCE), and
+  `/proc/sys` is re-bound read-only so a sandboxed write to a global sysctl (`core_pattern`) can't escape
+  to host-root. The doctor reports the applied `hardening` layers and, where the tier can't verify, emits
+  the exact fix-line (the `sudo sysctl` to enable unprivileged userns, or `apt-get install bubblewrap`).
+- **Adversarially verified, closed-loop.** An in-suite anti-drift guard + a hostile-own-code marquee
+  (egress, host-secret reads, out-of-base/`.calma` writes, and global-sysctl writes all denied), an
+  `ubuntu-latest` CI job that asserts the lift, and independent fresh red-team/audit agents across
+  security / edge / dev / UX / token run to CLEAN — the loop caught and closed a real `/proc/sys`
+  host-escape and an rlimit-bypass before sign-off. Verified on real Linux (Ubuntu 24.04 + bubblewrap).
 
 ## Unreleased — validity families (leakage + overfitting)
 
