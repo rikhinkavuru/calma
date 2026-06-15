@@ -349,6 +349,7 @@ else:
     truth(_bdoc["tier"] == "host-not-isolated", "no bwrap -> host-not-isolated (honest)")
     truth(_bdoc["bwrap_available"] is False, "bwrap_available is False when bwrap is absent")
     truth("bubblewrap" in (_bdoc.get("fix") or ""), "bwrap absent -> doctor tells you to install bubblewrap")
+    truth(_bdoc.get("secret_read_blocked") is None, "bwrap absent -> blocked-booleans are null (untested)")
 
 # (c1) _bwrap_userns_hint maps the dominant failure (userns disabled) to the exact sysctl fix
 _why, _fx = H._bwrap_userns_hint("bwrap: No permissions to create new namespace, likely because the kernel...")
@@ -390,6 +391,8 @@ truth("user namespaces" in (_udoc.get("note") or ""),
       "userns-blocked -> note explains the cause (not the verified-guarantees text)")
 truth("sysctl" in (_udoc.get("fix") or ""),
       "userns-blocked -> fix-line gives the exact sysctl to enable it")
+truth(_udoc.get("secret_read_blocked") is None and _udoc.get("egress_blocked") is None,
+      "probe did not run -> blocked-booleans are null, not a false 'blocked'")
 
 # (c4) Fix #2: pure-stdlib resource bounds (rlimits) - structural (runs everywhere)
 truth(H._env_int("CALMA_NOPE_XYZ", 7) == 7, "_env_int: missing -> default")
@@ -425,6 +428,17 @@ truth("--seccomp 7" in " ".join(H._bwrap_argv("/X", ["python", "-c", "x"], secco
       "bwrap argv passes --seccomp <fd> when provided")
 truth("--seccomp" not in " ".join(H._bwrap_argv("/X", ["python", "-c", "x"])),
       "bwrap argv omits --seccomp when no fd")
+
+# (c6) audit hardening: --cap-drop ALL (so rlimit hard caps hold), io_uring on the denylist, slim doctor
+truth("--cap-drop ALL" in " ".join(H._bwrap_argv("/X", ["python", "-c", "x"])),
+      "bwrap drops ALL capabilities (rlimit hard caps then hold; no privileged primitive in-sandbox)")
+if H._seccomp_arch() in ("x86_64", "aarch64"):
+    truth("io_uring_setup" in H._SECCOMP_DENY and H._SECCOMP_NR[H._seccomp_arch()].get("io_uring_setup"),
+          "seccomp denylist includes io_uring_setup (known kernel-escape surface)")
+truth("note" not in H._embed_doctor({"tier": "bwrap-verified", "note": "boilerplate", "hardening": []}),
+      "_embed_doctor drops the boilerplate note on a verified tier (token)")
+truth(H._embed_doctor({"tier": "host-not-isolated", "note": "why", "fix": "y"}).get("fix") == "y",
+      "_embed_doctor keeps the full block (note+fix) on a non-verified tier")
 
 # (d) ANTI-DRIFT: `bwrap-verified` must be accepted as VERIFIED by EVERY consumer of the tier set.
 # A new verified tier lifts Linux off the host-not-isolated CAVEAT cap ONLY if all five layers
@@ -507,7 +521,24 @@ if _bw_live:
     truth(open(os.path.join(_bh, ".calma", "cache.json")).read() == '{"planted": false}',
           "bwrap marquee: pre-existing .calma bytes untouched")
     truth("WROTE_BASE" in _obh, "bwrap marquee: the base itself stays writable (outputs land for recompute)")
+    truth("seccomp" in (_rbh.get("hardening") or []) and "rlimits" in (_rbh.get("hardening") or []),
+          "bwrap run: hardening layers surfaced at the TOP level of the run result")
+    truth("note" not in (_rbh.get("doctor") or {}),
+          "bwrap run: the embedded doctor note is slimmed on a verified run (token)")
     _sh.rmtree(_bh, ignore_errors=True)
+
+    # (i) audit E1: a C entrypoint compiles AND runs under bwrap (the compiler symlink hop is re-bound).
+    # Skipped honestly where no C toolchain is present.
+    if _sh.which("cc") or _sh.which("clang") or _sh.which("gcc"):
+        _cc = tempfile.mkdtemp()
+        open(os.path.join(_cc, "m.c"), "w").write('#include <stdio.h>\nint main(){printf("C_OK\\n");return 0;}\n')
+        json.dump({"run": {"entrypoint": "m.c"}, "env": {"trust": "own-code"}, "artifacts": [], "metrics": []},
+                  open(os.path.join(_cc, "verify.yaml"), "w"))
+        _rcc = H.run(os.path.join(_cc, "verify.yaml"), base=_cc, timeout=90, isolation="bwrap")
+        truth(_rcc.get("exit_code") == 0 and "C_OK" in (_rcc.get("stdout_tail") or ""),
+              "bwrap: a C entrypoint compiles AND runs under the tier (compiler re-bound, exit %s)"
+              % _rcc.get("exit_code"))
+        _sh.rmtree(_cc, ignore_errors=True)
 
     # (g) Fix #2 resource bounds, enforced under bwrap: an opt-in memory cap actually OOM-bounds the run,
     # and a runaway (infinite) entrypoint is reaped by the timeout+pidns backstop. (Fork-bombs are not

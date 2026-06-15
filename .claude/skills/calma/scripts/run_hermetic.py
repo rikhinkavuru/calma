@@ -326,7 +326,11 @@ def _bwrap_argv(base, inner_argv, interp_dirs=(), writable=True, deny_calma=True
     base = os.path.realpath(base)
     argv = [shutil.which("bwrap") or "bwrap",
             "--unshare-user", "--unshare-pid", "--unshare-net", "--unshare-ipc", "--unshare-uts",
-            "--die-with-parent", "--new-session"]
+            "--die-with-parent", "--new-session",
+            # drop ALL capabilities in the sandbox: capless own code cannot raise the rlimit hard caps
+            # back (no CAP_SYS_RESOURCE), cannot operate a clone()'d namespace, and has no privileged
+            # primitive even behind the seccomp filter. Matches the container tier's --cap-drop=ALL.
+            "--cap-drop", "ALL"]
     if seccomp_fd is not None:
         # defence in depth: a syscall denylist applied to the sandboxed process (see _seccomp_program)
         argv += ["--seccomp", str(seccomp_fd)]
@@ -340,7 +344,10 @@ def _bwrap_argv(base, inner_argv, interp_dirs=(), writable=True, deny_calma=True
     # only meaningful when the base is writable; a read-only base already denies every .calma write.
     if deny_calma and writable:
         calma = os.path.join(base, ".calma")
-        argv += ["--ro-bind-try", calma, calma]
+        # a SYMLINKED .calma would make bwrap try to bind its target and abort the whole run; skip the
+        # re-bind then - the symlink's target is outside the writable base, so the write-deny holds anyway.
+        if not os.path.islink(calma):
+            argv += ["--ro-bind-try", calma, calma]
     argv += ["--chdir", base, "--"] + list(inner_argv)
     return argv
 
@@ -368,12 +375,15 @@ def _bwrap_rlimits():
         try:
             _soft, hard = _resource.getrlimit(which)
             ceil = val if hard == _resource.RLIM_INFINITY else min(val, hard)
-            _resource.setrlimit(which, (ceil, hard))
+            # cap BOTH soft and hard: the sandbox is --cap-drop ALL (no CAP_SYS_RESOURCE), so a low hard
+            # limit can never be raised back by the code under test - the cap actually holds.
+            _resource.setrlimit(which, (ceil, ceil))
         except (ValueError, OSError):
             pass
     _cap(_resource.RLIMIT_CORE, 0)                                            # no core dumps (disk + info)
     _cap(_resource.RLIMIT_FSIZE, _env_int("CALMA_BWRAP_FSIZE_MB", 8192) * 1024 * 1024)
-    _cap(_resource.RLIMIT_NOFILE, _env_int("CALMA_BWRAP_NOFILE", 16384))      # per-process fd-bomb ceiling
+    # floor NOFILE: a too-low value would starve bwrap/the runtime of fds before it can even start.
+    _cap(_resource.RLIMIT_NOFILE, max(64, _env_int("CALMA_BWRAP_NOFILE", 16384)))   # per-process fd ceiling
     if hasattr(_resource, "RLIMIT_NPROC"):
         # best-effort only: bwrap's --unshare-user maps the child to uid-0-in-userns, which the kernel
         # EXEMPTS from RLIMIT_NPROC - so this does NOT hard-bound a fork-bomb here. The real per-sandbox
@@ -383,7 +393,9 @@ def _bwrap_rlimits():
         _cap(_resource.RLIMIT_NPROC, _env_int("CALMA_BWRAP_NPROC", 4096))
     _mem = _env_int("CALMA_BWRAP_MEM_MB", 0)                                  # opt-in (VA over-counts)
     if _mem > 0:
-        _cap(_resource.RLIMIT_AS, _mem * 1024 * 1024)
+        # the AS cap is inherited by the bwrap binary itself (it loads libc before exec'ing the child),
+        # so floor it well above what the runtime needs to start - too low breaks bwrap, not just the code.
+        _cap(_resource.RLIMIT_AS, max(128, _mem) * 1024 * 1024)
 
 
 # --- seccomp syscall filter (Fix #3) ---------------------------------------------------------------
@@ -399,6 +411,7 @@ _SECCOMP_DENY = (
     "bpf", "perf_event_open", "add_key", "keyctl", "request_key",
     "ptrace", "process_vm_readv", "process_vm_writev",
     "open_tree", "move_mount", "fsopen", "fsconfig", "fsmount", "mount_setattr",
+    "io_uring_setup", "io_uring_enter", "io_uring_register",
     "swapon", "swapoff", "reboot", "acct", "quotactl", "_sysctl", "uselib", "nfsservctl",
 )
 _SECCOMP_NR = {
@@ -409,14 +422,16 @@ _SECCOMP_NR = {
                "process_vm_readv": 310, "process_vm_writev": 311, "open_tree": 428, "move_mount": 429,
                "fsopen": 430, "fsconfig": 431, "fsmount": 432, "mount_setattr": 442, "swapon": 167,
                "swapoff": 168, "reboot": 169, "acct": 163, "quotactl": 179, "_sysctl": 156,
-               "uselib": 134, "nfsservctl": 180},
+               "uselib": 134, "nfsservctl": 180,
+               "io_uring_setup": 425, "io_uring_enter": 426, "io_uring_register": 427},
     "aarch64": {"mount": 40, "umount2": 39, "pivot_root": 41, "chroot": 51, "setns": 268, "unshare": 97,
                 "init_module": 105, "finit_module": 273, "delete_module": 106, "kexec_load": 104,
                 "kexec_file_load": 294, "bpf": 280, "perf_event_open": 241, "add_key": 217,
                 "keyctl": 219, "request_key": 218, "ptrace": 117, "process_vm_readv": 270,
                 "process_vm_writev": 271, "open_tree": 428, "move_mount": 429, "fsopen": 430,
                 "fsconfig": 431, "fsmount": 432, "mount_setattr": 442, "swapon": 224, "swapoff": 225,
-                "reboot": 142, "acct": 89, "quotactl": 60},
+                "reboot": 142, "acct": 89, "quotactl": 60,
+                "io_uring_setup": 425, "io_uring_enter": 426, "io_uring_register": 427},
 }
 _SECCOMP_AUDIT_ARCH = {"x86_64": 0xC000003E, "aarch64": 0xC00000B7}
 
@@ -539,12 +554,18 @@ def _bwrap_userns_hint(err):
     AppArmor restriction, or a hardened/locked-down kernel) - so the tier degrades to host-not-isolated
     and we tell the operator how to turn it on (Calma always emits the fix, never just the failure)."""
     e = (err or "").lower()
+    if any(s in e for s in ("shared librar", "map segment", "cannot allocate", "out of memory",
+                            "memoryerror")):
+        # bwrap itself died under the inherited resource cap (it loads libc before exec'ing the child)
+        return ("a resource cap is too low for bwrap/the runtime to start",
+                "raise or unset the resource override (e.g. CALMA_BWRAP_MEM_MB - min ~128; "
+                "CALMA_BWRAP_NOFILE), then re-run `calma doctor`")
     if any(s in e for s in ("namespace", "permission", "userns", "uid map", "newuidmap",
                             "clone", "operation not permitted")):
         return ("unprivileged user namespaces appear to be disabled on this host",
-                "enable them then re-run `calma doctor` - "
+                "enable unprivileged userns then re-run `calma doctor` - "
                 "`sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0` (Ubuntu 24.04+) "
-                "or `sudo sysctl -w kernel.unprivileged_userns_clone=1` (Debian/older kernels)")
+                "or `sudo sysctl -w kernel.unprivileged_userns_clone=1` (Debian/older)")
     tail = ((err or "").strip().splitlines() or ["no diagnostic output"])[-1][:160]
     return ("bwrap exited without running the probe (%s)" % tail,
             "ensure unprivileged user namespaces are enabled, or verify on a host/CI that allows them")
@@ -560,30 +581,47 @@ def bwrap_doctor(base):
     base = os.path.realpath(base)
     info = {"backend": "bwrap", "bwrap_available": _have_bwrap()}
     if not info["bwrap_available"]:
-        info.update(tier="host-not-isolated", secret_read_blocked=False, egress_blocked=False,
+        info.update(tier="host-not-isolated", secret_read_blocked=None, egress_blocked=None,
                     note="bwrap (bubblewrap) not found on PATH; cannot verify a native Linux tier",
                     fix="install bubblewrap (`apt-get install -y bubblewrap` / `dnf install bubblewrap`), "
                         "then re-run `calma doctor`")
         return info
+    # plant the probe secret OUTSIDE the run base so a clean pass also proves the allowlist exposes no
+    # host state. Prefer $HOME (the canonical "not bound" location); fall back to the temp dir if $HOME
+    # is unwritable - never let a planting failure traceback (fail closed with a stamp instead).
     secret = os.path.join(os.path.realpath(os.path.expanduser("~")), ".calma_doctor_secret")
     out, err = "", ""
     try:
-        with open(secret, "w") as fh:
-            fh.write("TOPSECRET-CALMA-DOCTOR")
+        try:
+            with open(secret, "w") as fh:
+                fh.write("TOPSECRET-CALMA-DOCTOR")
+        except OSError:
+            secret = os.path.join(tempfile.gettempdir(), ".calma_doctor_secret")
+            with open(secret, "w") as fh:
+                fh.write("TOPSECRET-CALMA-DOCTOR")
         _rc, out, err, _killed = _run_bwrap(base, [sys.executable, "-c", _PROBE.format(secret=secret)],
                                             base, timeout=30,
                                             interp_dirs=_bwrap_interp_dirs(sys.executable), writable=False)
+    except OSError as _e:
+        info.update(tier="host-not-isolated", secret_read_blocked=None, egress_blocked=None,
+                    note="bwrap self-test could not run: %s" % _e,
+                    fix="ensure $HOME or the temp dir is writable, then re-run `calma doctor`")
+        return info
     finally:
-        if os.path.exists(secret):
-            os.unlink(secret)
+        try:
+            if os.path.exists(secret):
+                os.unlink(secret)
+        except OSError:
+            pass
     produced = "LEAKS=" in (out or "")
     leaks = ""
     for line in (out or "").splitlines():
         if line.startswith("LEAKS="):
             leaks = line[len("LEAKS="):].strip()
     leak_list = [x for x in leaks.split(",") if x]
-    secret_blocked = not any(x.startswith("read:") for x in leak_list)
-    egress_blocked = not any(x.startswith("egress:") for x in leak_list)
+    # null (not False) when the probe never ran - the blocks were not TESTED, so don't claim they held.
+    secret_blocked = (not any(x.startswith("read:") for x in leak_list)) if produced else None
+    egress_blocked = (not any(x.startswith("egress:") for x in leak_list)) if produced else None
     # `bwrap-verified` ONLY when the probe ran AND leaked nothing. A probe that never produced a LEAKS=
     # line (userns disabled / kernel lockdown -> bwrap aborts) is NOT a verified tier.
     tier = "bwrap-verified" if (produced and not leak_list) else "host-not-isolated"
@@ -991,6 +1029,15 @@ def _exec_native(isolation_tier, base, argv, cwd, timeout=120, env=None, interp_
     return _run_unwrapped(argv, cwd, timeout, env)
 
 
+def _embed_doctor(doc):
+    """Slim the doctor block embedded in a run result: on a VERIFIED tier the long boilerplate `note` is
+    dropped (the top-level stamps + `hardening` already convey it - saves ~230 B/run); the full block,
+    with `note`/`fix`, is kept on a non-verified tier where it carries the actionable reason."""
+    if doc.get("tier") in _VERIFIED_TIERS:
+        return {k: v for k, v in doc.items() if k != "note"}
+    return doc
+
+
 def _select_backend(isolation, trust):
     """Backend selection. Explicit `isolation` wins (and FAILS LOUD if unavailable - never falls back).
     Otherwise untrusted third-party code auto-escalates to the container tier; own code stays on the
@@ -1118,9 +1165,10 @@ def run(contract_path, base=None, timeout=120, trust_override=None, isolation=No
         det_mode, det_note = "uncontrolled", "%s: bit-determinism not statically provable (non-Python)" % lang
     out_dir = os.path.join(base, "runs")
     # the interpreter the run will exec (run_argv[0]) and a restored venv python may live under $HOME
-    # (uv/pyenv/conda); _exec_native re-allows exactly those to the achieved tier (Seatbelt depot /
-    # bwrap prefix) and denies everything else.
-    _interp_paths = (run_argv[0], venv_py)
+    # (uv/pyenv/conda); the COMPILER (cc/clang/rustc, often a /etc/alternatives symlink hop) must also be
+    # reachable for the compile step. _exec_native re-allows exactly those to the achieved tier (Seatbelt
+    # depot / bwrap prefix) and denies everything else.
+    _interp_paths = (run_argv[0], venv_py) + ((compile_cmd[0],) if compile_cmd else ())
     env = _child_env(contract)
     # determinism hardening for the re-execution: pinned hash seed (stable set/dict iteration order),
     # no bytecode writes into the target, pinned locale. Free reproducibility, no behavior loss.
@@ -1138,9 +1186,10 @@ def run(contract_path, base=None, timeout=120, trust_override=None, isolation=No
         if ckill or crc != 0:
             return {"phase": "run", "entrypoint": entry, "exit_code": 1, "killed": ckill, "language": lang,
                     "isolation_tier": isolation_tier, "determinism_mode": det_mode,
-                    "container_present": tier_verified,
+                    "container_present": tier_verified, "hardening": doc.get("hardening"),
                     "install_network": net_stamp, "run_network": net_stamp,
-                    "stderr_tail": ("compile failed: " + (cerr or ""))[-500:], "doctor": doc}
+                    "stderr_tail": ("compile failed: " + (cerr or ""))[-500:],
+                    "doctor": _embed_doctor(doc)}
     rc, out, err, killed = _exec_native(isolation_tier, base, run_argv, base, timeout, env, _interp_paths)
     exit_code = 4 if killed else (0 if rc == 0 else 1)
     return {
@@ -1151,8 +1200,9 @@ def run(contract_path, base=None, timeout=120, trust_override=None, isolation=No
         "interpreter": "restored-venv" if venv_py else "host",
         "determinism_mode": det_mode, "determinism_note": det_note,
         "install_network": net_stamp, "run_network": net_stamp, "hermeticity": herm_stamp,
+        "hardening": doc.get("hardening"),
         "stdout_tail": (out or "")[-500:], "stderr_tail": (err or "")[-500:],
-        "doctor": doc,
+        "doctor": _embed_doctor(doc),
     }
 
 
@@ -1163,7 +1213,10 @@ def main():
     ap.add_argument("--base")
     ap.add_argument("--out")
     ap.add_argument("--isolation", choices=["auto", "seatbelt", "bwrap", "docker", "firecracker"],
-                    default="auto")
+                    default="auto",
+                    help="auto = this OS's own-code tier (Linux bwrap / macOS seatbelt); "
+                         "bwrap = native Linux own-code (no daemon); docker = untrusted code (needs a "
+                         "daemon); fails loud if the chosen tier is unavailable")
     a = ap.parse_args()
     iso = None if a.isolation == "auto" else a.isolation
     if a.cmd == "doctor":
