@@ -37,7 +37,7 @@ __version__ = "0.9.1"
 
 QUANT_METRICS = {"total_return", "sharpe", "max_drawdown"}
 DEFAULT_TIMEOUT_S = 120
-VERIFIED_TIERS = ("seatbelt-verified", "tier0", "container", "vm")
+VERIFIED_TIERS = ("seatbelt-verified", "bwrap-verified", "tier0", "container", "vm")
 
 
 def _trace_enabled():

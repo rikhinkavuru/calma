@@ -33,6 +33,12 @@ RNG_MODULES = {"random", "secrets", "numpy", "pandas", "scipy", "sklearn", "stat
 # stdlib sources of run-to-run variation: importing any of these means we cannot PROVE bit-determinism
 NONDET_STDLIB = {"time", "datetime", "uuid", "socket", "threading", "multiprocessing"}
 
+# the isolation tiers that count as VERIFIED for stamp derivation. MUST stay in lockstep with the
+# verified-tier sets the verdict layer keys on (calma.VERIFIED_TIERS, hook_stop.VERIFIED_TIERS,
+# compare.compare's container_present default, verdict.confidence) - the anti-drift guard test asserts
+# every consumer accepts the same names. host-not-isolated is deliberately absent (it is the CAVEAT).
+_VERIFIED_TIERS = ("seatbelt-verified", "bwrap-verified", "tier0", "container", "vm")
+
 
 def _have_sandbox_exec():
     return shutil.which("sandbox-exec") is not None
@@ -849,7 +855,7 @@ def run(contract_path, base=None, timeout=120, trust_override=None, isolation=No
                 "LC_ALL": "C.UTF-8", "LANG": "C.UTF-8", "TZ": "UTC"})
     # the network/hermeticity stamps are DERIVED from the achieved tier, never asserted: on a host
     # with no verified sandbox (e.g. Linux without sandbox-exec) the truth is "not blocked".
-    tier_verified = isolation_tier in ("seatbelt-verified", "tier0", "container", "vm")
+    tier_verified = isolation_tier in _VERIFIED_TIERS
     net_stamp = "off" if tier_verified else "host-default (NOT blocked - no verified sandbox on this host)"
     herm_stamp = "vendored-snapshot" if tier_verified else "unverified"
     # compile step (C/C++/Rust) under the same verified tier; failure -> run-gate fail

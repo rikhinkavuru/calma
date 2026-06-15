@@ -337,5 +337,33 @@ else:
     truth(_bdoc["tier"] == "host-not-isolated", "no bwrap -> host-not-isolated (honest)")
     truth(_bdoc["bwrap_available"] is False, "bwrap_available is False when bwrap is absent")
 
+# (d) ANTI-DRIFT: `bwrap-verified` must be accepted as VERIFIED by EVERY consumer of the tier set.
+# A new verified tier lifts Linux off the host-not-isolated CAVEAT cap ONLY if all five layers
+# recognize it; this fails loudly if any site is missed now or silently regresses later.
+import compare as _CMP      # noqa: E402
+import verdict as _V        # noqa: E402
+import calma as _CALMA      # noqa: E402
+import hook_stop as _HOOK   # noqa: E402
+
+truth("bwrap-verified" in H._VERIFIED_TIERS, "run_hermetic: bwrap-verified is a verified tier")
+truth("bwrap-verified" in _CALMA.VERIFIED_TIERS, "calma: bwrap-verified in VERIFIED_TIERS")
+truth("bwrap-verified" in _HOOK.VERIFIED_TIERS, "hook_stop: bwrap-verified in VERIFIED_TIERS")
+_rec1 = {"metrics": [{"metric_id": "m1", "value": 1.0}]}
+_con1 = {"metrics": [{"metric_id": "m1", "claimed_value": 1.0}]}
+_cd_bw = _CMP.compare(_rec1, _con1, isolation_tier="bwrap-verified")
+_cd_host = _CMP.compare(_rec1, _con1, isolation_tier="host-not-isolated")
+truth(_cd_bw["metrics"][0]["verdict_inputs"]["container_present"] is True,
+      "compare: bwrap-verified -> container_present True")
+truth(_cd_host["metrics"][0]["verdict_inputs"]["container_present"] is False,
+      "compare: host-not-isolated -> container_present False (control)")
+# verdict: bwrap-verified earns the isolation confidence bump AND is not a host-not-isolated caveat
+_vi = {"isolation_tier": "bwrap-verified", "determinism_mode": "controlled-to-bit",
+       "binding_status": "independently-bound", "claim_outside_ci": False}
+_conf_bw = _V.confidence(_vi, _V.CONFIRMED)
+_conf_host = _V.confidence(dict(_vi, isolation_tier="host-not-isolated"), _V.CONFIRMED)
+truth(round(_conf_bw - _conf_host, 2) == 0.15, "verdict: bwrap-verified earns the +0.15 isolation bump")
+truth("host tier not isolated" not in _V._caveat_reasons(_V._norm(_vi)),
+      "verdict: bwrap-verified is NOT flagged as host-not-isolated")
+
 print("run_hermetic: %d checks, %d failures" % (_n, _fail))
 sys.exit(1 if _fail else 0)

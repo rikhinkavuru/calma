@@ -59,7 +59,7 @@ STATE_NAME = "hook_state.json"
 HISTORY_NAME = "auto_history.jsonl"
 _CSV_SCAN_CAP = 400                  # dir entries examined during artifact preflight
 SANDBOX_TTL_S = 24 * 3600            # how long a cached doctor (sandbox tier) result is trusted
-VERIFIED_TIERS = ("seatbelt-verified", "tier0", "container", "vm")
+VERIFIED_TIERS = ("seatbelt-verified", "bwrap-verified", "tier0", "container", "vm")
 
 # machine-readable artifacts calma can recompute from - a metric claim is only worth
 # auto-verifying where one of these exists (broadened past .csv: real projects emit Parquet/
