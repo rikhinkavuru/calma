@@ -21,6 +21,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import attest
 import backtest_checks as BC
 import leakage_checks as LC
+import overfitting_checks as OC
 import compare as CMP
 import draft_contract as DC
 import intake as INTAKE
@@ -201,14 +202,15 @@ def _reconcile_claim(contract, claim, metric):
                "%g" % committed_v if isinstance(committed_v, (int, float)) else committed_v)), None
 
 
-def _not_verified(metric_ids, leakage_status=None):
-    """Honest 'what we did NOT check' list. Leakage is now a real family: list it as a gap ONLY when it
-    was NOT-APPLICABLE (no train/test split or keys to assess) - never claim it as a gap once it ran.
-    Overfitting / deflated-Sharpe / PBO remain roadmap until their detector ships."""
+def _not_verified(metric_ids, leakage_status=None, overfitting_status=None):
+    """Honest 'what we did NOT check' list. Leakage and overfitting are now real families: each is listed
+    as a gap ONLY when it was NOT-APPLICABLE (nothing to assess) - never claimed as a gap once it ran,
+    and never called 'roadmap' now that it exists."""
     out = []
     if leakage_status in (None, "not-applicable"):
         out.append("data leakage (no train/test split or keys declared)")
-    out.append("overfitting / deflated-Sharpe / PBO statistics (roadmap)")
+    if overfitting_status in (None, "not-applicable"):
+        out.append("overfitting / deflated-Sharpe / PBO (no trials:N or grid-search log declared)")
     if any(m in QUANT_METRICS for m in metric_ids):
         out.append("survivorship-free vendor data (managed roadmap)")
     return out
@@ -373,7 +375,7 @@ def _assemble_ledger(contract, diff, run_res, claim_text=None):
     # WS4 backtest catches (omitted costs / cherry-picked window / survivorship universe) - additive
     # findings off the bound artifact. Only when the run actually reproduced (exit 0) and there is a
     # claim to judge; deck-vs-code mismatch is already handled above by the recompute+verdict path.
-    leak_fam = None
+    leak_fam = over_fam = None
     if claims and run_res.get("exit_code", 0) == 0:
         _base = run_res.get("base") or (
             os.path.dirname(os.path.dirname(run_res["run_dir"])) if run_res.get("run_dir") else None)
@@ -385,6 +387,11 @@ def _assemble_ledger(contract, diff, run_res, claim_text=None):
             findings.extend(LC.run_checks(contract, _base, claims[0]["id"]))
             LC.apply_validity(claims, findings, contract, claim_text, base=_base)
             leak_fam = LC.family_status(contract, findings)
+            # WS-overfitting: silent unless a multiple-testing search signal is present; same scope-guarded
+            # promotion (INVALIDATED / CAN'T-CONFIRM / CAVEAT). N is never guessed.
+            findings.extend(OC.run_checks(contract, _base, claims[0]["id"], claim_text=claim_text))
+            OC.apply_validity(claims, findings, contract, claim_text)
+            over_fam = OC.family_status(contract, _base, findings, claim_text)
     metric_ids = [m["metric_id"] for m in diff["metrics"]]
     # surface which binding was auto-picked (the one surface the producer influences)
     binding_note = None
@@ -407,8 +414,9 @@ def _assemble_ledger(contract, diff, run_res, claim_text=None):
             "families": {"reproducibility": "checked" if run_res.get("exit_code", 0) == 0 else "FAILED",
                          "recomputation": "checked",
                          "baseline": "checked" if bl else "not-applicable",
-                         **({"leakage": leak_fam} if leak_fam else {})},
-            "not_verified": _not_verified(metric_ids, leak_fam),
+                         **({"leakage": leak_fam} if leak_fam else {}),
+                         **({"overfitting": over_fam} if over_fam else {})},
+            "not_verified": _not_verified(metric_ids, leak_fam, over_fam),
         },
         "repo_verdict": None,
     }

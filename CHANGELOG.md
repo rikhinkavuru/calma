@@ -70,8 +70,23 @@ need. Serial, leakage-first; each step keeps the full suite green.
   generator. *(The registered `deflated_sharpe` recipe — the REFUTED-via-recipe-rail path for a
   user-claimed deflated number — is deferred to avoid entangling with that session's recipe-count /
   enrichment / site-mirror gates; DSR/PBO ship as kernels + frozen vectors + the findings rail.)*
+- **Overfitting findings rail** (`scripts/overfitting_checks.py`, dimension `overfitting`) — the
+  engagement lattice, **silent by design** unless a multiple-testing search signal is present (a
+  `trials:N` declared, a trials/grid-search artifact, or selection language in the claim): no signal →
+  NOT-APPLICABLE/silent; signal + **countable N** → run DSR + PBO/CSCV and fire only if the edge fails
+  (PBO>0.5 or 1−DSR>0.05); signal + **uncountable N** → an explicit finding carrying the "declare
+  trials:N / emit the grid-search log" fix. **N is never guessed** (it is the declared count or the
+  trials-artifact column count). The verdict follows the claim scope, same as leakage: a failed edge on
+  a **survival/selection/OOS** claim → INVALIDATED; a **bare reproduced number** + a detected sweep →
+  CONFIRMED-WITH-CAVEATS (never block a literally-true number); an uncountable N on a survival claim →
+  CAN'T-CONFIRM. The rail feeds the kernels a **per-period** Sharpe with n = period count (not an
+  annualised SR). Contract gains optional `trials`/`trials_artifact`/`var_sr`. Wired into
+  `_assemble_ledger`; `scope.families.overfitting` + the honest `_not_verified` reflect it. The
+  registered `deflated_sharpe` recipe (REFUTED-via-recipe-rail) stays deferred (recipe-session coupling).
 - Tests: +14 `test_verdict`, +12 `test_ledger`, +3 `test_registry` (attest→registry round-trip), incl. a
   fail-closed unknown-verdict property; +17 `test_draft` (split/keys/features detection + validation);
+  +22 `test_overfitting_checks` (the engagement lattice + num-trials integrity + per-period-SR wiring +
+  an e2e `_assemble_ledger` check);
   +53 `test_leakage_checks` (five detectors with exact magnitudes, the OOS scope-guard, the full verdict
   lattice through real ledgers, the leakage-corrected recompute → REFUTED/INVALIDATED, and an end-to-end
   `_assemble_ledger` wiring check). Kernels and reference vectors land in the following steps. Design of

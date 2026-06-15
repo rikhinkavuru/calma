@@ -728,6 +728,17 @@ def validate_contract(contract):
     ft = contract.get("features")
     if ft is not None and not (isinstance(ft, list) and all(isinstance(x, str) for x in ft)):
         errs.append("features must be a list of column names")
+    # WS-overfitting: optional multiple-testing declarations (N is never guessed - it is declared here
+    # or counted from a trials artifact). All absent -> overfitting is NOT-APPLICABLE.
+    tr = contract.get("trials")
+    if tr is not None and not (isinstance(tr, int) and not isinstance(tr, bool) and tr >= 1):
+        errs.append("trials must be a positive integer (the multiple-testing search size N)")
+    ta = contract.get("trials_artifact")
+    if ta is not None and not isinstance(ta, str):
+        errs.append("trials_artifact must be a path to a per-period returns matrix (one column per candidate)")
+    vs = contract.get("var_sr")
+    if vs is not None and not (isinstance(vs, (int, float)) and not isinstance(vs, bool) and vs >= 0):
+        errs.append("var_sr must be a non-negative number (cross-trial Sharpe variance)")
     return errs
 
 
