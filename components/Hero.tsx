@@ -1,6 +1,7 @@
 "use client";
 
 import { Atmo, Reveal } from "./chrome";
+import { HeroDemo } from "./HeroDemo";
 
 export function Hero() {
   return (
@@ -20,18 +21,7 @@ export function Hero() {
 
         <Reveal delay={400} className="hero__fill">
           <div className="hero__demo">
-            <figure className="hero__movie">
-              <video
-                src="/video/hero-demo.mp4"
-                autoPlay
-                muted
-                loop
-                playsInline
-                controls
-                preload="metadata"
-                aria-label="Screen recording: an AI agent reports an inflated backtest return; calma blocks the turn, refutes the number, and the agent corrects itself"
-              />
-            </figure>
+            <HeroDemo />
           </div>
         </Reveal>
       </div>
