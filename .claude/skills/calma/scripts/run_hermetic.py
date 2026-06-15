@@ -334,7 +334,13 @@ def _bwrap_argv(base, inner_argv, interp_dirs=(), writable=True, deny_calma=True
     if seccomp_fd is not None:
         # defence in depth: a syscall denylist applied to the sandboxed process (see _seccomp_program)
         argv += ["--seccomp", str(seccomp_fd)]
-    argv += ["--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp",
+    argv += ["--proc", "/proc",
+             # /proc/sys/kernel/* (core_pattern, modprobe, poweroff_cmd, ...) are GLOBAL - NOT namespaced -
+             # and writable when the tier runs as (userns-mapped) root; a sandboxed write to core_pattern
+             # is a root-code-exec-on-host escape (--cap-drop ALL does NOT stop writing your own 0644
+             # file). Re-bind /proc/sys read-only over the fresh procfs: reads still work, writes denied.
+             "--ro-bind", "/proc/sys", "/proc/sys",
+             "--dev", "/dev", "--tmpfs", "/tmp",
              "--ro-bind", "/usr", "/usr"]
     for d in _BWRAP_TRY_ROOTS:
         argv += ["--ro-bind-try", d, d]
@@ -1034,7 +1040,8 @@ def _embed_doctor(doc):
     dropped (the top-level stamps + `hardening` already convey it - saves ~230 B/run); the full block,
     with `note`/`fix`, is kept on a non-verified tier where it carries the actionable reason."""
     if doc.get("tier") in _VERIFIED_TIERS:
-        return {k: v for k, v in doc.items() if k != "note"}
+        # drop the boilerplate note AND hardening (the run result carries `hardening` at top level)
+        return {k: v for k, v in doc.items() if k not in ("note", "hardening")}
     return doc
 
 

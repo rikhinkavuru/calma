@@ -432,6 +432,8 @@ truth("--seccomp" not in " ".join(H._bwrap_argv("/X", ["python", "-c", "x"])),
 # (c6) audit hardening: --cap-drop ALL (so rlimit hard caps hold), io_uring on the denylist, slim doctor
 truth("--cap-drop ALL" in " ".join(H._bwrap_argv("/X", ["python", "-c", "x"])),
       "bwrap drops ALL capabilities (rlimit hard caps then hold; no privileged primitive in-sandbox)")
+truth("--ro-bind /proc/sys /proc/sys" in " ".join(H._bwrap_argv("/X", ["python", "-c", "x"])),
+      "bwrap re-binds /proc/sys read-only (global sysctls like core_pattern cannot be written)")
 if H._seccomp_arch() in ("x86_64", "aarch64"):
     truth("io_uring_setup" in H._SECCOMP_DENY and H._SECCOMP_NR[H._seccomp_arch()].get("io_uring_setup"),
           "seccomp denylist includes io_uring_setup (known kernel-escape surface)")
@@ -539,6 +541,26 @@ if _bw_live:
               "bwrap: a C entrypoint compiles AND runs under the tier (compiler re-bound, exit %s)"
               % _rcc.get("exit_code"))
         _sh.rmtree(_cc, ignore_errors=True)
+
+    # (j) re-audit BLOCKER fix: /proc/sys is read-only -> a sandboxed write to a GLOBAL sysctl
+    # (core_pattern = root-code-exec-on-host) is denied, while reads still work.
+    _ps = tempfile.mkdtemp()
+    open(os.path.join(_ps, "ps.py"), "w").write(
+        "read_ok = open('/proc/sys/kernel/core_pattern').read() is not None\n"
+        "try:\n"
+        "    open('/proc/sys/kernel/core_pattern', 'w').write('|/PWNED')\n"
+        "    print('SYSCTL_WRITTEN')\n"
+        "except OSError:\n"
+        "    print('SYSCTL_DENIED')\n"
+        "print('READ_OK' if read_ok else 'READ_FAIL')\n")
+    json.dump({"run": {"entrypoint": "ps.py"}, "env": {"trust": "own-code"}, "artifacts": [], "metrics": []},
+              open(os.path.join(_ps, "verify.yaml"), "w"))
+    _rps = H.run(os.path.join(_ps, "verify.yaml"), base=_ps, timeout=30, isolation="bwrap")
+    _ops = _rps.get("stdout_tail", "")
+    truth("SYSCTL_DENIED" in _ops and "SYSCTL_WRITTEN" not in _ops,
+          "bwrap: a sandboxed write to a global sysctl (/proc/sys/kernel/core_pattern) is DENIED")
+    truth("READ_OK" in _ops, "bwrap: /proc/sys stays readable (only writes are denied)")
+    _sh.rmtree(_ps, ignore_errors=True)
 
     # (g) Fix #2 resource bounds, enforced under bwrap: an opt-in memory cap actually OOM-bounds the run,
     # and a runaway (infinite) entrypoint is reaped by the timeout+pidns backstop. (Fork-bombs are not
