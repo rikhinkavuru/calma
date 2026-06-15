@@ -732,15 +732,61 @@ def docker_doctor(base, image=None):
     return info
 
 
+def native_doctor(base=None):
+    """The native host own-code doctor for THIS OS: bubblewrap on Linux, Seatbelt on macOS. Callers
+    that just want 'is this host's own-code tier verified?' (the `calma doctor` CLI, the Stop hook)
+    use this instead of hard-coding the macOS path - so Linux is no longer pinned to host-not-isolated
+    when a working bwrap tier is present."""
+    base = base or os.getcwd()
+    return bwrap_doctor(base) if sys.platform.startswith("linux") else doctor(base)
+
+
+def _run_unwrapped(argv, cwd, timeout=120, env=None):
+    """Run argv directly on the host (NO isolation) in its own process group. Used ONLY when the
+    achieved tier is host-not-isolated; the stamps upstream say so - this never claims isolation."""
+    try:
+        p = subprocess.Popen(argv, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                             text=True, start_new_session=True, env=env or os.environ.copy())
+    except OSError as e:
+        return -1, "", "exec failed: %s" % e, False
+    try:
+        out, err = p.communicate(timeout=timeout)
+        return p.returncode, out, err, False
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(os.getpgid(p.pid), signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        p.communicate()
+        return -9, "", "timeout", True
+
+
+def _exec_native(isolation_tier, base, argv, cwd, timeout=120, env=None, interp_paths=()):
+    """Run argv under the achieved host own-code tier. `seatbelt-verified` -> the sandbox-exec profile;
+    `bwrap-verified` -> bubblewrap; anything else (host-not-isolated) -> unwrapped on the host (the
+    honest CAVEAT path - the run still happens, the stamp upstream says NOT isolated). The doctor that
+    set `isolation_tier` ran the probe under this SAME wrapper, so the self-test proves exactly what the
+    run does. `interp_paths` re-allows a (possibly $HOME-resident) restored/host interpreter - the
+    Seatbelt profile re-allows its depot, bwrap re-binds its prefix; both deny everything else."""
+    if isolation_tier == "seatbelt-verified":
+        prof = _profile(os.path.realpath(base), _interp_reads(*interp_paths))
+        return _run_sandboxed(prof, argv, cwd, timeout, env)
+    if isolation_tier == "bwrap-verified":
+        bargv = _bwrap_argv(base, argv, interp_dirs=_bwrap_interp_dirs(*interp_paths), writable=True)
+        return _run_bwrapped(bargv, cwd, timeout, env)
+    return _run_unwrapped(argv, cwd, timeout, env)
+
+
 def _select_backend(isolation, trust):
     """Backend selection. Explicit `isolation` wins (and FAILS LOUD if unavailable - never falls back).
-    Otherwise untrusted third-party code auto-escalates to the container tier; everything else stays on
-    the host Seatbelt tier (today's default, byte-identical for own-code on macOS)."""
-    if isolation in ("seatbelt", "docker", "firecracker"):
+    Otherwise untrusted third-party code auto-escalates to the container tier; own code stays on the
+    native HOST own-code tier for THIS OS - macOS Seatbelt, Linux bubblewrap (no daemon either way),
+    byte-identical to the prior default on macOS."""
+    if isolation in ("seatbelt", "bwrap", "docker", "firecracker"):
         return isolation
     if trust == "untrusted-third-party":
         return "docker"
-    return "seatbelt"
+    return "bwrap" if sys.platform.startswith("linux") else "seatbelt"
 
 
 def _run_docker_backend(contract, base, entry, entry_path, trust, timeout, image=None):
@@ -820,8 +866,19 @@ def run(contract_path, base=None, timeout=120, trust_override=None, isolation=No
                           "use --isolation docker (container) or seatbelt (host)"}
     if backend == "docker":
         return _run_docker_backend(contract, base, entry, entry_path, trust, timeout)
-    doc = doctor(base)
+    # native host own-code tier: bubblewrap on Linux, Seatbelt on macOS. The SAME probe battery gates
+    # both, and the run will use the SAME wrapper the doctor just proved (_exec_native).
+    doc = bwrap_doctor(base) if backend == "bwrap" else doctor(base)
     isolation_tier = doc["tier"]
+    # FAIL LOUD: an EXPLICIT --isolation seatbelt|bwrap that did not verify never degrades to an
+    # unisolated host run (parity with the container tier's missing-image refusal). The AUTO path
+    # (isolation is None) instead proceeds and stamps host-not-isolated honestly below - that is
+    # today's behavior on a host without the tier, never a silent verified claim.
+    if isolation in ("seatbelt", "bwrap") and isolation_tier not in _VERIFIED_TIERS:
+        return {"phase": "refused", "exit_code": 3, "isolation_tier": isolation_tier,
+                "container_present": False, "killed": False, "doctor": doc,
+                "reason": "%s isolation requested but unavailable: %s"
+                          % (backend, doc.get("note", "self-test did not verify"))}
 
     # untrusted third-party code needs a container/VM tier (not available here) -> refuse
     if trust == "untrusted-third-party" and isolation_tier not in ("container", "vm"):
@@ -845,9 +902,10 @@ def run(contract_path, base=None, timeout=120, trust_override=None, isolation=No
     else:
         det_mode, det_note = "uncontrolled", "%s: bit-determinism not statically provable (non-Python)" % lang
     out_dir = os.path.join(base, "runs")
-    # re-allow the (possibly $HOME-resident) interpreter the run will exec - a restored venv's base
-    # python (uv/pyenv/conda) lives under /Users, which the profile otherwise denies reading.
-    prof = _profile(base, _interp_reads(run_argv[0], venv_py))
+    # the interpreter the run will exec (run_argv[0]) and a restored venv python may live under $HOME
+    # (uv/pyenv/conda); _exec_native re-allows exactly those to the achieved tier (Seatbelt depot /
+    # bwrap prefix) and denies everything else.
+    _interp_paths = (run_argv[0], venv_py)
     env = _child_env(contract)
     # determinism hardening for the re-execution: pinned hash seed (stable set/dict iteration order),
     # no bytecode writes into the target, pinned locale. Free reproducibility, no behavior loss.
@@ -860,14 +918,15 @@ def run(contract_path, base=None, timeout=120, trust_override=None, isolation=No
     herm_stamp = "vendored-snapshot" if tier_verified else "unverified"
     # compile step (C/C++/Rust) under the same verified tier; failure -> run-gate fail
     if compile_cmd:
-        crc, cout, cerr, ckill = _run_sandboxed(prof, compile_cmd, base, timeout, env)
+        crc, cout, cerr, ckill = _exec_native(isolation_tier, base, compile_cmd, base, timeout, env,
+                                              _interp_paths)
         if ckill or crc != 0:
             return {"phase": "run", "entrypoint": entry, "exit_code": 1, "killed": ckill, "language": lang,
                     "isolation_tier": isolation_tier, "determinism_mode": det_mode,
                     "container_present": tier_verified,
                     "install_network": net_stamp, "run_network": net_stamp,
                     "stderr_tail": ("compile failed: " + (cerr or ""))[-500:], "doctor": doc}
-    rc, out, err, killed = _run_sandboxed(prof, run_argv, base, timeout, env)
+    rc, out, err, killed = _exec_native(isolation_tier, base, run_argv, base, timeout, env, _interp_paths)
     exit_code = 4 if killed else (0 if rc == 0 else 1)
     return {
         "phase": "run", "entrypoint": entry, "exit_code": exit_code, "killed": killed, "language": lang,
@@ -888,12 +947,20 @@ def main():
     ap.add_argument("--contract")
     ap.add_argument("--base")
     ap.add_argument("--out")
-    ap.add_argument("--isolation", choices=["auto", "seatbelt", "docker", "firecracker"],
+    ap.add_argument("--isolation", choices=["auto", "seatbelt", "bwrap", "docker", "firecracker"],
                     default="auto")
     a = ap.parse_args()
     iso = None if a.isolation == "auto" else a.isolation
     if a.cmd == "doctor":
-        res = docker_doctor(a.base or os.getcwd()) if iso == "docker" else doctor(a.base or os.getcwd())
+        _b = a.base or os.getcwd()
+        if iso == "docker":
+            res = docker_doctor(_b)
+        elif iso == "bwrap":
+            res = bwrap_doctor(_b)
+        elif iso == "seatbelt":
+            res = doctor(_b)
+        else:  # auto: report THIS OS's native own-code tier (bwrap on Linux, Seatbelt on macOS)
+            res = native_doctor(_b)
     else:
         if not a.contract:
             print("run needs --contract", file=sys.stderr)

@@ -191,9 +191,13 @@ _sh.rmtree(du, ignore_errors=True)
 
 # === WS1: container backend ============================================================
 # (a) backend selection is pure - testable with no docker.
-truth(H._select_backend(None, "own-code") == "seatbelt", "auto + own-code -> seatbelt")
+_native = "bwrap" if sys.platform.startswith("linux") else "seatbelt"
+truth(H._select_backend(None, "own-code") == _native,
+      "auto + own-code -> native host tier (bwrap on linux, seatbelt on mac)")
 truth(H._select_backend(None, "untrusted-third-party") == "docker", "auto + untrusted -> docker")
 truth(H._select_backend("seatbelt", "untrusted-third-party") == "seatbelt", "explicit seatbelt wins")
+truth(H._select_backend("bwrap", "own-code") == "bwrap", "explicit bwrap wins")
+truth(H._select_backend("bwrap", "untrusted-third-party") == "bwrap", "explicit bwrap wins over auto-escalation")
 truth(H._select_backend("docker", "own-code") == "docker", "explicit docker wins")
 truth(H._select_backend("firecracker", "own-code") == "firecracker", "explicit firecracker wins")
 
@@ -336,6 +340,38 @@ if H._have_bwrap():
 else:
     truth(_bdoc["tier"] == "host-not-isolated", "no bwrap -> host-not-isolated (honest)")
     truth(_bdoc["bwrap_available"] is False, "bwrap_available is False when bwrap is absent")
+
+# (c2) FAIL-LOUD (acceptance b): an EXPLICIT --isolation bwrap that does not verify refuses (exit 3)
+# and never silently runs unisolated on the host. Force bwrap "absent" so this is deterministic on
+# EVERY host (incl. a real bwrap CI runner where the auto path would otherwise verify).
+_flb = tempfile.mkdtemp()
+open(os.path.join(_flb, "m.py"), "w").write("print('x')\n")
+json.dump({"run": {"entrypoint": "m.py"}, "env": {"trust": "own-code"}, "artifacts": [], "metrics": []},
+          open(os.path.join(_flb, "verify.yaml"), "w"))
+_save_hb = H._have_bwrap
+H._have_bwrap = lambda: False
+try:
+    _rbf = H.run(os.path.join(_flb, "verify.yaml"), base=_flb, timeout=30, isolation="bwrap")
+finally:
+    H._have_bwrap = _save_hb
+truth(_rbf["exit_code"] == 3 and _rbf["phase"] == "refused",
+      "explicit --isolation bwrap with no verified tier -> refused exit 3 (fail loud, no host fallback)")
+truth(_rbf.get("container_present") is False, "fail-loud bwrap: container_present False")
+truth(_rbf.get("isolation_tier") == "host-not-isolated", "fail-loud bwrap: stamps host-not-isolated")
+_sh.rmtree(_flb, ignore_errors=True)
+
+# (c3) the `produced` guard: bwrap present but the probe never emitted a LEAKS= line (namespaces could
+# not be created - e.g. unprivileged userns disabled -> bwrap aborts) is NOT a verified tier. This is
+# the false-pass catch the macOS Seatbelt doctor never needed.
+_save_hb2, _save_rb = H._have_bwrap, H._run_bwrapped
+H._have_bwrap = lambda: True
+H._run_bwrapped = lambda *a, **k: (1, "", "bwrap: setting up uid map: Permission denied\n", False)
+try:
+    _udoc = H.bwrap_doctor(BTC)
+finally:
+    H._have_bwrap, H._run_bwrapped = _save_hb2, _save_rb
+truth(_udoc["tier"] == "host-not-isolated" and _udoc.get("probe_ran") is False,
+      "bwrap present but userns blocked (no LEAKS=) -> host-not-isolated (no false pass)")
 
 # (d) ANTI-DRIFT: `bwrap-verified` must be accepted as VERIFIED by EVERY consumer of the tier set.
 # A new verified tier lifts Linux off the host-not-isolated CAVEAT cap ONLY if all five layers

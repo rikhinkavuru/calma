@@ -255,7 +255,9 @@ def _sandbox_tier(cwd, state):
     if cached.get("tier") and _fresh(cached):
         return cached["tier"], False
     import run_hermetic as H
-    tier = H.doctor(cwd).get("tier", "host-not-isolated")
+    # native_doctor picks THIS OS's own-code tier (Seatbelt on macOS, bubblewrap on Linux) so the hook
+    # is no longer pinned to host-not-isolated on Linux when a working bwrap tier is present.
+    tier = H.native_doctor(cwd).get("tier", "host-not-isolated")
     rec = {"tier": tier, "ts": time.time()}
     state["sandbox_tier"] = rec
     try:  # persist host-wide so other projects skip the probe
