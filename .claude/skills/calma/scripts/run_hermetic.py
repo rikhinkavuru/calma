@@ -25,8 +25,10 @@ import argparse
 import ast
 import json
 import os
+import platform
 import shutil
 import signal
+import struct
 import subprocess
 import sys
 import tempfile
@@ -312,7 +314,7 @@ def _bwrap_interp_dirs(*paths):
     return res
 
 
-def _bwrap_argv(base, inner_argv, interp_dirs=(), writable=True, deny_calma=True):
+def _bwrap_argv(base, inner_argv, interp_dirs=(), writable=True, deny_calma=True, seccomp_fd=None):
     """Build the full `bwrap` argv (a pure list of strings, like _docker_argv - no None ever leaks in).
     Network is OFF by construction (--unshare-net); the FS is allowlist-by-construction (only the system
     roots + base are visible, so $HOME/.ssh, /root, keychains, and any planted secret are absent). The
@@ -324,9 +326,12 @@ def _bwrap_argv(base, inner_argv, interp_dirs=(), writable=True, deny_calma=True
     base = os.path.realpath(base)
     argv = [shutil.which("bwrap") or "bwrap",
             "--unshare-user", "--unshare-pid", "--unshare-net", "--unshare-ipc", "--unshare-uts",
-            "--die-with-parent", "--new-session",
-            "--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp",
-            "--ro-bind", "/usr", "/usr"]
+            "--die-with-parent", "--new-session"]
+    if seccomp_fd is not None:
+        # defence in depth: a syscall denylist applied to the sandboxed process (see _seccomp_program)
+        argv += ["--seccomp", str(seccomp_fd)]
+    argv += ["--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp",
+             "--ro-bind", "/usr", "/usr"]
     for d in _BWRAP_TRY_ROOTS:
         argv += ["--ro-bind-try", d, d]
     for d in interp_dirs:
@@ -381,10 +386,105 @@ def _bwrap_rlimits():
         _cap(_resource.RLIMIT_AS, _mem * 1024 * 1024)
 
 
+# --- seccomp syscall filter (Fix #3) ---------------------------------------------------------------
+# A cBPF seccomp program returning EPERM for syscalls own code never needs and that are escape/attack
+# primitives: namespace + mount manipulation, kernel-module + kexec + bpf loading, ptrace / process-vm
+# peeking, key management, swap / reboot / accounting. Defence in depth BEHIND the namespace walls (net
+# is already off via --unshare-net, so net syscalls are NOT denied - and the probe imports socket).
+# Per-arch syscall numbers; on an arch with no table we emit nothing and skip seccomp (the walls still
+# hold and the doctor still verifies). The doctor self-test empirically proves the interpreter survives.
+_SECCOMP_DENY = (
+    "mount", "umount2", "pivot_root", "chroot", "setns", "unshare",
+    "init_module", "finit_module", "delete_module", "kexec_load", "kexec_file_load",
+    "bpf", "perf_event_open", "add_key", "keyctl", "request_key",
+    "ptrace", "process_vm_readv", "process_vm_writev",
+    "open_tree", "move_mount", "fsopen", "fsconfig", "fsmount", "mount_setattr",
+    "swapon", "swapoff", "reboot", "acct", "quotactl", "_sysctl", "uselib", "nfsservctl",
+)
+_SECCOMP_NR = {
+    "x86_64": {"mount": 165, "umount2": 166, "pivot_root": 155, "chroot": 161, "setns": 308,
+               "unshare": 272, "init_module": 175, "finit_module": 313, "delete_module": 176,
+               "kexec_load": 246, "kexec_file_load": 320, "bpf": 321, "perf_event_open": 298,
+               "add_key": 248, "keyctl": 250, "request_key": 249, "ptrace": 101,
+               "process_vm_readv": 310, "process_vm_writev": 311, "open_tree": 428, "move_mount": 429,
+               "fsopen": 430, "fsconfig": 431, "fsmount": 432, "mount_setattr": 442, "swapon": 167,
+               "swapoff": 168, "reboot": 169, "acct": 163, "quotactl": 179, "_sysctl": 156,
+               "uselib": 134, "nfsservctl": 180},
+    "aarch64": {"mount": 40, "umount2": 39, "pivot_root": 41, "chroot": 51, "setns": 268, "unshare": 97,
+                "init_module": 105, "finit_module": 273, "delete_module": 106, "kexec_load": 104,
+                "kexec_file_load": 294, "bpf": 280, "perf_event_open": 241, "add_key": 217,
+                "keyctl": 219, "request_key": 218, "ptrace": 117, "process_vm_readv": 270,
+                "process_vm_writev": 271, "open_tree": 428, "move_mount": 429, "fsopen": 430,
+                "fsconfig": 431, "fsmount": 432, "mount_setattr": 442, "swapon": 224, "swapoff": 225,
+                "reboot": 142, "acct": 89, "quotactl": 60},
+}
+_SECCOMP_AUDIT_ARCH = {"x86_64": 0xC000003E, "aarch64": 0xC00000B7}
+
+
+def _seccomp_arch():
+    return {"arm64": "aarch64", "amd64": "x86_64"}.get(platform.machine(), platform.machine())
+
+
+def _seccomp_program():
+    """Return the cBPF program bytes (an array of struct sock_filter {u16 code;u8 jt;u8 jf;u32 k}, the
+    format bwrap's --seccomp reads) for THIS arch - EPERM for the denied syscalls, ALLOW for the rest,
+    KILL on an arch mismatch (guards against a 32/64-bit syscall-number confusion). b'' for an arch we
+    have no table for (seccomp then skipped)."""
+    arch = _seccomp_arch()
+    nrs = _SECCOMP_NR.get(arch)
+    audit = _SECCOMP_AUDIT_ARCH.get(arch)
+    if not nrs or audit is None:
+        return b""
+    denied = sorted({nrs[n] for n in _SECCOMP_DENY if n in nrs})
+    LD_W_ABS, JEQ_K, RET_K = 0x20, 0x15, 0x06         # BPF_LD|W|ABS, BPF_JMP|JEQ|K, BPF_RET|K
+    ALLOW, ERRNO_EPERM, KILL = 0x7FFF0000, (0x00050000 | 1), 0x80000000
+    prog = [(LD_W_ABS, 0, 0, 4),                       # A = arch (seccomp_data offset 4)
+            (JEQ_K, 1, 0, audit),                      # arch == ours -> skip the kill
+            (RET_K, 0, 0, KILL),                       # arch mismatch -> kill the process
+            (LD_W_ABS, 0, 0, 0)]                       # A = syscall nr (offset 0)
+    n = len(denied)
+    for i, nr in enumerate(denied):
+        prog.append((JEQ_K, n - i, 0, nr))             # nr matches -> jump to the ERRNO return
+    prog.append((RET_K, 0, 0, ALLOW))                  # default: allow
+    prog.append((RET_K, 0, 0, ERRNO_EPERM))            # the EPERM target
+    return b"".join(struct.pack("<HBBI", *ins) for ins in prog)
+
+
+def _seccomp_fd():
+    """Write the program to a temp file and return (fd, path) for bwrap's --seccomp, or (None, None)
+    when there is no program for this arch / on any error (seccomp is then skipped, walls still hold)."""
+    prog = _seccomp_program()
+    if not prog:
+        return None, None
+    try:
+        fd, path = tempfile.mkstemp(suffix=".bpf")
+    except OSError:
+        return None, None
+    try:
+        os.write(fd, prog)
+        os.lseek(fd, 0, os.SEEK_SET)
+        os.set_inheritable(fd, True)
+        return fd, path
+    except OSError:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+        return None, None
+
+
 def _bwrap_hardening():
     """The defense-in-depth layers the bwrap tier applies on THIS host (machine-readable, for the report
-    / agents): net-off (--unshare-net) + filesystem allowlist + pure-stdlib rlimit caps."""
-    return ["net-off", "fs-allowlist", "rlimits"]
+    / agents): net-off (--unshare-net) + filesystem allowlist + pure-stdlib rlimit caps, plus a seccomp
+    syscall denylist when a filter was built for this architecture. Claims only what actually holds."""
+    layers = ["net-off", "fs-allowlist", "rlimits"]
+    if _seccomp_program():
+        layers.append("seccomp")
+    return layers
 
 
 def _run_bwrapped(argv, cwd, timeout=120, env=None, pass_fds=()):
@@ -413,10 +513,24 @@ def _run_bwrapped(argv, cwd, timeout=120, env=None, pass_fds=()):
 
 def _run_bwrap(base, inner_argv, cwd, timeout=120, env=None, interp_dirs=(), writable=True):
     """Launch inner_argv under bubblewrap with the SAME hardening the doctor verifies: the allowlist
-    binds (_bwrap_argv) + pure-stdlib resource caps (preexec setrlimit). Single source of truth, so the
-    self-test exercises exactly what the real run does. (Fix #3 builds + passes the seccomp fd here.)"""
-    argv = _bwrap_argv(base, inner_argv, interp_dirs=interp_dirs, writable=writable)
-    return _run_bwrapped(argv, cwd, timeout, env)
+    binds (_bwrap_argv) + a seccomp syscall denylist + pure-stdlib resource caps (preexec setrlimit).
+    Single source of truth, so the self-test exercises exactly what the real run does."""
+    sec_fd, sec_path = _seccomp_fd()
+    try:
+        argv = _bwrap_argv(base, inner_argv, interp_dirs=interp_dirs, writable=writable, seccomp_fd=sec_fd)
+        pass_fds = (sec_fd,) if sec_fd is not None else ()
+        return _run_bwrapped(argv, cwd, timeout, env, pass_fds=pass_fds)
+    finally:
+        if sec_fd is not None:
+            try:
+                os.close(sec_fd)
+            except OSError:
+                pass
+        if sec_path:
+            try:
+                os.unlink(sec_path)
+            except OSError:
+                pass
 
 
 def _bwrap_userns_hint(err):

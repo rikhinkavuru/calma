@@ -341,6 +341,8 @@ if H._have_bwrap():
         truth(_bdoc.get("probe_ran") is True, "bwrap verified -> the probe actually ran (not a false pass)")
         truth("fix" not in _bdoc, "a verified tier carries NO fix-line (nothing to fix)")
         truth("rlimits" in (_bdoc.get("hardening") or []), "verified tier reports its hardening layers")
+        truth("seccomp" in (_bdoc.get("hardening") or []) or H._seccomp_arch() not in ("x86_64", "aarch64"),
+              "verified tier on x86_64/aarch64 reports the seccomp layer")
     else:
         truth(bool(_bdoc.get("fix")), "host-not-isolated (bwrap present) -> doctor emits an actionable fix-line")
 else:
@@ -398,8 +400,8 @@ truth(H._env_int("CALMA_TMP_INT", 7) == 7, "_env_int: negative -> default")
 os.environ["CALMA_TMP_INT"] = "55"
 truth(H._env_int("CALMA_TMP_INT", 7) == 55, "_env_int: valid int parsed")
 del os.environ["CALMA_TMP_INT"]
-truth(H._bwrap_hardening() == ["net-off", "fs-allowlist", "rlimits"],
-      "_bwrap_hardening lists the applied defense-in-depth layers")
+truth(H._bwrap_hardening()[:3] == ["net-off", "fs-allowlist", "rlimits"],
+      "_bwrap_hardening lists the applied defense-in-depth layers (seccomp appended on supported arch)")
 # verify _bwrap_rlimits actually caps limits, in a CHILD process (never mutate this test process)
 _rl = subprocess.run([sys.executable, "-c",
     ("import sys; sys.path.insert(0, %r)\n" % SCR) +
@@ -411,6 +413,18 @@ _rl = subprocess.run([sys.executable, "-c",
 truth("CORE 0" in _rl.stdout, "_bwrap_rlimits caps RLIMIT_CORE to 0 (checked in a child)")
 truth(("FSIZE " in _rl.stdout) and ("FSIZE -1" not in _rl.stdout),
       "_bwrap_rlimits sets a finite RLIMIT_FSIZE cap")
+
+# (c5) Fix #3: seccomp syscall denylist (BPF) - structural (runs everywhere)
+_sp = H._seccomp_program()
+truth(isinstance(_sp, (bytes, bytearray)), "_seccomp_program returns bytes")
+if H._seccomp_arch() in ("x86_64", "aarch64"):
+    truth(len(_sp) > 0 and len(_sp) % 8 == 0,
+          "seccomp program is non-empty and 8-byte (struct sock_filter) aligned")
+    truth("seccomp" in H._bwrap_hardening(), "hardening lists seccomp on a supported arch")
+truth("--seccomp 7" in " ".join(H._bwrap_argv("/X", ["python", "-c", "x"], seccomp_fd=7)),
+      "bwrap argv passes --seccomp <fd> when provided")
+truth("--seccomp" not in " ".join(H._bwrap_argv("/X", ["python", "-c", "x"])),
+      "bwrap argv omits --seccomp when no fd")
 
 # (d) ANTI-DRIFT: `bwrap-verified` must be accepted as VERIFIED by EVERY consumer of the tier set.
 # A new verified tier lifts Linux off the host-not-isolated CAVEAT cap ONLY if all five layers
@@ -521,6 +535,27 @@ if _bw_live:
     truth(_rs.get("exit_code") == 4 and _rs.get("killed") is True,
           "bwrap: a runaway entrypoint is reaped by the timeout+pidns backstop (exit 4 killed)")
     _sh.rmtree(_rb, ignore_errors=True)
+
+    # (h) Fix #3: the seccomp denylist makes a denied syscall return EPERM while normal code still runs
+    # (the interpreter survives the filter). unshare() is on the denylist; ctypes calls it directly.
+    _scd = tempfile.mkdtemp()
+    open(os.path.join(_scd, "sc.py"), "w").write(
+        "import ctypes, errno\n"
+        "libc = ctypes.CDLL(None, use_errno=True)\n"
+        "ctypes.set_errno(0)\n"
+        "r = libc.unshare(0x00020000)\n"   # CLONE_NEWNS - the unshare syscall is on the seccomp denylist
+        "e = ctypes.get_errno()\n"
+        "print('UNSHARE_EPERM' if (r != 0 and e == errno.EPERM) else 'UNSHARE_ALLOWED:%d/%d' % (r, e))\n"
+        "print('NORMAL_OK')\n")
+    json.dump({"run": {"entrypoint": "sc.py"}, "env": {"trust": "own-code"}, "artifacts": [], "metrics": []},
+              open(os.path.join(_scd, "verify.yaml"), "w"))
+    _rsc = H.run(os.path.join(_scd, "verify.yaml"), base=_scd, timeout=30, isolation="bwrap")
+    _osc = _rsc.get("stdout_tail", "")
+    truth("UNSHARE_EPERM" in _osc and "UNSHARE_ALLOWED" not in _osc,
+          "bwrap seccomp: a denied syscall (unshare) returns EPERM")
+    truth("NORMAL_OK" in _osc and _rsc.get("exit_code") == 0,
+          "bwrap seccomp: normal code still runs under the filter (interpreter survives)")
+    _sh.rmtree(_scd, ignore_errors=True)
 
 print("run_hermetic: %d checks, %d failures" % (_n, _fail))
 sys.exit(1 if _fail else 0)
