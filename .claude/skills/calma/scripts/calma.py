@@ -419,6 +419,13 @@ def _assemble_ledger(contract, diff, run_res, claim_text=None):
             findings.extend(CNC.run_checks(contract, _base, claims[0]["id"], claim_text=claim_text))
             CNC.apply_validity(claims, findings, contract, claim_text)
             cont_fam = CNC.family_status(contract, findings)
+    # reconcile a claim's human reason with its FINAL verdict_inputs after any family promotion
+    # (leakage/realism/overfitting/contamination): the promotion changes the verdict but not the
+    # compare-time reason, which would otherwise read a stale "matches within budget" under a
+    # REFUTED/INVALIDATED. Reason TEXT only - the gate re-derives the LABEL from verdict_inputs.
+    for _c in claims:
+        if _c.get("driving_dimension") and _c.get("verdict_inputs"):
+            _c["reason"] = V.verdict_with_reason(_c["verdict_inputs"])[1]
     # every broken stamp must be reproducible. A family-promoted REFUTED/INVALIDATED (leakage / realism /
     # overfitting / contamination) carries the family's artifact-recheck reproduction but no runnable
     # command - attach the same offline `replay` command the core REFUTED path uses, so a counterparty
