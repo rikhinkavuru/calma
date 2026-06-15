@@ -2,7 +2,31 @@
 
 All notable changes to the calma skill/CLI. Dates are UTC.
 
-## Unreleased — native-Linux own-code isolation tier (bubblewrap)
+## 0.10.0 — pilot-readiness: autonomy modes, agent-arm benchmark, hardening
+
+Pilot-hardening cut after an end-to-end audit (every CLI surface, the validity teardowns, the offline
+attest/handover chain + tamper-resistance, the Stop hook, publish/registry, all five languages, real
+repos). Full suite green (31 suites, 0 failed).
+
+- **Autonomy modes.** `--mode ask|suggest|auto` (also `CALMA_MODE` / `.calma/config.json {"mode"}`), in
+  `scripts/autonomy.py`. The mode governs follow-on ACTIONS only (seal/RFC-3161-timestamp on a catch;
+  retry a missing dep under `--restore`), never the verdict; the verdict is identical across all three
+  modes. Outward actions (publish/send) need an explicit opt-in even in `auto`, and every decision is
+  logged to `.calma/auto_history.jsonl`. New `tests/test_autonomy.py`.
+- **`attest verify <dir>`** resolves the bundle inside a run/project dir, not only the bundle file path.
+- **Missing-dependency** run failures now name the fix (`--restore`) instead of a generic message.
+- **Verdict reason reconciliation.** After a leakage/realism/overfitting/contamination promotion the
+  claim's human reason is recomputed from the final `verdict_inputs`, so a REFUTED/INVALIDATED no longer
+  shows a stale "matches within budget" in `--json`, the report, or the Stop hook. Label re-derivation
+  (and thus attestation/tamper-resistance) is unchanged.
+- **Benchmark: code-running-agent arm** (`benchmark/run_agent.py`): the honest comparison to the
+  no-exec judge; measures verdict-instability across reruns, cost, latency, and validity-blind cases.
+  `score.py` includes it when `results/agent.json` is present.
+- **Recipe count corrected to 623** in the README/SKILL (the registry, `calma recipes`, and the tests
+  all agree on 623).
+- **Repo hygiene.** Internal/dev docs are no longer shipped to skill/CLI users (kept local).
+
+### Native-Linux own-code isolation tier (bubblewrap)
 
 A no-daemon **bubblewrap** own-code tier beside the macOS Seatbelt tier, gated by the SAME `doctor`
 probe battery — so Linux stops being capped at `host-not-isolated` / CONFIRMED-WITH-CAVEATS. Distinct

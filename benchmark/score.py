@@ -44,11 +44,16 @@ def main():
     manifest = {m["id"]: m for m in json.load(open(os.path.join(HERE, "manifest.json")))}
     calma = {r["id"]: r["prediction"] for r in json.load(open(os.path.join(HERE, "results", "calma.json")))}
     judge = _load_judge()
+    _agent_path = os.path.join(HERE, "results", "agent.json")
+    agent_rows = json.load(open(_agent_path)) if os.path.exists(_agent_path) else []
+    agent = {r["id"]: r["prediction"] for r in agent_rows}
     methods = {
         "trust-the-number": lambda mid: "honest",
         "LLM-as-judge (no exec)": lambda mid: judge.get(mid, "abstain"),
         "Calma": lambda mid: calma.get(mid, "abstain"),
     }
+    if agent:  # code-running-agent arm (benchmark/run_agent.py); only present once that's been run
+        methods["agent-with-exec"] = lambda mid: agent.get(mid, "abstain")
 
     def rows_for(fn, where=None):
         out = []
@@ -118,6 +123,19 @@ def main():
             fams[fam][name] = {"catch_rate": c["catch_rate"], "wrong": c["wrong"],
                                "flawed": c["flawed"], "honest": c["honest"]}
 
+    if agent_rows:
+        inst = sum(1 for r in agent_rows if r.get("unstable")) / len(agent_rows)
+        usd = sum(r.get("usd", 0) for r in agent_rows)
+        ams = sorted(r["ms"] for r in agent_rows)
+        vfam = {"leakage", "overfitting", "execution-realism", "contamination"}
+        vrows = [r for r in agent_rows if r.get("family") in vfam and r.get("label") == "flawed"]
+        line = ("\nagent-with-exec extras: verdict-instability %.0f%% (Calma 0%%) | cost $%.2f | p50 %dms"
+                % (inst * 100, usd, ams[len(ams) // 2]))
+        if vrows:
+            line += " | validity-family catch %d/%d" % (
+                sum(1 for r in vrows if r.get("prediction") == "flawed"), len(vrows))
+        print(line)
+        summary["agent-with-exec_extras"] = {"instability": inst, "usd": usd, "p50_ms": ams[len(ams) // 2]}
     lat = sorted(r["ms"] for r in json.load(open(os.path.join(HERE, "results", "calma.json"))))
     site = {"n_cases": len(manifest), "n_honest": n_h, "n_flawed": n_f,
             "overall": summary, "tiers": tiers, "tracks": {

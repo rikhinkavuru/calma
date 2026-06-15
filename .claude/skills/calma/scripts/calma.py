@@ -19,6 +19,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import attest
+import autonomy as AUT
 import backtest_checks as BC
 import leakage_checks as LC
 import overfitting_checks as OC
@@ -358,14 +359,21 @@ def _assemble_ledger(contract, diff, run_res, claim_text=None):
     # a failed re-execution is itself a blocking finding (the verdict guard already forced INCONCLUSIVE)
     rc = run_res.get("exit_code", 0)
     if rc not in (0, 3, 4):
+        stderr_tail = run_res.get("stderr_tail") or ""
+        missing_dep = any(s in stderr_tail for s in
+                          ("ModuleNotFoundError", "No module named", "ImportError"))
+        unblock = "make the entrypoint run to completion (exit 0), then re-run calma verify"
+        if missing_dep:
+            unblock = ("a dependency is missing in the network-off sandbox - re-run with --restore to "
+                       "install the repo's pinned deps (requirements.txt) into .calma_venv (network is "
+                       "used only in that phase); else make the entrypoint run to completion, then re-verify")
         findings.append({
             "id": "f-run-fail", "claim_id": claims[0]["id"] if claims else None,
             "dimension": "reproducibility", "severity": "blocker", "status": "open",
             "confidence": "deterministic", "fixable_by": "author",
             "locator": "the entrypoint exited non-zero - the result was NOT reproduced"
-                       + ((" | stderr: " + run_res["stderr_tail"].strip()[-200:])
-                          if run_res.get("stderr_tail") else ""),
-            "unblock": "make the entrypoint run to completion (exit 0), then re-run calma verify",
+                       + ((" | stderr: " + stderr_tail.strip()[-200:]) if stderr_tail else ""),
+            "unblock": unblock,
             "reverify": {"kind": "requires-reexecution", "source": "run",
                          "expected": "entrypoint exits 0"},
         })
@@ -412,6 +420,13 @@ def _assemble_ledger(contract, diff, run_res, claim_text=None):
             findings.extend(CNC.run_checks(contract, _base, claims[0]["id"], claim_text=claim_text))
             CNC.apply_validity(claims, findings, contract, claim_text)
             cont_fam = CNC.family_status(contract, findings)
+    # reconcile a claim's human reason with its FINAL verdict_inputs after any family promotion
+    # (leakage/realism/overfitting/contamination): the promotion changes the verdict but not the
+    # compare-time reason, which would otherwise read a stale "matches within budget" under a
+    # REFUTED/INVALIDATED. Reason TEXT only - the gate re-derives the LABEL from verdict_inputs.
+    for _c in claims:
+        if _c.get("driving_dimension") and _c.get("verdict_inputs"):
+            _c["reason"] = V.verdict_with_reason(_c["verdict_inputs"])[1]
     # every broken stamp must be reproducible. A family-promoted REFUTED/INVALIDATED (leakage / realism /
     # overfitting / contamination) carries the family's artifact-recheck reproduction but no runnable
     # command - attach the same offline `replay` command the core REFUTED path uses, so a counterparty
@@ -1279,6 +1294,45 @@ def _render_batch(rows, color=False):
     return "\n".join(out)
 
 
+def _autonomy_followup(res, mode, base, quiet=False):
+    """The post-verdict ACTION for the active mode on a catch verdict. The verdict is already final
+    and deterministic; this only governs what Calma DOES next. auto -> add an RFC 3161 timestamp to
+    the already-signed bundle; suggest -> print the `seal` command; ask -> nothing. Fail-open."""
+    run_dir = res.get("run_dir")
+    if not run_dir or res.get("repo_verdict") not in V.CATCH_VERDICTS:
+        return
+    decision = AUT.gate(mode, "seal", outward=False, base=base)
+    if decision == "skip":
+        return
+    disp = _redact_home(run_dir)
+    if decision == "suggest":
+        if not quiet:
+            print("  suggest (mode=suggest): %s seal %s   # sign + timestamp + a counterparty proof"
+                  % (_invocation(), disp))
+        AUT.log(base, mode, "seal", "suggest")
+        return
+    # execute (auto): verify already signed the bundle when a key exists; add the trusted timestamp.
+    bpath = os.path.join(run_dir, attest.BUNDLE_NAME)
+    if not os.path.exists(bpath):
+        if not quiet:
+            print("  auto: no signing key yet - run `%s attest keygen` once to enable signed proofs"
+                  % _invocation())
+        AUT.log(base, mode, "seal", "skip", "no-key")
+        return
+    try:
+        import rfc3161
+        bundle = json.load(open(bpath))
+        rfc3161.timestamp_bundle(bundle, rfc3161.DEFAULT_TSA)
+        json.dump(bundle, open(bpath, "w"), indent=2)
+        if not quiet:
+            print("  auto: signed + RFC 3161 timestamped the verdict -> %s" % disp)
+        AUT.log(base, mode, "seal", "execute", "timestamped")
+    except (OSError, ValueError) as e:  # offline / TSA down: fail-open, the signed bundle still stands
+        if not quiet:
+            print("  auto: signed the verdict (timestamp skipped, %s) -> %s" % (type(e).__name__, disp))
+        AUT.log(base, mode, "seal", "execute", "timestamp-failed")
+
+
 def main():
     if sys.version_info < (3, 9):
         print("error: calma requires Python 3.9 or newer (this is Python %d.%d) - "
@@ -1322,6 +1376,11 @@ def main():
                         "run (uses the network in this phase only; the run itself stays network-denied)")
     v.add_argument("--check-determinism", action="store_true",
                    help="re-execute TWICE and require identical artifacts (catches FLAKY results)")
+    v.add_argument("--mode", choices=["ask", "suggest", "auto"], default=None,
+                   help="autonomy: ask (default; verdict + report only), suggest (also print the next "
+                        "command), or auto (also run safe follow-ons: seal/timestamp on a catch, and "
+                        "retry a missing dependency under --restore). Verdicts are ALWAYS deterministic; "
+                        "the mode governs only follow-on ACTIONS. Also CALMA_MODE / .calma/config.json")
     v.add_argument("--json", action="store_true", dest="as_json",
                    help="print a machine-readable verdict object instead of the report")
     b = sub.add_parser("batch", help="verify MANY targets at once + a summary table (CI/sprint use)")
@@ -1395,7 +1454,7 @@ def main():
     sx.add_argument("bundle", help="path to attestation.bundle.json")
     sx.add_argument("--out", help="output path (default: <bundle dir>/attestation.sigstore.json)")
     av = atsub.add_parser("verify", help="verify a bundle offline: signature + verdict re-derivation")
-    av.add_argument("bundle", help="path to attestation.bundle.json")
+    av.add_argument("bundle", help="path to attestation.bundle.json (or the run/project dir containing it)")
     av.add_argument("--key", help="pin the signer: hex public key, or a path to the .pub file")
     av.add_argument("--replay", action="store_true",
                     help="also re-execute the run next to the bundle and check the verdict reproduces")
@@ -1443,6 +1502,17 @@ def main():
             res = verify(a.target, a.claim_text or a.claim, a.metric, a.run_id,
                          force=a.force, check_determinism=a.check_determinism,
                          trust=a.trust, timeout=a.timeout, isolation=a.isolation, restore=a.restore)
+            _base = os.path.realpath(a.target)
+            mode = AUT.resolve_mode(a.mode, _base)
+            # autonomy (auto): transparently retry a missing-dependency failure under --restore
+            if mode == "auto" and not a.restore \
+                    and "re-run with --restore" in (res.get("report") or res.get("display") or ""):
+                AUT.log(_base, mode, "restore-retry", "execute")
+                if not a.as_json:
+                    print("  auto: a dependency was missing - retrying once with --restore ...")
+                res = verify(a.target, a.claim_text or a.claim, a.metric, a.run_id,
+                             force=True, check_determinism=a.check_determinism,
+                             trust=a.trust, timeout=a.timeout, isolation=a.isolation, restore=True)
             if a.fail_on == "refuted":
                 exit_code = 1 if res["repo_verdict"] in V.CATCH_VERDICTS else 0
             else:
@@ -1479,6 +1549,7 @@ def main():
                         label += ", with caveat findings"
                     tail = " - see --fail-on for the exit policy"
                 print("\n[exit %d (%s)%s]" % (exit_code, label, tail))
+            _autonomy_followup(res, mode, _base, quiet=a.as_json)
             return exit_code
         if a.cmd == "batch":
             if not a.targets and not a.manifest:
@@ -1628,8 +1699,21 @@ def main():
                       % (info["out"], info.get("identity"), info.get("log_index")))
                 return 0
             if a.attest_cmd == "verify":
+                bpath = a.bundle
+                if os.path.isdir(bpath):
+                    # convenience: accept a run dir (or a project dir) and find the bundle inside,
+                    # so a counterparty can `calma attest verify <folder>` like every other command.
+                    cands = [os.path.join(bpath, attest.BUNDLE_NAME),
+                             os.path.join(bpath, ".calma", "run", attest.BUNDLE_NAME)]
+                    found = next((c for c in cands if os.path.isfile(c)), None)
+                    if found is None:
+                        d = bpath.rstrip(os.sep)
+                        print("error: no %s found in %s (looked in %s/ and %s/.calma/run/)"
+                              % (attest.BUNDLE_NAME, bpath, d, d), file=sys.stderr)
+                        return 2
+                    bpath = found
                 try:
-                    bundle = json.load(open(a.bundle))
+                    bundle = json.load(open(bpath))
                 except (OSError, ValueError) as e:
                     print("error: cannot read bundle: %s" % e, file=sys.stderr)
                     return 2
@@ -1639,7 +1723,7 @@ def main():
                 ok, checks = attest.verify_bundle(bundle, pinned_pub_hex=pinned)
                 print(attest.render_verify(bundle, ok, checks))
                 if ok and a.replay:
-                    rok, text = replay(os.path.dirname(os.path.realpath(a.bundle)))
+                    rok, text = replay(os.path.dirname(os.path.realpath(bpath)))
                     print("\n" + text)
                     ok = ok and rok
                 if not ok:
