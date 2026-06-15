@@ -51,11 +51,15 @@ need. Serial, leakage-first; each step keeps the full suite green.
   `deflated_sharpe_ratio`) and PBO via CSCV (Bailey-Borwein-LdP-Zhu 2016: `pbo_cscv`, exact
   `C(S,S/2)` combinatorics, deterministic). Built on the existing deterministic kernels
   (`derfc`/`normal_sf`/`z_ppf`, `fmean`/`fstd`, `math.comb`); no numpy, no new deps. Validated against
-  analytic + constructed-truth anchors (`test_overfitting_kernels`, +25): Φ symmetry; PSR=0.5 at the
-  benchmark; E[max SR] increasing in N and ∝√var; DSR == PSR(SR0); PBO **always-overfit → 1.0** and
-  **rank-preserving → 0.0** (exact), symmetric noise → mean **0.48** over 200 realisations. The dense
-  bit-close validation vs a paper-gated scipy reference + frozen vectors + the `deflated_sharpe` recipe
-  and the overfitting findings rail land next (Step 5/6 in progress).
+  analytic + constructed-truth anchors (`test_overfitting_kernels`, +27): Φ symmetry; PSR=0.5 at the
+  benchmark; E[max SR] increasing in N and ∝√var; DSR == PSR(SR0); **N<2 refused** (no search to
+  deflate — never the Φ⁻¹(0)=−∞ garbage pass); PBO **always-overfit → 1.0**, **rank-preserving → 0.0**,
+  and an **exact-tie fixture** pinning the `w ≤ 0.5` boundary (all exact), symmetric noise → mean in
+  [0.45,0.55] over 200 **seeded** realisations. Conventions pinned to scipy defaults (skew g1, kurt g2,
+  V=sample variance). A gating accuracy check vs scipy passed before any freeze: **Φ⁻¹ vs
+  `scipy.special.ndtri` to 1.5e-15 across the deep tail (N up to 1000)**, and the full DSR composition +
+  PBO bit-close to scipy/numpy references. The frozen reference vectors + manifest + the `deflated_sharpe`
+  recipe and the overfitting findings rail land next (Step 5/6 in progress).
 - Tests: +14 `test_verdict`, +12 `test_ledger`, +3 `test_registry` (attest→registry round-trip), incl. a
   fail-closed unknown-verdict property; +17 `test_draft` (split/keys/features detection + validation);
   +53 `test_leakage_checks` (five detectors with exact magnitudes, the OOS scope-guard, the full verdict

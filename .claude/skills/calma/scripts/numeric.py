@@ -8583,16 +8583,16 @@ def normal_cdf(x):
 
 
 def expected_max_sharpe(n_trials, var_sr):
-    """E[max SR] across n_trials independent no-skill strategies (Bailey-Lopez de Prado 2014, eq. for the
-    deflated benchmark): sqrt(V) * [(1-gamma)*Phi^-1(1-1/N) + gamma*Phi^-1(1-1/(N*e))], where V=var_sr is
-    the cross-trial variance of the Sharpe estimates and N=n_trials. N=1 has no multiple-testing
-    inflation (returns 0). Per-period (non-annualised) Sharpe units."""
+    """E[max SR] across n_trials independent no-skill strategies (Bailey-Lopez de Prado 2014, Gumbel
+    approximation): sqrt(V) * [(1-gamma)*Phi^-1(1-1/N) + gamma*Phi^-1(1-1/(N*e))], where V=var_sr is the
+    cross-trial SAMPLE variance (ddof=1) of the trial Sharpe estimates and N=n_trials (>=2). Per-period
+    (non-annualised) Sharpe units. N<2 is REFUSED (NaN): a single trial has no search to deflate, and
+    Phi^-1(1-1/1)=Phi^-1(0)=-inf would make SR0=-inf and DSR=1 (a garbage pass) - so N<2 is 'no search
+    signal', which the caller treats as NOT-APPLICABLE, never a DSR."""
     if n_trials is None or var_sr is None:
         return float("nan")
-    if n_trials < 1 or var_sr < 0:
+    if n_trials < 2 or var_sr < 0:
         return float("nan")
-    if n_trials == 1:
-        return 0.0
     a = z_ppf(1.0 - 1.0 / n_trials)
     b = z_ppf(1.0 - 1.0 / (n_trials * math.e))
     return math.sqrt(var_sr) * ((1.0 - _EULER_GAMMA) * a + _EULER_GAMMA * b)
@@ -8616,8 +8616,11 @@ def deflated_sharpe_ratio(sr, n_obs, skew, kurt_excess, n_trials, var_sr):
     """DSR = PSR(SR0), where SR0 = expected_max_sharpe(n_trials, var_sr) is the multiple-testing-deflated
     benchmark (the per-period Sharpe a no-skill strategy is expected to reach as the best of n_trials).
     The probability the strategy's true Sharpe beats that inflated benchmark; p = 1 - DSR is the chance
-    the edge is an artefact of selection. `sr`/`n_obs`/`skew`/`kurt_excess` describe the realised track;
-    `n_trials`/`var_sr` describe the search that produced it. All Sharpes are per-period."""
+    the edge is an artefact of selection. `sr`/`n_obs`/`skew`/`kurt_excess` describe the realised track
+    (skew = scipy.stats.skew g1, kurt_excess = scipy.stats.kurtosis g2 - both biased, scipy defaults);
+    `n_trials`/`var_sr` describe the search (var_sr = sample (ddof=1) variance of the trial Sharpes). All
+    Sharpes are per-period; this returns the RAW probability (the decision rule 1-DSR>0.05 lives in the
+    caller, never inverted here)."""
     sr0 = expected_max_sharpe(n_trials, var_sr)
     return probabilistic_sharpe_ratio_vs(sr, sr0, n_obs, skew, kurt_excess)
 

@@ -34,7 +34,10 @@ truth(all(abs((N.normal_cdf(x) + N.normal_cdf(-x)) - 1.0) < 1e-12 for x in (0.3,
       "Phi(x) + Phi(-x) == 1 (symmetry)")
 
 # ---- expected_max_sharpe ----
-truth(N.expected_max_sharpe(1, 0.5) == 0.0, "a single trial has no multiple-testing inflation (SR0=0)")
+# N<2 is REFUSED (NaN), not 0 / -inf: no search to deflate -> the caller treats it as NOT-APPLICABLE.
+truth(isnan(N.expected_max_sharpe(1, 0.5)), "N=1 is refused (no multiple-testing search -> NaN, never SR0=0/-inf)")
+truth(isnan(N.deflated_sharpe_ratio(0.2, 500, 0.0, 0.0, 1, 0.02)),
+      "DSR with N=1 -> NaN (refused), never a garbage 1.0 from Phi^-1(0)=-inf")
 _ems = [N.expected_max_sharpe(n, 1.0) for n in (2, 10, 100, 1000)]
 truth(all(b > a for a, b in zip(_ems, _ems[1:])) and _ems[0] > 0, "E[max SR] strictly increases with N")
 truth(isnan(N.expected_max_sharpe(10, -1.0)) and isnan(N.expected_max_sharpe(0, 1.0)),
@@ -78,6 +81,15 @@ truth(N.pbo_cscv(_b0 + _b1, 2) == 1.0, "always-overfit matrix -> PBO == 1.0 (exa
 # rank-preserving: every column uniformly shifted by 10*j -> IS-best == OOS-best on every split
 _rp = [[((i % 5) - 2) + 10 * j for j in range(3)] for i in range(24)]
 truth(N.pbo_cscv(_rp, 4) == 0.0, "rank-preserving matrix -> PBO == 0.0 (exact)")
+# exact-tie: pin the <= boundary (w == 0.5 counts as BELOW). N=5 (N-1=4) so a clean w=2/4=0.5 exists.
+# S=2: combo {block0 IS}: IS-best=col0; OOS=block1 means [2.5,1,2,3,4] -> col0 beats 2, loses 2 -> w=0.5.
+# combo {block1 IS}: IS-best=col4; OOS=block0 means [10,1,2,3,4] -> col4 beats 3, loses 1 -> w=0.75.
+# So exactly ONE of the two combos is below -> PBO == 0.5. (Were the rule '<0.5', the w=0.5 combo would
+# not count and PBO would be 0.0 -> this fixture distinguishes the boundary.)
+_noise = [0.001 * ((i % 3) - 1) for i in range(10)]
+_blk0 = [[10 + _noise[i], 1 + _noise[i], 2 + _noise[i], 3 + _noise[i], 4 + _noise[i]] for i in range(10)]
+_blk1 = [[2.5 + _noise[i], 1 + _noise[i], 2 + _noise[i], 3 + _noise[i], 4 + _noise[i]] for i in range(10)]
+truth(N.pbo_cscv(_blk0 + _blk1, 2) == 0.5, "exact-tie fixture (w==0.5 counts as below) -> PBO == 0.5")
 # symmetric noise: a single realisation scatters, but the MEAN over many realisations -> ~0.5
 def _lcg(seed, m):
     s = seed & ((1 << 64) - 1)
@@ -88,14 +100,19 @@ def _lcg(seed, m):
     return out
 
 
+# PINNED seed (recorded in the reference manifest): the CSCV enumeration is deterministic, only the
+# matrix draw is random, so the seed is load-bearing. Assert the mean lands in a BAND around 0.5.
+_PBO_NOISE_SEED = 7919
 _T, _S, _Nc = 100, 8, 6
 _vals = []
 for _seed in range(1, 201):
-    _flat = _lcg(_seed * 7919, _T * _Nc)
+    _flat = _lcg(_seed * _PBO_NOISE_SEED, _T * _Nc)
     _M = [[_flat[i * _Nc + j] for j in range(_Nc)] for i in range(_T)]
     _vals.append(N.pbo_cscv(_M, _S))
 _mean = sum(_vals) / len(_vals)
-truth(abs(_mean - 0.5) < 0.05, "symmetric noise -> mean PBO ~ 0.5 over 200 realisations (got %.4f)" % _mean)
+truth(0.45 <= _mean <= 0.55,
+      "symmetric noise -> mean PBO in [0.45,0.55] over 200 seeded realisations (seed=%d, got %.4f)"
+      % (_PBO_NOISE_SEED, _mean))
 truth(all(0.0 <= v <= 1.0 for v in _vals), "every PBO is a probability in [0,1]")
 # degenerate guards
 truth(isnan(N.pbo_cscv(_rp, 3)), "odd n_splits -> NaN")
