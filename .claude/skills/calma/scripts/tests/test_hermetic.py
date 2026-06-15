@@ -340,6 +340,7 @@ if H._have_bwrap():
               "bwrap verified -> planted-secret read AND egress both blocked")
         truth(_bdoc.get("probe_ran") is True, "bwrap verified -> the probe actually ran (not a false pass)")
         truth("fix" not in _bdoc, "a verified tier carries NO fix-line (nothing to fix)")
+        truth("rlimits" in (_bdoc.get("hardening") or []), "verified tier reports its hardening layers")
     else:
         truth(bool(_bdoc.get("fix")), "host-not-isolated (bwrap present) -> doctor emits an actionable fix-line")
 else:
@@ -387,6 +388,29 @@ truth("user namespaces" in (_udoc.get("note") or ""),
       "userns-blocked -> note explains the cause (not the verified-guarantees text)")
 truth("sysctl" in (_udoc.get("fix") or ""),
       "userns-blocked -> fix-line gives the exact sysctl to enable it")
+
+# (c4) Fix #2: pure-stdlib resource bounds (rlimits) - structural (runs everywhere)
+truth(H._env_int("CALMA_NOPE_XYZ", 7) == 7, "_env_int: missing -> default")
+os.environ["CALMA_TMP_INT"] = "garbage"
+truth(H._env_int("CALMA_TMP_INT", 7) == 7, "_env_int: garbage -> default")
+os.environ["CALMA_TMP_INT"] = "-3"
+truth(H._env_int("CALMA_TMP_INT", 7) == 7, "_env_int: negative -> default")
+os.environ["CALMA_TMP_INT"] = "55"
+truth(H._env_int("CALMA_TMP_INT", 7) == 55, "_env_int: valid int parsed")
+del os.environ["CALMA_TMP_INT"]
+truth(H._bwrap_hardening() == ["net-off", "fs-allowlist", "rlimits"],
+      "_bwrap_hardening lists the applied defense-in-depth layers")
+# verify _bwrap_rlimits actually caps limits, in a CHILD process (never mutate this test process)
+_rl = subprocess.run([sys.executable, "-c",
+    ("import sys; sys.path.insert(0, %r)\n" % SCR) +
+    "import run_hermetic as H, resource\n"
+    "H._bwrap_rlimits()\n"
+    "print('CORE', resource.getrlimit(resource.RLIMIT_CORE)[0])\n"
+    "print('FSIZE', resource.getrlimit(resource.RLIMIT_FSIZE)[0])\n"],
+    capture_output=True, text=True)
+truth("CORE 0" in _rl.stdout, "_bwrap_rlimits caps RLIMIT_CORE to 0 (checked in a child)")
+truth(("FSIZE " in _rl.stdout) and ("FSIZE -1" not in _rl.stdout),
+      "_bwrap_rlimits sets a finite RLIMIT_FSIZE cap")
 
 # (d) ANTI-DRIFT: `bwrap-verified` must be accepted as VERIFIED by EVERY consumer of the tier set.
 # A new verified tier lifts Linux off the host-not-isolated CAVEAT cap ONLY if all five layers
@@ -470,6 +494,33 @@ if _bw_live:
           "bwrap marquee: pre-existing .calma bytes untouched")
     truth("WROTE_BASE" in _obh, "bwrap marquee: the base itself stays writable (outputs land for recompute)")
     _sh.rmtree(_bh, ignore_errors=True)
+
+    # (g) Fix #2 resource bounds, enforced under bwrap: an opt-in memory cap actually OOM-bounds the run,
+    # and a runaway (infinite) entrypoint is reaped by the timeout+pidns backstop. (Fork-bombs are not
+    # hard pids-capped here - userns exempts RLIMIT_NPROC - so the timeout is the honest containment.)
+    _rb = tempfile.mkdtemp()
+    open(os.path.join(_rb, "mem.py"), "w").write("a = bytearray(800 * 1024 * 1024)\nprint('ALLOC_OK')\n")
+    json.dump({"run": {"entrypoint": "mem.py"}, "env": {"trust": "own-code"}, "artifacts": [], "metrics": []},
+              open(os.path.join(_rb, "verify.yaml"), "w"))
+    _sm = os.environ.get("CALMA_BWRAP_MEM_MB")
+    os.environ["CALMA_BWRAP_MEM_MB"] = "256"
+    try:
+        _rm = H.run(os.path.join(_rb, "verify.yaml"), base=_rb, timeout=60, isolation="bwrap")
+    finally:
+        if _sm is None:
+            os.environ.pop("CALMA_BWRAP_MEM_MB", None)
+        else:
+            os.environ["CALMA_BWRAP_MEM_MB"] = _sm
+    truth(_rm.get("exit_code") == 1 and "MemoryError" in (_rm.get("stderr_tail") or ""),
+          "bwrap: opt-in memory cap (CALMA_BWRAP_MEM_MB) OOM-bounds the run (MemoryError)")
+    truth("ALLOC_OK" not in (_rm.get("stdout_tail") or ""), "bwrap: the over-cap allocation did not succeed")
+    open(os.path.join(_rb, "spin.py"), "w").write("while True:\n    pass\n")
+    json.dump({"run": {"entrypoint": "spin.py"}, "env": {"trust": "own-code"}, "artifacts": [], "metrics": []},
+              open(os.path.join(_rb, "verify.yaml"), "w"))
+    _rs = H.run(os.path.join(_rb, "verify.yaml"), base=_rb, timeout=4, isolation="bwrap")
+    truth(_rs.get("exit_code") == 4 and _rs.get("killed") is True,
+          "bwrap: a runaway entrypoint is reaped by the timeout+pidns backstop (exit 4 killed)")
+    _sh.rmtree(_rb, ignore_errors=True)
 
 print("run_hermetic: %d checks, %d failures" % (_n, _fail))
 sys.exit(1 if _fail else 0)

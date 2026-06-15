@@ -30,6 +30,10 @@ import signal
 import subprocess
 import sys
 import tempfile
+try:
+    import resource as _resource     # POSIX-only: the bwrap tier's pure-stdlib resource caps
+except ImportError:                  # pragma: no cover - non-POSIX host
+    _resource = None
 
 # AST-detected modules. GPU/ML -> uncontrolled (BLAS/cuda nondeterminism); RNG -> measured-band.
 NONDET_MODULES = {"torch", "tensorflow", "cupy", "jax"}
@@ -336,14 +340,63 @@ def _bwrap_argv(base, inner_argv, interp_dirs=(), writable=True, deny_calma=True
     return argv
 
 
-def _run_bwrapped(argv, cwd, timeout=120, env=None):
-    """Run a bwrap argv in its own process group. Returns (rc, out, err, killed). --die-with-parent +
-    --unshare-pid tear the sandboxed tree down with the parent; the process-group SIGKILL on timeout is
-    belt-and-suspenders (same discipline as _run_sandboxed). A bwrap that cannot even start (missing
-    binary / kernel support) returns rc!=0 with no output -> the doctor's `produced` check fails it."""
+def _env_int(name, default):
+    """A non-negative int env override (CALMA_BWRAP_*); fall back to default on missing/garbage/negative."""
+    try:
+        v = int(os.environ.get(name, ""))
+    except (TypeError, ValueError):
+        return default
+    return v if v >= 0 else default
+
+
+def _bwrap_rlimits():
+    """preexec hook - runs in the forked child before bwrap exec, inherited by the sandboxed process.
+    Pure-stdlib resource caps for the no-daemon tier (bwrap has none of its own): no core dumps, bounded
+    file size, a fork-bomb ceiling (NPROC), and an fd-bomb ceiling (NOFILE). Defaults are generous enough
+    never to false-fail the doctor probe or normal own-code, but cap egregious blow-ups; all env-
+    overridable. A virtual-address memory cap is OPT-IN (CALMA_BWRAP_MEM_MB) because RLIMIT_AS over-counts
+    reserved-but-unused VA (numpy/JIT) and would false-kill - RSS-accurate memory + per-sandbox pids
+    limiting is cgroup v2, the documented next ceiling (like the microVM kernel-isolation ceiling)."""
+    if _resource is None:
+        return
+    def _cap(which, val):
+        try:
+            _soft, hard = _resource.getrlimit(which)
+            ceil = val if hard == _resource.RLIM_INFINITY else min(val, hard)
+            _resource.setrlimit(which, (ceil, hard))
+        except (ValueError, OSError):
+            pass
+    _cap(_resource.RLIMIT_CORE, 0)                                            # no core dumps (disk + info)
+    _cap(_resource.RLIMIT_FSIZE, _env_int("CALMA_BWRAP_FSIZE_MB", 8192) * 1024 * 1024)
+    _cap(_resource.RLIMIT_NOFILE, _env_int("CALMA_BWRAP_NOFILE", 16384))      # per-process fd-bomb ceiling
+    if hasattr(_resource, "RLIMIT_NPROC"):
+        # best-effort only: bwrap's --unshare-user maps the child to uid-0-in-userns, which the kernel
+        # EXEMPTS from RLIMIT_NPROC - so this does NOT hard-bound a fork-bomb here. The real per-sandbox
+        # pids cap is cgroup v2 pids.max (needs delegation, often absent); the bwrap PID namespace +
+        # wall-clock timeout (process-group SIGKILL, --die-with-parent) reap a runaway tree as the proven
+        # backstop. We still set it for any non-userns reuse and as defence in depth.
+        _cap(_resource.RLIMIT_NPROC, _env_int("CALMA_BWRAP_NPROC", 4096))
+    _mem = _env_int("CALMA_BWRAP_MEM_MB", 0)                                  # opt-in (VA over-counts)
+    if _mem > 0:
+        _cap(_resource.RLIMIT_AS, _mem * 1024 * 1024)
+
+
+def _bwrap_hardening():
+    """The defense-in-depth layers the bwrap tier applies on THIS host (machine-readable, for the report
+    / agents): net-off (--unshare-net) + filesystem allowlist + pure-stdlib rlimit caps."""
+    return ["net-off", "fs-allowlist", "rlimits"]
+
+
+def _run_bwrapped(argv, cwd, timeout=120, env=None, pass_fds=()):
+    """Run a bwrap argv in its own process group, under the pure-stdlib resource caps (preexec). Returns
+    (rc, out, err, killed). --die-with-parent + --unshare-pid tear the sandboxed tree down with the
+    parent; the process-group SIGKILL on timeout is belt-and-suspenders (same discipline as
+    _run_sandboxed). A bwrap that cannot even start (missing binary / kernel support) returns rc!=0 with
+    no output -> the doctor's `produced` check fails it. `pass_fds` keeps the seccomp program fd open."""
     try:
         p = subprocess.Popen(argv, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                             text=True, start_new_session=True, env=env or os.environ.copy())
+                             text=True, start_new_session=True, env=env or os.environ.copy(),
+                             preexec_fn=_bwrap_rlimits, pass_fds=tuple(pass_fds))
     except OSError as e:
         return -1, "", "bwrap failed to start: %s" % e, False
     try:
@@ -356,6 +409,14 @@ def _run_bwrapped(argv, cwd, timeout=120, env=None):
             pass
         p.communicate()
         return -9, "", "timeout", True
+
+
+def _run_bwrap(base, inner_argv, cwd, timeout=120, env=None, interp_dirs=(), writable=True):
+    """Launch inner_argv under bubblewrap with the SAME hardening the doctor verifies: the allowlist
+    binds (_bwrap_argv) + pure-stdlib resource caps (preexec setrlimit). Single source of truth, so the
+    self-test exercises exactly what the real run does. (Fix #3 builds + passes the seccomp fd here.)"""
+    argv = _bwrap_argv(base, inner_argv, interp_dirs=interp_dirs, writable=writable)
+    return _run_bwrapped(argv, cwd, timeout, env)
 
 
 def _bwrap_userns_hint(err):
@@ -395,9 +456,9 @@ def bwrap_doctor(base):
     try:
         with open(secret, "w") as fh:
             fh.write("TOPSECRET-CALMA-DOCTOR")
-        argv = _bwrap_argv(base, [sys.executable, "-c", _PROBE.format(secret=secret)],
-                           interp_dirs=_bwrap_interp_dirs(sys.executable), writable=False)
-        _rc, out, err, _killed = _run_bwrapped(argv, base, timeout=30)
+        _rc, out, err, _killed = _run_bwrap(base, [sys.executable, "-c", _PROBE.format(secret=secret)],
+                                            base, timeout=30,
+                                            interp_dirs=_bwrap_interp_dirs(sys.executable), writable=False)
     finally:
         if os.path.exists(secret):
             os.unlink(secret)
@@ -427,6 +488,8 @@ def bwrap_doctor(base):
         note = "bwrap is installed but the self-test could not run: %s" % why
     info.update(tier=tier, secret_read_blocked=secret_blocked, egress_blocked=egress_blocked,
                 leaks=leak_list, probe_ran=produced, note=note)
+    if tier == "bwrap-verified":
+        info["hardening"] = _bwrap_hardening()   # the defense-in-depth layers actually applied
     if fix:
         info["fix"] = fix
     return info
@@ -809,8 +872,8 @@ def _exec_native(isolation_tier, base, argv, cwd, timeout=120, env=None, interp_
         prof = _profile(os.path.realpath(base), _interp_reads(*interp_paths))
         return _run_sandboxed(prof, argv, cwd, timeout, env)
     if isolation_tier == "bwrap-verified":
-        bargv = _bwrap_argv(base, argv, interp_dirs=_bwrap_interp_dirs(*interp_paths), writable=True)
-        return _run_bwrapped(bargv, cwd, timeout, env)
+        return _run_bwrap(base, argv, cwd, timeout, env,
+                          interp_dirs=_bwrap_interp_dirs(*interp_paths), writable=True)
     return _run_unwrapped(argv, cwd, timeout, env)
 
 
