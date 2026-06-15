@@ -339,9 +339,18 @@ if H._have_bwrap():
         truth(_bdoc["secret_read_blocked"] and _bdoc["egress_blocked"],
               "bwrap verified -> planted-secret read AND egress both blocked")
         truth(_bdoc.get("probe_ran") is True, "bwrap verified -> the probe actually ran (not a false pass)")
+        truth("fix" not in _bdoc, "a verified tier carries NO fix-line (nothing to fix)")
+    else:
+        truth(bool(_bdoc.get("fix")), "host-not-isolated (bwrap present) -> doctor emits an actionable fix-line")
 else:
     truth(_bdoc["tier"] == "host-not-isolated", "no bwrap -> host-not-isolated (honest)")
     truth(_bdoc["bwrap_available"] is False, "bwrap_available is False when bwrap is absent")
+    truth("bubblewrap" in (_bdoc.get("fix") or ""), "bwrap absent -> doctor tells you to install bubblewrap")
+
+# (c1) _bwrap_userns_hint maps the dominant failure (userns disabled) to the exact sysctl fix
+_why, _fx = H._bwrap_userns_hint("bwrap: No permissions to create new namespace, likely because the kernel...")
+truth("user namespaces" in _why and "sysctl" in _fx and "apparmor_restrict_unprivileged_userns" in _fx,
+      "_bwrap_userns_hint: namespace error -> 'enable userns' cause + the exact sysctl fix")
 
 # (c2) FAIL-LOUD (acceptance b): an EXPLICIT --isolation bwrap that does not verify refuses (exit 3)
 # and never silently runs unisolated on the host. Force bwrap "absent" so this is deterministic on
@@ -374,6 +383,10 @@ finally:
     H._have_bwrap, H._run_bwrapped = _save_hb2, _save_rb
 truth(_udoc["tier"] == "host-not-isolated" and _udoc.get("probe_ran") is False,
       "bwrap present but userns blocked (no LEAKS=) -> host-not-isolated (no false pass)")
+truth("user namespaces" in (_udoc.get("note") or ""),
+      "userns-blocked -> note explains the cause (not the verified-guarantees text)")
+truth("sysctl" in (_udoc.get("fix") or ""),
+      "userns-blocked -> fix-line gives the exact sysctl to enable it")
 
 # (d) ANTI-DRIFT: `bwrap-verified` must be accepted as VERIFIED by EVERY consumer of the tier set.
 # A new verified tier lifts Linux off the host-not-isolated CAVEAT cap ONLY if all five layers

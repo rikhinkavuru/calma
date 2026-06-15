@@ -358,6 +358,23 @@ def _run_bwrapped(argv, cwd, timeout=120, env=None):
         return -9, "", "timeout", True
 
 
+def _bwrap_userns_hint(err):
+    """Map a failed-to-start bwrap stderr to a human cause + the exact one-line fix. The dominant reason
+    a *present* bwrap cannot run is that unprivileged user namespaces are disabled (Ubuntu 24.04's
+    AppArmor restriction, or a hardened/locked-down kernel) - so the tier degrades to host-not-isolated
+    and we tell the operator how to turn it on (Calma always emits the fix, never just the failure)."""
+    e = (err or "").lower()
+    if any(s in e for s in ("namespace", "permission", "userns", "uid map", "newuidmap",
+                            "clone", "operation not permitted")):
+        return ("unprivileged user namespaces appear to be disabled on this host",
+                "enable them then re-run `calma doctor` - "
+                "`sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0` (Ubuntu 24.04+) "
+                "or `sudo sysctl -w kernel.unprivileged_userns_clone=1` (Debian/older kernels)")
+    tail = ((err or "").strip().splitlines() or ["no diagnostic output"])[-1][:160]
+    return ("bwrap exited without running the probe (%s)" % tail,
+            "ensure unprivileged user namespaces are enabled, or verify on a host/CI that allows them")
+
+
 def bwrap_doctor(base):
     """Native-Linux own-code positive-control (no daemon): under bubblewrap, the SAME probe battery as
     the Seatbelt doctor - planted $HOME secret + keychain/root reads, and egress (raw IP, DNS, curl) -
@@ -369,16 +386,18 @@ def bwrap_doctor(base):
     info = {"backend": "bwrap", "bwrap_available": _have_bwrap()}
     if not info["bwrap_available"]:
         info.update(tier="host-not-isolated", secret_read_blocked=False, egress_blocked=False,
-                    note="bwrap (bubblewrap) not found on PATH; cannot verify a native Linux tier")
+                    note="bwrap (bubblewrap) not found on PATH; cannot verify a native Linux tier",
+                    fix="install bubblewrap (`apt-get install -y bubblewrap` / `dnf install bubblewrap`), "
+                        "then re-run `calma doctor`")
         return info
     secret = os.path.join(os.path.realpath(os.path.expanduser("~")), ".calma_doctor_secret")
-    out = ""
+    out, err = "", ""
     try:
         with open(secret, "w") as fh:
             fh.write("TOPSECRET-CALMA-DOCTOR")
         argv = _bwrap_argv(base, [sys.executable, "-c", _PROBE.format(secret=secret)],
                            interp_dirs=_bwrap_interp_dirs(sys.executable), writable=False)
-        _rc, out, _err, _killed = _run_bwrapped(argv, base, timeout=30)
+        _rc, out, err, _killed = _run_bwrapped(argv, base, timeout=30)
     finally:
         if os.path.exists(secret):
             os.unlink(secret)
@@ -393,11 +412,23 @@ def bwrap_doctor(base):
     # `bwrap-verified` ONLY when the probe ran AND leaked nothing. A probe that never produced a LEAKS=
     # line (userns disabled / kernel lockdown -> bwrap aborts) is NOT a verified tier.
     tier = "bwrap-verified" if (produced and not leak_list) else "host-not-isolated"
+    fix = None
+    if tier == "bwrap-verified":
+        note = ("bubblewrap unprivileged user namespaces (no daemon): verified = egress denied + "
+                "host-secret unreadable + writes confined to <base>; shares the host kernel, NOT "
+                "escape-isolated to microVM strength (Firecracker tier not built yet).")
+    elif leak_list:
+        # the probe RAN but something got through - a leaking sandbox is a bug, never stamp it verified.
+        note = "bwrap ran but the self-test LEAKED (%s); refusing to stamp verified" % ",".join(leak_list)
+        fix = "do not trust this tier - a leaking sandbox is a bug; report it with the leak list above"
+    else:
+        # the probe never produced a LEAKS line: bwrap could not create the namespaces. Say why + the fix.
+        why, fix = _bwrap_userns_hint(err)
+        note = "bwrap is installed but the self-test could not run: %s" % why
     info.update(tier=tier, secret_read_blocked=secret_blocked, egress_blocked=egress_blocked,
-                leaks=leak_list, probe_ran=produced,
-                note=("bubblewrap unprivileged user namespaces (no daemon): verified = egress denied + "
-                      "host-secret unreadable + writes confined to <base>; shares the host kernel, NOT "
-                      "escape-isolated to microVM strength (Firecracker tier not built yet)."))
+                leaks=leak_list, probe_ran=produced, note=note)
+    if fix:
+        info["fix"] = fix
     return info
 
 
@@ -881,10 +912,11 @@ def run(contract_path, base=None, timeout=120, trust_override=None, isolation=No
     # (isolation is None) instead proceeds and stamps host-not-isolated honestly below - that is
     # today's behavior on a host without the tier, never a silent verified claim.
     if isolation in ("seatbelt", "bwrap") and isolation_tier not in _VERIFIED_TIERS:
+        reason = "%s isolation requested but unavailable: %s" % (backend, doc.get("note", "self-test did not verify"))
+        if doc.get("fix"):
+            reason += " - fix: %s" % doc["fix"]
         return {"phase": "refused", "exit_code": 3, "isolation_tier": isolation_tier,
-                "container_present": False, "killed": False, "doctor": doc,
-                "reason": "%s isolation requested but unavailable: %s"
-                          % (backend, doc.get("note", "self-test did not verify"))}
+                "container_present": False, "killed": False, "doctor": doc, "reason": reason}
 
     # untrusted third-party code needs a container/VM tier (not available here) -> refuse
     if trust == "untrusted-third-party" and isolation_tier not in ("container", "vm"):
