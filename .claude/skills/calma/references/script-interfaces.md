@@ -91,6 +91,20 @@ invokes scripts via Bash and READS the JSON; it never computes a statistic or a 
 - `sigstore_l2.py`: Layer 2, lab tier. `calma attest sigstore <bundle>` keyless-countersigns the
   SAME payload bytes via sigstore-python (OIDC -> Fulcio -> Rekor) into a standard Sigstore
   bundle. Optional dependency; a missing install raises exact instructions, never a traceback.
+- `rekor.py`: OPTIONAL Sigstore Rekor transparency-log backing for the catch-history REGISTRY
+  (distinct from `sigstore_l2`, which logs the attestation bundle keyless). Pure stdlib. Default
+  OFF - the endpoint must be configured (`--rekor <URL>` / `$CALMA_REKOR_URL`; self-hostable,
+  Apache-2.0). `build_entry(type, ...)` emits a `hashedrekord` or `dsse` body and HARD-REJECTS the
+  v2-dropped `intoto`/`rfc3161` (`assert_v2_entry_type`); registry entries log as `hashedrekord`
+  over the entry's content address. `log_entry(url, body, version=)` is the ONLY network egress and
+  runs strictly post-verdict/post-signing. `build_block(...)` stores `{log_index, tree_size,
+  root_hash, hashes, leaf_hash, body_b64, witnessed_digest, checkpoint}` so the proof re-verifies
+  OFFLINE. `verify_inclusion_offline(block, expected_digest=, log_pub_hex=)` is the LOCAL,
+  cryptographic check (never contacts/trusts Rekor): RFC 6962 Merkle re-fold of leaf->root, bound
+  to the entry's content address; two honesty tiers - `merkle` (proof folds, root self-asserted)
+  and `anchored` (a pinned log key verifies the checkpoint signature, mirroring `rfc3161`'s
+  structural-vs-chain-verified discipline). RFC 6962 math (`root_from_inclusion_proof`,
+  `verify_inclusion`) cross-checked against a reference Merkle tree in `tests/test_rekor.py`.
 
 ## `registry.py` (the catch history; CLI: `calma publish`, `calma registry verify`)
 - `derive_entry(bundle, engagement=None, note=None)` -> a REDACTED entry from a VERIFIED bundle:
@@ -98,13 +112,21 @@ invokes scripts via Bash and READS the JSON; it never computes a statistic or a 
   contract), keyid. `ALLOWED_FIELDS` is the redaction boundary - enforced at append AND at audit,
   so a leak fails closed. `opened_entry(id)` logs an engagement at contract signing (kind
   `engagement-opened`, verdict PENDING) - a missing outcome is structurally visible.
-- `append_entry(reg_dir, entry, seed)` -> chains (entry embeds prev sha256; id = sha256(canonical
-  entry); seq strictly increments), SSHSIG-signs the entry AND re-signs `HEAD.json` (tail
-  truncation breaks the audit). Files: `entries/NNNNN-<id12>.json` `{entry, id, ssh}`.
-- `verify_chain(reg_dir, pinned_pub_hex=None)` -> `(ok, checks, summary)`. Re-hashes every entry,
-  walks prev/seq links, verifies every signature + the signed HEAD, rejects non-whitelisted
-  fields. summary = verdict counts + open engagements. Publish REQUIRES attest: `calma publish`
-  refuses a run dir without a verifying `attestation.bundle.json`.
+- `append_entry(reg_dir, entry, seed, rekor=None)` -> chains (entry embeds prev sha256; id =
+  sha256(canonical entry); seq strictly increments), SSHSIG-signs the entry AND re-signs `HEAD.json`
+  (tail truncation breaks the audit). Files: `entries/NNNNN-<id12>.json` `{entry, id, ssh}`. The
+  OPTIONAL `rekor` dict (`{url, version, optional[, logger]}`) opts into transparency-log backing:
+  the wrapper is built in memory, logged to Rekor, and only THEN committed - so under the fail-closed
+  default a Rekor failure raises and leaves NOTHING on disk (`optional=True` -> fail-open: written
+  without a proof, marked `rekor_error`). The `rekor` block is wrapper-level (sibling of entry/id/ssh),
+  so `id` + SSHSIG bytes are byte-identical with or without it; the redaction whitelist is untouched.
+- `verify_chain(reg_dir, pinned_pub_hex=None, min_seq=None, rekor_log_pub_hex=None)` ->
+  `(ok, checks, summary)`. Re-hashes every entry, walks prev/seq links, verifies every signature +
+  the signed HEAD, rejects non-whitelisted fields. Any entry carrying a `rekor` block ALSO gets its
+  inclusion proof re-verified OFFLINE and bound to the entry's content address - a present-but-broken
+  proof FAILS the audit (tamper evidence); absent is fine (additive). `rekor_log_pub_hex` anchors each
+  proof's root to a pinned log key. summary = verdict counts + open engagements + rekor tier counts.
+  Publish REQUIRES attest: `calma publish` refuses a run dir without a verifying `attestation.bundle.json`.
 
 ## `dsl.py` + `compiler.py` (the recipe compiler)
 - `dsl.py`: the constrained composition language - JSON expression trees over whitelisted

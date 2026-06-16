@@ -2,6 +2,39 @@
 
 All notable changes to the calma skill/CLI. Dates are UTC.
 
+## Unreleased — optional Sigstore Rekor transparency-log backing for the catch-history registry
+
+Additive, belt-and-suspenders **on top of** the registry's custom hash-chain — never a replacement.
+When a Rekor endpoint is configured (default: **none**), each published registry entry is also logged
+to a [Sigstore Rekor](https://github.com/sigstore/rekor) transparency log (Apache-2.0, self-hostable),
+and the returned inclusion proof is stored alongside the entry so third parties can verify the
+append-only property **offline** with `rekor-cli` or `calma registry verify`. Full suite green,
+incl. the new `tests/test_rekor.py` (32 checks: unit + a stub-Rekor-over-HTTP integration arm).
+
+- **New `scripts/rekor.py`** (pure stdlib): RFC 6962 Merkle inclusion-proof verification, `hashedrekord`
+  + `dsse` entry construction, the networked `log_entry` (the only egress), and the offline verifier.
+  The RFC 6962 math is cross-checked against a reference Merkle tree over tree sizes 1..129.
+- **Rekor v2 entry-type constraint enforced.** v2 (GA Oct 2025) supports only `hashedrekord` + `dsse`;
+  it dropped `intoto`/`rfc3161`. Calma logs registry entries as `hashedrekord` over the entry's content
+  address and **hard-rejects** the dropped types (`assert_v2_entry_type`). v2 is the default; a pinned
+  self-hosted v1 is opt-in via `--rekor-v1`.
+- **Offline, log-independent verification.** The stored proof re-verifies with pure local Merkle math,
+  cross-checked against the registry entry's content address — tamper the entry, the proof, the root, or
+  the witnessed digest and it fails. Two honesty tiers (mirroring the RFC 3161 discipline): `merkle`
+  (proof folds, root self-asserted) and `anchored` (a pinned `--rekor-log-key` verifies the checkpoint
+  signature). `calma registry verify` re-checks every stored proof offline and fails the audit on a
+  present-but-broken one.
+- **Hermetic ordering is explicit and load-bearing.** Logging happens strictly **after** the verdict is
+  finalized and the entry is signed; `registry.append_entry` builds the wrapper in memory, logs to Rekor,
+  and only **then** commits the files — so under the **fail-closed default** a Rekor failure writes nothing
+  (no silently un-logged entry). `--rekor-optional` opts into fail-open. The Rekor block is wrapper-level,
+  so the entry's content address and SSHSIG bytes are byte-identical with or without it (redaction
+  whitelist untouched). Rekor can never alter a verdict, recompute, or determinism stamp.
+- **CLI.** `calma publish … --rekor <URL> [--rekor-optional] [--rekor-log-key HEX|FILE] [--rekor-v1]`
+  (also `seal --publish` and `$CALMA_REKOR_URL`); `calma registry verify … --rekor-log-key HEX|FILE`.
+- **Docs.** New `docs/rekor.md` (self-hosting via docker-compose, the v2 constraint, offline verification,
+  the `rekor-cli` equivalent for third parties); README + SKILL + `references/script-interfaces.md` updated.
+
 ## Unreleased — `e2b` remote-microVM isolation tier (Docker-less untrusted-code verification)
 
 Purely additive. A host **without Docker** can now run `--trust third-party` workloads under

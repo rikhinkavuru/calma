@@ -9,6 +9,14 @@ each Layer-2 Sigstore verdict additionally lands in Rekor's public log, which in
 witnesses the registry's contents. v2 (additive, entries are already hash-addressed) is a Merkle
 tree per C2SP tlog-tiles + checkpoints cosigned by the public witness network.
 
+OPTIONAL Rekor backing (rekor.py): when a Rekor endpoint is configured (default: NONE), each entry
+is ALSO submitted to a Sigstore Rekor transparency log and the returned inclusion proof is stapled
+onto the wrapper, so a third party can verify the append-only property OFFLINE with standard tooling
+(rekor-cli) or this skill - belt-and-suspenders ON TOP OF the hash-chain, never a replacement. The
+proof is wrapper-level metadata: the entry's content address and SSHSIG bytes are byte-identical
+with or without it. Rekor sits STRICTLY outside the hermetic boundary - it is contacted only here,
+after the verdict is finalized and the entry is signed, and can never alter a verdict.
+
 REDACTION IS STRUCTURAL: an entry is built ONLY from a whitelist of fields derived from the
 attestation bundle - claim, metric, claimed vs recomputed, verdict, dates, content hashes. Code
 and data never enter the entry, and verify_chain rejects any entry carrying non-whitelisted keys.
@@ -32,6 +40,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import attest as A  # noqa: E402
 import ed25519  # noqa: E402
+import rekor as RK  # noqa: E402  (OPTIONAL Rekor transparency-log backing; additive to the chain)
 import sshsig  # noqa: E402
 
 ENTRY_SCHEMA = "calma/registry-entry@1"
@@ -145,10 +154,43 @@ def opened_entry(engagement, note=None, date=None):
 
 # ---- append + verify ----------------------------------------------------------
 
-def append_entry(reg_dir, entry, seed):
-    """Chain + sign + write. The entry gets seq/prev from the current HEAD; the wrapper stores
-    the SSHSIG over the canonical entry bytes; HEAD.json is re-signed to make tail-truncation
-    detectable. Returns (filename, wrapper)."""
+def _rekor_block(entry, eid, seed, pub, rekor):
+    """Submit the (already chained + signed) entry to a Rekor transparency log and return the
+    offline-verifiable block to staple onto the wrapper. STRICTLY post-finalization: `entry` and
+    `eid` are frozen before this is called, the verdict was finalized long before that (in
+    calma.verify, before any signing), and the only thing that happens here is one network POST.
+    Rekor can therefore never alter a verdict - it can only succeed, or fail the (additive) log step.
+
+    Registry entries are logged as `hashedrekord` over the entry's content address (eid == the value
+    the hash-chain already commits to), so Rekor witnesses exactly the chain's leaf. (`dsse` is for
+    the attestation-bundle layer; never `intoto`/`rfc3161` - dropped in Rekor v2.)"""
+    canon = _canonical(entry)
+    # a raw Ed25519 signature over the entry bytes (sha256(canon) == eid), so the hashedrekord is
+    # internally consistent for a real self-hosted Rekor: digest=eid, sig verifies over the data.
+    sig_b64 = base64.b64encode(ed25519.sign(seed, canon)).decode()
+    body = RK.build_entry("hashedrekord", digest_hex=eid, signature_b64=sig_b64,
+                          public_key_b64=base64.b64encode(pub).decode())
+    logger = rekor.get("logger") or (lambda b, version: RK.log_entry(
+        rekor["url"], b, version=version, timeout=rekor.get("timeout", 30)))
+    version = rekor.get("version", RK.DEFAULT_VERSION)
+    tlog = logger(body, version)
+    return RK.build_block("hashedrekord", eid, body, tlog,
+                          log_url=rekor.get("url"), version=version)
+
+
+def append_entry(reg_dir, entry, seed, rekor=None):
+    """Chain + sign + (optionally Rekor-log) + write. The entry gets seq/prev from the current HEAD;
+    the wrapper stores the SSHSIG over the canonical entry bytes; HEAD.json is re-signed to make
+    tail-truncation detectable. Returns (filename, wrapper).
+
+    `rekor` (default None = OFF) opts into OPTIONAL Sigstore Rekor transparency-log backing - belt
+    and suspenders ON TOP OF the hash-chain, never a replacement. It is a dict {url, version,
+    optional, timeout[, logger]}. ORDERING IS LOAD-BEARING: the wrapper (chain + SSHSIG) is built
+    in memory and the Rekor POST happens BEFORE any file is written, so under the fail-closed default
+    a Rekor failure raises and leaves NOTHING on disk (no un-logged entry). `optional=True` opts into
+    fail-open: the entry is written without a proof and a warning surfaces. The Rekor block is stored
+    at WRAPPER level (sibling of entry/id/ssh), never inside `entry`, so the content address and the
+    SSHSIG bytes are byte-identical with or without Rekor - the redaction whitelist is untouched."""
     if entry.get("kind") not in ENTRY_KINDS:
         raise ValueError("entry kind %r invalid" % entry.get("kind"))
     os.makedirs(_entries_dir(reg_dir), exist_ok=True)
@@ -171,6 +213,18 @@ def append_entry(reg_dir, entry, seed):
                 "allowed_signers": sshsig.allowed_signers_line(pub, principal),
                 "signature": sshsig.sign(seed, _canonical(entry))},
     }
+    # OPTIONAL Rekor: runs AFTER chain+sign, BEFORE any write. Fail-closed unless opted out.
+    if rekor and rekor.get("url"):
+        try:
+            wrapper["rekor"] = _rekor_block(entry, eid, seed, pub, rekor)
+        except (OSError, ValueError) as e:
+            if not rekor.get("optional"):
+                # fail-closed: nothing is written, so there is no silently un-logged entry
+                raise ValueError(
+                    "transparency logging to Rekor failed (%s) and --rekor-optional was not set, "
+                    "so no entry was written (fail-closed). Re-run when the log is reachable, or "
+                    "pass --rekor-optional to publish without a proof." % e)
+            wrapper["rekor_error"] = str(e)  # fail-open: recorded, not fatal
     fname = "%05d-%s.json" % (entry["seq"], eid[:12])
     # atomic writes (write-temp + os.replace): a crash mid-append must never leave a truncated
     # entry or a HEAD that doesn't match the chain on disk
@@ -191,11 +245,18 @@ def append_entry(reg_dir, entry, seed):
     return fname, wrapper
 
 
-def verify_chain(reg_dir, pinned_pub_hex=None, min_seq=None):
+def verify_chain(reg_dir, pinned_pub_hex=None, min_seq=None, rekor_log_pub_hex=None):
     """Full offline audit of the registry. Returns (ok, checks, summary) where checks is an
     ordered list of (name, ok, detail). Catches: edited entries (id + signature), reordered or
     dropped MIDDLE entries (prev/seq links), non-whitelisted fields (redaction guard), and any
     entry signed by a key other than the pinned one.
+
+    OPTIONAL Rekor: any entry carrying a `rekor` block additionally gets its inclusion proof
+    re-verified OFFLINE (RFC 6962 Merkle math; never contacts the log) and cross-checked against the
+    entry's content address - a present-but-broken proof FAILS the audit (tamper evidence). Entries
+    with no block are fine (the backing is additive). Pass `rekor_log_pub_hex` to anchor each proof's
+    root to a pinned Rekor log key (the upgraded "anchored" tier); without it the Merkle proof still
+    verifies but the root is reported as self-asserted.
 
     LIMITATION: a tail truncation in which the attacker ALSO rolls the signed HEAD back to a
     consistent earlier state (deleting the newest entries AND restoring the older, genuinely-signed
@@ -220,6 +281,7 @@ def verify_chain(reg_dir, pinned_pub_hex=None, min_seq=None):
 
     prev_id, prev_seq = None, 0
     verdict_counts, opened, outcomes = {}, set(), set()
+    rekor_tiers, rekor_pending = {}, 0
     for fname, w in entries:
         entry, eid, ssh = w.get("entry") or {}, w.get("id"), w.get("ssh") or {}
         label = fname
@@ -241,6 +303,17 @@ def verify_chain(reg_dir, pinned_pub_hex=None, min_seq=None):
                                     expect_pub=expect_pub)
         if not chk("%s signature" % label, ok_sig, det):
             return False, checks, {}
+        # OPTIONAL Rekor: re-verify the inclusion proof OFFLINE and bind it to THIS entry's content
+        # address. Additive - absent is fine; present-but-broken is tamper evidence and fails.
+        rk = w.get("rekor")
+        if rk is not None:
+            ok_rk, tier, rk_det = RK.verify_inclusion_offline(
+                rk, expected_digest=eid, log_pub_hex=rekor_log_pub_hex)
+            if not chk("%s rekor" % label, ok_rk, rk_det):
+                return False, checks, {}
+            rekor_tiers[tier] = rekor_tiers.get(tier, 0) + 1
+        elif w.get("rekor_error"):
+            rekor_pending += 1  # fail-open entry: legitimately un-logged, never a hard failure
         prev_id, prev_seq = eid, entry["seq"]
         verdict_counts[entry.get("verdict")] = verdict_counts.get(entry.get("verdict"), 0) + 1
         if entry["kind"] == "engagement-opened":
@@ -272,7 +345,9 @@ def verify_chain(reg_dir, pinned_pub_hex=None, min_seq=None):
             return False, checks, {}
 
     summary = {"entries": len(entries), "verdicts": verdict_counts,
-               "open_engagements": sorted(x for x in (opened - outcomes) if x)}
+               "open_engagements": sorted(x for x in (opened - outcomes) if x),
+               "rekor": {"logged": sum(rekor_tiers.values()), "tiers": rekor_tiers,
+                         "pending": rekor_pending}}
     return True, checks, summary
 
 
@@ -289,5 +364,18 @@ def render_verify(ok, checks, summary):
         if summary.get("open_engagements"):
             lines.append("  open engagements (no outcome yet): %s"
                          % ", ".join(summary["open_engagements"]))
+        rk = summary.get("rekor") or {}
+        if rk.get("logged"):
+            tiers = rk.get("tiers") or {}
+            anchored, merkle = tiers.get("anchored", 0), tiers.get("merkle", 0)
+            note = ("%d anchored to a pinned log key" % anchored if anchored and not merkle
+                    else "%d anchored, %d root self-asserted" % (anchored, merkle) if anchored
+                    else "root self-asserted - pin --rekor-log-key to anchor")
+            lines.append("  rekor: %d/%d %s an offline-verified inclusion proof (%s)"
+                         % (rk["logged"], _ne,
+                            "entry carries" if rk["logged"] == 1 else "entries carry", note))
+        if rk.get("pending"):
+            lines.append("  rekor: %d entr%s logged WITHOUT a proof (--rekor-optional fail-open)"
+                         % (rk["pending"], "y" if rk["pending"] == 1 else "ies"))
         lines.append("  every entry re-hashes, the chain links, and every signature verifies")
     return "\n".join(lines)

@@ -1379,6 +1379,47 @@ def _autonomy_followup(res, mode, base, quiet=False):
         AUT.log(base, mode, "seal", "execute", "timestamp-failed")
 
 
+# ---- OPTIONAL Rekor transparency-log backing (publish/seal) -------------------
+
+def _add_rekor_publish_args(p):
+    """The shared --rekor* flags for `publish` and `seal --publish`. Backing is strictly opt-in;
+    the default is NONE."""
+    p.add_argument("--rekor", metavar="URL", default=None,
+                   help="OPTIONAL: also log each entry to a Sigstore Rekor transparency log "
+                        "(self-hostable, Apache-2.0) so third parties can verify the append-only "
+                        "property OFFLINE with rekor-cli or `calma registry verify` "
+                        "(default: none, or $CALMA_REKOR_URL). Fail-closed unless --rekor-optional")
+    p.add_argument("--rekor-optional", action="store_true",
+                   help="fail-open: if transparency logging fails, still write the entry WITHOUT a "
+                        "proof rather than aborting (the safe default is fail-closed - a requested "
+                        "log that fails means no entry is written)")
+    p.add_argument("--rekor-log-key", metavar="PATH_OR_HEX", default=None,
+                   help="pin the Rekor log's Ed25519 checkpoint key (hex or a file) to anchor the "
+                        "inclusion proof's root in the post-publish self-check")
+    p.add_argument("--rekor-v1", action="store_true",
+                   help="target a pinned self-hosted Rekor v1 (default assumes v2, which supports "
+                        "only the hashedrekord + dsse entry types)")
+
+
+def _rekor_config(a):
+    """The Rekor config dict from flags + env, or None when no endpoint is set (the opt-in default).
+    Logging happens strictly AFTER the verdict and signing - see registry.append_entry."""
+    url = getattr(a, "rekor", None) or os.environ.get("CALMA_REKOR_URL")
+    if not url:
+        return None
+    return {"url": url,
+            "version": "v1" if getattr(a, "rekor_v1", False) else "v2",
+            "optional": bool(getattr(a, "rekor_optional", False))}
+
+
+def _rekor_log_pub(a):
+    """The pinned Rekor log public key (hex), from --rekor-log-key (a file path or a hex string)."""
+    val = getattr(a, "rekor_log_key", None)
+    if not val:
+        return None
+    return open(val).read().strip() if os.path.exists(val) else val.strip()
+
+
 def main():
     if sys.version_info < (3, 9):
         print("error: calma requires Python 3.9 or newer (this is Python %d.%d) - "
@@ -1519,6 +1560,7 @@ def main():
     sl.add_argument("--note", default=None, help="one redacted line of context for the registry entry")
     sl.add_argument("--engagement", default=None, help="link the registry entry to an engagement id")
     sl.add_argument("--key", help="signing key file (default: ~/.calma/keys/ed25519.key)")
+    _add_rekor_publish_args(sl)
     pb = sub.add_parser("publish", help="append a REDACTED entry (claim/verdict/gap only - never "
                                         "code or data) to the public catch-history registry")
     pb.add_argument("run_dir", nargs="?", default=None,
@@ -1531,6 +1573,7 @@ def main():
                          "(a missing outcome is then visible - the clinical-trial property)")
     pb.add_argument("--note", default=None, help="one redacted line of context")
     pb.add_argument("--key", help="signing key file (default: ~/.calma/keys/ed25519.key)")
+    _add_rekor_publish_args(pb)
     rg = sub.add_parser("registry", help="audit the catch-history registry chain offline")
     rgsub = rg.add_subparsers(dest="registry_cmd", required=True)
     rgv = rgsub.add_parser("verify", help="re-hash every entry, walk the chain, check every signature")
@@ -1541,6 +1584,10 @@ def main():
                      help="rollback anchor: fail unless the chain reached at least sequence N. Use a "
                           "floor you know out-of-band (a prior audit, or git history) to catch a "
                           "consistent tail-truncation that the files alone cannot reveal")
+    rgv.add_argument("--rekor-log-key", metavar="PATH_OR_HEX", default=None,
+                     help="pin the Rekor log's Ed25519 checkpoint key (hex or a file) to ANCHOR each "
+                          "stored inclusion proof's root; without it proofs still re-verify offline "
+                          "but the root is reported self-asserted")
     # bare `calma` (or `calma help`) is a person looking for the door, not an error
     if len(sys.argv) <= 1 or sys.argv[1] == "help":
         ap.print_help()
@@ -1821,9 +1868,18 @@ def main():
                 os.makedirs(a.publish, exist_ok=True)
                 seed = attest.load_signing_key(a.key)
                 entry = REG.derive_entry(bundle, engagement=a.engagement, note=a.note)
-                fname, wrapper = REG.append_entry(a.publish, entry, seed)
+                # Rekor (when configured) logs strictly AFTER the bundle above is signed + verified
+                fname, wrapper = REG.append_entry(a.publish, entry, seed, rekor=_rekor_config(a))
                 print("published   %s/entries/%s (%s)"
                       % (a.publish, fname, wrapper["entry"].get("verdict")))
+                if wrapper.get("rekor"):
+                    rk = wrapper["rekor"]
+                    print("rekor       logged to %s (index %s, tree size %s) - inclusion proof "
+                          "stored for OFFLINE verification" % (rk.get("log_url"),
+                          rk.get("log_index"), rk.get("tree_size")))
+                elif wrapper.get("rekor_error"):
+                    print("rekor       NOT logged (%s); written anyway (--rekor-optional)"
+                          % wrapper["rekor_error"])
                 print("            to make it PUBLIC: commit registry/ with a signed commit "
                       "and push - the site rebuilds itself")
             print("sealed      %s" % run_dir)
@@ -1866,7 +1922,9 @@ def main():
                 if entry.get("verdict") not in V.CATCH_VERDICTS:
                     print("note: this entry records a %s outcome, not a catch - the registry "
                           "documents both" % entry.get("verdict"))
-            fname, wrapper = REG.append_entry(reg_dir, entry, seed)
+            # Rekor (when configured via --rekor / $CALMA_REKOR_URL) logs strictly AFTER the bundle
+            # above is verified and the entry is chained+signed - fail-closed unless --rekor-optional
+            fname, wrapper = REG.append_entry(reg_dir, entry, seed, rekor=_rekor_config(a))
             e = wrapper["entry"]
             print("published: %s/entries/%s" % (reg_dir, fname))
             print("  kind     %s" % e["kind"])
@@ -1875,6 +1933,16 @@ def main():
             if e.get("recomputed") is not None:
                 print("  recomputed %s" % REP.fmt_value(e["recomputed"], e.get("metric")))
             print("  verdict  %s\n  id       %s" % (e.get("verdict"), wrapper["id"]))
+            if wrapper.get("rekor"):
+                rk = wrapper["rekor"]
+                ok_rk, tier, det = REG.RK.verify_inclusion_offline(
+                    rk, expected_digest=wrapper["id"], log_pub_hex=_rekor_log_pub(a))
+                print("  rekor    logged to %s (index %s, tree size %s); offline proof %s [%s]"
+                      % (rk.get("log_url"), rk.get("log_index"), rk.get("tree_size"),
+                         "VERIFIES" if ok_rk else "FAILED", tier))
+            elif wrapper.get("rekor_error"):
+                print("  rekor    NOT logged (%s); entry written anyway (--rekor-optional)"
+                      % wrapper["rekor_error"])
             print("the entry is redacted (no code, no data), chained to the previous entry, and "
                   "signed; commit it with a signed commit to complete the public record")
             return 0
@@ -1889,7 +1957,8 @@ def main():
             pinned = None
             if a.key:
                 pinned = open(a.key).read().strip() if os.path.exists(a.key) else a.key.strip()
-            ok, checks, summary = REG.verify_chain(reg_dir, pinned_pub_hex=pinned, min_seq=a.min_seq)
+            ok, checks, summary = REG.verify_chain(reg_dir, pinned_pub_hex=pinned, min_seq=a.min_seq,
+                                                   rekor_log_pub_hex=_rekor_log_pub(a))
             print(REG.render_verify(ok, checks, summary))
             return 0 if ok else 1
     except (ValueError, OSError) as e:

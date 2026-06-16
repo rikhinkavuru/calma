@@ -86,7 +86,10 @@ calma attest timestamp <bundle>     # RFC 3161 trusted timestamp (the one networ
 calma attest sigstore <bundle>      # lab tier: keyless countersign into the public Rekor log
 calma publish <run_dir> [--registry DIR] [--engagement ID]   # REDACTED entry -> the public catch history
 calma publish --open <engagement-id>                         # log an engagement at contract signing
-calma registry verify [dir]         # audit the registry chain offline (hashes + links + signatures)
+calma publish <run_dir> --rekor <URL> [--rekor-optional]     # ALSO log to a Sigstore Rekor transparency
+                                    # log (self-hostable, Apache-2.0; default OFF) -> offline inclusion proof stored
+calma registry verify [dir] [--rekor-log-key HEX|FILE]   # audit the chain offline (hashes + links +
+                                    # signatures) + re-verify every stored Rekor inclusion proof OFFLINE
 ```
 
 ## How to report a verdict (agents: follow this format)
@@ -188,7 +191,15 @@ committed claim and says so in the report and `--json` (`note`).
    (claim/metric/claimed-vs-recomputed/verdict/content-hashes; NEVER code or data - whitelist enforced at
    append AND audit) to the hash-chained, SSHSIG-signed public catch history. Publish requires a verified
    attestation bundle. `calma registry verify` audits the chain offline; a missing outcome for an opened
-   engagement is structurally visible (clinical-trial property).
+   engagement is structurally visible (clinical-trial property). **Optional Rekor backing** (`scripts/rekor.py`,
+   default OFF): pass `--rekor <URL>` to ALSO log each entry to a Sigstore Rekor transparency log
+   (self-hostable, Apache-2.0) and staple the returned inclusion proof onto the entry, so a third party can
+   verify the append-only property OFFLINE with `rekor-cli` or `calma registry verify` - belt-and-suspenders
+   ON TOP OF the hash-chain, never a replacement. Rekor v2 supports only `hashedrekord` + `dsse` entry types
+   (it dropped `intoto`/`rfc3161`); calma emits `hashedrekord` over the entry's content address and hard-rejects
+   the dropped types. Logging is fail-closed by default (a requested log that fails writes nothing; `--rekor-optional`
+   opts into fail-open) and happens STRICTLY after the verdict is finalized and the entry is signed - Rekor can
+   never alter a verdict, a recompute, or a determinism stamp.
 7. **Recipe compiler (new recipes only)** - the model DRAFTS offline under
    `references/recipe-draft.schema.json` (a DSL program over existing kernels + a named oracle +
    metamorphic relations + edge behaviour); `scripts/compiler.py admit` is the deterministic gate

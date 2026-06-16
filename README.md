@@ -125,7 +125,10 @@ calma attest verify <bundle> [--key pub.hex] [--replay]   # check a signed bundl
 calma attest timestamp <bundle>     # RFC 3161 trusted timestamp - proves "verified before <date>" once the TSA chain verifies
 calma attest sigstore <bundle>      # lab tier: keyless countersign into the public Rekor log
 calma publish <run_dir>             # append a REDACTED entry to the public catch-history registry
-calma registry verify [dir]         # audit the registry chain offline: hashes, links, signatures
+calma publish <run_dir> --rekor <URL> [--rekor-optional]   # ALSO log to a Sigstore Rekor transparency log
+                                    # (self-hostable, Apache-2.0; default off) -> offline inclusion proof stored
+calma registry verify [dir] [--rekor-log-key HEX|FILE]   # audit the chain offline: hashes, links,
+                                    # signatures + re-verify every stored Rekor inclusion proof offline
 python3 .claude/skills/calma/scripts/run_hermetic.py doctor   # prove the sandbox works on your machine
 ```
 
@@ -240,6 +243,29 @@ Rust** — Calma treats your program as a black box and does the recompute itsel
    recomputed, verdict, content hashes; never code, never data — to a hash-chained, signed public registry
    (the catch history at `/registry`). Publish requires attest; `calma registry verify` audits the whole
    chain offline.
+9. **Optional Rekor transparency-log backing** (opt-in, default off): pass `--rekor <URL>` to ALSO log each
+   registry entry to a [Sigstore Rekor](https://github.com/sigstore/rekor) transparency log — Apache-2.0 and
+   **self-hostable**, so you can run your own — and the returned inclusion proof is stored alongside the entry.
+   A third party can then verify the append-only property **offline** with standard tooling (`rekor-cli` or
+   `calma registry verify`) without contacting or trusting the log: the check is pure RFC 6962 Merkle math
+   over the stored proof, cross-checked against the entry's content hash. This is **belt-and-suspenders on top
+   of** the custom hash-chain, never a replacement. Rekor v2 (GA Oct 2025) supports only `hashedrekord` + `dsse`
+   entry types — it dropped `intoto`/`rfc3161` — so calma logs `hashedrekord` over the entry's content address
+   and refuses the dropped types. Logging is **fail-closed** by default (a requested log that fails writes
+   nothing; `--rekor-optional` opts into fail-open) and happens strictly **after** the verdict is finalized and
+   the entry signed — Rekor sits outside the hermetic boundary and can never alter a verdict.
+
+   *Third-party verification* — the stored proof (under `entries/*.json` → `rekor`) re-verifies offline:
+
+   ```
+   calma registry verify registry/ --rekor-log-key <rekor-pubkey-hex>   # anchors the root to the log key
+   # rekor-cli equivalent (the same logIndex + inclusion proof, checked against the public/instance log):
+   rekor-cli --rekor_server <URL> get --log-index <index>               # fetch the entry
+   rekor-cli --rekor_server <URL> verify --log-index <index>            # verify its inclusion proof
+   ```
+
+   *Self-hosting* a Rekor v2 instance (so the whole chain is yours) is a `docker compose up` against the
+   published Rekor + Trillian images; point `--rekor http://localhost:3000` at it. See `docs/rekor.md`.
 
 ## Limitations
 
