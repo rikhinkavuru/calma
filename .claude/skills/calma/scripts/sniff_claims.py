@@ -98,6 +98,13 @@ CONDITIONAL_TERMS = {
 # functions) - so an alias additionally requires a finance-shaped subject in the sentence.
 _ALIASES = {"returned": ("total_return", "return", "pct"),
             "returns": ("total_return", "return", "pct")}
+# CONDITIONAL terms that are ALSO ordinary English nouns ("the function's return value", "the
+# error return was 5%", "cache hit return") - require a finance-shaped subject in the sentence,
+# the SAME guard the verb aliases use. Without it, any "<noun> return ... %" sentence auto-fires a
+# verify in an unrelated project (and litters .calma). Kept narrow: `return` is overwhelmingly an
+# engineering word; `margin`/`lift` stay ungated (lower benign-collision rate, and gating them
+# would mute legitimate "gross margin 32%"-style claims that carry no finance-subject token).
+_FINANCE_GATED_NOUN = {"return"}
 _FINANCE_SUBJECT = re.compile(
     r"\b(strateg\w+|portfolio\w*|backtest\w*|funds?|trad\w+|positions?|stocks?|equit\w+|"
     r"etfs?|assets?|investments?|holdings?|btc|eth|crypto\w*|bonds?|index|sp500|s&p)\b",
@@ -455,7 +462,7 @@ def sniff(text, debug=False):
         deny = _CONTEXT_DENY.get(term)
         if deny and deny.search(stext):
             return reject(term, "domain-context", t0)
-        if term in _ALIASES and not _FINANCE_SUBJECT.search(stext):
+        if (term in _ALIASES or term in _FINANCE_GATED_NOUN) and not _FINANCE_SUBJECT.search(stext):
             return reject(term, "no-finance-subject", t0)
         if _FABRICATED_BEFORE.search(clean[max(0, t0 - 24):t0]):
             return reject(term, "fabricated-value", t0)
