@@ -34,7 +34,7 @@ a calibrated tolerance. The verdict is computed by **deterministic scripts, not 
 agent that wrote the code cannot talk Calma out of a FAIL.
 
 **Verdict enum (fixed vocabulary, agent-consumable):**
-`CONFIRMED` / `CONFIRMED-WITH-CAVEATS` / `REFUTED` / `INCONCLUSIVE` (displayed as `CAN'T-CONFIRM`).
+`CONFIRMED` / `CONFIRMED-WITH-CAVEATS` / `REFUTED` / `INVALIDATED` / `INCONCLUSIVE` (displayed as `CAN'T-CONFIRM`).
 A multi-claim ledger where a non-headline claim breaks reports `MIXED`.
 
 ## When to invoke (agents: call this automatically)
@@ -174,8 +174,10 @@ committed claim and says so in the report and `--json` (`note`).
    OpenSSH SSHSIG (namespace `calma-attest@v1`) with sidecar files, so the counterparty can verify with
    stock `ssh-keygen -Y verify` and zero installs - or run `calma attest verify <bundle>` for the full
    offline check (both signatures + byte-for-byte verdict re-derivation; `--key` pins the signer,
-   `--replay` re-executes). Layer 1: `calma attest timestamp` (RFC 3161, anti-backdating, offline-verifiable).
-   Layer 2 (lab): `calma attest sigstore` -> public Rekor log entry. Then the strictly-progressive report
+   `--replay` re-executes). Layer 1: `calma attest timestamp` (RFC 3161, offline-verifiable). Its
+   anti-backdating guarantee holds ONLY once the TSA's CA chain verifies; a structural-only token (no CA
+   embedded / openssl absent) is reported UNVERIFIED ("date self-asserted, not proven") and does not prove
+   the date. Layer 2 (lab): `calma attest sigstore` -> public Rekor log entry. Then the strictly-progressive report
    (line 1 verdict + deterministic confidence, line 2 the one limiting thing, a `fix:` line on every
    CAN'T-CONFIRM).
 6. **Publish (opt-in)** - `scripts/registry.py` -> `calma publish <run_dir>` appends a REDACTED entry

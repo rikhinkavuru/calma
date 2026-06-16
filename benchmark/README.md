@@ -10,7 +10,7 @@ headline number, decide whether the claim is **honest** (matches what the data a
 | **LLM-as-judge** | the common "ask an LLM whether this result looks right" eval — reasons over the data + claim, **no code execution** |
 | **Calma** | re-executes the project and **recomputes** the metric from the raw outputs on deterministic kernels |
 
-## Corpus: 117 cases, 3 tracks, 30 metrics, 8 families
+## Corpus: 117 cases, 3 tracks, 29 metrics, 8 families
 
 **Synthetic track (84 cases).** 28 deterministic pure-stdlib bases across classification (accuracy,
 precision, recall, f1, auc, log_loss, brier, mcc, balanced_accuracy), retrieval/LLM-eval (pr_auc,
@@ -84,6 +84,18 @@ zero wrong verdicts**, at a **p50 of ~216 ms** per verification.
 
 ## Reproduce
 
+> **The committed results reflect the FULL 117-case run** (synthetic + external UCI/sklearn track +
+> real-world), and they feed the tables above and the website (`results/summary.json`,
+> `results/site_data.json`). Reproduce the full run with the steps below.
+>
+> **`make benchmark` is the synthetic-only quick track** (`gen_corpus.py → run_calma.py → score.py`,
+> the 84 synthetic cases). Because it re-runs `score.py` over synthetic results alone, **it OVERWRITES
+> the committed `results/summary.json` and `results/site_data.json` with synthetic-only numbers** and
+> does NOT reproduce the published 117-case figures. Use it for a fast local Calma-side sanity check; do
+> not commit its output. Run the full sequence below to regenerate the published numbers.
+
+Full 117-case reproduction:
+
 ```bash
 python3 benchmark/gen_corpus.py                     # synthetic track (deterministic, stdlib)
 python3 -m venv /tmp/calma_bench_venv && /tmp/calma_bench_venv/bin/pip install numpy scikit-learn scipy
@@ -92,5 +104,5 @@ python3 -m venv /tmp/calma_bench_venv && /tmp/calma_bench_venv/bin/pip install n
 python3.13 benchmark/run_calma.py                   # calma over all 117 (3.13: momentum deps need cp313 wheels)
 python3 benchmark/prep_judge.py                     # anonymized judge batches
 #   run the LLM-as-judge on each judge_batches/batch_*.json (no code execution) -> results/judge_batch_*.json
-python3 benchmark/score.py                          # tables + summary.json + site_data.json
+python3 benchmark/score.py                          # tables + summary.json + site_data.json (full 117-case)
 ```

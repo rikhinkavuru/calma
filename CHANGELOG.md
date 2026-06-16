@@ -24,6 +24,11 @@ repos). Full suite green (31 suites, 0 failed).
   `score.py` includes it when `results/agent.json` is present.
 - **Recipe count corrected to 623** in the README/SKILL (the registry, `calma recipes`, and the tests
   all agree on 623).
+- **The four validity families ship** — leakage, overfitting, execution-realism, and eval/benchmark
+  contamination now run on the findings rail, plus the `deflated_sharpe` recipe and the new
+  **INVALIDATED** verdict ("the number reproduces, but the result is invalid"). The full mechanics are in
+  the four subsections below (previously tracked as two `Unreleased` blocks); nothing remains "named
+  roadmap (M3–M4)".
 - **Repo hygiene.** Internal/dev docs are no longer shipped to skill/CLI users (kept local).
 
 ### Native-Linux own-code isolation tier (bubblewrap)
@@ -69,11 +74,11 @@ Pure stdlib (shells out like `sandbox-exec`); each step kept the full suite gree
   security / edge / dev / UX / token run to CLEAN — the loop caught and closed a real `/proc/sys`
   host-escape and an rlimit-bypass before sign-off. Verified on real Linux (Ubuntu 24.04 + bubblewrap).
 
-## Unreleased — validity families (realism + contamination) + the deflated_sharpe recipe
+### Validity families (3-4): execution-realism + contamination + the deflated_sharpe recipe
 
-The remaining M3–M4 validity ceiling, built on the leakage/overfitting findings-rail architecture below.
-Two more validity families plus the direct deflated-Sharpe recipe path. Each keeps the full suite green
-(29 suites). SKILL.md now lists all four families — leakage, overfitting, **execution-realism**, and
+The remaining M3–M4 validity ceiling, built on the leakage/overfitting findings-rail architecture in the
+next subsection. Two more validity families plus the direct deflated-Sharpe recipe path. Each keeps the
+full suite green. SKILL.md now lists all four families — leakage, overfitting, **execution-realism**, and
 **eval/benchmark contamination** — as DELIVERED; nothing remains "named roadmap (M3-M4)".
 
 - **Execution-realism deflators** (`scripts/realism_checks.py`, dimension `execution-realism`, on the
@@ -172,11 +177,12 @@ Two more validity families plus the direct deflated-Sharpe recipe path. Each kee
     large-positive) routes to INVALIDATED instead of a garbage REFUTED. Each is locked by a regression
     test. (Suite: 30 green.)
 
-## Unreleased — validity families (leakage + overfitting)
+### Validity families (1-2): leakage + overfitting + the INVALIDATED verdict
 
-Two new validity-family detectors on the findings rail, plus a new verdict shape they need. Serial,
-leakage-first; each step keeps the full suite green. SKILL.md no longer lists leakage/overfitting as
-"named roadmap (M3-M4), not yet delivered" — they are delivered.
+The foundation the two families above build on: two validity-family detectors on the findings rail, plus
+the new `INVALIDATED` verdict shape they need. Serial, leakage-first; each step keeps the full suite
+green. SKILL.md no longer lists leakage/overfitting as "named roadmap (M3-M4), not yet delivered" — they
+are delivered.
 
 - **New verdict `INVALIDATED`** — "the number reproduces while the result is invalid." A first-class,
   gap-free third shape (distinct from `CONFIRMED` and the gap-gated `REFUTED`), reached only by a

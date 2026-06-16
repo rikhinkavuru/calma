@@ -120,7 +120,7 @@ calma seal <run_dir> [--publish registry/]   # one command: sign + RFC 3161 time
                                     # instructions (VERIFY-THIS.txt), optionally publish
 calma attest keygen [--import ~/.ssh/id_ed25519]  # one-time signing key; after this, every verify is signed
 calma attest verify <bundle> [--key pub.hex] [--replay]   # check a signed bundle, fully offline
-calma attest timestamp <bundle>     # RFC 3161 trusted timestamp - makes "verified before <date>" provable
+calma attest timestamp <bundle>     # RFC 3161 trusted timestamp - proves "verified before <date>" once the TSA chain verifies
 calma attest sigstore <bundle>      # lab tier: keyless countersign into the public Rekor log
 calma publish <run_dir>             # append a REDACTED entry to the public catch-history registry
 calma registry verify [dir]         # audit the registry chain offline: hashes, links, signatures
@@ -230,7 +230,9 @@ Rust** — Calma treats your program as a black box and does the recompute itsel
    byte-for-byte re-derivation of every verdict label — neither a tampered bundle nor one re-signed under a
    different key with forged labels can pass. `--key` pins the expected signer; `--replay` re-executes.
    `calma attest timestamp` adds an RFC 3161 trusted timestamp (network needed only at stamping time; the
-   token verifies offline forever), and `calma attest sigstore` (lab tier, needs sigstore-python)
+   token then verifies offline). Its anti-backdating guarantee holds only once the TSA's CA chain verifies —
+   a structural-only token (no CA chain embedded, or `openssl` absent) is reported as UNVERIFIED ("date
+   self-asserted, not proven"), not as proof of the date. `calma attest sigstore` (lab tier, needs sigstore-python)
    countersigns the same payload keylessly into the public Rekor transparency log.
 8. **Publish** (opt-in): `calma publish <run_dir>` appends a redacted entry — claim, metric, claimed vs
    recomputed, verdict, content hashes; never code, never data — to a hash-chained, signed public registry
