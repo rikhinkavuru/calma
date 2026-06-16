@@ -43,9 +43,21 @@ import sshsig  # noqa: E402
 
 def _sha256(path):
     h = hashlib.sha256()
-    with open(path, "rb") as fh:
-        for chunk in iter(lambda: fh.read(65536), b""):
-            h.update(chunk)
+    try:
+        st = os.stat(path)
+        if not stat.S_ISREG(st.st_mode):
+            # a FIFO / socket / device under runs/ must NEVER be open()ed - a writer-less FIFO blocks
+            # forever and would hang the verifier in the attestation stage (a hostile target's DoS).
+            # Hash a structural marker instead.
+            h.update(("special:%o" % stat.S_IFMT(st.st_mode)).encode())
+        else:
+            with open(path, "rb") as fh:
+                for chunk in iter(lambda: fh.read(65536), b""):
+                    h.update(chunk)
+    except OSError as e:
+        # unreadable (permissions / vanished mid-walk) -> a deterministic marker, never an uncaught
+        # crash that aborts the whole verification with a traceback.
+        h.update(("unreadable:%s" % type(e).__name__).encode())
     return h.hexdigest()
 
 
@@ -210,6 +222,8 @@ def load_signing_key(path=None):
     """The 32-byte seed from a key file (or the default location): either calma's hex-seed form
     or an unencrypted OpenSSH ed25519 private key. None if absent/unreadable."""
     path = path or _key_paths()[0]
+    if not os.path.isfile(path):
+        return None  # FIFO/socket/device (or absent): never open() (would block); no key here
     try:
         text = open(path).read()
     except OSError:
@@ -470,7 +484,13 @@ def verify_bundle(bundle, pinned_pub_hex=None):
     # the SSHSIG: same payload, same key, OpenSSH envelope - the `ssh-keygen -Y verify` path.
     # The DSSE key and SSH key must be the SAME key (no mix-and-match split possible).
     ssh = bundle.get("ssh") or {}
-    if ssh or bundle.get("schema") == BUNDLE_SCHEMA:
+    # Require the SSH layer whenever the bundle CLAIMS to be current. `schema` lives OUTSIDE the
+    # signed payload, so trusting it alone lets an attacker strip the ssh block and relabel a
+    # modern bundle `@1` to skip this check. The predicateType is INSIDE the signed statement and
+    # is the modern (GitHub-rooted) URI on every current bundle -> gate on it too. Genuine pre-0.5
+    # bundles carry the legacy calma.dev predicate and stay SSH-optional.
+    modern = statement.get("predicateType") == PREDICATE_TYPE
+    if ssh or bundle.get("schema") == BUNDLE_SCHEMA or modern:
         ok_ssh, detail = (sshsig.verify(ssh.get("signature", ""), payload, expect_pub=signer_pub)
                           if ssh.get("signature") else (False, "ssh block missing"))
         if ok_ssh:

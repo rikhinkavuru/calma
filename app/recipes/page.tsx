@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Nav } from "../../components/chrome";
 import { FAMILIES, RECIPE_COUNT } from "./data";
 
@@ -114,9 +115,9 @@ export default function RecipesPage() {
               >
                 Get the free skill
               </a>
-              <a className="pbtn pbtn--amber" href="/">
+              <Link className="pbtn pbtn--amber" href="/">
                 ← Back to Calma
-              </a>
+              </Link>
             </div>
           </div>
         </section>

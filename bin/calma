@@ -2,6 +2,7 @@
 # calma - thin launcher for the pure-stdlib verifier.
 # Install:  ./install.sh   (or: make install)   -> puts `calma` on your PATH.
 set -euo pipefail
+command -v python3 >/dev/null 2>&1 || { echo "calma needs Python 3.9+ on your PATH" >&2; exit 1; }
 SELF_DIR="$(python3 -c 'import os, sys; print(os.path.dirname(os.path.realpath(sys.argv[1])))' "${BASH_SOURCE[0]}")"
 # so echoed reproduce/next-step hints read "calma ..." (copy-pasteable), not the python path
 export CALMA_INVOKED_AS="calma"

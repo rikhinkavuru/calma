@@ -32,6 +32,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import threading
 try:
     import resource as _resource     # POSIX-only: the bwrap tier's pure-stdlib resource caps
 except ImportError:                  # pragma: no cover - non-POSIX host
@@ -43,7 +44,9 @@ NONDET_MODULES = {"torch", "tensorflow", "cupy", "jax"}
 # threads/builds, so a program touching these cannot be PROVEN bit-deterministic -> measured-band.
 RNG_MODULES = {"random", "secrets", "numpy", "pandas", "scipy", "sklearn", "statsmodels"}
 # stdlib sources of run-to-run variation: importing any of these means we cannot PROVE bit-determinism
-NONDET_STDLIB = {"time", "datetime", "uuid", "socket", "threading", "multiprocessing"}
+# (subprocess/os.system shell out to an external binary whose output - `date`, `hostname`, a network
+# call - we cannot prove deterministic, so it can never be stamped controlled-to-bit).
+NONDET_STDLIB = {"time", "datetime", "uuid", "socket", "threading", "multiprocessing", "subprocess"}
 
 # the isolation tiers that count as VERIFIED for stamp derivation. MUST stay in lockstep with the
 # verified-tier sets the verdict layer keys on (calma.VERIFIED_TIERS, hook_stop.VERIFIED_TIERS,
@@ -52,8 +55,66 @@ NONDET_STDLIB = {"time", "datetime", "uuid", "socket", "threading", "multiproces
 _VERIFIED_TIERS = ("seatbelt-verified", "bwrap-verified", "tier0", "container", "vm")
 
 
+# Pin the OS binary by absolute path - NEVER PATH-resolved. A `sandbox-exec` planted earlier on
+# PATH (a realistic agent/CI threat, and the same surface as the repo being verified) could
+# otherwise run the workload UNCONFINED while Calma stamps `seatbelt-verified` + network-off.
+_SANDBOX_EXEC = "/usr/bin/sandbox-exec"
+# Cap retained child output per stream (keep the tail) so a hostile target flooding stdout/stderr
+# can't OOM the verifier; the downstream only keeps a short tail anyway.
+_OUTPUT_CAP = 4 * 1024 * 1024
+
+
 def _have_sandbox_exec():
-    return shutil.which("sandbox-exec") is not None
+    return os.path.isfile(_SANDBOX_EXEC) and os.access(_SANDBOX_EXEC, os.X_OK)
+
+
+def _capped_communicate(p, timeout, on_timeout_kill=None):
+    """Drain a child's stdout/stderr into BOUNDED tail buffers (~_OUTPUT_CAP each) on background
+    threads, so neither a flood (OOM) nor a detached grandchild holding the pipe open can hurt the
+    verifier. On timeout, run on_timeout_kill (default: SIGKILL the whole process group); never block
+    indefinitely on a pipe a re-sessioned descendant kept open (the join is itself bounded). Returns
+    (out, err, timed_out)."""
+    bufs = {0: [], 1: []}
+
+    def drain(stream, key):
+        try:
+            for chunk in iter(lambda: stream.read(65536), ""):
+                b = bufs[key]
+                b.append(chunk)
+                tot = sum(len(c) for c in b)
+                while tot > _OUTPUT_CAP and len(b) > 1:
+                    tot -= len(b.pop(0))
+                if len(b) == 1 and len(b[0]) > _OUTPUT_CAP:
+                    b[0] = b[0][-_OUTPUT_CAP:]
+        except (OSError, ValueError):
+            pass
+
+    ts = [threading.Thread(target=drain, args=(p.stdout, 0), daemon=True),
+          threading.Thread(target=drain, args=(p.stderr, 1), daemon=True)]
+    for t in ts:
+        t.start()
+    timed_out = False
+    try:
+        p.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        timed_out = True
+        if on_timeout_kill is not None:
+            try:
+                on_timeout_kill()
+            except Exception:
+                pass
+        else:
+            try:
+                os.killpg(os.getpgid(p.pid), signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                pass
+        try:
+            p.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            pass
+    for t in ts:
+        t.join(timeout=2)  # bounded: a survivor holding the pipe can't hang us
+    return "".join(bufs[0]), "".join(bufs[1]), timed_out
 
 
 def _have_bwrap():
@@ -183,20 +244,14 @@ def _run_sandboxed(profile_text, argv, cwd, timeout=120, env=None):
     pf = tempfile.NamedTemporaryFile("w", suffix=".sb", delete=False)
     pf.write(profile_text)
     pf.close()
-    cmd = (["sandbox-exec", "-f", pf.name] if _have_sandbox_exec() else []) + argv
+    cmd = ([_SANDBOX_EXEC, "-f", pf.name] if _have_sandbox_exec() else []) + argv
     try:
         p = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                               text=True, start_new_session=True, env=env or os.environ.copy())
-        try:
-            out, err = p.communicate(timeout=timeout)
-            return p.returncode, out, err, False
-        except subprocess.TimeoutExpired:
-            try:
-                os.killpg(os.getpgid(p.pid), signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-            p.communicate()
+        out, err, timed_out = _capped_communicate(p, timeout)
+        if timed_out:
             return -9, "", "timeout", True
+        return p.returncode, out, err, False
     finally:
         os.unlink(pf.name)
 
@@ -541,16 +596,10 @@ def _run_bwrapped(argv, cwd, timeout=120, env=None, pass_fds=()):
                              preexec_fn=_bwrap_rlimits, pass_fds=tuple(pass_fds))
     except OSError as e:
         return -1, "", "bwrap failed to start: %s" % e, False
-    try:
-        out, err = p.communicate(timeout=timeout)
-        return p.returncode, out, err, False
-    except subprocess.TimeoutExpired:
-        try:
-            os.killpg(os.getpgid(p.pid), signal.SIGKILL)
-        except ProcessLookupError:
-            pass
-        p.communicate()
+    out, err, timed_out = _capped_communicate(p, timeout)
+    if timed_out:
         return -9, "", "timeout", True
+    return p.returncode, out, err, False
 
 
 def _run_bwrap(base, inner_argv, cwd, timeout=120, env=None, interp_dirs=(), writable=True):
@@ -678,6 +727,8 @@ def _scan_one(path):
     """AST-scan a single file -> (modules:set, urandom:bool, dynamic:str|None, parsed:bool). Catches
     aliased/from-imports a regex would miss (import random as r; from random import random; numpy
     aliases; os.urandom) plus dynamic import/exec."""
+    if not os.path.isfile(path):
+        return set(), False, None, False  # FIFO/device: never open() (would block); unparseable
     try:
         tree = ast.parse(open(path).read())
     except (OSError, SyntaxError):
@@ -693,8 +744,23 @@ def _scan_one(path):
         elif isinstance(node, ast.Attribute):
             if node.attr == "urandom":
                 urandom = True
+            elif node.attr in ("system", "popen"):   # os.system / os.popen -> external process
+                dynamic = dynamic or "os.%s" % node.attr
             elif node.attr == "import_module":   # importlib.import_module(...)
                 dynamic = "importlib.import_module"
+        elif (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+              and node.func.id == "getattr"):
+            # getattr(obj, "...") dodges the ast.Attribute scan entirely (incl. os.urandom reached as
+            # getattr(os, "ur"+"andom")). A constant attr name we can read; a COMPUTED one is itself an
+            # obfuscation signal in determinism-sensitive code -> downgrade (the stamp biases weaker).
+            arg = node.args[1] if len(node.args) >= 2 else None
+            if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+                if arg.value == "urandom":
+                    urandom = True
+                elif arg.value in ("system", "popen"):
+                    dynamic = dynamic or "getattr os.%s" % arg.value
+            elif arg is not None:
+                dynamic = dynamic or "getattr(dynamic-attr)"
         elif isinstance(node, ast.Name) and node.id in ("__import__", "exec", "eval", "compile"):
             dynamic = node.id
     return mods, urandom, dynamic, True
@@ -956,13 +1022,10 @@ def _run_docker(name, argv, cwd, timeout):
     try:
         p = subprocess.Popen(argv, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                              text=True, start_new_session=True)
-        try:
-            out, err = p.communicate(timeout=timeout)
-            return p.returncode, out, err, False
-        except subprocess.TimeoutExpired:
-            _docker_kill(name)
-            p.communicate()
+        out, err, timed_out = _capped_communicate(p, timeout, on_timeout_kill=lambda: _docker_kill(name))
+        if timed_out:
             return -9, "", "timeout", True
+        return p.returncode, out, err, False
     finally:
         _docker_kill(name)
 
@@ -1028,16 +1091,10 @@ def _run_unwrapped(argv, cwd, timeout=120, env=None):
                              text=True, start_new_session=True, env=env or os.environ.copy())
     except OSError as e:
         return -1, "", "exec failed: %s" % e, False
-    try:
-        out, err = p.communicate(timeout=timeout)
-        return p.returncode, out, err, False
-    except subprocess.TimeoutExpired:
-        try:
-            os.killpg(os.getpgid(p.pid), signal.SIGKILL)
-        except ProcessLookupError:
-            pass
-        p.communicate()
+    out, err, timed_out = _capped_communicate(p, timeout)
+    if timed_out:
         return -9, "", "timeout", True
+    return p.returncode, out, err, False
 
 
 def _exec_native(isolation_tier, base, argv, cwd, timeout=120, env=None, interp_paths=()):

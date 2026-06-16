@@ -40,9 +40,11 @@ DRAFT_SCHEMA = "calma/recipe-draft@1"
 COMPILED_SCHEMA = "calma/compiled-recipe@1"
 ASSETS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "assets")
 COMPILED_PATH = os.path.join(ASSETS, "compiled_recipes.json")
-# reference venv resolution: $CALMA_REF_VENV first (a private, non-world-writable path on
-# shared machines), then the historical /tmp default (calibration docs unchanged)
-DEFAULT_VENV = os.environ.get("CALMA_REF_VENV") or "/tmp/calma-ref-venv/bin/python"
+# reference venv resolution: $CALMA_REF_VENV first, else a PRIVATE per-user path under ~/.calma.
+# NOT /tmp: code under verification can write to a world-writable /tmp and swap the oracle
+# interpreter for a trojan (run_oracle refuses any world-writable venv as defense-in-depth).
+DEFAULT_VENV = os.environ.get("CALMA_REF_VENV") or os.path.join(
+    os.path.expanduser("~/.calma"), "ref-venv", "bin", "python")
 SIZES = (3, 7, 31, 128, 256)
 REL_TOL = 1e-9
 ALLOWED_ORACLE_MODULES = ("numpy", "scipy", "sklearn", "statsmodels", "math", "statistics")
@@ -169,7 +171,33 @@ print(repr(float(out)))
 """
 
 
+def _refuse_world_writable_venv(venv_python):
+    """Refuse a reference-oracle interpreter whose path passes through a directory ANY user could
+    tamper with: world-writable AND NOT sticky (anyone can replace/rename its contents, swapping the
+    oracle for a trojan). A world-writable dir WITH the sticky bit (e.g. /tmp) only lets a file's
+    OWNER delete it, so an owner-only subdir under it is safe - so this allows a private temp dir
+    under /tmp but still refuses a genuinely-shared (non-sticky) directory. The default ref venv lives
+    under ~/.calma (private); set CALMA_REF_VENV to a private path if you override it."""
+    import stat
+    d = os.path.dirname(os.path.realpath(venv_python))
+    while True:
+        try:
+            mode = os.stat(d).st_mode
+            if (mode & stat.S_IWOTH) and not (mode & stat.S_ISVTX):
+                raise ValueError(
+                    "refusing a world-writable reference venv: %r is world-writable and not sticky, "
+                    "so any user could swap the oracle interpreter. Set CALMA_REF_VENV to a private "
+                    "path." % d)
+        except OSError:
+            pass
+        parent = os.path.dirname(d)
+        if parent == d:
+            return
+        d = parent
+
+
 def run_oracle(draft, data, venv_python):
+    _refuse_world_writable_venv(venv_python)
     req = {"call": draft["oracle"]["call"], "args": draft["oracle"].get("args", []),
            "kwargs": draft["oracle"].get("kwargs", {}), "data": data}
     r = subprocess.run([venv_python, "-c", _ORACLE_RUNNER], input=json.dumps(req),

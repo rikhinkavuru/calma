@@ -93,15 +93,23 @@ def compare(recompute, contract, isolation_tier="tier0", container_present=None,
     m2_calibrated = m2_calibrated or bool(_CALIB)
     if container_present is None:
         container_present = isolation_tier in ("vm", "container", "tier0", "seatbelt-verified", "bwrap-verified")
-    by_id = {m["metric_id"]: m for m in recompute["metrics"]}
-    base_by_id = {b["metric_id"]: b for b in recompute.get("baselines", [])}
+    rec_list = recompute["metrics"]
+    by_id = {m["metric_id"]: m for m in rec_list}
     # true no-claim mode: NO metric in the whole contract carries a claimed value. A single
     # numberless metric next to claimed ones stays INCONCLUSIVE (nothing was claimed for it).
     any_claimed = any(m.get("claimed_value") is not None for m in contract.get("metrics", []))
     metrics_out = []
-    for m in contract.get("metrics", []):
+    for i, m in enumerate(contract.get("metrics", [])):
         mid = m["metric_id"]
-        rec = by_id.get(mid, {})
+        # recompute_contract emits exactly one entry per contract metric, in contract order. Join
+        # POSITIONALLY: keying by metric_id alone collapses two claims that pin the SAME recipe on
+        # different columns (e.g. column_mean on col a AND col b) onto the last recompute - a
+        # false CONFIRMED (or false REFUTED) for the other claim. Fall back to by_id only if the
+        # positional entry is somehow misaligned (it never is by construction).
+        if i < len(rec_list) and rec_list[i].get("metric_id") == mid:
+            rec = rec_list[i]
+        else:
+            rec = by_id.get(mid, {})
         claimed = m.get("claimed_value")
         # a non-finite claimed value (inf/NaN) is not a checkable finite target: drop it to "no
         # numeric diff" so it can never produce an inf budget that CONFIRMs anything (defense in

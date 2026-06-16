@@ -12,7 +12,7 @@ verified; "no candidate fits" stays a clean NOT-VERIFIED.
 
 Implementation is deterministic, pure-stdlib, offline: an exact lexical ranker
 (idf-weighted token overlap + alias-phrase hits) over the in-process recipe catalog.
-At 500 short, jargon-dense recipes this is exact and instant - no embeddings, no
+At several hundred short, jargon-dense recipes this is exact and instant - no embeddings, no
 server, no network. The public surface is a single function:
 
     suggest(text, k=5, available_tags=None)
@@ -188,6 +188,8 @@ def suggest(text, k=_TOP_DEFAULT, available_tags=None):
     are demoted by TAG_MISS_PENALTY - so an inequality claim over one numeric column ranks
     `gini`/`atkinson` above `balanced_accuracy` (which needs label+prediction). Demote, never drop:
     a suggestion the data can't currently feed is still worth surfacing. None = no data context."""
+    k = max(1, int(k))  # a non-positive k must not silently empty the ranking (Python [:0]/[:-n]
+    #                     would render a clearly-recognizable ask as "no match")
     docs, idf, alias_pairs = _build_corpus()
     norm = _norm(text)
     qtokens = set(_tokens(text))
@@ -251,7 +253,7 @@ def render(text, results, invocation="calma"):
     if not results:
         return "\n".join((
             "NOT VERIFIED - couldn't tell which metric \"%s\" refers to." % (text or "").strip(),
-            "  Browse all 500 recipes:  %s recipes" % invocation,
+            "  Browse all %d recipes:  %s recipes" % (len(RCP.ids()), invocation),
             "  Then pin one:            %s verify <folder> \"<claim>\" --metric <id>" % invocation))
     if results[0].get("confidence") == "high":
         lines = ["NOT VERIFIED yet - most likely you mean #1 below; pick another if not:"]

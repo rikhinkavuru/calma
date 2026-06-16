@@ -26,6 +26,7 @@ import csv
 import hashlib
 import os
 import re
+import unicodedata
 
 # near-duplicate minhash configuration (deterministic; stdlib only).
 _MINHASH_K = 32          # number of hash functions in the signature
@@ -79,6 +80,8 @@ _ALLOWED_RE = re.compile(
 # ---- io ----------------------------------------------------------------------
 
 def _read(path):
+    if not os.path.isfile(path):
+        return [], []  # FIFO/socket/device: never open() (would block); treated as unreadable
     try:
         with open(path, newline="", encoding="utf-8", errors="replace") as fh:
             rd = csv.reader(fh)
@@ -94,9 +97,12 @@ def _read(path):
 
 
 def _norm_text(s):
-    """Whitespace-canonical text (collapse runs, strip) - so trivial reformatting doesn't dodge the
-    exact-memorization hash, while keeping it content-exact (no case-folding / token surgery)."""
-    return " ".join(str(s).split())
+    """Whitespace-canonical, NFKC-normalized text - so trivial reformatting and Unicode COMPATIBILITY
+    variants (fullwidth digits/letters, ligatures, presentation forms) don't dodge the exact-
+    memorization hash. Stays content-exact otherwise (no case-folding / token surgery). NFKC does NOT
+    fold cross-script CONFUSABLES (e.g. Latin 'o' vs Cyrillic 'о' are distinct codepoints): a
+    deliberate homoglyph substitution still hashes differently - documented, not silently claimed."""
+    return " ".join(unicodedata.normalize("NFKC", str(s)).split())
 
 
 def _content_hash(s):
@@ -116,6 +122,8 @@ def _load_corpus(contract, base):
         return None, None
     try:
         path = _safe_join(base, cp["manifest"])
+        if not os.path.isfile(path):  # FIFO/device: never open() (would block) -> declared-but-unreadable
+            raise ValueError("corpus manifest is not a regular file")
         hashes, texts, n = set(), [], 0
         with open(path, encoding="utf-8", errors="replace") as fh:
             for ln in fh:
@@ -237,6 +245,23 @@ def _finding(claim_id, kind, severity, vclass, magnitude, locator, unblock):
     }
 
 
+def _indeterminate_finding(claim_id, manifest):
+    """A contamination check was DECLARED (corpus.manifest set) but its corpus could not be read
+    (missing file / decode error / path-escape). A declared check that cannot RUN is CAN'T-CONFIRM,
+    never a silent 'checked' (clean) - else a broken corpus path launders a held-out claim."""
+    return {
+        "id": "f-%s-contam-indeterminate" % claim_id, "claim_id": claim_id,
+        "dimension": "contamination", "severity": "minor", "status": "open",
+        "confidence": "deterministic", "fixable_by": "author",
+        "locator": "declared corpus manifest could not be read: %r" % manifest,
+        "unblock": "the contamination check was declared but its corpus manifest could not be read "
+                   "(missing file / unreadable / path-escape) - fix corpus.manifest and re-verify",
+        "reverify": {"kind": "artifact-recheck", "source": "corpus",
+                     "expected": "the declared corpus manifest is readable"},
+        "validity_class": "indeterminate", "contamination_indeterminate": True, "magnitude": 1.0,
+    }
+
+
 def check_exact(contract, base, claim_id="c1"):
     """Exact memorization: eval items whose content hash is in the corpus. Authoritative."""
     corpus_hashes, _ = _load_corpus(contract, base)
@@ -308,8 +333,15 @@ def check_near_dup(contract, base, claim_id="c1"):
 def run_checks(contract, base, claim_id="c1", claim_text=None):
     """All contamination catches against one engagement. SILENT (returns []) unless a `corpus:{manifest}`
     block is declared. Fail-soft: any check that errors is skipped."""
-    if not _corpus(contract):
+    cp = _corpus(contract)
+    if not cp:
         return []
+    # declared-but-unreadable: a corpus block points at a manifest that can't be read. NOT a clean
+    # scan - return an indeterminate finding so it reads as CAN'T-CONFIRM, never a silent 'checked'.
+    if cp.get("manifest"):
+        _hashes, _texts = _load_corpus(contract, base)
+        if _hashes is None:  # OSError / decode error / path-escape (an empty-readable corpus is set())
+            return [_indeterminate_finding(claim_id, cp.get("manifest"))]
     out = []
     for fn in (lambda: check_exact(contract, base, claim_id),
                lambda: check_near_dup(contract, base, claim_id)):
@@ -326,6 +358,8 @@ def family_status(contract, findings):
     """Honest scope.families.contamination status."""
     if not _corpus(contract):
         return "not-applicable"
+    if any(f.get("contamination_indeterminate") for f in findings):
+        return "indeterminate"  # declared but the corpus couldn't be read - not a clean scan
     return "flagged" if any(f.get("contamination_kind") for f in findings) else "checked"
 
 
@@ -356,9 +390,19 @@ def apply_validity(claims, findings, contract, claim_text):
     if head.get("verdict") not in ("CONFIRMED", "CONFIRMED-WITH-CAVEATS"):
         return  # the number didn't reproduce; contamination findings stay additive, no promotion
     import verdict as V
+    vi = head.get("verdict_inputs") or {}
+    # declared-but-unreadable corpus: the check could not run -> CAN'T-CONFIRM, never a silent pass.
+    # Must RE-DERIVE the headline verdict (mirror the tail) - setting the flag alone leaves the stale
+    # CONFIRMED label on the claim while verdict_inputs says otherwise.
+    if any(f.get("contamination_indeterminate") for f in contam):
+        vi["validity_unresolved"] = True
+        head["driving_dimension"] = "contamination"
+        head["verdict_inputs"] = vi
+        head["verdict"] = V.verdict(vi)
+        head["headline_confidence"] = V.confidence(vi, head["verdict"])
+        return
     auth = [f for f in contam if f.get("validity_class") == "authoritative"]
     soft = [f for f in contam if f.get("validity_class") == "soft"]
-    vi = head.get("verdict_inputs") or {}
     if auth:
         status = contamination_status(contract, claim_text)
         if status == "held-out":

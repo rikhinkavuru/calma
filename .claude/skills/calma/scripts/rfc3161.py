@@ -250,6 +250,7 @@ def verify_bundle_timestamps(bundle):
     except (ValueError, KeyError) as e:
         return False, str(e)
     details = []
+    verified_any = False
     for i, t in enumerate(entries):
         try:
             token = base64.b64decode(t.get("token_b64", ""), validate=True)
@@ -262,6 +263,18 @@ def verify_bundle_timestamps(bundle):
         crypto_ok, crypto_detail = _openssl_verify(token, msg, t.get("tsa_ca_pem"))
         if crypto_ok is False:
             return False, "timestamp[%d] chain verification failed: %s" % (i, crypto_detail)
-        tier = "chain verified" if crypto_ok else ("structural only: %s" % crypto_detail)
-        details.append("%s (%s)" % (info["gen_time"], tier))
+        if crypto_ok:
+            verified_any = True
+            details.append("%s (chain verified)" % info["gen_time"])
+        else:
+            # The imprint binds genTime to THESE signature bytes, but nothing here authenticates
+            # the TSA's OWN signature, so the date is self-asserted - a malicious signer could mint
+            # a structural-only token for any past genTime (anti-backdating only holds once the TSA
+            # chain verifies). Never render a structural-only token as a trusted/proven date.
+            details.append("%s UNVERIFIED - no TSA chain (%s); date self-asserted, not proven"
+                           % (info["gen_time"], crypto_detail))
+    # ok stays True when no token actively FAILED (so a genuine token on a host without openssl/CA
+    # is not a hard error), but a structural-only result is surfaced as UNVERIFIED, not a date.
+    if not verified_any:
+        return True, "UNVERIFIED (no TSA chain established): " + "; ".join(details)
     return True, "; ".join(details)

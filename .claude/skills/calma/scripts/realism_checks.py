@@ -67,6 +67,8 @@ def _safe_join(base, rel):
 
 
 def _read_csv(path):
+    if not os.path.isfile(path):
+        return {}  # FIFO/socket/device: never open() (would block); treated as unreadable
     try:
         with open(path, newline="", encoding="utf-8", errors="replace") as fh:
             rd = csv.reader(fh)
@@ -193,7 +195,10 @@ def deflate(contract, base):
     per_turn_bps = (fee + slip)
     # turnover is required to apply a per-turnover cost; if a per-turnover cost is declared but no
     # turnover basis exists, default to flat full turnover so the cost is still applied (conservative).
-    if per_turn_bps > 0 and turn is None:
+    # `!= 0` (not `> 0`): a NEGATIVE declared cost (fee_bps:-50) is nonsensical, not "no cost" - apply
+    # it so the net exceeds gross and check_deflation's degenerate-net guard fires, instead of silently
+    # dropping it and CONFIRMING a net claim with zero friction applied.
+    if per_turn_bps != 0 and turn is None:
         turn = [1.0] * n
     impact_per = float("nan")
     if impact_model == "sqrt" and part is not None:
@@ -207,7 +212,7 @@ def deflate(contract, base):
     for t in range(n):
         c = 0.0
         tt = (turn[t] if turn is not None else 0.0)
-        if per_turn_bps > 0 and turn is not None:
+        if per_turn_bps != 0 and turn is not None:
             c += per_turn_bps * tt
             applied = True
         if borrow > 0 and short_frac > 0:

@@ -117,7 +117,7 @@ export default function LabClient() {
                 <p className="lead labwhy">
                   The failure modes that matter — overfitting, cherry-picking, leakage — are driven
                   by incentives, not model error. They get <b>stronger as models improve</b>: a
-                  better optimizer produces more convincing overfits. That's why this is forensic
+                  better optimizer produces more convincing overfits. That&apos;s why this is forensic
                   work, built to survive an adversarial author.
                 </p>
               </Reveal>
@@ -213,7 +213,7 @@ export default function LabClient() {
             <Reveal delay={220}>
               <p className="labfine micro">
                 The engine behind every engagement is open source — the free Calma skill is the
-                live, public proof it's real. The lab is the practice built on top of it.
+                live, public proof it&apos;s real. The lab is the practice built on top of it.
               </p>
             </Reveal>
           </div>
@@ -225,9 +225,9 @@ export default function LabClient() {
             <Reveal>
               <div className="labcta">
                 <div>
-                  <h2 className="h2">Have a number that's about to move money?</h2>
+                  <h2 className="h2">Have a number that&apos;s about to move money?</h2>
                   <p className="lead" style={{ marginTop: 14 }}>
-                    Send the claim. We'll scope what it would take to prove it — or break it.
+                    Send the claim. We&apos;ll scope what it would take to prove it — or break it.
                   </p>
                 </div>
                 <div className="labcta__btns">

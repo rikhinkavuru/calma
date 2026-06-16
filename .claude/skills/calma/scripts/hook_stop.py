@@ -57,6 +57,8 @@ HOOK_TIMEOUT_CAP_S = 30              # hard cap on the child verify's --timeout 
 DEFAULT_MAX_CLAIMS = 1               # verifications per stop - keep the hook imperceptible
 STATE_NAME = "hook_state.json"
 HISTORY_NAME = "auto_history.jsonl"
+HISTORY_MAX_BYTES = 1024 * 1024      # cap auto_history.jsonl (one line per verifiable turn, incl.
+                                     # cached no-ops) - rotate in place, keeping the recent tail
 _CSV_SCAN_CAP = 400                  # dir entries examined during artifact preflight
 SANDBOX_TTL_S = 24 * 3600            # how long a cached doctor (sandbox tier) result is trusted
 VERIFIED_TIERS = ("seatbelt-verified", "bwrap-verified", "tier0", "container", "vm")
@@ -116,6 +118,8 @@ def _final_assistant_text(transcript_path):
     """The agent's final message: trailing run of assistant entries in the JSONL
     transcript (skipping sidechain/subagent lines), text blocks joined in order.
     Reads only the tail of large transcripts. Returns "" when unavailable."""
+    if not os.path.isfile(transcript_path):
+        return ""  # FIFO/socket/device (or absent): never open() (would block the Stop hook)
     try:
         size = os.path.getsize(transcript_path)
         with open(transcript_path, "rb") as f:
@@ -216,9 +220,23 @@ def _breadcrumb(cwd, event, **fields):
     try:
         d = os.path.join(cwd, ".calma")
         os.makedirs(d, exist_ok=True)
+        path = os.path.join(d, HISTORY_NAME)
         rec = {"ts": _now_iso(), "event": event}
         rec.update({k: v for k, v in fields.items() if v is not None})
-        with open(os.path.join(d, HISTORY_NAME), "a") as f:
+        # cap the breadcrumb log: it's appended on every verifiable turn (incl. cached no-ops), so
+        # rotate in place when it crosses HISTORY_MAX_BYTES, keeping the recent tail (calma stats
+        # summarizes recent activity, not all of history).
+        try:
+            if os.path.getsize(path) > HISTORY_MAX_BYTES:
+                with open(path, "rb") as f:
+                    f.seek(-(HISTORY_MAX_BYTES // 2), os.SEEK_END)
+                    tail = f.read()
+                nl = tail.find(b"\n")
+                with open(path, "wb") as f:
+                    f.write(tail[nl + 1:] if nl >= 0 else b"")  # drop the partial first line
+        except OSError:
+            pass
+        with open(path, "a") as f:
             f.write(json.dumps(rec, sort_keys=True) + "\n")
     except OSError:
         pass
@@ -382,6 +400,12 @@ def main():
         text = _final_assistant_text(data.get("transcript_path") or "")
     if not text:
         return 0
+    # Bound the sniffer's input. last_assistant_message is harness-provided and uncapped, so a very
+    # large final message (long reports, embedded tables/data) would add seconds to EVERY turn end.
+    # A headline claim lives near the END of the message, same as in the transcript tail, so cap to
+    # the same tail budget the transcript reader uses.
+    if len(text) > MAX_TRANSCRIPT_TAIL:
+        text = text[-MAX_TRANSCRIPT_TAIL:]
     import sniff_claims as SN
     claims = SN.sniff(text)
     if not claims:
@@ -427,9 +451,17 @@ def main():
         if verdict not in ("REFUTED", "MIXED", "INVALIDATED"):
             continue
         key = _claim_key(cand)
-        if res.get("cached") and key in informed:
-            continue  # already reported this exact break; nothing changed since
-        informed[key] = {"verdict": verdict, "ts": _now_iso(), "claim": cand["claim"]}
+        prior = informed.get(key)
+        # Never-nag: the same break must not block twice. Tie suppression to the BREAK IDENTITY
+        # (verdict + the recomputed number), NOT the engine's `cached` flag. cache.json is
+        # evictable (cleanup, .gitignore, a sibling claim overwriting the shared run dir); a
+        # re-execution then returns cached=False and would re-block an UNCHANGED break every single
+        # turn. Fixing the code changes the recomputed value (or flips the verdict out of this
+        # branch entirely), so a genuinely new/different break still blocks as intended.
+        if prior and prior.get("verdict") == verdict and prior.get("recomputed") == res.get("recomputed"):
+            continue
+        informed[key] = {"verdict": verdict, "recomputed": res.get("recomputed"),
+                         "ts": _now_iso(), "claim": cand["claim"]}
         state["informed"] = informed
         _save_state(cwd, state)
         print(json.dumps(_block_payload(cand, res)))

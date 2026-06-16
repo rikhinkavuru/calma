@@ -19,6 +19,10 @@ _INF, _NINF = float("inf"), float("-inf")
 
 
 def _load_cols(path):
+    if not os.path.isfile(path):
+        # a FIFO / socket / device artifact would BLOCK open() forever (a hostile entrypoint can
+        # plant one in runs/); fail it as a degenerate recompute instead of hanging the verifier.
+        raise ValueError("artifact %s is not a regular file" % os.path.basename(path))
     with open(path, newline="") as fh:
         rd = csv.reader(fh)
         header = next(rd, None)

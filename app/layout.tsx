@@ -45,6 +45,9 @@ export const metadata: Metadata = {
     template: "%s — Calma",
   },
   description: DESCRIPTION,
+  alternates: {
+    canonical: "/",
+  },
   openGraph: {
     type: "website",
     url: SITE_URL,
@@ -68,6 +71,13 @@ export default function RootLayout({
       className={`${archivo.variable} ${spaceMono.variable}`}
       style={fontVarOverrides}
     >
+      <head>
+        {/* Without JS, framer-motion never un-hides .rv elements. Reveal them
+            so the page content is visible when scripts don't run. */}
+        <noscript>
+          <style>{`.rv{opacity:1 !important;transform:none !important}`}</style>
+        </noscript>
+      </head>
       <body>
         <div className="paper" aria-hidden="true"></div>
         {children}
