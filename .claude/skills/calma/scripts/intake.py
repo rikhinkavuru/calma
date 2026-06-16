@@ -29,6 +29,8 @@ _VENV_DIR = ".calma_venv"
 
 
 def _sha256(path):
+    if not os.path.isfile(path):
+        return None  # FIFO/socket/device: never open() (a writer-less FIFO would block the scan forever)
     try:
         h = hashlib.sha256()
         with open(path, "rb") as fh:
@@ -49,6 +51,8 @@ def _walk_files(base, skip=(".git", ".calma", _VENV_DIR, "__pycache__", "node_mo
 def _parse_pyproject(path):
     """Best-effort PEP 621 / poetry dependency extraction. Uses tomllib when available (py3.11+),
     else a tolerant regex for `dependencies = [ ... ]`. Returns a list of requirement strings."""
+    if not os.path.isfile(path):
+        return []  # FIFO/socket/device: never open() (would block the dependency scan forever)
     try:
         import tomllib  # py3.11+
         with open(path, "rb") as fh:
@@ -122,6 +126,22 @@ def detect(base, contract=None):
     return info
 
 
+def _restore_env():
+    """A minimal env for the dependency-restore subprocesses. `pip install` executes arbitrary code
+    from a hostile package (sdist setup.py / build hooks / VCS clone), so it must NOT inherit the
+    parent's secrets. Allowlist what pip/venv genuinely need (PATH, HOME, locale, tmp, proxy + CA +
+    PIP_/PYTHON config) and drop everything else (AWS_*, *_TOKEN, *_API_KEY, ...)."""
+    keep_exact = {"PATH", "HOME", "USER", "LOGNAME", "SHELL", "LANG", "TMPDIR", "TEMP", "TMP",
+                  "SSL_CERT_FILE", "SSL_CERT_DIR", "REQUESTS_CA_BUNDLE", "CURL_CA_BUNDLE",
+                  "SYSTEMROOT", "SYSTEMDRIVE", "WINDIR"}
+    keep_prefix = ("LC_", "PIP_", "PYTHON", "VIRTUAL_ENV", "UV_",
+                   "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "no_proxy")
+    env = {k: v for k, v in os.environ.items()
+           if k in keep_exact or k.startswith(keep_prefix)}
+    env.setdefault("PIP_DISABLE_PIP_VERSION_CHECK", "1")
+    return env
+
+
 def _pip_install_args(base, sources):
     """The pip install spec for the strongest source available, plus a human 'method' label."""
     kinds = {k: p for k, p in [(s["kind"], os.path.join(base, s["path"])) for s in sources]}
@@ -146,23 +166,26 @@ def restore_python(base, sources, timeout=600, py=None):
     if spec is None:
         report.update(ok=True, note="no Python dependency declaration found - stdlib repo")
         return report
+    env = _restore_env()  # untrusted package code must not see the parent's secrets
     try:
         if not os.path.exists(vpy):
-            r = subprocess.run([py, "-m", "venv", venv], capture_output=True, text=True, timeout=120)
+            r = subprocess.run([py, "-m", "venv", venv], capture_output=True, text=True,
+                               timeout=120, env=env)
             if r.returncode != 0:
                 report["log_tail"] = (r.stderr or "")[-800:]
                 report["note"] = "could not create venv"
                 return report
         # upgrade pip quietly (best-effort), then install
         subprocess.run([vpy, "-m", "pip", "install", "-q", "--upgrade", "pip"],
-                       capture_output=True, text=True, timeout=180)
+                       capture_output=True, text=True, timeout=180, env=env)
         inst = subprocess.run([vpy, "-m", "pip", "install"] + spec, cwd=base,
-                              capture_output=True, text=True, timeout=timeout)
+                              capture_output=True, text=True, timeout=timeout, env=env)
         report["log_tail"] = ((inst.stdout or "") + (inst.stderr or ""))[-1200:]
         if inst.returncode != 0:
             report["note"] = "pip install failed (see log_tail)"
             return report
-        fr = subprocess.run([vpy, "-m", "pip", "freeze"], capture_output=True, text=True, timeout=120)
+        fr = subprocess.run([vpy, "-m", "pip", "freeze"], capture_output=True, text=True,
+                            timeout=120, env=env)
         pinned = [ln.strip() for ln in (fr.stdout or "").splitlines() if ln.strip() and "==" in ln]
         report.update(ok=True, pinned=pinned, installed_count=len(pinned))
         return report
@@ -187,7 +210,8 @@ def restore_r(base, sources, timeout=600):
             report["method"] = "renv::restore()"
             r = subprocess.run([rscript, "-e", "if (requireNamespace('renv', quietly=TRUE)) "
                                 "renv::restore(prompt=FALSE) else quit(status=3)"],
-                               cwd=base, capture_output=True, text=True, timeout=timeout)
+                               cwd=base, capture_output=True, text=True, timeout=timeout,
+                               env=_restore_env())  # untrusted pkg code must not see parent secrets
             report["log_tail"] = ((r.stdout or "") + (r.stderr or ""))[-1200:]
             report["ok"] = r.returncode == 0
             if r.returncode == 3:
