@@ -15,6 +15,7 @@ import argparse
 import hashlib
 import json
 import os
+import stat
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -36,7 +37,7 @@ import run_hermetic as H
 import suggest as SUGG
 import verdict as V
 
-__version__ = "0.9.1"
+__version__ = "0.10.0"
 
 QUANT_METRICS = {"total_return", "sharpe", "max_drawdown"}
 DEFAULT_TIMEOUT_S = 120
@@ -492,30 +493,47 @@ def _input_fingerprint(target, contract, isolation=None):
     # invalidates the cache (a different verifier run is a different computation). A default (auto)
     # isolation appends nothing, so existing cache entries keep their fingerprint.
     iso = isolation if isolation not in (None, "auto") else ""
-    h.update(("calma-cache@1|calma=%s|py=%d.%d%s\n"
+    h.update(("calma-cache@2|calma=%s|py=%d.%d%s\n"
               % (__version__, sys.version_info[0], sys.version_info[1],
                  ("|iso=" + iso) if iso else "")).encode())
     h.update(json.dumps({k: v for k, v in contract.items() if not str(k).startswith("_")},
                         sort_keys=True).encode())
     rt = os.path.realpath(target)
-    paths = []
-    entry = (contract.get("run") or {}).get("entrypoint")
-    if entry and entry != "MANUAL":
-        paths.append(entry)
-    for a in contract.get("artifacts", []):
-        if isinstance(a, dict) and a.get("path"):
-            paths.append(a["path"])
-    for rel in sorted(set(paths)):
-        full = os.path.realpath(os.path.join(rt, rel))
-        if full != rt and not full.startswith(rt + os.sep):
-            continue
+    # Content-address the WHOLE input tree, not just the entrypoint + the declared OUTPUT
+    # artifacts: a config file, an imported sibling module, or an input dataset the entrypoint
+    # reads is just as load-bearing on the verdict. Hashing only the outputs let an edit to any
+    # of those collide on the same fingerprint -> a STALE CONFIRMED served for a now-different
+    # number (the cache's whole job is to skip a re-execution that would have caught the change).
+    # Skips calma's own run state + regenerable/vendored caches; a very large file falls back to
+    # (size, mtime) so a giant dataset can't make fingerprinting pathologically slow - a spurious
+    # cache MISS only re-runs, it can never serve a stale verdict.
+    SKIP = {".calma", ".calma_venv", ".calma_httpcache", ".git", ".hg", ".svn",
+            "__pycache__", "node_modules", ".mypy_cache", ".pytest_cache",
+            ".ipynb_checkpoints", ".gstack", ".venv", "venv"}
+    BIG = 64 * 1024 * 1024
+    entries = []
+    for dp, dns, fns in os.walk(rt):
+        dns[:] = [d for d in dns
+                  if d not in SKIP and not os.path.islink(os.path.join(dp, d))]
+        for fn in fns:
+            full = os.path.join(dp, fn)
+            entries.append((os.path.relpath(full, rt), full))
+    for rel, full in sorted(entries):
         h.update(rel.encode() + b"\x00")
         try:
-            with open(full, "rb") as fh:
-                for chunk in iter(lambda: fh.read(65536), b""):
-                    h.update(chunk)
+            st = os.stat(full)
+            if not stat.S_ISREG(st.st_mode):
+                # a FIFO / socket / device in the tree must NOT be open()ed - reading a writer-less
+                # FIFO blocks forever and hangs the verifier. Hash a structural marker instead.
+                h.update(("special:%o" % stat.S_IFMT(st.st_mode)).encode())
+            elif st.st_size > BIG:
+                h.update(("big:%d:%d" % (st.st_size, int(st.st_mtime))).encode())
+            else:
+                with open(full, "rb") as fh:
+                    for chunk in iter(lambda: fh.read(65536), b""):
+                        h.update(chunk)
         except OSError:
-            h.update(b"<missing>")
+            h.update(b"<unreadable>")
     return h.hexdigest()
 
 
@@ -635,6 +653,9 @@ def _artifact_hashes(target, contract):
         full = os.path.realpath(os.path.join(rt, a["path"]))
         if full != rt and not full.startswith(rt + os.sep):
             continue
+        if not os.path.isfile(full):
+            out[a["path"]] = "<not-a-regular-file>"  # FIFO/device: never open() (would block)
+            continue
         h = hashlib.sha256()
         try:
             with open(full, "rb") as fh:
@@ -690,8 +711,8 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
     target = os.path.realpath(target)
     if trust not in ("own-code", "third-party"):
         raise ValueError("--trust must be own-code or third-party (got %r)" % trust)
-    if isolation not in (None, "auto", "seatbelt", "docker", "firecracker"):
-        raise ValueError("--isolation must be auto/seatbelt/docker/firecracker (got %r)" % isolation)
+    if isolation not in (None, "auto", "seatbelt", "bwrap", "docker", "firecracker"):
+        raise ValueError("--isolation must be auto/seatbelt/bwrap/docker/firecracker (got %r)" % isolation)
     if metric and RCP.get(metric) is None:
         # unknown/unclear metric id -> rank the recipes it most likely meant (semantic, not just
         # string-edit distance). Replaces difflib: alias/description-aware, same engine as `suggest`.
@@ -710,7 +731,16 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
         raise ValueError("target directory does not exist: %s" % target)
     if not any(n for n in os.listdir(target) if n not in (".calma", ".DS_Store")):
         raise ValueError("nothing to verify: %s is empty (expected code + machine-readable outputs)" % target)
-    run_dir = os.path.join(target, ".calma", run_id)
+    calma_dir = os.path.join(target, ".calma")
+    if os.path.islink(calma_dir):
+        # a target shipping .calma as a SYMLINK would make calma write all its own verdict state
+        # (cache, ledgers, run dirs) THROUGH the link to an attacker-chosen location - and dodge the
+        # sandbox write-confinement that keys on the literal .calma path. Refuse: calma's state dir
+        # must be a real directory inside the target.
+        raise ValueError(".calma in %s is a symlink - refusing. calma's state directory must be a "
+                         "real directory (a symlinked .calma can redirect verdict state outside the "
+                         "target); remove or rename it." % target)
+    run_dir = os.path.join(calma_dir, run_id)
     os.makedirs(run_dir, exist_ok=True)
 
     committed = os.path.join(target, "verify.yaml")
@@ -1044,12 +1074,24 @@ def replay(run_dir):
     pv, nv = pc.get("recomputed_value"), nc.get("recomputed_value")
     same_value = (pv is None and nv is None) or \
         (isinstance(pv, float) and isinstance(nv, float) and abs(pv - nv) <= 1e-9 + 1e-6 * abs(pv))
-    ok = same_verdict and same_value
+    # Reproduction is about the NUMBER. A bit-identical recompute reproduced even if the verdict
+    # LABEL drifted on the conclusiveness axis (CONFIRMED<->INCONCLUSIVE because the isolation tier
+    # differs on this host, or because a later verify into the shared run dir overwrote the stored
+    # label - the prior is read from a MUTABLE ledger.json). A CONFIRMED<->REFUTED flip can only
+    # happen WITH a value change, so gating on same_value never calls a real non-reproduction
+    # "reproduced". Verdict-label drift is reported as a note, not a failure.
+    ok = same_value
     lines = ["CALMA REPLAY  -  %s" % prior.get("target", os.path.basename(target)),
              "  prior:    %s  (recomputed %s)" % (prior.get("repo_verdict"), pv),
-             "  replayed: %s  (recomputed %s)" % (res["repo_verdict"], nv),
-             "  %s" % ("REPRODUCED - the verdict holds under re-execution" if ok
-                       else "DID NOT REPRODUCE - the prior verdict no longer holds")]
+             "  replayed: %s  (recomputed %s)" % (res["repo_verdict"], nv)]
+    if not ok:
+        lines.append("  DID NOT REPRODUCE - the recomputed number changed")
+    elif same_verdict:
+        lines.append("  REPRODUCED - the verdict holds under re-execution")
+    else:
+        lines.append("  REPRODUCED - the recomputed number is identical; the verdict LABEL differs "
+                     "(%s -> %s), reflecting a changed environment (e.g. isolation tier), not the "
+                     "computation" % (prior.get("repo_verdict"), res["repo_verdict"]))
     return ok, "\n".join(lines)
 
 
@@ -1215,6 +1257,8 @@ def _batch_jobs(targets, manifest):
             if os.path.isdir(m):
                 jobs.append((m, None, None))
     if manifest:
+        if not os.path.isfile(manifest):  # a FIFO/device manifest would block the read forever
+            raise ValueError("--manifest %r is not a regular file" % manifest)
         for ln_no, line in enumerate(open(manifest), 1):
             line = line.rstrip("\n")
             if not line.strip() or line.lstrip().startswith("#"):
@@ -1343,6 +1387,7 @@ def main():
         prog="calma",
         description="Verify a computational result by re-executing it and recomputing the headline "
                     "number from the raw outputs. The verdict comes from deterministic scripts.")
+    ap.add_argument("--version", action="version", version="calma %s" % __version__)
     sub = ap.add_subparsers(dest="cmd", required=True)
     v = sub.add_parser("verify", help="re-run + recompute + diff against the claim")
     v.add_argument("target", help="folder containing the code and its outputs")
@@ -1360,15 +1405,16 @@ def main():
                    help="trust posture for the code being re-executed: own-code (default) runs "
                         "under the verified sandbox; third-party auto-escalates to the container "
                         "tier and REFUSES (exit 3) if no verified container/VM tier is live")
-    v.add_argument("--isolation", choices=["auto", "seatbelt", "docker", "firecracker"],
+    v.add_argument("--isolation", choices=["auto", "seatbelt", "bwrap", "docker", "firecracker"],
                    default="auto",
                    help="isolation backend: auto (default - seatbelt for own-code, container for "
-                        "third-party), seatbelt (host macOS sandbox), docker (network-denied Linux "
-                        "container), or firecracker (microVM, not built yet). Explicit choices fail "
-                        "loud if the backend is unavailable - never a silent host fallback")
+                        "third-party), seatbelt (host macOS sandbox), bwrap (Linux bubblewrap, "
+                        "no daemon), docker (network-denied Linux container), or firecracker (microVM, "
+                        "not built yet). Explicit choices fail loud if the backend is unavailable - "
+                        "never a silent host fallback")
     v.add_argument("--timeout", type=int, default=None, metavar="SECONDS",
-                   help="re-execution wall-clock budget (default 120, or run.timeout in "
-                        "verify.yaml); on overrun the run is killed (exit 4)")
+                   help="re-execution wall-clock budget in seconds, clamped to [1, 86400] (default "
+                        "120, or run.timeout in verify.yaml); on overrun the run is killed (exit 4)")
     v.add_argument("--force", action="store_true",
                    help="re-execute even if code, data, and claim are unchanged since the last verification")
     v.add_argument("--restore", action="store_true",
@@ -1486,6 +1532,10 @@ def main():
     rgv.add_argument("dir", nargs="?", default=None,
                      help="registry directory (default: $CALMA_REGISTRY_DIR, then ./registry)")
     rgv.add_argument("--key", help="pin the signer: hex public key, or a path to the .pub file")
+    rgv.add_argument("--min-seq", type=int, default=None, metavar="N",
+                     help="rollback anchor: fail unless the chain reached at least sequence N. Use a "
+                          "floor you know out-of-band (a prior audit, or git history) to catch a "
+                          "consistent tail-truncation that the files alone cannot reveal")
     # bare `calma` (or `calma help`) is a person looking for the door, not an error
     if len(sys.argv) <= 1 or sys.argv[1] == "help":
         ap.print_help()
@@ -1834,14 +1884,18 @@ def main():
             pinned = None
             if a.key:
                 pinned = open(a.key).read().strip() if os.path.exists(a.key) else a.key.strip()
-            ok, checks, summary = REG.verify_chain(reg_dir, pinned_pub_hex=pinned)
+            ok, checks, summary = REG.verify_chain(reg_dir, pinned_pub_hex=pinned, min_seq=a.min_seq)
             print(REG.render_verify(ok, checks, summary))
             return 0 if ok else 1
     except (ValueError, OSError) as e:
         # ValueError = bad input/contract; OSError = a file path that can't be read/written
         # (--out to a missing dir, --key pointing at a directory, a missing bundle). Both are
-        # user-actionable input errors - print the message, never a raw traceback.
+        # user-actionable input errors - print the message, never a raw traceback. In --json mode
+        # ALSO emit a {"error": ...} object on STDOUT so an agent that parses stdout (the documented
+        # --json contract) gets valid JSON instead of a JSONDecodeError on an empty stream.
         print("error: %s" % e, file=sys.stderr)
+        if getattr(a, "as_json", False):
+            print(json.dumps({"ok": False, "error": str(e)}))
         return 2
     return 2
 
