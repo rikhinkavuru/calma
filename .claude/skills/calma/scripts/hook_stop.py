@@ -61,7 +61,8 @@ HISTORY_MAX_BYTES = 1024 * 1024      # cap auto_history.jsonl (one line per veri
                                      # cached no-ops) - rotate in place, keeping the recent tail
 _CSV_SCAN_CAP = 400                  # dir entries examined during artifact preflight
 SANDBOX_TTL_S = 24 * 3600            # how long a cached doctor (sandbox tier) result is trusted
-VERIFIED_TIERS = ("seatbelt-verified", "bwrap-verified", "tier0", "container", "vm")
+VERIFIED_TIERS = ("seatbelt-verified", "bwrap-verified", "tier0", "container", "vm",
+                  "e2b-firecracker", "e2b-firecracker (self-hosted)")
 
 # machine-readable artifacts calma can recompute from - a metric claim is only worth
 # auto-verifying where one of these exists (broadened past .csv: real projects emit Parquet/

@@ -26,6 +26,7 @@ import ast
 import json
 import os
 import platform
+import shlex
 import shutil
 import signal
 import struct
@@ -48,11 +49,19 @@ RNG_MODULES = {"random", "secrets", "numpy", "pandas", "scipy", "sklearn", "stat
 # call - we cannot prove deterministic, so it can never be stamped controlled-to-bit).
 NONDET_STDLIB = {"time", "datetime", "uuid", "socket", "threading", "multiprocessing", "subprocess"}
 
+# Canonical isolation_tier stamps for the remote microVM (E2B/Firecracker) tier. The SAME string is
+# the human-facing stamp AND the verdict-layer gate key, so it is defined ONCE here and registered in
+# every verified-tier site below. The self-hosted endpoint records that fact in the stamp WITHOUT ever
+# leaking the endpoint URL (the URL/token live in config, never in the stamp/doctor/ledger).
+E2B_TIER = "e2b-firecracker"
+E2B_TIER_SELFHOSTED = "e2b-firecracker (self-hosted)"
+
 # the isolation tiers that count as VERIFIED for stamp derivation. MUST stay in lockstep with the
 # verified-tier sets the verdict layer keys on (calma.VERIFIED_TIERS, hook_stop.VERIFIED_TIERS,
 # compare.compare's container_present default, verdict.confidence) - the anti-drift guard test asserts
 # every consumer accepts the same names. host-not-isolated is deliberately absent (it is the CAVEAT).
-_VERIFIED_TIERS = ("seatbelt-verified", "bwrap-verified", "tier0", "container", "vm")
+_VERIFIED_TIERS = ("seatbelt-verified", "bwrap-verified", "tier0", "container", "vm",
+                   E2B_TIER, E2B_TIER_SELFHOSTED)
 
 
 # Pin the OS binary by absolute path - NEVER PATH-resolved. A `sandbox-exec` planted earlier on
@@ -1127,8 +1136,9 @@ def _select_backend(isolation, trust):
     """Backend selection. Explicit `isolation` wins (and FAILS LOUD if unavailable - never falls back).
     Otherwise untrusted third-party code auto-escalates to the container tier; own code stays on the
     native HOST own-code tier for THIS OS - macOS Seatbelt, Linux bubblewrap (no daemon either way),
-    byte-identical to the prior default on macOS."""
-    if isolation in ("seatbelt", "bwrap", "docker", "firecracker"):
+    byte-identical to the prior default on macOS. `e2b` (remote microVM) is opt-in ONLY via explicit
+    --isolation e2b - it never enters the auto path, so existing flags keep their exact priority."""
+    if isolation in ("seatbelt", "bwrap", "docker", "firecracker", "e2b"):
         return isolation
     if trust == "untrusted-third-party":
         return "docker"
@@ -1189,6 +1199,358 @@ def _run_docker_backend(contract, base, entry, entry_path, trust, timeout, image
     }
 
 
+# ---------------------------------------------------------------------------
+# Remote microVM backend (E2B / Firecracker): hardware-grade isolation for hosts WITHOUT Docker.
+# Where the container tier shares the host/colima Linux kernel, a Firecracker microVM is a SEPARATE
+# kernel + guest - a kernel/namespace 0-day does not escape into the host. This lets a Docker-less host
+# run `--trust third-party` workloads under a STRONGER boundary than the container tier instead of the
+# exit-3 refusal. TWO deployments ride ONE code path: (a) E2B's managed cloud, (b) a self-hosted E2B /
+# raw Firecracker cluster reached by a configurable endpoint. NOTHING is vendor-hard-coded - the
+# endpoint URL, API token, and template id are REQUIRED config (env or JSON file); a missing one
+# REFUSES (exit 3) naming exactly what is absent, never a silent default to anyone's cloud.
+#
+# Network is DENIED in the guest by default. We do NOT trust the SDK's promise: the tier is stamped
+# verified ONLY after the SAME `_PROBE` egress battery runs INSIDE the microVM and every egress attempt
+# fails (positive control, exactly like docker_doctor). If the SDK cannot even express network-deny at
+# construct time, we FAIL CLOSED (refuse) rather than boot with the network up.
+#
+# Determinism is untouched: the microVM only PRODUCES raw outputs (retrieved to the host run subtree).
+# Recompute runs HOST-SIDE over those raw artifacts - the VM never participates in compare/recompute, so
+# this tier introduces no nondeterminism. The E2B SDK is an OPTIONAL extra, lazily imported only when
+# the tier is actually selected; installs without it still work (and simply cannot select `e2b`). The
+# backend sits behind the same (config, doctor, exec) protocol as docker, so the verdict layer treats
+# `e2b-firecracker` as just another verified tier - no special-casing anywhere downstream.
+# ---------------------------------------------------------------------------
+
+# config env names (a JSON file at CALMA_E2B_CONFIG may supply the same keys; env wins). NO default
+# endpoint - vendor neutrality is the whole point ("trust lives in the isolation tech, not the vendor").
+_E2B_ENV_ENDPOINT = "CALMA_E2B_ENDPOINT"        # API URL / domain of the E2B (or self-hosted) control plane
+_E2B_ENV_TOKEN = ("CALMA_E2B_API_KEY", "CALMA_E2B_TOKEN")   # access token (either spelling)
+_E2B_ENV_TEMPLATE = "CALMA_E2B_TEMPLATE"        # microVM template / image id to boot
+_E2B_ENV_SELFHOSTED = "CALMA_E2B_SELF_HOSTED"   # truthy => stamp records (self-hosted) provenance
+_E2B_ENV_CONFIG = "CALMA_E2B_CONFIG"            # optional path to a JSON file carrying the same keys
+
+
+class _E2BUnavailable(Exception):
+    """The e2b tier cannot be established as requested (SDK missing / config unreadable / network-deny
+    not guaranteeable). Carries the exact human reason; callers turn it into an exit-3 refusal."""
+
+
+def _e2b_truthy(v):
+    return str(v).strip().lower() in ("1", "true", "yes", "on") if v is not None else False
+
+
+def _e2b_config(env=None):
+    """Resolve the e2b config from env, then an optional JSON file at CALMA_E2B_CONFIG (env wins).
+    Returns (cfg, missing) where cfg = {endpoint, token, template, self_hosted} and `missing` lists the
+    REQUIRED keys that are absent. Nothing is defaulted to a vendor endpoint. The token lives ONLY in
+    cfg - never logged, stamped, or written to the ledger."""
+    env = os.environ if env is None else env
+    file_cfg = {}
+    cfg_path = env.get(_E2B_ENV_CONFIG)
+    if cfg_path:
+        try:
+            with open(cfg_path) as fh:
+                raw = json.load(fh)
+            if isinstance(raw, dict):
+                file_cfg = raw
+        except (OSError, ValueError) as e:
+            raise _E2BUnavailable("e2b config file %s could not be read: %s" % (cfg_path, e))
+
+    def pick(env_keys, file_key):
+        for k in (env_keys if isinstance(env_keys, tuple) else (env_keys,)):
+            if env.get(k):
+                return env[k]
+        v = file_cfg.get(file_key)
+        return v if v else None
+
+    cfg = {
+        "endpoint": pick(_E2B_ENV_ENDPOINT, "endpoint"),
+        "token": pick(_E2B_ENV_TOKEN, "token"),
+        "template": pick(_E2B_ENV_TEMPLATE, "template"),
+        "self_hosted": _e2b_truthy(env.get(_E2B_ENV_SELFHOSTED)) or bool(file_cfg.get("self_hosted")),
+    }
+    missing = [label for label, key in
+               (("endpoint", "endpoint"), ("API token", "token"), ("template id", "template"))
+               if not cfg[key]]
+    return cfg, missing
+
+
+def _e2b_stamp(cfg):
+    """The isolation_tier stamp for this deployment - records (self-hosted) provenance but NEVER the
+    endpoint URL or token."""
+    return E2B_TIER_SELFHOSTED if cfg.get("self_hosted") else E2B_TIER
+
+
+def _e2b_missing_msg(missing):
+    return ("missing %s (set %s / %s / %s, or point %s at a JSON file)"
+            % (", ".join(missing), _E2B_ENV_ENDPOINT, _E2B_ENV_TOKEN[0], _E2B_ENV_TEMPLATE,
+               _E2B_ENV_CONFIG))
+
+
+# Injectable session factory (the test seam). Production constructs a real SDK-backed session; tests
+# inject a fake so the unit + no-docker-smoke paths run offline with no credentials. The session is a
+# tiny protocol: `.network_disabled` (bool, MUST be True), `.probe(src)->stdout`, `.exec(...)`, `.close()`.
+_e2b_session_factory = None
+
+
+def set_e2b_session_factory(factory):
+    """Test seam: install a callable factory(cfg, timeout) -> session, or None to restore the real SDK
+    path. Keeps the live E2B SDK out of unit tests entirely."""
+    global _e2b_session_factory
+    _e2b_session_factory = factory
+
+
+def _make_e2b_session(cfg, timeout):
+    """Construct a microVM session. Tests override via set_e2b_session_factory. The real path lazily
+    imports the OPTIONAL `e2b` SDK (never a core/top-level import) and boots a NETWORK-DISABLED microVM
+    against the configured endpoint; if the SDK is absent or cannot guarantee network-deny, raise
+    _E2BUnavailable so the caller fails closed (exit 3)."""
+    if _e2b_session_factory is not None:
+        return _e2b_session_factory(cfg, timeout)
+    return _RealE2BSession(cfg, timeout)
+
+
+class _RealE2BSession:
+    """Live adapter over the E2B SDK (Apache-2.0; self-hostable via Terraform/Firecracker). Lazily
+    imported so core installs without the SDK still work. Boots a microVM with internet DENIED against
+    the configured endpoint (cloud OR self-hosted - same code path, only the endpoint differs). The
+    construct-time network-deny is best-effort; the GROUND TRUTH is the in-VM `_PROBE` the doctor runs.
+    If the installed SDK cannot express network-deny, raise (fail closed) rather than boot with net."""
+
+    def __init__(self, cfg, timeout):
+        try:
+            from e2b import Sandbox   # OPTIONAL extra: `pip install e2b`
+        except Exception as e:        # ImportError or a partial install
+            raise _E2BUnavailable(
+                "the e2b backend needs the optional E2B SDK (not a core dependency): "
+                "pip install e2b  [%s]" % e)
+        kwargs = {"template": cfg["template"], "api_key": cfg["token"], "domain": cfg["endpoint"],
+                  "timeout": max(1, int(timeout))}
+        # Network-deny: pass the SDK's no-internet option. Spelling has varied across SDK versions, so
+        # try the known parameter names; if NONE is accepted, FAIL CLOSED (never boot with the net up).
+        self._sbx = None
+        last = None
+        for net_kw in ("allow_internet_access", "allow_internet", "internet_access"):
+            try:
+                self._sbx = Sandbox(**dict(kwargs, **{net_kw: False}))
+                break
+            except TypeError as e:
+                last = e
+                continue
+        if self._sbx is None:
+            raise _E2BUnavailable(
+                "the installed E2B SDK does not accept a network-deny option (tried "
+                "allow_internet_access/allow_internet/internet_access); refusing to boot a microVM "
+                "with the network up [%s]" % last)
+        self.network_disabled = True
+
+    def probe(self, src):
+        r = self._sbx.commands.run("python3 -c %s" % shlex.quote(src), timeout=60)
+        return getattr(r, "stdout", "") or ""
+
+    def exec(self, inner_argv, env, base, out_dir, timeout):
+        # upload the engagement tree into /work, run, then retrieve /work/runs -> host out_dir.
+        self._upload(base, "/work")
+        cmd = " ".join(shlex.quote(a) for a in inner_argv)
+        envs = {k: str(v) for k, v in (env or {}).items()}
+        try:
+            r = self._sbx.commands.run(cmd, cwd="/work", envs=envs, timeout=timeout)
+            rc, out, err, killed = (getattr(r, "exit_code", 0) or 0, getattr(r, "stdout", "") or "",
+                                    getattr(r, "stderr", "") or "", False)
+        except Exception as e:   # SDK timeout / exec error
+            rc, out, err, killed = -9, "", "microVM exec error: %s" % e, "timeout" in str(e).lower()
+        self._download("/work/runs", out_dir)
+        return rc, out, err, killed
+
+    def _upload(self, base, dest):
+        for root, _dirs, files in os.walk(base):
+            # skip calma's own state + the writable outputs dir (re-created in-guest by the run)
+            if ".calma" in root.split(os.sep) or os.path.basename(root) == "runs":
+                continue
+            for fn in files:
+                lp = os.path.join(root, fn)
+                rel = os.path.relpath(lp, base).replace(os.sep, "/")
+                try:
+                    with open(lp, "rb") as fh:
+                        self._sbx.files.write(dest + "/" + rel, fh.read())
+                except OSError:
+                    pass
+
+    def _download(self, remote_dir, out_dir):
+        os.makedirs(out_dir, exist_ok=True)
+        try:
+            entries = self._sbx.files.list(remote_dir)
+        except Exception:
+            return
+        for ent in entries or []:
+            path = getattr(ent, "path", None) or (ent.get("path") if isinstance(ent, dict) else None)
+            etype = getattr(ent, "type", None) or (ent.get("type") if isinstance(ent, dict) else None)
+            if not path:
+                continue
+            rel = os.path.relpath(path, remote_dir)
+            if str(etype) == "dir":
+                self._download(path, os.path.join(out_dir, rel))
+                continue
+            try:
+                data = self._sbx.files.read(path)
+                dst = os.path.join(out_dir, rel)
+                os.makedirs(os.path.dirname(dst), exist_ok=True)
+                mode = "wb" if isinstance(data, (bytes, bytearray)) else "w"
+                with open(dst, mode) as fh:
+                    fh.write(data)
+            except Exception:
+                pass
+
+    def close(self):
+        try:
+            self._sbx.kill()
+        except Exception:
+            pass
+
+
+def e2b_doctor(base=None, timeout=120, env=None):
+    """Positive-control self-test for the remote microVM tier: under a NETWORK-DISABLED microVM, the
+    `_PROBE` egress battery (raw IP, DNS, curl) must ALL fail. Mirrors docker_doctor; the host FS is not
+    present in the guest, so host-secret-read is vacuously blocked - egress-deny is the load-bearing
+    assertion. Any leak (or a probe that never ran, or a session that could not guarantee net-off) ->
+    host-not-isolated, never a silent e2b stamp. NO endpoint/token ever enters the returned dict."""
+    info = {"backend": "e2b"}
+    try:
+        cfg, missing = _e2b_config(env)
+    except _E2BUnavailable as e:
+        info.update(tier="host-not-isolated", egress_blocked=False, secret_read_blocked=False,
+                    network_disabled=False, probe_ran=False, note=str(e))
+        return info
+    info["deployment"] = "self-hosted" if cfg.get("self_hosted") else "cloud"
+    info["template_configured"] = bool(cfg.get("template"))
+    if missing:
+        info.update(tier="host-not-isolated", egress_blocked=False, secret_read_blocked=False,
+                    network_disabled=False, probe_ran=False,
+                    note="e2b config incomplete: " + _e2b_missing_msg(missing))
+        return info
+    sess = None
+    out = ""
+    try:
+        sess = _make_e2b_session(cfg, timeout)
+        if not getattr(sess, "network_disabled", False):
+            raise _E2BUnavailable("microVM session could not guarantee network-deny")
+        # plant a host secret like docker_doctor for parity; in a remote guest its path simply does not
+        # exist (so it cannot leak), but reusing the SAME probe keeps one egress/secret battery.
+        secret = os.path.join(os.path.realpath(os.path.expanduser("~")), ".calma_doctor_secret")
+        out = sess.probe(_PROBE.format(secret=secret))
+    except _E2BUnavailable as e:
+        info.update(tier="host-not-isolated", egress_blocked=False, secret_read_blocked=False,
+                    network_disabled=False, probe_ran=False, note=str(e))
+        return info
+    except Exception as e:
+        info.update(tier="host-not-isolated", egress_blocked=False, secret_read_blocked=False,
+                    network_disabled=True, probe_ran=False, note="e2b self-test could not run: %s" % e)
+        return info
+    finally:
+        if sess is not None:
+            try:
+                sess.close()
+            except Exception:
+                pass
+    produced = "LEAKS=" in (out or "")
+    leaks = ""
+    for line in (out or "").splitlines():
+        if line.startswith("LEAKS="):
+            leaks = line[len("LEAKS="):].strip()
+    leak_list = [x for x in leaks.split(",") if x]
+    secret_blocked = not any(x.startswith("read:") for x in leak_list)
+    egress_blocked = not any(x.startswith("egress:") for x in leak_list)
+    # tier is e2b-firecracker ONLY when the probe ran AND leaked nothing (egress denied). A probe that
+    # never produced a LEAKS line (VM/python failed to start) is NOT a verified tier.
+    tier = _e2b_stamp(cfg) if (produced and not leak_list) else "host-not-isolated"
+    if tier != "host-not-isolated":
+        note = ("remote microVM (E2B/Firecracker): verified = network egress DENIED inside the guest "
+                "under separate-kernel isolation; raw outputs are retrieved to the host and recompute "
+                "runs host-side (the VM does not participate in recompute).")
+    elif produced:
+        note = "microVM ran but egress was NOT denied (%s); refusing to stamp verified" % ",".join(leak_list)
+    else:
+        note = "microVM self-test did not produce a probe result; not a verified tier"
+    info.update(tier=tier, egress_blocked=egress_blocked, secret_read_blocked=secret_blocked,
+                network_disabled=True, probe_ran=produced, leaks=leak_list, note=note)
+    return info
+
+
+def _run_e2b_backend(contract, base, entry, entry_path, trust, timeout):
+    """The remote-microVM tier of run(). Same return-dict contract as the docker path; only the
+    tier-derived stamps differ (isolation_tier=e2b-firecracker[ (self-hosted)],
+    hermeticity='microvm-readonly'). Missing/invalid config or an un-guaranteeable network-deny ->
+    refuse exit 3 (parity with the container tier's fail-loud), never a silent host fallback. `trust`
+    is accepted for signature parity with _run_docker_backend; the microVM is a verified VM tier so it
+    serves both own-code and untrusted-third-party once the in-VM egress self-test holds."""
+    try:
+        cfg, missing = _e2b_config()
+    except _E2BUnavailable as e:
+        return {"phase": "refused", "exit_code": 3, "isolation_tier": "host-not-isolated",
+                "container_present": False, "killed": False, "reason": str(e)}
+    if missing:
+        return {"phase": "refused", "exit_code": 3, "isolation_tier": "host-not-isolated",
+                "container_present": False, "killed": False,
+                "reason": "e2b isolation requested but config is incomplete: " + _e2b_missing_msg(missing)}
+    # python/shell only (parity with the WS1 container); other languages stamp honestly and refuse.
+    ext = os.path.splitext(entry_path)[1].lower()
+    rel = os.path.relpath(entry_path, base).replace(os.sep, "/")
+    inner = {".py": ["python3", "/work/" + rel], ".sh": ["sh", "/work/" + rel]}.get(ext)
+    lang = {".py": "python", ".sh": "shell"}.get(ext, ext.lstrip("."))
+    if inner is None:
+        return {"phase": "refused", "exit_code": 3, "isolation_tier": "host-not-isolated",
+                "container_present": False, "killed": False, "language": lang,
+                "reason": "the e2b microVM backend runs python/shell only; .%s is not supported" % lang}
+    # doctor: boots a NETWORK-DISABLED microVM and proves egress is denied via _PROBE. Fail closed.
+    doc = e2b_doctor(base, timeout)
+    isolation_tier = doc["tier"]
+    if isolation_tier not in (E2B_TIER, E2B_TIER_SELFHOSTED):
+        return {"phase": "refused", "exit_code": 3, "isolation_tier": isolation_tier,
+                "container_present": False, "killed": False, "doctor": doc,
+                "reason": "e2b microVM isolation requested but not verified: %s"
+                          % doc.get("note", "self-test did not hold")}
+    # determinism (host-side AST proof for python; shell uncontrolled) - identical to docker/native.
+    if lang == "python":
+        det_mode, det_note = _detect_determinism(entry_path, base)
+    else:
+        det_mode, det_note = "uncontrolled", "shell: bit-determinism not statically provable"
+    out_dir = os.path.join(base, "runs")
+    os.makedirs(out_dir, exist_ok=True)
+    env = _docker_env(contract)   # same env whitelist as the container tier: no host secrets reach the guest
+    sess = None
+    try:
+        sess = _make_e2b_session(cfg, timeout)
+        if not getattr(sess, "network_disabled", False):
+            raise _E2BUnavailable("microVM session could not guarantee network-deny")
+        rc, out, err, killed = sess.exec(inner, env, base, out_dir, timeout)
+    except _E2BUnavailable as e:
+        return {"phase": "refused", "exit_code": 3, "isolation_tier": "host-not-isolated",
+                "container_present": False, "killed": False, "doctor": doc, "reason": str(e)}
+    except Exception as e:
+        return {"phase": "refused", "exit_code": 3, "isolation_tier": isolation_tier,
+                "container_present": False, "killed": False, "doctor": doc,
+                "reason": "e2b microVM run failed: %s" % e}
+    finally:
+        if sess is not None:
+            try:
+                sess.close()
+            except Exception:
+                pass
+    exit_code = 4 if killed else (0 if rc == 0 else 1)
+    return {
+        "phase": "run", "entrypoint": entry, "exit_code": exit_code, "killed": killed,
+        "language": lang, "run_exit_status": rc,
+        "isolation_tier": isolation_tier, "container_present": True,
+        "interpreter": "microvm:e2b",
+        "determinism_mode": det_mode, "determinism_note": det_note,
+        "install_network": "off", "run_network": "off",
+        "hermeticity": "microvm-readonly",
+        "stdout_tail": (out or "")[-500:], "stderr_tail": (err or "")[-500:],
+        "doctor": doc,
+    }
+
+
 def run(contract_path, base=None, timeout=120, trust_override=None, isolation=None):
     import draft_contract as _DC
     contract = _DC.load_contract(contract_path)
@@ -1205,11 +1567,16 @@ def run(contract_path, base=None, timeout=120, trust_override=None, isolation=No
     # backend selection (WS1): explicit --isolation wins (fail loud, no fallback); else untrusted
     # third-party code auto-escalates to the container tier; else the host Seatbelt tier (default).
     backend = _select_backend(isolation, trust)
+    if backend == "e2b":
+        # remote Firecracker microVM (E2B cloud OR self-hosted) - lets a Docker-less host run untrusted
+        # code under a SEPARATE-kernel boundary instead of the exit-3 refusal. Fail-loud on bad config.
+        return _run_e2b_backend(contract, base, entry, entry_path, trust, timeout)
     if backend == "firecracker":
         return {"phase": "refused", "exit_code": 3, "isolation_tier": "none",
                 "container_present": False, "killed": False,
                 "reason": "the firecracker/microVM backend is not built yet (funded tier); "
-                          "use --isolation docker (container) or seatbelt (host)"}
+                          "use --isolation e2b (remote Firecracker microVM), docker (container), "
+                          "or seatbelt (host)"}
     if backend == "docker":
         return _run_docker_backend(contract, base, entry, entry_path, trust, timeout)
     # native host own-code tier: bubblewrap on Linux, Seatbelt on macOS. The SAME probe battery gates
@@ -1297,17 +1664,21 @@ def main():
     ap.add_argument("--contract")
     ap.add_argument("--base")
     ap.add_argument("--out")
-    ap.add_argument("--isolation", choices=["auto", "seatbelt", "bwrap", "docker", "firecracker"],
+    ap.add_argument("--isolation",
+                    choices=["auto", "seatbelt", "bwrap", "docker", "firecracker", "e2b"],
                     default="auto",
                     help="auto = this OS's own-code tier (Linux bwrap / macOS seatbelt); "
                          "bwrap = native Linux own-code (no daemon); docker = untrusted code (needs a "
-                         "daemon); fails loud if the chosen tier is unavailable")
+                         "daemon); e2b = remote Firecracker microVM (cloud OR self-hosted; no Docker "
+                         "needed; network denied in-guest); fails loud if the chosen tier is unavailable")
     a = ap.parse_args()
     iso = None if a.isolation == "auto" else a.isolation
     if a.cmd == "doctor":
         _b = a.base or os.getcwd()
         if iso == "docker":
             res = docker_doctor(_b)
+        elif iso == "e2b":
+            res = e2b_doctor(_b)
         elif iso == "bwrap":
             res = bwrap_doctor(_b)
         elif iso == "seatbelt":

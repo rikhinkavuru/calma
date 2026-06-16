@@ -113,6 +113,8 @@ calma verify <folder> "<claim>" --check-determinism  # run twice; flaky outputs 
 calma verify <folder> "<claim>" --timeout 300        # raise the re-execution budget (default 120s)
 calma verify <folder> "<claim>" --trust third-party  # counterparty code: refuse unless a verified
                                     # container/VM tier is live (never run someone else's code unsafely)
+calma verify <folder> "<claim>" --trust third-party --isolation e2b   # no Docker? run it in a remote
+                                    # Firecracker microVM (E2B cloud OR self-hosted); egress denied in-guest
 calma teardown <folder> "<claim>" [--svg card.svg]   # shareable "claimed X -> really Y" card (+ SVG image)
 calma replay <run_dir>              # re-run a saved verification; exit 0 iff the verdict reproduces
 calma stats <folder>                # verification history: counts, recent catches, hook activity
@@ -245,7 +247,29 @@ Calma proves a result is **real and reproduces** — not that it answered the *r
 fully verify something, it says so and tells you the fix, rather than guessing. The verified-isolation
 own-code tier ships on macOS (Seatbelt) and Linux (bubblewrap, no daemon); on a host where the self-test
 can't verify, runs are honestly stamped as unisolated. Running untrusted third-party code safely needs a
-container/VM; for now untrusted code without a verified container tier is refused rather than run unsafely.
+container or VM: a network-denied Docker container (`--isolation docker`) or, on a host **without Docker**,
+a remote Firecracker microVM (`--isolation e2b` — E2B cloud or self-hosted). Either way egress is denied
+in-guest and proven by an in-sandbox self-test before the tier is stamped; untrusted code with no verified
+container/VM tier is refused (exit 3) rather than run unsafely. See **Self-hosting the microVM tier** below.
+
+### Self-hosting the microVM tier (BYOC)
+
+The `e2b` tier is vendor-neutral by construction — **trust lives in the isolation tech, not the vendor**.
+There is no hard-coded endpoint: you point it at E2B's managed cloud *or* your own cluster with three config
+values (env or a JSON file at `CALMA_E2B_CONFIG`):
+
+| value | env | notes |
+|-------|-----|-------|
+| endpoint | `CALMA_E2B_ENDPOINT` | API URL / domain of the control plane (cloud or self-hosted) |
+| API token | `CALMA_E2B_API_KEY` (or `CALMA_E2B_TOKEN`) | never logged, stamped, or written to the replay bundle |
+| template id | `CALMA_E2B_TEMPLATE` | the microVM image to boot |
+| self-hosted | `CALMA_E2B_SELF_HOSTED=1` | stamps `e2b-firecracker (self-hosted)` (provenance only — the endpoint URL is never put in the stamp) |
+
+E2B is **Apache-2.0** and **Terraform-self-hostable** (Firecracker under the hood), so a regulated desk can run
+the whole tier inside its own VPC and still get the same `e2b-firecracker` verdict. The SDK is an **optional
+extra** (`pip install e2b`) — core installs without it keep working and simply can't select `e2b`. The microVM
+only *produces* raw outputs; recompute runs host-side over those bytes, so the verdict is reproduced
+independently of the VM (the tier adds no nondeterminism to compare/recompute).
 
 ## FAQ
 

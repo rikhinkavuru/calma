@@ -92,7 +92,9 @@ def compare(recompute, contract, isolation_tier="tier0", container_present=None,
     _load_calibration()
     m2_calibrated = m2_calibrated or bool(_CALIB)
     if container_present is None:
-        container_present = isolation_tier in ("vm", "container", "tier0", "seatbelt-verified", "bwrap-verified")
+        container_present = isolation_tier in ("vm", "container", "tier0", "seatbelt-verified",
+                                               "bwrap-verified", "e2b-firecracker",
+                                               "e2b-firecracker (self-hosted)")
     rec_list = recompute["metrics"]
     by_id = {m["metric_id"]: m for m in rec_list}
     # true no-claim mode: NO metric in the whole contract carries a claimed value. A single

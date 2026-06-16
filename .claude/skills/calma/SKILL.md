@@ -62,7 +62,11 @@ calma verify <target> "<claim>" --timeout 300         # raise the re-execution b
 calma verify <target> "<claim>" --trust third-party   # counterparty code: auto-escalates to the
                                                       # container tier (refuses exit 3 if none is live)
 calma verify <target> "<claim>" --isolation docker    # run in a network-denied Linux container
-                                                      # (auto|seatbelt|bwrap|docker|firecracker; fails loud if unavailable)
+                                                      # (auto|seatbelt|bwrap|docker|e2b|firecracker; fails loud if unavailable)
+calma verify <target> "<claim>" --isolation e2b       # remote Firecracker microVM (E2B cloud OR
+                                                      # self-hosted): runs --trust third-party with NO
+                                                      # Docker; egress DENIED in-guest (fail-closed).
+                                                      # Needs CALMA_E2B_ENDPOINT/_API_KEY/_TEMPLATE
 calma verify <target> "<claim>" --isolation bwrap     # native Linux own-code tier (bubblewrap, no
                                                       # daemon); auto picks it on Linux, Seatbelt on macOS
 calma verify <target> "<claim>" --restore             # restore + PIN the repo's declared deps into
@@ -212,8 +216,11 @@ committed claim and says so in the report and `--json` (`note`).
    resource-kill, a failed re-execution, or an unconfirmed claim target -> degrade to INCONCLUSIVE and say so.
 4. **No auto-inferred trial-count N** into a printed statistic - declared/evidence-floored N only.
 5. **Run + interpreter startup are untrusted-code execution behind the SAME verified tier**; untrusted
-   third-party code with no container/VM tier -> refuse (static-only INCONCLUSIVE). The achieved isolation
-   + determinism + network stamps are derived from the tier actually reached, never asserted.
+   third-party code with no container/VM tier -> refuse (static-only INCONCLUSIVE). A verified container
+   (Docker) OR a remote Firecracker microVM (`--isolation e2b`, E2B cloud or self-hosted; network denied
+   in-guest, proven by an in-VM egress self-test) satisfies this - so a Docker-less host can still verify
+   counterparty code. The achieved isolation + determinism + network stamps are derived from the tier
+   actually reached, never asserted.
 6. **Every INCONCLUSIVE names a concrete, who-can-act unblock** (the `fix:` line); bias to CAVEAT over a
    false FAIL.
 7. **Any "validity layer / five families / language-agnostic" claim carries the installed-milestone gate.**

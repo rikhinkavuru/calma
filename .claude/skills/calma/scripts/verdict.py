@@ -51,7 +51,7 @@ DEFAULTS = {
     "cross_stack_attributable": False,  # gap explained by BLAS/stack reduction-order, not a defn error
     "flip_distance": None,        # conclusion-flip distance (one-sided parameter CI); None => n/a
     "binding_status": "author-asserted",  # independently-bound | plausibly-bound | author-asserted
-    "isolation_tier": "none",     # vm | container | tier0 | seatbelt-verified | bwrap-verified | host-not-isolated | none
+    "isolation_tier": "none",     # vm | container | tier0 | seatbelt-verified | bwrap-verified | e2b-firecracker[ (self-hosted)] | host-not-isolated | none
     "container_present": False,   # ANY verified isolation tier incl. Tier-0 (NOT Docker specifically)
     "untrusted": False,           # untrusted third-party code/deps
     "exit_codes": (0,),           # per-phase exit codes
@@ -253,7 +253,8 @@ def confidence(verdict_inputs, label):
     if label == INCONCLUSIVE:
         return 0.0
     score = 0.50
-    if vi["isolation_tier"] in ("vm", "container", "tier0", "seatbelt-verified", "bwrap-verified"):
+    if vi["isolation_tier"] in ("vm", "container", "tier0", "seatbelt-verified", "bwrap-verified",
+                                "e2b-firecracker", "e2b-firecracker (self-hosted)"):
         score += 0.15
     dm = vi["determinism_mode"]
     if dm == "controlled-to-bit":

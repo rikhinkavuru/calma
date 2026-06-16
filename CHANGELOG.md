@@ -2,6 +2,38 @@
 
 All notable changes to the calma skill/CLI. Dates are UTC.
 
+## Unreleased — `e2b` remote-microVM isolation tier (Docker-less untrusted-code verification)
+
+Purely additive. A host **without Docker** can now run `--trust third-party` workloads under
+hardware-grade isolation instead of the exit-3 refusal, by selecting a remote Firecracker microVM.
+
+- **New tier `--isolation e2b`** (`scripts/run_hermetic.py`): a remote Firecracker microVM behind the
+  SAME `(config, doctor, exec)` protocol as the Docker tier (`_run_e2b_backend` mirrors
+  `_run_docker_backend`). The verdict layer treats it as a verified VM tier with no special-casing.
+- **Two deployments, one code path, zero vendor lock-in.** E2B **cloud** OR a **self-hosted** E2B / raw
+  Firecracker cluster, selected by config — **no hard-coded vendor endpoint**. Required config (env or a
+  JSON file at `CALMA_E2B_CONFIG`): `CALMA_E2B_ENDPOINT`, `CALMA_E2B_API_KEY`/`_TOKEN`,
+  `CALMA_E2B_TEMPLATE`; optional `CALMA_E2B_SELF_HOSTED=1`.
+- **Stamp values:** `e2b-firecracker` (cloud) and `e2b-firecracker (self-hosted)` — registered in all
+  five verified-tier sites (run_hermetic, calma, hook_stop, compare, verdict). The self-hosted stamp
+  records provenance **without ever leaking the endpoint URL**.
+- **Network DENIED in-guest, fail-closed.** The tier is stamped verified ONLY after the in-VM `_PROBE`
+  egress battery (raw IP, DNS, curl) all fail; if the SDK can't even express network-deny at construct
+  time, it **refuses (exit 3)** rather than boot with the network up. Missing/invalid config → exit 3
+  naming exactly what's absent. No secrets in logs, stamps, or the replay bundle.
+- **Determinism path untouched.** The microVM only *produces* raw outputs (retrieved to the host run
+  subtree); recompute/compare run host-side over those bytes — the VM never participates, so the tier
+  adds no nondeterminism.
+- **Optional dependency.** The E2B SDK is lazily imported only when `e2b` is selected (`pip install
+  e2b`); core installs without it keep working and simply can't pick the tier. E2B is Apache-2.0 and
+  Terraform-self-hostable.
+- **Tests** (`tests/test_e2b.py`, 40 checks): interface completeness, the network-deny assertion
+  (verified + both fail-closed paths), missing-config → exit 3, a **no-Docker smoke path** (Docker
+  absent → `--trust third-party --isolation e2b` reaches a verdict, not exit 3), recompute-over-
+  retrieved-outputs == `e2b-firecracker` end-to-end with secret-hygiene scan, and the anti-drift
+  lockstep across all five tier sites. A live spawn/exec/recompute pass is gated behind `CALMA_E2B_LIVE`
+  so credential-less CI skips it. Full suite green (34 suites, 0 failed).
+
 ## 0.10.0 — pilot-readiness: autonomy modes, agent-arm benchmark, hardening
 
 Pilot-hardening cut after an end-to-end audit (every CLI surface, the validity teardowns, the offline

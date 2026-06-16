@@ -41,7 +41,9 @@ __version__ = "0.10.0"
 
 QUANT_METRICS = {"total_return", "sharpe", "max_drawdown"}
 DEFAULT_TIMEOUT_S = 120
-VERIFIED_TIERS = ("seatbelt-verified", "bwrap-verified", "tier0", "container", "vm")
+# keep in lockstep with run_hermetic._VERIFIED_TIERS (the e2b microVM stamps are registered there too)
+VERIFIED_TIERS = ("seatbelt-verified", "bwrap-verified", "tier0", "container", "vm",
+                  "e2b-firecracker", "e2b-firecracker (self-hosted)")
 
 
 def _trace_enabled():
@@ -711,8 +713,8 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
     target = os.path.realpath(target)
     if trust not in ("own-code", "third-party"):
         raise ValueError("--trust must be own-code or third-party (got %r)" % trust)
-    if isolation not in (None, "auto", "seatbelt", "bwrap", "docker", "firecracker"):
-        raise ValueError("--isolation must be auto/seatbelt/bwrap/docker/firecracker (got %r)" % isolation)
+    if isolation not in (None, "auto", "seatbelt", "bwrap", "docker", "firecracker", "e2b"):
+        raise ValueError("--isolation must be auto/seatbelt/bwrap/docker/firecracker/e2b (got %r)" % isolation)
     if metric and RCP.get(metric) is None:
         # unknown/unclear metric id -> rank the recipes it most likely meant (semantic, not just
         # string-edit distance). Replaces difflib: alias/description-aware, same engine as `suggest`.
@@ -1405,13 +1407,16 @@ def main():
                    help="trust posture for the code being re-executed: own-code (default) runs "
                         "under the verified sandbox; third-party auto-escalates to the container "
                         "tier and REFUSES (exit 3) if no verified container/VM tier is live")
-    v.add_argument("--isolation", choices=["auto", "seatbelt", "bwrap", "docker", "firecracker"],
+    v.add_argument("--isolation",
+                   choices=["auto", "seatbelt", "bwrap", "docker", "firecracker", "e2b"],
                    default="auto",
                    help="isolation backend: auto (default - seatbelt for own-code, container for "
                         "third-party), seatbelt (host macOS sandbox), bwrap (Linux bubblewrap, "
-                        "no daemon), docker (network-denied Linux container), or firecracker (microVM, "
-                        "not built yet). Explicit choices fail loud if the backend is unavailable - "
-                        "never a silent host fallback")
+                        "no daemon), docker (network-denied Linux container), e2b (remote Firecracker "
+                        "microVM - E2B cloud OR self-hosted; runs --trust third-party with NO Docker, "
+                        "network denied in-guest), or firecracker (local microVM, not built yet). "
+                        "Explicit choices fail loud if the backend is unavailable - never a silent "
+                        "host fallback")
     v.add_argument("--timeout", type=int, default=None, metavar="SECONDS",
                    help="re-execution wall-clock budget in seconds, clamped to [1, 86400] (default "
                         "120, or run.timeout in verify.yaml); on overrun the run is killed (exit 4)")
