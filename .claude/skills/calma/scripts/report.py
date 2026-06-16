@@ -110,6 +110,24 @@ def fmt_value(value, metric_id=None):
     return "%.4g" % v
 
 
+def fmt_pair(claimed, recomputed, metric_id=None):
+    """Format a claimed->recomputed pair so a REFUTED never prints two IDENTICAL-looking numbers for a
+    real gap (e.g. 100.04 vs 100.00 -> 'claimed 100 -> recomputed 100', which hides the catch). When
+    the default display collapses two GENUINELY-different values, escalate precision until they differ.
+    Identical values (e.g. an INVALIDATED that reproduces) are left as-is."""
+    cs, rs = fmt_value(claimed, metric_id), fmt_value(recomputed, metric_id)
+    if (cs == rs and isinstance(claimed, (int, float)) and isinstance(recomputed, (int, float))
+            and not isinstance(claimed, bool) and not isinstance(recomputed, bool)):
+        c, r = float(claimed), float(recomputed)
+        if c == c and r == r and c != r:
+            for p in range(4, 13):
+                cs2, rs2 = "%.*g" % (p, c), "%.*g" % (p, r)
+                if cs2 != rs2:
+                    return cs2, rs2
+            return repr(c), repr(r)
+    return cs, rs
+
+
 def _fix_line(led, diff=None):
     """The actionable unblock for a non-CONFIRMED outcome. Sources, in order: an explicit `unblock` on a
     finding, then the reason->fix table applied to the claim/diff reason."""
@@ -185,8 +203,11 @@ def render(led, diff=None, color=False):
             sym = _SYMBOL.get(c.get("verdict"), "·")
             if color and c.get("verdict") in _ANSI:
                 sym = "\x1b[%sm%s\x1b[0m" % (_ANSI[c["verdict"]], sym)
-            num = ("claimed %s -> recomputed %s" % (fmt_value(cv, mid), fmt_value(rvv, mid))
-                   if cv is not None else "recomputed %s" % fmt_value(rvv, mid))
+            if cv is not None:
+                cs, rs = fmt_pair(cv, rvv, mid)
+                num = "claimed %s -> recomputed %s" % (cs, rs)
+            else:
+                num = "recomputed %s" % fmt_value(rvv, mid)
             lines.append("  %s %-*s  %s  [%s]" % (sym, w, mid, num, display(c.get("verdict"))))
     # line 2: the single most-limiting thing. On a REFUTED the numeric-collapse line below already
     # carries the metric-mismatch, so prefer a DIFFERENT blocker (e.g. baseline) over repeating it.
@@ -226,8 +247,8 @@ def render(led, diff=None, color=False):
                 # read as a no-op; the point is the RESULT is invalid, not the number.
                 note = ("   (reproduces - the result, not the number, is invalid)"
                         if c.get("verdict") == V.INVALIDATED else "")
-                lines.append("  claimed %s  ->  recomputed %s%s" % (fmt_value(c["claimed_value"], mid),
-                                                                    fmt_value(c["recomputed_value"], mid), note))
+                cs, rs = fmt_pair(c["claimed_value"], c["recomputed_value"], mid)
+                lines.append("  claimed %s  ->  recomputed %s%s" % (cs, rs, note))
         rep = broken.get("reproduction_or_reverify", {})
         if rep.get("command"):
             lines.append("  reproduce: " + rep["command"])
