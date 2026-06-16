@@ -229,19 +229,24 @@ truth("AWS_SECRET_ACCESS_KEY" not in _env and "OPENAI_API_KEY" not in _env, "res
 truth("PATH" in _env, "restore env keeps PATH (pip still works)")
 del os.environ["AWS_SECRET_ACCESS_KEY"], os.environ["OPENAI_API_KEY"]
 
-# --- compiler: refuses a world-writable reference venv ------------------------
+# --- compiler: refuses a world-writable (non-sticky) reference venv -----------
+# a genuinely-shared dir (world-writable, NO sticky bit) lets any user swap the oracle interpreter.
+_ww = os.path.join(tempfile.mkdtemp(), "shared")
+os.mkdir(_ww)
+os.chmod(_ww, 0o777)
 _refused = False
 try:
-    CO._refuse_world_writable_venv("/tmp/calma-ref-venv/bin/python")
+    CO._refuse_world_writable_venv(os.path.join(_ww, "v", "bin", "python"))
 except ValueError:
     _refused = True
-truth(_refused, "compiler refuses a world-writable (/tmp) reference venv")
+truth(_refused, "compiler refuses a world-writable (non-sticky) reference venv")
+# an owner-only (0700) temp dir is safe even when its parent is sticky /tmp (Linux mkdtemp) - allowed.
 _priv_ok = True
 try:
     CO._refuse_world_writable_venv(os.path.join(tempfile.mkdtemp(), "v", "bin", "python"))
 except ValueError:
     _priv_ok = False
-truth(_priv_ok, "compiler allows a private (non-world-writable) reference venv")
+truth(_priv_ok, "compiler allows an owner-only reference venv (sticky /tmp parent is fine)")
 
 # --- verify refuses a symlinked .calma (write-confinement bypass) --------------
 _sym_d = tempfile.mkdtemp(prefix="calma-sym-")

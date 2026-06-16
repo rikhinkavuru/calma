@@ -172,18 +172,22 @@ print(repr(float(out)))
 
 
 def _refuse_world_writable_venv(venv_python):
-    """Refuse a reference-oracle interpreter reachable through a WORLD-WRITABLE directory (the old
-    /tmp default among them): code under verification can write there and swap the interpreter for a
-    trojan that then runs AS the trusted oracle. Set CALMA_REF_VENV to a private path."""
+    """Refuse a reference-oracle interpreter whose path passes through a directory ANY user could
+    tamper with: world-writable AND NOT sticky (anyone can replace/rename its contents, swapping the
+    oracle for a trojan). A world-writable dir WITH the sticky bit (e.g. /tmp) only lets a file's
+    OWNER delete it, so an owner-only subdir under it is safe - so this allows a private temp dir
+    under /tmp but still refuses a genuinely-shared (non-sticky) directory. The default ref venv lives
+    under ~/.calma (private); set CALMA_REF_VENV to a private path if you override it."""
     import stat
     d = os.path.dirname(os.path.realpath(venv_python))
     while True:
         try:
-            if os.stat(d).st_mode & stat.S_IWOTH:
+            mode = os.stat(d).st_mode
+            if (mode & stat.S_IWOTH) and not (mode & stat.S_ISVTX):
                 raise ValueError(
-                    "refusing a world-writable reference venv: %r is world-writable, so code under "
-                    "verification could hijack the oracle. Set CALMA_REF_VENV to a private "
-                    "(non-world-writable) interpreter." % d)
+                    "refusing a world-writable reference venv: %r is world-writable and not sticky, "
+                    "so any user could swap the oracle interpreter. Set CALMA_REF_VENV to a private "
+                    "path." % d)
         except OSError:
             pass
         parent = os.path.dirname(d)
