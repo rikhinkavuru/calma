@@ -56,6 +56,19 @@ def _point_equal(p, q):
     return True
 
 
+_NEUTRAL = (0, 1, 1, 0)  # identity / neutral element
+
+
+def _is_small_order(p):
+    """True for the 8 low-order (torsion) points, the identity among them. [8]P == identity iff P
+    has order dividing 8 - exactly the points a forger uses to make [s]G == R + [h]A hold for a
+    chosen R with NO private key (the classic RFC 8032 cofactor pitfall: with A = identity,
+    [h]A = identity, so any (R=[s]G, s) verifies for any message). Rejecting a low-order PUBLIC
+    key closes that keyless-universal-forgery hole; legitimate keys live in the prime-order
+    subgroup, so [8]A has order L and is never the identity."""
+    return _point_equal(_point_mul(8, p), _NEUTRAL)
+
+
 def _recover_x(y, sign):
     if y >= P:
         return None
@@ -129,6 +142,8 @@ def verify(pub, msg, sig):
         return False
     a = _decompress(pub)
     if a is None:
+        return False
+    if _is_small_order(a):  # reject identity / low-order public keys -> no keyless forgery
         return False
     r = _decompress(sig[:32])
     if r is None:

@@ -191,11 +191,18 @@ def append_entry(reg_dir, entry, seed):
     return fname, wrapper
 
 
-def verify_chain(reg_dir, pinned_pub_hex=None):
+def verify_chain(reg_dir, pinned_pub_hex=None, min_seq=None):
     """Full offline audit of the registry. Returns (ok, checks, summary) where checks is an
     ordered list of (name, ok, detail). Catches: edited entries (id + signature), reordered or
-    dropped entries (prev/seq links), truncated tails (signed HEAD), non-whitelisted fields
-    (redaction guard), and any entry signed by a key other than the pinned one."""
+    dropped MIDDLE entries (prev/seq links), non-whitelisted fields (redaction guard), and any
+    entry signed by a key other than the pinned one.
+
+    LIMITATION: a tail truncation in which the attacker ALSO rolls the signed HEAD back to a
+    consistent earlier state (deleting the newest entries AND restoring the older, genuinely-signed
+    HEAD that matched the log then) is internally consistent and CANNOT be detected from the files
+    alone - a signed append-only log needs an EXTERNAL monotonic anchor. Pass `min_seq` (the lowest
+    sequence number you know the log must have reached, e.g. from a prior audit or the git history)
+    to turn that out-of-band knowledge into a hard rollback check."""
     checks = []
 
     def chk(name, ok, detail=""):
@@ -250,8 +257,18 @@ def verify_chain(reg_dir, pinned_pub_hex=None):
                                         _canonical(flat), expect_pub=expect_pub)
             head_ok, head_det = ok_sig, det
         else:
-            head_det = "HEAD does not match the last entry (tail truncation or missing HEAD)"
+            head_det = "HEAD does not match the last entry (inconsistent truncation or missing HEAD)"
         if not chk("HEAD", head_ok, head_det):
+            return False, checks, {}
+
+    # external rollback anchor: a consistent tail-truncation (entries + HEAD both rolled back to an
+    # earlier genuinely-signed state) is internally valid and undetectable from the files alone. If
+    # the caller supplies the lowest sequence the log is KNOWN to have reached, enforce it.
+    if min_seq is not None:
+        if not chk("rollback", prev_seq >= min_seq,
+                   "registry is at seq %d but a floor of %d was pinned - newer entries were dropped "
+                   "(rollback / tail truncation)" % (prev_seq, min_seq),
+                   ):
             return False, checks, {}
 
     summary = {"entries": len(entries), "verdicts": verdict_counts,

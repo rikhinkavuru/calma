@@ -415,13 +415,18 @@ if OPENSSL:
     okT2, checksT2 = A.verify_bundle(tb2)
     truth(any(n == "timestamp" and not o and "imprint" in d for n, o, d in checksT2),
           "a timestamp token lifted from another bundle fails the imprint binding")
-    # degraded tier: no CA cert embedded -> verifies structurally and SAYS so
+    # degraded tier: no CA cert embedded -> the signature still binds (bundle not hard-failed on
+    # an openssl-less host), but the date is NOT chain-verified, so it must be surfaced as
+    # UNVERIFIED / self-asserted - never as a trusted, proven timestamp (anti-backdating only holds
+    # once the TSA chain verifies; a malicious signer could otherwise mint a structural-only token
+    # for any past genTime).
     tb3 = copy.deepcopy(tb)
     tb3["timestamps"][0]["tsa_ca_pem"] = None
     okT3, checksT3 = A.verify_bundle(tb3)
     ts3 = [c for c in checksT3 if c[0] == "timestamp"][0]
-    truth(okT3 and "structural only" in ts3[2],
-          "timestamp without a CA cert verifies structurally and reports the degraded tier")
+    truth(okT3 and "UNVERIFIED" in ts3[2] and "not proven" in ts3[2],
+          "timestamp without a CA cert is surfaced as UNVERIFIED (date self-asserted, not proven), "
+          "not a trusted/chain-verified date: %s" % ts3[2])
     # garbage token fails cleanly
     tb4 = copy.deepcopy(tb)
     tb4["timestamps"][0]["token_b64"] = base64.b64encode(b"garbage").decode()
