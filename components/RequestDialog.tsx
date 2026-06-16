@@ -13,6 +13,8 @@ function Arrow() {
 
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),textarea,select,[tabindex]:not([tabindex="-1"])';
 
+const REQUEST_SUBJECT = "Calma — verification request";
+
 type SendState = "idle" | "sending" | "sent" | "failed";
 
 export function RequestDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -71,7 +73,7 @@ export function RequestDialog({ open, onClose }: { open: boolean; onClose: () =>
   }, [state, open]);
 
   const mailtoHref = () => {
-    const subject = encodeURIComponent("Verification request");
+    const subject = encodeURIComponent(REQUEST_SUBJECT);
     const body = encodeURIComponent(
       `Fund / team: ${fields.fund}\nWhat to verify: ${fields.what}\nReply to: ${fields.email}`,
     );
@@ -97,7 +99,7 @@ export function RequestDialog({ open, onClose }: { open: boolean; onClose: () =>
           email: next.email,
           "fund / team": next.fund,
           "what to verify": next.what,
-          _subject: "Calma — verification request",
+          _subject: REQUEST_SUBJECT,
           _template: "table",
           _captcha: "false",
         }),

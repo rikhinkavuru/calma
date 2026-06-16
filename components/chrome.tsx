@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { GITHUB_URL } from "./contact";
 
@@ -129,9 +130,9 @@ export function Nav() {
   return (
     <header className={"nav" + (scrolled || menu ? " nav--bg" : "")}>
       <div className="wrap">
-        <a className="nav__brand" href="/">
+        <Link className="nav__brand" href="/">
           CALMA
-        </a>
+        </Link>
         <nav className="nav__links">
           {PRIMARY_LINKS.map((l) => (
             <a key={l.href} href={l.href}>
