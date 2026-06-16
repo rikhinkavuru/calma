@@ -598,6 +598,8 @@ def parse_simple_yaml(text):
 def load_contract(path):
     """Load verify.yaml: JSON first (the canonical dependency-free format), then the YAML subset.
     Raises ValueError with an actionable message instead of a raw parser traceback."""
+    if not os.path.isfile(path):  # a FIFO/device verify.yaml would block open() forever
+        raise ValueError("contract %r is not a regular file" % path)
     text = open(path).read()
     try:
         obj = json.loads(text)
@@ -641,10 +643,11 @@ def regrade_committed(contract, target):
             if t:
                 tcount[t] = tcount.get(t, 0) + 1
         header_idx = {}
-        if full and os.path.exists(full):
+        if full and os.path.isfile(full):  # isfile (not exists): a FIFO/device would block open()
             try:
-                header_idx = {h: i for i, h in enumerate(next(csv.reader(open(full, newline=""))))}
-            except (StopIteration, OSError):
+                header_idx = {h: i for i, h in enumerate(next(csv.reader(
+                    open(full, newline="", encoding="utf-8", errors="replace"))))}
+            except (StopIteration, OSError, ValueError):  # ValueError: binary file decode/csv error
                 header_idx = {}
         for cn, spec in cols.items():
             t = (spec or {}).get("tag")
@@ -789,6 +792,8 @@ def _infer_tag(name):
 
 def _sample_numeric(path, col_idx, limit=500):
     vals = []
+    if not os.path.isfile(path):
+        return vals  # FIFO/socket/device: never open() (would block during discovery)
     with open(path, newline="") as fh:
         rd = csv.reader(fh)
         next(rd, None)
@@ -810,6 +815,8 @@ STRING_KEY_TAGS = {"query", "problem", "group", "outcome", "left_key", "joined_k
 
 def _sample_strings(path, col_idx, limit=500):
     vals = []
+    if not os.path.isfile(path):
+        return vals  # FIFO/socket/device: never open() (would block during discovery)
     with open(path, newline="") as fh:
         rd = csv.reader(fh)
         next(rd, None)
@@ -912,10 +919,12 @@ def _scan_csvs(target):
                 continue
             full = os.path.join(dp, n)
             rel = os.path.relpath(full, target)
+            if not os.path.isfile(full):
+                continue  # FIFO/socket/device: never open() (would block during discovery)
             try:
-                with open(full, newline="") as fh:
+                with open(full, newline="", encoding="utf-8", errors="replace") as fh:
                     header = next(csv.reader(fh))
-            except (StopIteration, OSError):
+            except (StopIteration, OSError, ValueError):  # ValueError: binary file / csv error
                 continue
             cols = {}
             for idx, h in enumerate(header):
@@ -1012,11 +1021,14 @@ def _pick_metric(arts, forced=None, target=None):
             # metric-declared STRING column (e.g. exact_match prediction/reference): grade by
             # string-key coverage like query/group - the numeric grade is meaningless for text
             full = os.path.join(target, art)
-            try:
-                header = next(csv.reader(open(full, newline="")))
-                grade = _grade_string_key(_sample_strings(full, header.index(col)))
-            except (OSError, StopIteration, ValueError):
+            if not os.path.isfile(full):  # FIFO/device: never open() (would block)
                 grade = "author-asserted"
+            else:
+                try:
+                    header = next(csv.reader(open(full, newline="")))
+                    grade = _grade_string_key(_sample_strings(full, header.index(col)))
+                except (OSError, StopIteration, ValueError):
+                    grade = "author-asserted"
         elif (forced and grade == "plausibly-bound" and source in upgradable
                 and by_art.get(art, {}).get(col, {}).get("finite") and unique):
             grade = "independently-bound"

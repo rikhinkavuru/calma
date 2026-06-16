@@ -42,6 +42,8 @@ _TRAIN_TOKEN = re.compile(r"^(train|training|fit|in-?sample|is)$", re.I)
 # ---- io ----------------------------------------------------------------------
 
 def _read(path):
+    if not os.path.isfile(path):
+        return [], []  # FIFO/socket/device: never open() (would block); treated as unreadable
     try:
         with open(path, newline="") as fh:
             rd = csv.reader(fh)
@@ -255,7 +257,19 @@ def check_target_leakage(d, contract, base, claim_id="c1"):
     header, rows = _target_table(d, contract, base)
     if not header or tgt not in header or not rows:
         return None
-    feats = [f for f in (contract.get("features") or []) if f in header and f != tgt]
+    # the model's OWN prediction column being ~perfectly correlated with the label is the model
+    # WORKING, not leakage - exclude any column the contract's metrics bind as a prediction/score/
+    # prob before the heuristic. Hand-authored contracts (and the shipped leakage-heldout demo) list
+    # `score` in features; the auto-drafter already drops these via draft_contract._NON_FEATURE_TAGS.
+    _PRED_TAGS = ("prediction", "score", "prob", "probs", "pred", "yhat", "y_pred")
+    pred_cols = set()
+    for _m in contract.get("metrics", []):
+        _b = _m.get("binding") or {}
+        for _t in _PRED_TAGS:
+            if _b.get(_t):
+                pred_cols.add(str(_b[_t]))
+    feats = [f for f in (contract.get("features") or [])
+             if f in header and f != tgt and f not in pred_cols]
     if not feats:
         return None
     tvals = _col(header, rows, tgt)
@@ -288,8 +302,48 @@ def check_target_leakage(d, contract, base, claim_id="c1"):
             f)
 
 
+def _split_declared_files(contract):
+    """The rel-paths a DECLARED split references (two-file or single-file form), or [] if no split
+    is declared. Used to tell 'declared-but-unreadable' apart from 'absent' and 'readable'."""
+    sp = contract.get("split") or {}
+    if sp.get("train") and sp.get("test"):
+        return [sp["train"], sp["test"]]
+    if sp.get("file") and sp.get("column"):
+        return [sp["file"]]
+    return []
+
+
+def _split_unreadable(contract, base):
+    """A split is DECLARED but a referenced file is missing / can't be read - distinct from 'no split'
+    and from 'declared and readable'. Routes a declared-but-unrunnable leakage check to CAN'T-CONFIRM
+    instead of a silent 'checked'."""
+    rels = _split_declared_files(contract)
+    if not rels:
+        return False
+    for rel in rels:
+        if not os.path.isfile(os.path.join(base or ".", rel)):
+            return True
+    return False
+
+
+def _indeterminate_finding(claim_id):
+    """A leakage split was DECLARED but could not be read - a declared check that cannot RUN is
+    CAN'T-CONFIRM, never a silent 'checked' (clean)."""
+    return {
+        "id": "f-%s-leak-indeterminate" % claim_id, "claim_id": claim_id, "dimension": "leakage",
+        "severity": "minor", "status": "open", "confidence": "deterministic", "fixable_by": "author",
+        "locator": "declared train/test split could not be read (missing / unreadable file)",
+        "unblock": "the leakage check was declared (split:) but its file(s) could not be read - fix "
+                   "the split paths and re-verify",
+        "reverify": {"kind": "artifact-recheck", "source": "split",
+                     "expected": "the declared train/test split files are readable"},
+        "validity_class": "indeterminate", "leakage_indeterminate": True,
+    }
+
+
 def run_checks(contract, base, claim_id="c1"):
     """All leakage catches against one engagement. Returns the findings that fired (possibly empty).
+    A declared-but-unreadable split is INDETERMINATE (CAN'T-CONFIRM), never a silent 'checked'.
     Fail-soft: any check that errors is skipped (a check must never crash a verification)."""
     d = None
     try:
@@ -297,6 +351,8 @@ def run_checks(contract, base, claim_id="c1"):
     except (OSError, ValueError, KeyError, TypeError):
         d = None
     out = []
+    if d is None and _split_unreadable(contract, base):
+        out.append(_indeterminate_finding(claim_id))
     checks = (
         lambda: check_row_overlap(d, claim_id),
         lambda: check_id_overlap(d, contract, claim_id),
@@ -319,7 +375,13 @@ def family_status(contract, findings):
     applicable = bool(contract.get("split")) or bool((contract.get("keys") or {}).get("target"))
     if not applicable:
         return "not-applicable"
-    return "flagged" if any(f.get("dimension") == "leakage" for f in findings) else "checked"
+    # a DEFINITE leakage finding wins over "indeterminate": if we flagged real leakage, the family is
+    # flagged even when an unreadable split also left one check unrun (matches apply_validity).
+    if any(f.get("dimension") == "leakage" and not f.get("leakage_indeterminate") for f in findings):
+        return "flagged"
+    if any(f.get("leakage_indeterminate") for f in findings):
+        return "indeterminate"  # declared but the split couldn't be read - not a clean scan
+    return "checked"
 
 
 # ---- claim-scope guard + verdict promotion ----------------------------------
@@ -414,10 +476,22 @@ def apply_validity(claims, findings, contract, claim_text, base=None):
     head = next((c for c in claims if c.get("headline")), claims[0])
     if head.get("verdict") not in (V.CONFIRMED, V.CAVEATS):
         return  # the number didn't reproduce; leakage findings stay additive, no promotion
+    vi = head.get("verdict_inputs") or {}
     auth = [f for f in leak if f.get("validity_class") == "authoritative"]
     soft = [f for f in leak if f.get("validity_class") == "soft"]
     correctable = [f for f in auth if f.get("leakage_kind") in ("row-overlap", "id-overlap")]
-    vi = head.get("verdict_inputs") or {}
+    # declared-but-unreadable split: the check could not run -> CAN'T-CONFIRM, never a silent pass.
+    # UNLESS we ALSO detected DEFINITE leakage from the readable data (target==feature / row overlap):
+    # an authoritative finding is the stronger, more actionable verdict (INVALIDATED), so it WINS over
+    # "couldn't read the split". Must RE-DERIVE the headline verdict (mirror the tail) - the flag alone
+    # leaves the stale CONFIRMED label on the claim while verdict_inputs says otherwise.
+    if not auth and any(f.get("leakage_indeterminate") for f in leak):
+        vi["validity_unresolved"] = True
+        head["driving_dimension"] = "leakage"
+        head["verdict_inputs"] = vi
+        head["verdict"] = V.verdict(vi)
+        head["headline_confidence"] = V.confidence(vi, head["verdict"])
+        return
     if auth:
         status = oos_status(contract, claim_text)
         if status == "oos":
