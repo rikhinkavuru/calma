@@ -21,15 +21,24 @@ def _fps_in(comments):
     return out
 
 
-def run(client, bundle, dry_run=False):
+def run(client, bundle, dry_run=False, expected_head=None):
     """Post the review + summary + check-run for `bundle` via `client` (a real GitHub client or a mock).
     Idempotent: re-running on the same head posts NOTHING new (fingerprints already present). Incremental:
     a new push comments only on the delta; a catch that no longer reproduces has its thread resolved.
-    Returns {ok, new_findings, actions}."""
+    Returns {ok, new_findings, actions}.
+
+    TRUST BOUNDARY: the bundle is UNTRUSTED DATA - an artifact produced by the UNPRIVILEGED, PR-controlled
+    verify job. When `expected_head` is given (the privileged workflow passes the TRUSTED
+    github.event.workflow_run.head_sha), a bundle whose head_sha does not match is REFUSED - so a forged
+    or cross-PR artifact can never steer this privileged job's check-run/review onto another commit."""
     errs = B.validate(bundle)
     if errs:
         return {"ok": False, "errors": errs}
     head = bundle["head_sha"]
+    if expected_head and head != expected_head:
+        return {"ok": False, "errors": [
+            "bundle head_sha %r does not match the triggering run head %r - refusing to post "
+            "(possible forged or cross-PR artifact)" % (head, expected_head)]}
     existing_fps = _fps_in(client.list_bot_review_comments())
     all_fps = R.all_catch_fingerprints(bundle)
     new_fps = {fp for fp in all_fps if fp not in existing_fps}
@@ -74,8 +83,11 @@ def main():
     token = os.environ["GITHUB_TOKEN"]
     owner, repo = os.environ["GITHUB_REPOSITORY"].split("/", 1)
     bundle = B.from_json(open(os.environ.get("CALMA_BUNDLE", "calma-findings.json")).read())
-    pr_number = bundle.get("pr_number") or int(os.environ.get("GITHUB_PR_NUMBER", "0") or "0")
-    result = run(GitHubClient(token, owner, repo, pr_number), bundle)
+    # Bind to the TRUSTED triggering run: github.event.workflow_run.head_sha (passed by the privileged
+    # workflow as CALMA_EXPECTED_HEAD). pr_number prefers the trusted env, else the head-verified bundle.
+    expected_head = os.environ.get("CALMA_EXPECTED_HEAD") or None
+    pr_number = int(os.environ.get("GITHUB_PR_NUMBER", "0") or "0") or bundle.get("pr_number")
+    result = run(GitHubClient(token, owner, repo, pr_number), bundle, expected_head=expected_head)
     print(json.dumps(result, indent=2))
     return 0 if result.get("ok") else 1
 

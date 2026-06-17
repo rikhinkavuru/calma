@@ -77,3 +77,24 @@ def test_run_pr_on_refuted_btc_asset():
         assert [f["fingerprint"] for f in entry["findings"]] == [f["fingerprint"] for f in entry2["findings"]]
     else:
         print("  (btc verified %s - host likely non-isolating; catch asserts skipped)" % entry["repo_verdict"])
+
+
+def test_engine_resolves_from_trusted_root_not_the_pr_tree(tmp_path, monkeypatch):
+    # H1 root fix: the engine + edges resolve from _ENGINE_ROOT (the trusted driver checkout), NEVER from
+    # `repo` (the PR tree) - a PR cannot swap in its own engine to forge a verdict; only its result DIRS
+    # are PR-controlled. Capture the subprocess argv/cwd instead of actually running the engine.
+    captured = {}
+
+    def _fake_run(argv, cwd=None, **kw):
+        captured["argv"], captured["cwd"] = argv, cwd
+
+        class _P:
+            stdout = '{"verdict": "CONFIRMED", "metrics": [], "isolation_tier": "seatbelt-verified"}'
+        return _P()
+
+    monkeypatch.setattr(run_pr.subprocess, "run", _fake_run)
+    run_pr.engine_json("results/x", "contract", repo=str(tmp_path))      # repo = a bogus PR tree
+    calma = captured["argv"][1]
+    assert calma.startswith(run_pr._ENGINE_ROOT), calma                  # engine binary from the TRUSTED root
+    assert ".claude" in calma and str(tmp_path) not in calma             # NOT from the PR tree
+    assert captured["cwd"] == str(tmp_path)                              # the target is still READ in the PR tree

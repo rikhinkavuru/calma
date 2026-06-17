@@ -130,3 +130,31 @@ def test_bundle_is_data_never_executed_or_shell_interpolated():
     body = gh.reviews[0]["comments"][0]["body"]
     assert "$(rm -rf /)" in body                            # present as literal text, not expanded
     assert "calma:fp=ev" in body
+
+
+def test_rejects_bundle_whose_head_does_not_match_the_trusted_run():
+    # H1: the artifact is PR-controlled; comment_pr must REFUSE a bundle whose head_sha differs from the
+    # TRUSTED triggering workflow_run.head_sha (CALMA_EXPECTED_HEAD), so a forged/cross-PR artifact can
+    # never steer this privileged job's check-run/review onto another commit.
+    gh = MockGitHub()
+    b = _bundle("REFUTED", [_finding("REFUTED", "aa")], head="attacker_head")
+    res = C.run(gh, b, expected_head="trusted_head")
+    assert res["ok"] is False
+    assert any("does not match the triggering run head" in e for e in res["errors"])
+    assert gh.calls == []                                   # NOTHING posted: no review, no summary, no check-run
+
+
+def test_matching_head_still_posts_normally():
+    # the binding is transparent when the bundle head matches the trusted run head
+    gh = MockGitHub()
+    res = C.run(gh, _bundle("REFUTED", [_finding("REFUTED", "aa")], head="h1"), expected_head="h1")
+    assert res["ok"]
+    assert ("check_run", "failure") in gh.calls
+
+
+def test_no_expected_head_preserves_prior_behavior():
+    # the hosted-app path builds the bundle in-process from a verified webhook (trusted head), so it
+    # passes no expected_head; binding is opt-in and must not change that path's behavior.
+    gh = MockGitHub()
+    res = C.run(gh, _bundle("REFUTED", [_finding("REFUTED", "aa")]))
+    assert res["ok"] and ("check_run", "failure") in gh.calls

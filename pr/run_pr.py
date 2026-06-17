@@ -8,8 +8,15 @@ import os
 import subprocess
 import sys
 
-from pr import bundle as B
-from pr.diff_targets import changed_paths, verify_targets
+# Resolve the engine, edges, and the `pr.*` transport from a TRUSTED root - this driver's OWN checkout,
+# or $CALMA_ENGINE_ROOT - NEVER the PR working tree. CI runs a base-pinned copy of run_pr.py + the engine
+# from here, so a PR cannot replace the verifier that grades it; only its RESULT DIRS (under `repo`,
+# below) are PR-controlled. (Also lets the script run directly: without this, `python3 .../pr/run_pr.py`
+# fails to import `pr`, since the parent dir is not on sys.path for a directly-run script.)
+_ENGINE_ROOT = os.environ.get("CALMA_ENGINE_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, _ENGINE_ROOT)
+from pr import bundle as B  # noqa: E402
+from pr.diff_targets import changed_paths, verify_targets  # noqa: E402
 
 
 def _normalize(kind, raw):
@@ -32,18 +39,23 @@ def _normalize(kind, raw):
 
 
 def engine_json(target, kind, repo=".", timeout=600):
-    """Run the engine SUBPROCESS for one target (NEVER imported in-process - transport only). artifact ->
-    `python -m edges.extract <t> --json --mode fix`; contract -> `calma.py verify <t> --json --trust
-    third-party --isolation auto` so untrusted PR code stays Seatbelt/bwrap/microVM-isolated even here.
-    A subprocess error / unparseable output -> a CAN'T-CONFIRM stub (never a silent pass)."""
+    """Run the engine SUBPROCESS for one target (NEVER imported in-process - transport only). The engine
+    + edges come from the TRUSTED _ENGINE_ROOT, never from `repo` (the PR tree): contract ->
+    `<_ENGINE_ROOT>/.claude/.../calma.py verify <t> --trust third-party --isolation auto` with cwd=repo;
+    artifact -> `python -m edges.extract <ABS t>` with cwd=_ENGINE_ROOT (so the TRUSTED edges package -
+    and the engine its bridge resolves relative to itself - runs, not the PR's copy). The PR's code still
+    runs Seatbelt/bwrap/microVM-isolated. A subprocess error / unparseable output -> an INCONCLUSIVE stub."""
     if kind == "artifact":
-        argv = [sys.executable, "-m", "edges.extract", target, "--json", "--mode", "fix"]
+        argv = [sys.executable, "-m", "edges.extract",
+                os.path.abspath(os.path.join(repo, target)), "--json", "--mode", "fix"]
+        cwd = _ENGINE_ROOT
     else:
-        calma = os.path.join(repo, ".claude", "skills", "calma", "scripts", "calma.py")
+        calma = os.path.join(_ENGINE_ROOT, ".claude", "skills", "calma", "scripts", "calma.py")
         argv = [sys.executable, calma, "verify", target, "--json",
                 "--trust", "third-party", "--isolation", "auto", "--force"]
+        cwd = repo
     try:
-        p = subprocess.run(argv, cwd=repo, capture_output=True, text=True, timeout=timeout)
+        p = subprocess.run(argv, cwd=cwd, capture_output=True, text=True, timeout=timeout)
         raw = json.loads(p.stdout)
     except (subprocess.SubprocessError, ValueError, OSError) as ex:
         return {"repo_verdict": "INCONCLUSIVE", "summary": "engine could not run: %s" % ex,

@@ -15,13 +15,25 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    # backstop on a job that RE-EXECUTES untrusted PR code (the engine per-target timeout + the
+    # changed-target cap are the primary bounds; this caps total runaway/abuse). Tune up if a repo
+    # legitimately verifies many heavy targets per PR.
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4 (SHA-pinned: tags are mutable)
         with:
           persist-credentials: false                      # the PR's code can never use the token
           ref: ${{ github.event.pull_request.head.sha }}  # the PR head (the code under test)
           fetch-depth: 0                                  # need base..head for the diff
-      - uses: actions/setup-python@v5
+      # TRUSTED engine + driver = the PR BASE (the target-branch state a PR cannot modify). The verify
+      # step runs THIS copy of pr/ + the engine against the PR's result dirs, so a PR cannot swap in its
+      # own engine to forge a verdict - only its RESULT DIRS (in the default workspace) are PR-controlled.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4 (SHA-pinned)
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: .calma-engine
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.x'
       - name: detect changed result dirs, re-verify each in the engine sandbox, write the bundle
@@ -33,9 +45,11 @@ jobs:
           GITHUB_PR_NUMBER: ${{ github.event.pull_request.number }}
           GITHUB_WORKSPACE: ${{ github.workspace }}
           RUNNER_TEMP: ${{ runner.temp }}
-        run: python3 "$GITHUB_WORKSPACE/pr/run_pr.py"
+        # run the TRUSTED, base-pinned run_pr.py + engine (.calma-engine) against the PR's result dirs in
+        # the default workspace - never the PR's own copy of the verifier (see SECURITY.md, docs/pr-bot.md).
+        run: python3 "$GITHUB_WORKSPACE/.calma-engine/pr/run_pr.py"
       - name: upload the findings bundle for the privileged comment job
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4 (SHA-pinned)
         with:
           name: calma-findings
           path: ${{ runner.temp }}/calma-findings.json   # carries pr_number + head_sha (read there)
