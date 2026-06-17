@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "calma-edges"
+version = "0.1.0"
+description = "AI edges for Calma — the schema-forcing LLM client, the black-box engine bridge, the append-only store, and the determinism firewall. Physically isolated from the pure-stdlib verdict core: edges reach the engine only as a subprocess."
+requires-python = ">=3.9"
+dependencies = [
+    "anthropic>=0.40",
+    "jsonschema>=4.18",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[tool.setuptools]
+# `edges` is a PEP 420 namespace package (deliberately NO edges/__init__.py — keeping it un-packaged
+# is part of how the firewall stays simple). The source root is the repo root so `edges.common`
+# resolves; build config is provided for completeness — the suite runs in-tree, no install needed.
+packages = ["edges.common"]
+package-dir = { "" = ".." }
+
+[tool.pytest.ini_options]
+# `cd edges && pytest` runs from here. Add the repo root (..) to sys.path so `import edges.common`
+# resolves as a namespace package without installing, and keep collection scoped to tests/.
+pythonpath = [".."]
+testpaths = ["tests"]
