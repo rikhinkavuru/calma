@@ -61,7 +61,8 @@ def main():
             if where and not where(m):
                 continue
             out.append({"label": m["label"], "tier": m.get("tier"), "family": m.get("family"),
-                        "track": m.get("track"), "pred": fn(mid)})
+                        "track": m.get("track"), "validity_family": m.get("validity_family"),
+                        "pred": fn(mid)})
         return out
 
     n_h = sum(1 for m in manifest.values() if m["label"] == "honest")
@@ -114,6 +115,38 @@ def main():
         tracks[name] = row
         print(line + "   (catch%/wrong-verdicts)")
 
+    # Two axes (NASEM 2019): REPRODUCIBILITY (recompute the headline number) vs VALIDITY (the result is
+    # SOUND - no leakage/overfitting/survivorship/shift). reproducibility cut = flawed cases that are NOT
+    # validity-tagged (a recompute catches these); validity cut = the validity_family cases (the number
+    # REPRODUCES, so a recompute-only method false-confirms; the deterministic engine INVALIDATES them).
+    def _catch(fn, where):
+        rr = rows_for(fn, where)
+        return (sum(1 for r in rr if r["pred"] == "flawed") / len(rr) if rr else None), len(rr)
+
+    def _pct(x):
+        return ("%3.0f%%" % (x * 100)) if x is not None else " n/a"
+
+    print("\nTwo axes - reproducibility vs validity (catch%% on each cut):")
+    print("%-24s %18s %18s" % ("method", "reproducibility", "validity"))
+    axes = {}
+    for name, fn in methods.items():
+        rc, rn = _catch(fn, lambda m: m["label"] == "flawed" and not m.get("validity_family"))
+        vc, vn = _catch(fn, lambda m: bool(m.get("validity_family")))
+        axes[name] = {"reproducibility_catch": rc, "reproducibility_n": rn,
+                      "validity_catch": vc, "validity_n": vn}
+        print("%-24s %12s (n=%d) %12s (n=%d)" % (name, _pct(rc), rn, _pct(vc), vn))
+    vfam_names = sorted({m["validity_family"] for m in manifest.values() if m.get("validity_family")})
+    n_vcut = sum(1 for m in manifest.values() if m.get("validity_family"))
+    print("  validity cut = %d cases the engine INVALIDATES across %d families %s" % (n_vcut, len(vfam_names), vfam_names))
+    print("  (small per-family N -- indicative, not statistically tight; expanding to N>=8/family is future work)")
+
+    # validity catch-rate BY family (the cell where a recompute-only method false-confirms but the
+    # deterministic engine INVALIDATES). Calma ~1.0 by construction; the agent is predicted to miss a chunk.
+    vfam_table = {}
+    for name, fn in methods.items():
+        vfam_table[name] = {vf: dict(zip(("catch", "n"), _catch(fn, lambda m, v=vf: m.get("validity_family") == v)))
+                            for vf in vfam_names}
+
     # per-family for the site charts
     fams = {}
     for fam in sorted({m["family"] for m in manifest.values()}):
@@ -127,13 +160,13 @@ def main():
         inst = sum(1 for r in agent_rows if r.get("unstable")) / len(agent_rows)
         usd = sum(r.get("usd", 0) for r in agent_rows)
         ams = sorted(r["ms"] for r in agent_rows)
-        vfam = {"leakage", "overfitting", "execution-realism", "contamination"}
-        vrows = [r for r in agent_rows if r.get("family") in vfam and r.get("label") == "flawed"]
+        # validity-cut catch for the agent reads the engine-derived validity_family tag (NOT the metric
+        # family) - this was previously dead (it filtered on `family`, which is never a validity family).
+        av = axes.get("agent-with-exec", {})
         line = ("\nagent-with-exec extras: verdict-instability %.0f%% (Calma 0%%) | cost $%.2f | p50 %dms"
                 % (inst * 100, usd, ams[len(ams) // 2]))
-        if vrows:
-            line += " | validity-family catch %d/%d" % (
-                sum(1 for r in vrows if r.get("prediction") == "flawed"), len(vrows))
+        if av.get("validity_n"):
+            line += " | validity-cut catch %.0f%% (vs Calma 100%% by construction)" % ((av["validity_catch"] or 0) * 100)
         print(line)
         summary["agent-with-exec_extras"] = {"instability": inst, "usd": usd, "p50_ms": ams[len(ams) // 2]}
     lat = sorted(r["ms"] for r in json.load(open(os.path.join(HERE, "results", "calma.json"))))
@@ -141,7 +174,9 @@ def main():
             "overall": summary, "tiers": tiers, "tracks": {
                 name: {tk: {"catch_rate": v[tk]["catch_rate"], "wrong": v[tk]["wrong"]}
                        for tk in v} for name, v in tracks.items()},
-            "families": fams, "calma_p50_ms": lat[len(lat) // 2]}
+            "families": fams, "axes": axes, "validity_by_family": vfam_table,
+            "validity_cut_n": n_vcut, "validity_families": vfam_names,
+            "calma_p50_ms": lat[len(lat) // 2]}
     json.dump(summary, open(os.path.join(HERE, "results", "summary.json"), "w"), indent=2)
     json.dump(site, open(os.path.join(HERE, "results", "site_data.json"), "w"), indent=2)
     print("\nwrote results/summary.json + results/site_data.json (calma p50 %dms)" % site["calma_p50_ms"])
