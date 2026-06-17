@@ -1,0 +1,43 @@
+# PRIVILEGED half of the pwn-request-proof pattern. Triggered by `workflow_run` on the UNPRIVILEGED
+# calma-verify-pr completing - it runs in the BASE repo's trusted context (the bot logic, NOT the PR's
+# code), so it can safely hold the write token. It downloads the findings artifact, TREATS IT AS
+# UNTRUSTED DATA (parse + schema-validate, never execute, never shell-interpolate a field), and posts
+# the inline review + summary + a gating check-run. A fork PR never reaches this job's permissions.
+name: calma-comment-pr
+
+on:
+  workflow_run:
+    workflows: ["calma-verify-pr"]
+    types: [completed]
+
+permissions:
+  pull-requests: write    # the inline review + the summary comment
+  checks: write           # the gating check-run
+  contents: read
+
+jobs:
+  comment:
+    runs-on: ubuntu-latest
+    # only act on a real completion (skip cancelled); the bot also schema-validates the bundle itself
+    if: ${{ github.event.workflow_run.conclusion != 'cancelled' }}
+    steps:
+      - uses: actions/checkout@v4            # the BASE (trusted) bot code - never the PR head here
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: download the findings bundle (UNTRUSTED DATA - parsed, never executed)
+        uses: actions/download-artifact@v4
+        with:
+          name: calma-findings
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/findings
+      - name: post the inline review + summary + check-run
+        # the bundle path + the token reach the script via env; no PR-controlled string is on the shell line
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          CALMA_BUNDLE: ${{ runner.temp }}/findings/calma-findings.json
+        run: python3 "$GITHUB_WORKSPACE/pr/comment_pr.py"
