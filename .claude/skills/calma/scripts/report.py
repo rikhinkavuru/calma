@@ -352,6 +352,7 @@ _DIMENSION_GLOSS = {
     "survivorship": "the universe is survivors-only, not point-in-time",
     "look-ahead": "the signal used information that wasn't knowable in time",
     "data-snooping": "the edge doesn't survive study-wide multiple-testing (the HLZ haircut)",
+    "regime": "the edge holds in one regime/window, not across the sample (walk-forward)",
 }
 
 

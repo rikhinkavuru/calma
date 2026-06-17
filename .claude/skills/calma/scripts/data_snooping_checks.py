@@ -232,7 +232,7 @@ def family_status(contract, findings):
 
 
 def _claim_asserts_significance(claim_text):
-    return bool(_ASSERTS_RE.search(claim_text or ""))
+    return bool(isinstance(claim_text, str) and _ASSERTS_RE.search(claim_text))
 
 
 def apply_validity(claims, findings, contract, claim_text, base=None):

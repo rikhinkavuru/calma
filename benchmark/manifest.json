@@ -1988,5 +1988,21 @@
     "claim_text": "a statistically significant factor, Sharpe of 2.5371",
     "label": "flawed",
     "tier": "subtle"
+  },
+  {
+    "id": "regime_a_invalid",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/regime_a",
+    "metric": "total_return",
+    "family": "quant",
+    "validity_family": "regime",
+    "display": "total return",
+    "n_rows": 80,
+    "artifact": "runs/returns.csv",
+    "track": "synthetic",
+    "true_value": 0.3111,
+    "claim": 0.3111,
+    "claim_text": "a robust edge across every regime, walk-forward validated total return 0.3111",
+    "label": "flawed",
+    "tier": "subtle"
   }
 ]

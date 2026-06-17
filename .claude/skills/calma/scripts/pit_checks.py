@@ -305,7 +305,7 @@ def family_status(contract, findings):
 
 
 def _claim_asserts(kind, claim_text):
-    t = claim_text or ""
+    t = claim_text if isinstance(claim_text, str) else ""  # replay passes a numeric claim -> no assertion
     if kind == "survivorship":
         return bool(_PIT_RE.search(t))
     if kind == "look-ahead":

@@ -54,7 +54,7 @@ _PIT_RE = re.compile(
 
 def _claim_asserts(kind, claim_text):
     """Does the CLAIM positively assert the clean property `kind` would invalidate?"""
-    t = claim_text or ""
+    t = claim_text if isinstance(claim_text, str) else ""  # replay passes a numeric claim -> no assertion
     if kind == "omitted-costs":
         return bool(_NET_RE.search(t))
     if kind == "window":

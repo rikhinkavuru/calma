@@ -24,6 +24,7 @@ import autonomy as AUT
 import backtest_checks as BC
 import pit_checks as PIT
 import data_snooping_checks as DSC
+import regime_checks as RGC
 import leakage_checks as LC
 import overfitting_checks as OC
 import realism_checks as RLC
@@ -212,7 +213,7 @@ def _reconcile_claim(contract, claim, metric):
 
 def _not_verified(metric_ids, leakage_status=None, overfitting_status=None,
                   realism_status=None, contamination_status=None, backtest_status=None,
-                  pit_status=None, snoop_status=None):
+                  pit_status=None, snoop_status=None, regime_status=None):
     """Honest 'what we did NOT check' list. Leakage / overfitting / realism / contamination / backtest-
     soundness are now real families: each is listed as a gap ONLY when it was NOT-APPLICABLE (nothing to
     assess) - never claimed as a gap once it ran, and never called 'roadmap' now that it exists."""
@@ -238,6 +239,10 @@ def _not_verified(metric_ids, leakage_status=None, overfitting_status=None,
     # study-wide multiple-testing / HLZ haircut (V2): listed only when NOT-APPLICABLE (no study block).
     if snoop_status in (None, "not-applicable") and any(m in QUANT_METRICS for m in metric_ids):
         out.append("study-wide multiple-testing / HLZ haircut (no study:{trials,...} block declared)")
+    # walk-forward / regime robustness (V3): listed only when NOT-APPLICABLE (no windows block declared
+    # and the claim made no robustness assertion to auto-window the series).
+    if regime_status in (None, "not-applicable") and any(m in QUANT_METRICS for m in metric_ids):
+        out.append("walk-forward / regime robustness (no windows block or robustness claim)")
     return out
 
 
@@ -409,7 +414,7 @@ def _assemble_ledger(contract, diff, run_res, claim_text=None):
     # is a claim to judge; deck-vs-code mismatch is already handled above by the recompute+verdict path.
     # Each family promotes the (reproduced) headline DOWN only (INVALIDATED / CAN'T-CONFIRM / CAVEAT),
     # scope-guarded; none can inflate a verdict.
-    leak_fam = over_fam = real_fam = cont_fam = bt_fam = pit_fam = ds_fam = None
+    leak_fam = over_fam = real_fam = cont_fam = bt_fam = pit_fam = ds_fam = reg_fam = None
     if claims and run_res.get("exit_code", 0) == 0:
         _base = run_res.get("base") or (
             os.path.dirname(os.path.dirname(run_res["run_dir"])) if run_res.get("run_dir") else None)
@@ -458,6 +463,12 @@ def _assemble_ledger(contract, diff, run_res, claim_text=None):
             findings.extend(DSC.run_checks(contract, _base, claims[0]["id"], claim_text=claim_text))
             DSC.apply_validity(claims, findings, contract, claim_text, base=_base)
             ds_fam = DSC.family_status(contract, findings)
+            # WS-regime (V3): walk-forward / regime robustness. Silent unless a `windows` block is
+            # declared OR the claim asserts robustness/walk-forward; INVALIDATED when the in-sample edge
+            # collapses out-of-sample under such a claim, else a CAVEAT.
+            findings.extend(RGC.run_checks(contract, _base, claims[0]["id"], claim_text=claim_text))
+            RGC.apply_validity(claims, findings, contract, claim_text, base=_base)
+            reg_fam = RGC.family_status(contract, findings)
     # reconcile a claim's human reason with its FINAL verdict_inputs after any family promotion
     # (leakage/realism/overfitting/contamination): the promotion changes the verdict but not the
     # compare-time reason, which would otherwise read a stale "matches within budget" under a
@@ -512,9 +523,10 @@ def _assemble_ledger(contract, diff, run_res, claim_text=None):
                          **({"contamination": cont_fam} if cont_fam else {}),
                          **({"backtest": bt_fam} if bt_fam else {}),
                          **({"point-in-time": pit_fam} if pit_fam else {}),
-                         **({"data-snooping": ds_fam} if ds_fam else {})},
+                         **({"data-snooping": ds_fam} if ds_fam else {}),
+                         **({"regime": reg_fam} if reg_fam else {})},
             "not_verified": _not_verified(metric_ids, leak_fam, over_fam, real_fam, cont_fam,
-                                          bt_fam, pit_fam, ds_fam),
+                                          bt_fam, pit_fam, ds_fam, reg_fam),
         },
         "repo_verdict": None,
     }
