@@ -353,6 +353,7 @@ _DIMENSION_GLOSS = {
     "look-ahead": "the signal used information that wasn't knowable in time",
     "data-snooping": "the edge doesn't survive study-wide multiple-testing (the HLZ haircut)",
     "regime": "the edge holds in one regime/window, not across the sample (walk-forward)",
+    "model-leakage": "a transform saw the test set, or configs were selected on it",
 }
 
 

@@ -36,6 +36,8 @@ DIMENSIONS = {
     "data-snooping",
     # walk-forward / regime-robustness validity family (V3).
     "regime",
+    # model-process leakage validity family (V4): featurization-time + selection-on-test.
+    "model-leakage",
 }
 # dimensions that are derived from execution and so may NOT be re-verified by a static re-read.
 # omitted-costs/window are computed off the bound artifact (artifact-recheck); survivorship is read
@@ -43,7 +45,7 @@ DIMENSIONS = {
 EXEC_DIMENSIONS = {
     "reproducibility", "execution-realism", "leakage", "overfitting", "contamination", "baseline",
     "selection", "metric-population-coverage", "environment-selected", "metric-mismatch",
-    "omitted-costs", "window", "look-ahead", "data-snooping", "regime",
+    "omitted-costs", "window", "look-ahead", "data-snooping", "regime", "model-leakage",
 }
 SEVERITIES = {"blocker", "major", "minor", "info"}
 BLOCKING_SEVERITIES = {"blocker", "major"}

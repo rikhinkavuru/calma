@@ -2004,5 +2004,21 @@
     "claim_text": "a robust edge across every regime, walk-forward validated total return 0.3111",
     "label": "flawed",
     "tier": "subtle"
+  },
+  {
+    "id": "modelleak_a_invalid",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/modelleak_a",
+    "metric": "accuracy",
+    "family": "classification",
+    "validity_family": "model-leakage",
+    "display": "accuracy",
+    "n_rows": 200,
+    "artifact": "runs/preds.csv",
+    "track": "synthetic",
+    "true_value": 0.885,
+    "claim": 0.885,
+    "claim_text": "no data leakage, properly held-out accuracy 0.8850",
+    "label": "flawed",
+    "tier": "subtle"
   }
 ]

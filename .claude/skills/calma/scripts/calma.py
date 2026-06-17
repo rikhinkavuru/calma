@@ -25,6 +25,7 @@ import backtest_checks as BC
 import pit_checks as PIT
 import data_snooping_checks as DSC
 import regime_checks as RGC
+import model_leakage_checks as MLC
 import leakage_checks as LC
 import overfitting_checks as OC
 import realism_checks as RLC
@@ -213,13 +214,17 @@ def _reconcile_claim(contract, claim, metric):
 
 def _not_verified(metric_ids, leakage_status=None, overfitting_status=None,
                   realism_status=None, contamination_status=None, backtest_status=None,
-                  pit_status=None, snoop_status=None, regime_status=None):
+                  pit_status=None, snoop_status=None, regime_status=None, modelleak_status=None):
     """Honest 'what we did NOT check' list. Leakage / overfitting / realism / contamination / backtest-
     soundness are now real families: each is listed as a gap ONLY when it was NOT-APPLICABLE (nothing to
     assess) - never claimed as a gap once it ran, and never called 'roadmap' now that it exists."""
     out = []
     if leakage_status in (None, "not-applicable"):
         out.append("data leakage (no train/test split or keys declared)")
+    # model-process leakage (V4): featurization-on-train+test / selection-on-test. Listed when the
+    # pipeline/sweep surface isn't declared (sibling of the row/id/temporal leakage line above).
+    if modelleak_status in (None, "not-applicable"):
+        out.append("model-process leakage (no pipeline/sweep declared: featurization-fit / selection-on-test)")
     if overfitting_status in (None, "not-applicable"):
         out.append("overfitting / deflated-Sharpe / PBO (no trials:N or grid-search log declared)")
     if realism_status in (None, "not-applicable") and any(m in QUANT_METRICS for m in metric_ids):
@@ -414,7 +419,7 @@ def _assemble_ledger(contract, diff, run_res, claim_text=None):
     # is a claim to judge; deck-vs-code mismatch is already handled above by the recompute+verdict path.
     # Each family promotes the (reproduced) headline DOWN only (INVALIDATED / CAN'T-CONFIRM / CAVEAT),
     # scope-guarded; none can inflate a verdict.
-    leak_fam = over_fam = real_fam = cont_fam = bt_fam = pit_fam = ds_fam = reg_fam = None
+    leak_fam = over_fam = real_fam = cont_fam = bt_fam = pit_fam = ds_fam = reg_fam = ml_fam = None
     if claims and run_res.get("exit_code", 0) == 0:
         _base = run_res.get("base") or (
             os.path.dirname(os.path.dirname(run_res["run_dir"])) if run_res.get("run_dir") else None)
@@ -469,6 +474,12 @@ def _assemble_ledger(contract, diff, run_res, claim_text=None):
             findings.extend(RGC.run_checks(contract, _base, claims[0]["id"], claim_text=claim_text))
             RGC.apply_validity(claims, findings, contract, claim_text, base=_base)
             reg_fam = RGC.family_status(contract, findings)
+            # WS-model-leakage (V4): ML-process leakage - featurization fit on train+test, or
+            # validation-reuse / selection-on-test. Silent unless a `pipeline`/`sweep` block is declared;
+            # INVALIDATED under a "no leakage / held-out" claim, else a CAVEAT.
+            findings.extend(MLC.run_checks(contract, _base, claims[0]["id"], claim_text=claim_text))
+            MLC.apply_validity(claims, findings, contract, claim_text, base=_base)
+            ml_fam = MLC.family_status(contract, findings)
     # reconcile a claim's human reason with its FINAL verdict_inputs after any family promotion
     # (leakage/realism/overfitting/contamination): the promotion changes the verdict but not the
     # compare-time reason, which would otherwise read a stale "matches within budget" under a
@@ -524,9 +535,10 @@ def _assemble_ledger(contract, diff, run_res, claim_text=None):
                          **({"backtest": bt_fam} if bt_fam else {}),
                          **({"point-in-time": pit_fam} if pit_fam else {}),
                          **({"data-snooping": ds_fam} if ds_fam else {}),
-                         **({"regime": reg_fam} if reg_fam else {})},
+                         **({"regime": reg_fam} if reg_fam else {}),
+                         **({"model-leakage": ml_fam} if ml_fam else {})},
             "not_verified": _not_verified(metric_ids, leak_fam, over_fam, real_fam, cont_fam,
-                                          bt_fam, pit_fam, ds_fam, reg_fam),
+                                          bt_fam, pit_fam, ds_fam, reg_fam, ml_fam),
         },
         "repo_verdict": None,
     }
