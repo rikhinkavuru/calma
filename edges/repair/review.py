@@ -160,10 +160,60 @@ def build_review(res):
     return (not reasons), reasons
 
 
+def _recompute_column_degenerate(scratch, goalposts):
+    """The 'feed the check a constant' attack writes a hard-coded CONSTANT series to the recompute
+    artifact (e.g. `oos_rets = [r]*n`) that compounds to the claim. A literal-line smell can't see a
+    GENERATED constant, but the OUTPUT gives it away: a real computed return/price/score series VARIES,
+    so a many-row recompute column with one distinct value (or ~0 dispersion) is a forgery. Reads the
+    re-emitted column the headline metric recomputes from; returns a reason string if degenerate, else
+    None."""
+    import csv as _csv
+    try:
+        contract = json.load(open(os.path.join(scratch, CONTRACT_NAME)))
+    except (OSError, ValueError):
+        return None
+    metric = next((m for m in (contract.get("metrics") or [])
+                   if m.get("metric_id") == goalposts.metric_id), None)
+    if not metric:
+        return None
+    artifact = metric.get("artifact")
+    col = next(iter((metric.get("binding") or {}).values()), None)   # the primary bound column
+    if not artifact or not col:
+        return None
+    try:
+        with open(os.path.join(scratch, artifact), newline="") as fh:
+            rd = _csv.reader(fh)
+            header = next(rd, [])
+            if col not in header:
+                return None
+            idx = header.index(col)
+            vals = []
+            for row in rd:
+                if idx < len(row):
+                    try:
+                        vals.append(float(row[idx]))
+                    except ValueError:
+                        pass
+    except OSError:
+        return None
+    finite = [v for v in vals if v == v and v not in (float("inf"), float("-inf"))]
+    if len(finite) < 8:
+        return None                                          # too short to judge dispersion
+    distinct = len({round(v, 12) for v in finite})
+    mean = sum(finite) / len(finite)
+    var = sum((v - mean) ** 2 for v in finite) / len(finite)
+    rel_std = (var ** 0.5) / abs(mean) if mean else (var ** 0.5)
+    if distinct <= 1 or rel_std < 1e-9:
+        return ("the recompute column %r in %s is a CONSTANT series (%d rows, %d distinct value(s)) -- a "
+                "fabricated/hard-coded output, not a computed result" % (col, artifact, len(finite),
+                                                                         distinct))
+    return None
+
+
 def review(scratch, diag, goalposts, new_ledger, new_diff, res, finding, *, base_ckpt,
            applied_diff=None):
     """Run reviewer #0 (anti-test-hacking) FIRST; if it fails, short-circuit (the flip is illegitimate).
-    Then spec/smell/build. Returns (all_passed, reasons).
+    Then a FABRICATION check on the re-emitted output, then spec/smell/build. Returns (all_passed, reasons).
 
     `applied_diff` is the REAL applied PATCH (the code change), captured BEFORE the re-verify re-emits
     artifacts -- the orchestrator passes it so re-emitted CSVs + the run's .calma dir do not leak into
@@ -175,6 +225,9 @@ def review(scratch, diag, goalposts, new_ledger, new_diff, res, finding, *, base
     ok0, r0 = anti_test_hacking(scratch, diag, goalposts, new_ledger, new_diff, applied_diff)
     if not ok0:
         return False, ["ANTI-TEST-HACKING: " + r for r in r0]
+    fab = _recompute_column_degenerate(scratch, goalposts)
+    if fab:
+        return False, ["FABRICATION: " + fab]              # a forged constant output, not a computed fix
     ok1, r1 = spec_review(diag, finding)
     ok2, r2 = smell_review(applied_diff, goalposts, new_ledger)
     ok3, r3 = build_review(res)

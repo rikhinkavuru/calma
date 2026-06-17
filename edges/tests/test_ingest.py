@@ -22,6 +22,28 @@ def _validate(bundle):
     jsonschema.validate(instance=bundle.to_json(), schema=ingest.ARTIFACT_BUNDLE_SCHEMA)
 
 
+def test_dir_walk_survives_a_malformed_file_and_keeps_the_good_ones(tmp_path):
+    """The contract is 'never raise on a stray file'. A malformed PDF + an oversized-cell CSV must be
+    skipped, not abort the whole bundle and lose the good notebook."""
+    import json as _json
+    d = str(tmp_path)
+    open(os.path.join(d, "bad.pdf"), "w").write("this is not a pdf")
+    open(os.path.join(d, "huge.csv"), "w").write("a,b\n" + ("x" * 200000) + ",2\n3,4\n")
+    nb = {"cells": [{"cell_type": "code", "source": ["print('acc = 0.91')\n"],
+                     "outputs": [{"output_type": "stream", "name": "stdout", "text": ["acc = 0.91\n"]}]}],
+          "metadata": {}, "nbformat": 4, "nbformat_minor": 5}
+    _json.dump(nb, open(os.path.join(d, "good.ipynb"), "w"))
+
+    bundle = ingest.ingest(d)                                  # must not raise
+    assert any("0.91" in (s.text or "") for s in bundle.spans)   # the good notebook survived
+
+
+def test_inf_csv_cell_does_not_crash(tmp_path):
+    open(os.path.join(str(tmp_path), "x.csv"), "w").write("revenue,n\ninf,5\n2,6\n")
+    bundle = ingest.ingest(str(tmp_path))                      # int(inf) used to crash here
+    assert bundle.kind == "dir"
+
+
 def test_notebook_spans_provenance_and_written_file():
     b = ingest.ingest(NB)
     assert b.kind == "notebook"

@@ -61,7 +61,18 @@ def structured(prompt, *, schema, model=SONNET, system=None, max_tokens=4096,
         else:
             msg = _c().messages.create(**{k: v for k, v in req.items() if v is not None})
             tool_use = next((b for b in msg.content if b.type == "tool_use"), None)
-            data = tool_use.input if tool_use else {}
+            if tool_use is None:
+                # the model refused or truncated before the tool call -> NOT a valid structured result
+                # (an empty {} would silently pass a schema with no required fields). Re-ask / raise; never
+                # record a bogus fixture.
+                if attempt == retries:
+                    raise RuntimeError("model returned no `%s` tool call after %d attempts"
+                                       % (tool_name, retries + 1))
+                messages = messages + [
+                    {"role": "user", "content": "You did not call the `%s` tool. Call it now with the "
+                                                "result." % tool_name}]
+                continue
+            data = tool_use.input
             record.save(req, data)
         try:
             validate(instance=data, schema=schema)

@@ -15,6 +15,13 @@ import re
 from dataclasses import dataclass, field, asdict
 from typing import Optional
 
+# allow a large-but-BOUNDED CSV field (the stdlib default 128 KB raises csv.Error on an embedded
+# JSON/base64 cell and would otherwise crash ingestion). 16 MB caps memory while parsing real-world cells.
+try:
+    csv.field_size_limit(16 * 1024 * 1024)
+except (OverflowError, ValueError):                            # pragma: no cover - platform clamp
+    csv.field_size_limit(2 ** 27)
+
 
 @dataclass
 class Span:
@@ -133,7 +140,10 @@ def ingest_pdf(path: str) -> ArtifactBundle:
     Image blocks are recorded on bundle.figure_blocks for a later VLM pass (no model called here).
     Spans with no number are dropped; a PDF carries no recompute-able file (data_files stays empty)."""
     import fitz  # lazy: the module imports without PyMuPDF; only PDF ingestion needs it
-    doc = fitz.open(path)
+    try:
+        doc = fitz.open(path)
+    except Exception:                                          # malformed / encrypted / zero-byte PDF
+        return ArtifactBundle(path, [], [], kind="pdf")        # a bad PDF yields nothing, never raises
     spans, figure_blocks = [], []
     try:
         for pno in range(doc.page_count):
@@ -258,7 +268,10 @@ def ingest(path: str) -> ArtifactBundle:
                 suf = os.path.splitext(n)[1].lower()
                 if suf not in _SUFFIX_DISPATCH:
                     continue
-                sub = ingest(os.path.join(dp, n))
+                try:
+                    sub = ingest(os.path.join(dp, n))         # one malformed file must not lose the rest
+                except Exception:                             # noqa: BLE001 - "never raise on a stray file"
+                    continue
                 spans.extend(sub.spans)
                 for f in sub.data_files:
                     if f not in seen:

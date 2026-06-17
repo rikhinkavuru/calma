@@ -6,6 +6,7 @@ Develops against the btc asset. The genuine-fix case re-verifies a real code-onl
 engine (subprocess, system python3); the gamed cases are rejected at reviewer #0.
 """
 import hashlib
+import json
 import os
 
 from edges.common import engine
@@ -85,6 +86,34 @@ def test_smell_rejects_non_minimal_patch():
     big = "--- a/gen_fixture.py\n+++ b/gen_fixture.py\n" + "".join("+line %d\n" % i for i in range(80))
     ok, reasons = RV.smell_review(big, _goalposts(), _clean_ledger())
     assert not ok and any("not minimal" in r for r in reasons)
+
+
+def test_recompute_column_degeneracy_flags_a_generated_constant_series(tmp_path):
+    # the fabrication that the literal-line smell can't see: a GENERATED constant series ([r]*n) written
+    # to the recompute artifact. The OUTPUT degeneracy check catches it; a varying series passes.
+    import csv as _csv
+    scratch = str(tmp_path)
+    json.dump({"metrics": [{"metric_id": "total_return", "artifact": "returns.csv",
+                            "binding": {"return": "strat_return"}}]},
+              open(os.path.join(scratch, "verify.yaml"), "w"))
+    with open(os.path.join(scratch, "returns.csv"), "w", newline="") as fh:
+        w = _csv.writer(fh)
+        w.writerow(["strat_return"])
+        for _ in range(50):
+            w.writerow([0.0055739382186204])                  # a constant series (forged)
+    gp = Goalposts(claim_value=CLAIM, metric_id="total_return", contract_sha256="x",
+                   artifact_paths=("returns.csv",), artifact_sha256={},
+                   isolation_tier="seatbelt-verified", determinism_mode="controlled-to-bit")
+    reason = RV._recompute_column_degenerate(scratch, gp)
+    assert reason is not None and "CONSTANT" in reason
+
+    # a varying series (a real computation) is NOT flagged
+    with open(os.path.join(scratch, "returns.csv"), "w", newline="") as fh:
+        w = _csv.writer(fh)
+        w.writerow(["strat_return"])
+        for i in range(50):
+            w.writerow([0.001 * ((i % 7) - 3)])
+    assert RV._recompute_column_degenerate(scratch, gp) is None
 
 
 def test_smell_rejects_a_fabricated_constant_series():

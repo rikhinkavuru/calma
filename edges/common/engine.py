@@ -10,7 +10,10 @@ def verify(target, *, claim=None, metric=None, extra_args=(), timeout=600):
     if claim is not None:  argv += [str(claim)]
     if metric is not None: argv += ["--metric", metric]
     argv += list(extra_args)
-    p = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
+    try:
+        p = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError("calma verify timed out after %ss (the target entrypoint hung)" % timeout)
     try:
         return json.loads(p.stdout)
     except ValueError:
