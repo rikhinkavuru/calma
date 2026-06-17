@@ -52,3 +52,6 @@ docs/internal/
 # agent-arm benchmark scratch + generated results (run benchmark/run_agent.py; real results can be force-added)
 benchmark/**/.agent_work/
 benchmark/results/agent.json
+benchmark/results/agent_cross.json
+benchmark/results/agent_excluded.json
+benchmark/results/agent_transcripts/

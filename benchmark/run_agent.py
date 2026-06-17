@@ -33,6 +33,9 @@ import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SKILL = os.path.join(HERE, "..", ".claude", "skills", "calma", "scripts")
+REPO = os.path.realpath(os.path.join(HERE, ".."))
+sys.path.insert(0, SKILL)
+import run_hermetic as H  # noqa: E402  reuse the engine's OWN network-off sandbox for the agent's code tool
 
 # steelman system prompt - the arm is only fair if the agent is told to do the right thing.
 SYSTEM = (
@@ -50,6 +53,53 @@ SYSTEM = (
 # rough Anthropic prices (USD per 1M tokens); update as needed. Only used for the cost column.
 _PRICES = {"claude-opus-4-8": (15.0, 75.0), "claude-sonnet-4-6": (3.0, 15.0),
            "claude-haiku-4-5": (0.80, 4.0)}
+
+
+# ---- the agent's code tool runs in the engine's OWN network-off sandbox ----
+# Capability-vs-capability: the agent executes its run_python code under the SAME isolation Calma uses
+# (Seatbelt on macOS, bubblewrap on Linux) - network OFF, $HOME/secrets unreadable, writes confined to
+# the per-case work dir, each tool call its own process (DS-1000 global-state lesson). A host that
+# can't verify isolation is stamped host-not-isolated and its runs are DROPPED from the scored result -
+# never run untrusted agent code unsandboxed, never silently report an unsandboxed number.
+_TIER = None
+
+
+def _detect_tier():
+    """Detect (once) the verified network-off tier on this host via the engine's positive-control
+    self-test (a planted secret-read AND an egress attempt must BOTH fail). 'host-not-isolated' when no
+    tier verifies."""
+    global _TIER
+    if _TIER is None:
+        try:
+            if sys.platform == "darwin":
+                _TIER = H.doctor(REPO).get("tier", "host-not-isolated")
+            elif sys.platform.startswith("linux"):
+                _TIER = H.bwrap_doctor(REPO).get("tier", "host-not-isolated")
+            else:
+                _TIER = "host-not-isolated"
+        except Exception:  # any probe failure is a non-isolated host, never a silent verified stamp
+            _TIER = "host-not-isolated"
+    return _TIER
+
+
+def _sandboxed_run(code, work, timeout=30):
+    """Run agent-written `code` network-off, confined to `work`, in the detected verified tier. Returns
+    (output_str_or_None, tier). output is None ONLY when the host can't isolate (the caller refuses to
+    run the code and excludes the run)."""
+    tier = _detect_tier()
+    argv = [sys.executable, "-c", code]
+    work = os.path.realpath(work)
+    if tier == "seatbelt-verified":
+        rc, out, err, killed = H._run_sandboxed(H._profile(work), argv, cwd=work, timeout=timeout)
+        return (("[timeout]" if killed else "") + (out or "") + (err or ""))[-4000:], tier
+    if tier == "bwrap-verified":
+        try:
+            p = subprocess.run(H._bwrap_argv(work, argv), cwd=work, capture_output=True,
+                               text=True, timeout=timeout)
+            return (p.stdout + p.stderr)[-4000:], tier
+        except subprocess.SubprocessError as e:
+            return ("error: %s" % e)[-4000:], tier
+    return None, "host-not-isolated"  # refuse to run untrusted code unsandboxed
 
 
 # ---- data materialization -------------------------------------------------
@@ -192,20 +242,26 @@ def _anthropic_agent(case, art, model, max_turns=8):
             text = "".join(b.get("text", "") for b in content if b.get("type") == "text")
             pin, pout = _PRICES.get(model, (3.0, 15.0))
             usd = in_tok / 1e6 * pin + out_tok / 1e6 * pout
-            return _parse_verdict(text), usd
+            return _parse_verdict(text), usd, _transcript(model, SYSTEM, messages)
         results = []
         for tu in tool_uses:
             code = (tu.get("input") or {}).get("code", "")
-            try:
-                p = subprocess.run([sys.executable, "-c", code], cwd=work, capture_output=True,
-                                   text=True, timeout=30)
-                out = (p.stdout + p.stderr)[-4000:]
-            except subprocess.SubprocessError as e:
-                out = "error: %s" % e
+            out, tier = _sandboxed_run(code, work)  # network-off, confined to `work`
+            if out is None:  # host can't isolate -> refuse to run untrusted code (the run is excluded)
+                out = "error: this host could not verify a network-off sandbox; tool execution refused"
             results.append({"type": "tool_result", "tool_use_id": tu["id"], "content": out})
         messages.append({"role": "user", "content": results})
     pin, pout = _PRICES.get(model, (3.0, 15.0))
-    return {"verdict": "abstain", "recomputed": None, "why": "max turns"}, in_tok / 1e6 * pin + out_tok / 1e6 * pout
+    return ({"verdict": "abstain", "recomputed": None, "why": "max turns"},
+            in_tok / 1e6 * pin + out_tok / 1e6 * pout, _transcript(model, SYSTEM, messages))
+
+
+def _transcript(model, system, messages):
+    """The full conversation (system + user + tool calls + tool results + final answer) - the
+    publishable audit trail that nothing was hand-picked. Carries the isolation tier the tool code
+    ran under."""
+    return {"backend": "anthropic", "model": model, "isolation_tier": _detect_tier(),
+            "system": system, "messages": messages}
 
 
 def _parse_verdict(text):
@@ -238,38 +294,58 @@ def main():
     if not a.mock and "ANTHROPIC_API_KEY" not in os.environ:
         sys.exit("error: set ANTHROPIC_API_KEY, or pass --mock for the offline plumbing check")
 
-    out = []
+    tier = _detect_tier()
+    if tier == "host-not-isolated":
+        print("WARNING: no verified network-off sandbox on this host (tier=host-not-isolated) - agent "
+              "runs will NOT be counted (untrusted code is never run unsandboxed).", file=sys.stderr)
+    os.makedirs(os.path.join(HERE, "results"), exist_ok=True)
+    tdir = os.path.join(HERE, "results", "agent_transcripts")
+    os.makedirs(tdir, exist_ok=True)
+    out, excluded = [], []
     for m in manifest:
         art = _ensure_data(m)
         t0 = time.time()
         reruns, usd_total, last = [], 0.0, None
-        for _ in range(a.k):
+        for k in range(a.k):
             if a.mock:
                 res = _mock_agent(m, art); usd = 0.0
+                tr = {"backend": "mock", "isolation_tier": tier, "system": SYSTEM,
+                      "user": {"metric": m["metric"], "claim": m.get("claim_text") or m.get("claim"),
+                               "file": os.path.basename(art) if art else None}, "result": res}
             else:
-                res, usd = _anthropic_agent(m, art, a.model)
+                res, usd, tr = _anthropic_agent(m, art, a.model)
             reruns.append(res["verdict"]); usd_total += usd; last = res
+            # persist the full transcript per run (the publishable audit trail; every record has a tier)
+            json.dump(tr, open(os.path.join(tdir, "%s_run%d.json" % (m["id"], k)), "w"), indent=2)
         ms = int((time.time() - t0) * 1000)
         # prediction = majority vote over the K reruns (ties -> abstain, the safe answer)
         counts = {v: reruns.count(v) for v in set(reruns)}
         top = max(counts.values())
         winners = [v for v, c in counts.items() if c == top]
         pred = winners[0] if len(winners) == 1 else "abstain"
-        out.append({"id": m["id"], "metric": m["metric"], "claim": m["claim"], "label": m["label"],
-                    "track": m.get("track"), "family": m.get("family"), "tier": m.get("tier"),
-                    "prediction": pred, "recomputed": (last or {}).get("recomputed"),
-                    "reruns": reruns, "unstable": len(set(reruns)) > 1,
-                    "ms": ms, "usd": round(usd_total, 4)})
+        rec = {"id": m["id"], "metric": m["metric"], "claim": m["claim"], "label": m["label"],
+               "track": m.get("track"), "family": m.get("family"), "tier": m.get("tier"),
+               "validity_family": m.get("validity_family"),
+               "prediction": pred, "recomputed": (last or {}).get("recomputed"),
+               "reruns": reruns, "unstable": len(set(reruns)) > 1,
+               "ms": ms, "usd": round(usd_total, 4), "isolation_tier": tier}
+        # a run that could not be network-off-isolated is EXCLUDED from the scored result, never counted
+        (excluded if tier == "host-not-isolated" else out).append(rec)
         print("%-22s pred=%-7s reruns=%s%s" % (m["id"], pred, reruns,
               "  UNSTABLE" if len(set(reruns)) > 1 else ""))
 
-    os.makedirs(os.path.join(HERE, "results"), exist_ok=True)
     dest = os.path.join(HERE, "results", "agent.json")
     json.dump(out, open(dest, "w"), indent=2)
+    if excluded:
+        json.dump(excluded, open(os.path.join(HERE, "results", "agent_excluded.json"), "w"), indent=2)
     inst = sum(1 for r in out if r["unstable"]) / len(out) if out else 0.0
     usd = sum(r["usd"] for r in out)
-    print("\nwrote %s  (%d cases, instability %.0f%%, $%.2f%s)"
-          % (dest, len(out), inst * 100, usd, ", MOCK" if a.mock else ""))
+    print("\nwrote %s  (%d counted cases @ tier=%s, instability %.0f%%, $%.2f%s)"
+          % (dest, len(out), tier, inst * 100, usd, ", MOCK" if a.mock else ""))
+    if excluded:
+        print("EXCLUDED %d host-not-isolated case(s) -> results/agent_excluded.json (not counted)"
+              % len(excluded))
+    print("wrote %d transcripts to %s" % (len(manifest) * a.k, tdir))
     print("now run: python3 benchmark/score.py   (it picks up results/agent.json automatically)")
 
 
