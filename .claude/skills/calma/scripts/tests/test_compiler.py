@@ -143,6 +143,44 @@ bad_gen["generators"] = {}
 truth(any("generators" in e for e in CMP.validate_draft(bad_gen)),
       "generators must cover exactly the program inputs")
 
+# --- P3.4 widening: the new DSL kernels (col_mean/col_std/col_median/harmonic_mean) are registered,
+#     execute correctly, NaN-degrade, and a recipe using each passes the venv-free gate stages ---
+for _kern in ("col_mean", "col_std", "col_median", "harmonic_mean"):
+    truth(_kern in dsl.KERNELS, "P3.4 kernel %s is registered in dsl.KERNELS" % _kern)
+
+_med_prog = {"schema": dsl.SCHEMA, "inputs": {"value": "list"},
+             "expr": {"call": "col_median", "args": [{"col": "value"}]}}
+truth(dsl.validate(_med_prog) == [], "col_median program validates")
+truth(dsl.execute(_med_prog, {"value": [3.0, 1.0, 2.0, 4.0]}) == 2.5, "col_median executes (median 2.5)")
+truth(dsl.execute(_med_prog, {"value": []}) != dsl.execute(_med_prog, {"value": []}),
+      "col_median NaN-degrades on empty")
+
+_med_draft = {"schema": "calma/recipe-draft@1", "metric_id": "t_median", "family": "analytics",
+              "description": "median of a column.", "program": _med_prog,
+              "generators": {"value": {"kind": "uniform", "lo": -10.0, "hi": 10.0}},
+              "oracle": {"call": "numpy.median", "args": ["value"], "kwargs": {}},
+              "metamorphic": [{"relation": "permutation", "expect": "equal"},
+                              {"relation": "scale", "factor": 3.0, "expect": "linear"}],
+              "edge_cases": {"empty": "nan", "single": None, "constant": None, "nan": "nan"}}
+ok, res = CMP.admit(_med_draft, skip_differential=True, write=False)
+truth(ok, "a col_median recipe passes the venv-free gate stages: %s"
+      % json.dumps(res.get("counterexamples", []))[:200])
+
+_hm_prog = {"schema": dsl.SCHEMA, "inputs": {"value": "list"},
+            "expr": {"call": "harmonic_mean", "args": [{"col": "value"}]}}
+truth(dsl.validate(_hm_prog) == [], "harmonic_mean program validates")
+_hm_draft = {"schema": "calma/recipe-draft@1", "metric_id": "t_hmean", "family": "analytics",
+             "description": "harmonic mean.", "program": _hm_prog,
+             "generators": {"value": {"kind": "positive", "scale": 10.0}},
+             "oracle": {"call": "statistics.harmonic_mean", "args": ["value"], "kwargs": {}},
+             "metamorphic": [{"relation": "permutation", "expect": "equal"},
+                             {"relation": "scale", "factor": 4.0, "expect": "linear"},
+                             {"relation": "bounds", "min": 0}],
+             "edge_cases": {"empty": "nan", "single": None, "constant": None, "nan": "nan"}}
+ok, res = CMP.admit(_hm_draft, skip_differential=True, write=False)
+truth(ok, "a harmonic_mean recipe passes the venv-free gate stages: %s"
+      % json.dumps(res.get("counterexamples", []))[:200])
+
 # --- the committed compiled registry: real recipes, frozen, revalidating ---
 book = json.load(open(COMPILED))
 truth({r["metric_id"] for r in book["recipes"]} >= {"sem", "coefficient_of_variation"},
