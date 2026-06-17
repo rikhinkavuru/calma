@@ -74,6 +74,24 @@ def test_competing_hypotheses_do_not_contaminate_the_base():
         CK.cleanup_scratch(scratch)
 
 
+def test_apply_diff_refuses_path_traversal_escape():
+    """A diff whose ---/+++ headers escape the tree via '..' (or an absolute path) must be REFUSED before
+    the GNU-patch fallback runs -- otherwise it writes outside the throwaway scratch (a sandbox escape)."""
+    scratch = CK.make_scratch(BTC)
+    victim = "/tmp/CALMA_ESCAPE_REGRESSION_%d.txt" % os.getpid()
+    try:
+        evil = ("--- a/../../../../../../../../..%s\n+++ b/../../../../../../../../..%s\n"
+                "@@ -0,0 +1 @@\n+pwned\n" % (victim, victim))
+        assert CK.apply_diff(scratch, evil) is False          # refused
+        assert not os.path.exists(victim)                     # nothing written outside the scratch
+        abs_evil = "--- a/etc/x\n+++ b/%s\n@@ -0,0 +1 @@\n+pwned\n" % victim.lstrip("/")
+        assert CK.apply_diff(scratch, abs_evil) is not None    # (still returns a bool, no crash)
+    finally:
+        CK.cleanup_scratch(scratch)
+        if os.path.exists(victim):
+            os.remove(victim)
+
+
 def test_apply_diff_empty_is_noop_and_diff_since_reports_the_real_change():
     scratch = CK.make_scratch(BTC)
     try:

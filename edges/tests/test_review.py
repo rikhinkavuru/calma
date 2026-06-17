@@ -87,6 +87,51 @@ def test_smell_rejects_non_minimal_patch():
     assert not ok and any("not minimal" in r for r in reasons)
 
 
+def test_smell_rejects_a_fabricated_constant_series():
+    # the "feed the check a constant" attack: replace a computed emission with a hard-coded series that
+    # recomputes to the claim. The headline scalar never appears, so the literal check misses it.
+    fab = ("--- a/gen_fixture.py\n+++ b/gen_fixture.py\n@@ -1,1 +1,20 @@\n"
+           + "".join("+    0.0253000316757519,\n" for _ in range(15)))
+    ok, reasons = RV.smell_review(fab, _goalposts(), _clean_ledger())
+    assert not ok and any("fabricated" in r or "constant" in r for r in reasons)
+
+
+def test_anti_test_hacking_fails_closed_on_dropped_goalpost_fields():
+    # a gamed re-verify that simply DROPS a goalpost field must be REJECTED, not treated as "unchanged"
+    led_no_claim = {"claims": [{"metric": "total_return", "input_binding_status": "independently-bound"}],
+                    "scope": {"isolation_tier": "seatbelt-verified",
+                              "determinism_mode": "controlled-to-bit"}}
+    ok, reasons = RV.anti_test_hacking(BTC, _diag(dimension="metric-mismatch"), _goalposts(),
+                                       led_no_claim, {}, "code change\n")
+    assert not ok and any("claimed_value" in r for r in reasons)
+
+    led_no_scope = {"claims": [{"metric": "total_return", "claimed_value": CLAIM,
+                                "input_binding_status": "independently-bound"}], "scope": {}}
+    ok2, reasons2 = RV.anti_test_hacking(BTC, _diag(dimension="metric-mismatch"), _goalposts(),
+                                         led_no_scope, {}, "code change\n")
+    assert not ok2 and any("isolation" in r or "determinism" in r for r in reasons2)
+
+
+def test_anti_test_hacking_fails_closed_on_empty_artifact_goalposts():
+    gp = Goalposts(claim_value=CLAIM, metric_id="total_return",
+                   contract_sha256=_sha(os.path.join(BTC, "verify.yaml")),
+                   artifact_paths=(), artifact_sha256={}, isolation_tier="seatbelt-verified",
+                   determinism_mode="controlled-to-bit")                      # capture FAILED -> empty
+    ok, reasons = RV.anti_test_hacking(BTC, _diag(dimension="metric-mismatch"), gp, _clean_ledger(),
+                                       {}, "code change\n")
+    assert not ok and any("artifact" in r and "empty" in r for r in reasons)
+
+
+def test_anti_test_hacking_ignores_contract_mention_in_a_comment():
+    # the file-header check (not a substring scan) must NOT reject an honest patch whose COMMENT mentions
+    # verify.yaml -- only an actual modification of verify.yaml counts
+    diff = ("--- a/gen_fixture.py\n+++ b/gen_fixture.py\n@@\n"
+            "+    # paths are read from verify.yaml; this only changes the producing code\n")
+    ok, reasons = RV.anti_test_hacking(BTC, _diag(dimension="metric-mismatch"), _goalposts(),
+                                       _clean_ledger(), {}, diff)
+    assert all("modifies verify.yaml" not in r for r in reasons)
+
+
 def test_smell_passes_a_minimal_code_change():
     diff = ("--- a/gen_fixture.py\n+++ b/gen_fixture.py\n@@\n"
             "-    _, oos_rets = backtest(OOS, bf, bs, bl, fee=fee)\n"

@@ -5,6 +5,7 @@ NEVER imports verdict-core (it reads the new ledger/diff/run.json as data; the f
 import hashlib
 import json
 import os
+import re
 
 CONTRACT_NAME = "verify.yaml"
 
@@ -21,45 +22,74 @@ def _sha_file(p):
 
 
 def _touches(diff_text, *needles):
-    """True if the unified diff adds/removes lines touching any needle (path or token)."""
+    """True if the unified diff adds/removes lines touching any needle (a content token, e.g. a seed)."""
     return any(n in diff_text for n in needles)
 
 
+def _modified_files(diff_text):
+    """The set of files a unified diff actually MODIFIES, parsed from its ---/+++ headers (NOT a substring
+    scan of the content -- a comment or string literal that merely mentions verify.yaml must not count as
+    'modifying' it, and conversely a real edit must be caught even if obfuscated in the content)."""
+    files = set()
+    for ln in (diff_text or "").splitlines():
+        if ln.startswith(("--- ", "+++ ")):
+            p = ln[4:].split("\t")[0].strip().strip('"')
+            if p in ("/dev/null", ""):
+                continue
+            for pre in ("a/", "b/"):
+                if p.startswith(pre):
+                    p = p[len(pre):]
+                    break
+            files.add(os.path.normpath(p))
+    return files
+
+
 def anti_test_hacking(scratch, diag, goalposts, new_ledger, new_diff, applied_diff):
-    """REJECT if any goalpost moved. The ONLY thing allowed to change is the producing code."""
+    """REJECT if any goalpost moved. The ONLY thing allowed to change is the producing code. FAILS CLOSED:
+    a flip must AFFIRMATIVELY re-state every goalpost (same claim value, metric, contract hash, artifact
+    identity, isolation tier, determinism mode, independent binding); a missing/None field is treated as a
+    failure to confirm, never as 'unchanged' -- otherwise a gamed re-verify that simply DROPS a field would
+    pass."""
     reasons = []
-    # (1) the contract file was not modified by the patch (and still hashes to the original)
-    if _touches(applied_diff, CONTRACT_NAME):
+    modified = _modified_files(applied_diff)
+    # (1) the contract file is NOT among the patch's modified files, and still hashes to the captured one
+    if any(os.path.basename(f) == CONTRACT_NAME for f in modified):
         reasons.append("patch modifies %s (the contract is a goalpost)" % CONTRACT_NAME)
-    if _sha_file(os.path.join(scratch, CONTRACT_NAME)) not in (None, goalposts.contract_sha256):
-        reasons.append("verify.yaml content changed across the repair (contract_sha256 moved)")
-    # (2) the re-verify judged the SAME claim value + metric id (read back from the new ledger's claim)
+    cur_sha = _sha_file(os.path.join(scratch, CONTRACT_NAME))
+    if goalposts.contract_sha256 is None or cur_sha != goalposts.contract_sha256:
+        reasons.append("verify.yaml is absent or changed across the repair (contract not pinned)")
+    # (2) the re-verify AFFIRMATIVELY re-judged the SAME claim value + metric, with the strong binding
     nc = next((c for c in (new_ledger.get("claims") or [])
                if c.get("metric") == goalposts.metric_id), None)
     if nc is None:
         reasons.append("re-verify did not judge the original metric %r" % goalposts.metric_id)
-    elif nc.get("claimed_value") not in (None, goalposts.claim_value):
-        reasons.append("the claimed_value under test changed (%s -> %s)"
-                       % (goalposts.claim_value, nc.get("claimed_value")))
-    # (3) the bound artifacts the recompute reads were NOT hand-edited (must be RE-EMITTED by the run, so
-    #     a post-patch hash MAY differ -- but the patch text must not write/rename/delete it directly)
+    else:
+        if goalposts.claim_value is not None and nc.get("claimed_value") != goalposts.claim_value:
+            reasons.append("the claimed_value under test changed (%s -> %s)"
+                           % (goalposts.claim_value, nc.get("claimed_value")))
+        if nc.get("input_binding_status") != "independently-bound":
+            reasons.append("binding is %r, not independently-bound -- a flip must keep the strong binding"
+                           % nc.get("input_binding_status"))
+    # (3) the patch must not edit/relocate a bound artifact. An EMPTY goalpost artifact set means capture
+    #     FAILED -> fail closed (we cannot prove the recompute artifact was untouched).
+    if not goalposts.artifact_paths:
+        reasons.append("goalpost artifact set is empty (capture incomplete) -- cannot verify the "
+                       "recompute artifact was untouched")
     for p in goalposts.artifact_paths:
-        if p and _touches(applied_diff, p):
+        if p and os.path.normpath(p) in modified:
             reasons.append("patch directly edits/relocates the recompute artifact %s" % p)
-    # (4) isolation tier was not downgraded and determinism mode was not loosened
+    # (4) isolation tier not downgraded, determinism not loosened (a dropped field fails closed)
     sc = new_ledger.get("scope") or {}
-    if sc.get("isolation_tier") and goalposts.isolation_tier and \
-            _weaker_tier(sc["isolation_tier"], goalposts.isolation_tier):
-        reasons.append("isolation tier downgraded (%s -> %s)"
-                       % (goalposts.isolation_tier, sc["isolation_tier"]))
-    if sc.get("determinism_mode") and goalposts.determinism_mode and \
-            _weaker_determinism(sc["determinism_mode"], goalposts.determinism_mode):
-        reasons.append("determinism mode loosened (%s -> %s)"
-                       % (goalposts.determinism_mode, sc["determinism_mode"]))
-    # (5) the binding stayed independently-bound (a REFUTED can't legitimately flip by weakening binding)
-    if nc is not None and nc.get("input_binding_status") not in (None, "independently-bound"):
-        reasons.append("binding weakened to %r -- a flip via weaker binding is not a fix"
-                       % nc.get("input_binding_status"))
+    if goalposts.isolation_tier:
+        nt = sc.get("isolation_tier")
+        if not nt or _weaker_tier(nt, goalposts.isolation_tier):
+            reasons.append("isolation tier downgraded or absent (%s -> %s)"
+                           % (goalposts.isolation_tier, nt))
+    if goalposts.determinism_mode:
+        nd = sc.get("determinism_mode")
+        if not nd or _weaker_determinism(nd, goalposts.determinism_mode):
+            reasons.append("determinism mode loosened or absent (%s -> %s)"
+                           % (goalposts.determinism_mode, nd))
     return (not reasons), reasons
 
 
@@ -88,6 +118,22 @@ def smell_review(applied_diff, goalposts, new_ledger):
         for lit in {repr(cv), "%g" % cv, "%.4f" % cv}:
             if any(ln.startswith("+") and lit in ln for ln in applied_diff.splitlines()):
                 reasons.append("patch hard-codes the claimed value (%s)" % lit)
+                break
+    # fabricated DATA SERIES: the "feed the check a constant" attack replaces a computed emission with a
+    # hard-coded series that happens to recompute to the claim. A literal-match on the headline scalar
+    # misses it, so flag a long run of added bare-numeric lines OR an added inline constant array.
+    added = [ln[1:] for ln in applied_diff.splitlines()
+             if ln.startswith("+") and not ln.startswith("+++")]
+    bare_num = sum(1 for ln in added
+                   if re.fullmatch(r"\s*[-+]?\d+\.?\d*([eE][-+]?\d+)?,?\s*", ln or ""))
+    if bare_num >= 8:
+        reasons.append("patch adds %d constant numeric lines -- a hard-coded/fabricated data series, not "
+                       "a computed fix" % bare_num)
+    else:
+        for ln in added:
+            if len(re.findall(r"[-+]?\d+\.\d+", ln or "")) >= 12:   # an inline array of float constants
+                reasons.append("patch adds an inline constant array of floats -- a fabricated series, "
+                               "not a computed fix")
                 break
     # disabling determinism controls / seeds (a reproducibility dodge)
     if _touches(applied_diff, "PYTHONHASHSEED", "random.seed", "np.random.seed", "manual_seed",

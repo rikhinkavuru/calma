@@ -57,9 +57,29 @@ def revert(repo, ref):
     _git(repo, "clean", "-xffdq", check=False)
 
 
+def _diff_paths_safe(unified_diff):
+    """Reject a diff whose ---/+++ headers reference an ABSOLUTE path or escape the tree via '..'. git
+    apply refuses traversal, but the GNU `patch` fallback honors '../' and would write OUTSIDE the
+    scratch (an arbitrary-file-write sandbox escape). Every patch path must normalize to inside the tree."""
+    for ln in unified_diff.splitlines():
+        if ln.startswith(("--- ", "+++ ")):
+            p = ln[4:].split("\t")[0].strip().strip('"')
+            if p in ("/dev/null", ""):
+                continue
+            for pre in ("a/", "b/"):
+                if p.startswith(pre):
+                    p = p[len(pre):]
+                    break
+            norm = os.path.normpath(p)
+            if os.path.isabs(p) or norm == ".." or norm.startswith(".." + os.sep):
+                return False
+    return True
+
+
 def apply_diff(repo, unified_diff):
     """Apply a unified diff to the scratch tree. Returns True iff it applied cleanly. An empty/whitespace
-    diff is a NO-OP -> return False (the orchestrator treats 'nothing applied' as a non-fix).
+    diff is a NO-OP -> return False (the orchestrator treats 'nothing applied' as a non-fix). A diff that
+    references an absolute or '..'-escaping path is REFUSED (it could write outside the scratch).
 
     LLM-emitted diffs routinely carry slightly-wrong @@ line numbers/counts, so we escalate through
     increasingly tolerant appliers: strict git apply -> 3way -> --recount, then GNU `patch` with fuzz
@@ -67,6 +87,8 @@ def apply_diff(repo, unified_diff):
     applies without letting a bogus patch through."""
     if not unified_diff or not unified_diff.strip():
         return False
+    if not _diff_paths_safe(unified_diff):
+        return False                                          # path-traversal / absolute path -> refuse
     for extra in (["--whitespace=nowarn"], ["--3way", "--whitespace=nowarn"],
                   ["--recount", "--whitespace=nowarn"]):
         p = subprocess.run(["git", "-C", repo, "apply", *extra, "-"],

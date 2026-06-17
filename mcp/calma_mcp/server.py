@@ -65,16 +65,24 @@ def _require_in_workspace(target: str) -> str:
     return rp
 
 
+_ISOLATION_TIERS = ("auto", "seatbelt", "bwrap", "docker", "container", "vm", "firecracker", "e2b",
+                    "none", "host-not-isolated")
+
+
 def _run_json(argv, *, timeout, cwd=None, env=None):
     """Run a subprocess and parse its stdout as the engine's --json. Mirrors edges/common/engine.py:
     a non-zero exit (e.g. a REFUTED gate-exit of 1) still carries valid JSON on stdout; only a true
-    crash (no JSON) raises."""
-    p = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, cwd=cwd, env=env)
+    crash (no JSON) raises. Subprocess output is NOT echoed back to the caller (it can carry host paths /
+    secrets) -- a crash returns a fixed, non-leaking message."""
+    try:
+        p = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, cwd=cwd, env=env)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError("verification timed out")
     try:
         return json.loads(p.stdout)
     except ValueError:
-        raise RuntimeError("calma produced no JSON (exit %s): %s"
-                           % (p.returncode, (p.stderr or p.stdout or "")[:500]))
+        raise RuntimeError("the engine produced no JSON (exit %s); the target may not be a runnable "
+                           "Calma project" % p.returncode)
 
 
 # --- tool implementations (each is a thin shell-out; the engine owns every verdict) ------------
@@ -84,17 +92,27 @@ def verify(target, *, claim=None, metric=None, mode="ask", trust="own-code",
     against the engine shipping today. --trust / --isolation / --timeout pass through unchanged so
     untrusted-code verification still routes through the engine's isolation tiers."""
     abs_target = _require_in_workspace(target)
-    timeout = int(timeout)
-    argv = ["python3", _calma_script(), "verify", abs_target, "--json"]
+    timeout = max(1, min(int(timeout), 86400))               # clamp: no 0/negative/unbounded transport wait
+    if str(trust) not in ("own-code", "third-party"):
+        raise ValueError("trust must be 'own-code' or 'third-party'")
+    if str(isolation) not in _ISOLATION_TIERS:
+        raise ValueError("isolation must be one of %s" % (_ISOLATION_TIERS,))
+    # build all caller-controlled VALUES as option args (which argparse binds as values, not flags), and
+    # put the positional target AFTER `--` so a target/claim beginning with '-' can never smuggle a flag.
+    argv = ["python3", _calma_script(), "verify", "--json",
+            "--trust", str(trust), "--isolation", str(isolation), "--timeout", str(timeout)]
+    # the free-text caller values go as `--opt=VALUE` single tokens: argparse binds the value even when it
+    # begins with '-' (a bare `--claim --restore` would otherwise be parsed as the --restore FLAG, or a
+    # legitimate claim like '-31.6%' would be rejected). mode is a fixed enum, so plain form is fine.
     if claim:
-        argv.append(str(claim))
+        argv.append("--claim=" + str(claim))
     if metric:
-        argv += ["--metric", str(metric)]
+        argv.append("--metric=" + str(metric))
     if mode:
         argv += ["--mode", str(mode)]
-    argv += ["--trust", str(trust), "--isolation", str(isolation), "--timeout", str(timeout)]
     if check_determinism:
         argv += ["--check-determinism"]
+    argv += ["--", abs_target]                                # end-of-options: target is unambiguously positional
     return _run_json(argv, timeout=timeout + 30)
 
 
@@ -138,7 +156,9 @@ _TOOLS = [
                 "trust": {"type": "string", "enum": ["own-code", "third-party"], "default": "own-code",
                           "description": "untrusted code routes through stronger isolation"},
                 "isolation": {"type": "string", "default": "auto",
-                              "description": "isolation tier (auto picks by trust); passed through"},
+                              "enum": list(_ISOLATION_TIERS),
+                              "description": "isolation tier (auto picks by trust); passed through, "
+                                             "never downgraded below the engine default"},
                 "timeout": {"type": "integer", "default": 600, "minimum": 1},
                 "check_determinism": {"type": "boolean", "default": False},
             },

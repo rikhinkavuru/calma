@@ -58,13 +58,43 @@ def _col_index(path, column):
     return (header.index(column) if column in header else None), header
 
 
+_STRING_KEY_TAGS = set(DC.STRING_KEY_TAGS)
+
+
+def _string_key_evidence(path, column, header, limit):
+    """A string-key tag (query/group/outcome/left_key/joined_key/problem) is graded by non-null DENSITY,
+    not a numeric range -- so re-sample it as STRINGS (regrade_committed uses _grade_string_key). Returns
+    the same dict shape with frac_violating = the non-null deficit, and suggested = other text columns
+    whose density passes the >=95% key check."""
+    idx, _ = _col_index(path, column)
+    raws = DC._sample_strings(path, idx, limit) if idx is not None else []
+    n = len(raws)
+    ok = sum(1 for s in raws if (s or "").strip() and (s or "").strip().lower()
+             not in ("nan", "na", "null", "none"))
+    density = ok / n if n else 0.0
+    suggested = []
+    for col in header:
+        if col == column:
+            continue
+        cidx, _ = _col_index(path, col)
+        craws = DC._sample_strings(path, cidx, limit) if cidx is not None else []
+        if craws and DC._grade_string_key(craws) == "independently-bound":
+            suggested.append(col)
+    return {"min": float("nan"), "max": float("nan"), "mean": float("nan"),
+            "frac_violating": round(1.0 - density, 4), "n": n, "distinct": len(set(raws)),
+            "nonfinite": 0, "density": round(density, 4),
+            "examples": [str(s)[:20] for s in raws[:8]], "suggested_columns": suggested}
+
+
 def column_evidence(target, artifact, column, tag, *, limit=500):
     """Re-sample the bound column's real values and quantify the SPECIFIC violation against the SAME rule
     regrade_committed used. Returns {min,max,mean,frac_violating,n,distinct,examples,nonfinite,
     suggested_columns}. suggested_columns = OTHER columns in the same artifact whose values DO pass the
-    tag's _grade check (the 'pick this instead' hint)."""
+    tag's check (the 'pick this instead' hint) -- never a column already serving a different role."""
     path = os.path.join(target, artifact)
     idx, header = _col_index(path, column)
+    if tag in _STRING_KEY_TAGS:                              # text key -> density, not a numeric range
+        return _string_key_evidence(path, column, header, limit)
     vals = DC._sample_numeric(path, idx, limit) if idx is not None else []
     finite = [v for v in vals if isinstance(v, (int, float)) and v == v and v not in (math.inf, -math.inf)]
     n = len(vals)
@@ -90,7 +120,13 @@ def column_evidence(target, artifact, column, tag, *, limit=500):
             continue
         cidx, _ = _col_index(path, col)
         cvals = DC._sample_numeric(path, cidx, limit) if cidx is not None else []
-        if cvals and DC._grade(tag, cvals) == "independently-bound":
+        if not cvals:
+            continue
+        # a score/prob role needs a CONTINUOUS [0,1] column: a 0/1 label passes the range check but is
+        # NOT a probability -- exclude low-cardinality columns from the 'use this instead' hint.
+        if tag in ("score", "prob") and len({round(v, 9) for v in cvals if v == v}) <= 2:
+            continue
+        if DC._grade(tag, cvals) == "independently-bound":
             suggested.append(col)
 
     return {"min": mn, "max": mx, "mean": mean, "frac_violating": frac, "n": n, "distinct": distinct,
@@ -137,6 +173,10 @@ def build_counterexample(dis, evidence):
         fb = ("you bound metric=%s tag=%s -> column=%s, but its minimum is %g (durations/timings/counts "
               "are non-negative). Bind the non-negative column: %s."
               % (mid, tag, col, mn, sg_str or "(none found)"))
+    elif tag in _STRING_KEY_TAGS:
+        violation = "low_density"
+        fb = ("column=%s bound to tag=%s is %.0f%% non-null; a key column needs >=95%% density. Bind a "
+              "populated key: %s." % (col, tag, 100.0 * (1.0 - frac), sg_str or "(none found)"))
     elif not sg:
         violation = "unbindable"
         fb = ("no column in %s passes the %s check for metric=%s. If the metric truly applies, the repo "

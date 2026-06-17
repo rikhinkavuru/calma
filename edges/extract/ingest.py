@@ -206,9 +206,13 @@ def _describe_column(values: list) -> str:
     if not any_num:
         return "string"
     lo, hi = min(nums), max(nums)
-    if all_int:
+    # 'inf'/'-inf'/'nan' parse as floats with no '.'/'e', so all_int can stay True -> int(inf) would
+    # raise OverflowError and crash ingest. Only take the int path when both ends are finite.
+    finite = lo == lo and hi == hi and lo not in (float("inf"), float("-inf")) \
+        and hi not in (float("inf"), float("-inf"))
+    if all_int and finite:
         return "int %d..%d" % (int(lo), int(hi))
-    return "float %g..%g" % (lo, hi)
+    return "float %g..%g" % (lo, hi)   # %g renders inf/nan without crashing
 
 
 def ingest_csv(path: str) -> ArtifactBundle:

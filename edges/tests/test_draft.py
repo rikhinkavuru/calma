@@ -81,6 +81,26 @@ def test_out_of_vocab_metric_is_dropped():
     assert all("binding_status" not in m for m in clean["metrics"])
 
 
+def test_sanitize_scrubs_baselines_too():
+    inputs = D.assemble_inputs(FIX)
+    raw = {
+        "run": {"entrypoint": "main.py"},
+        "artifacts": [{"path": "out/preds.csv", "columns": {"p_hat": {"tag": "prob"}}}],
+        "metrics": [{"metric_id": "auc", "artifact": "out/preds.csv",
+                     "binding": {"prob": "p_hat"}, "headline": True}],
+        "baselines": [
+            {"metric_id": "made_up_baseline", "artifact": "ghost/phantom.csv",
+             "binding": {"return": "z"}, "binding_status": "independently-bound"},   # phantom + grade
+            {"metric_id": "auc", "artifact": "out/preds.csv", "binding": {"prob": "p_hat"}},   # legit
+        ],
+    }
+    clean = D._sanitize(raw, inputs)
+    bl = clean.get("baselines", [])
+    assert all(b["metric_id"] != "made_up_baseline" for b in bl)     # phantom/out-of-vocab dropped
+    assert all("binding_status" not in b for b in bl)                # smuggled grade stripped
+    assert any(b["metric_id"] == "auc" for b in bl)                  # the legit baseline survives
+
+
 def test_sanitize_nulls_unknown_tag_and_drops_phantom_artifact():
     inputs = D.assemble_inputs(FIX)
     raw = {

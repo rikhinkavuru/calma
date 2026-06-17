@@ -152,9 +152,25 @@ def _sanitize(contract, inputs):
             t = (spec or {}).get("tag")
             if t is not None and t not in _ALLOWED_TAGS:
                 spec["tag"] = None                      # unknown tag -> untagged, never invented
+    # baselines get the SAME scrub as metrics: strip any smuggled grade, drop out-of-vocab metric_ids
+    # and phantom artifacts (the schema does not enum-restrict them, so _sanitize is the only gate).
+    if contract.get("baselines"):
+        for b in contract["baselines"]:
+            b.pop("binding_status", None)
+            b.pop("claim_confirmed", None)
+        contract["baselines"] = [b for b in contract["baselines"]
+                                 if b.get("metric_id") in vocab and b.get("artifact") in data_paths]
     sp = contract.get("split")
     if sp and not (set(filter(None, [sp.get("train"), sp.get("test"), sp.get("file")])) <= data_paths):
         contract.pop("split", None)
+    # drop other path-bearing blocks that reference a file we did not scan (a wrong declaration is worse
+    # than an omission -- the family then abstains, which is correct)
+    cp = contract.get("corpus")
+    if cp and cp.get("manifest") and cp.get("manifest") not in data_paths:
+        contract.pop("corpus", None)
+    ta = contract.get("trials_artifact")
+    if ta and ta not in data_paths:
+        contract.pop("trials_artifact", None)
     # drop any top-level grade/verdict the model invented (defense in depth)
     for k in ("verdict", "confidence", "binding_status", "claim_confirmed"):
         contract.pop(k, None)

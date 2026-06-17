@@ -78,6 +78,7 @@ def test_counterexample_machinery_on_the_decoy(decoy, tmp_path):
     assert ce["bad_column"] == "score" and ce["stats"]["frac_violating"] > 0.5
     assert ce["violation"] == "out_of_unit_range"
     assert "p_hat" in ce["suggested_columns"]
+    assert "y" not in ce["suggested_columns"]            # the 0/1 label is NOT a probability suggestion
     assert "outside [0,1]" in ce["feedback"] and "p_hat" in ce["feedback"]
 
 

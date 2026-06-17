@@ -6,6 +6,7 @@ construction because it counts only compiler.admit() successes. This is the time
 step change on the metrics it unlocked."""
 import json
 import os
+import threading
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -22,20 +23,27 @@ def load_manifest(path):
     return [Spec(**r) for r in rows]
 
 
-def run_fleet(specs, *, venv_python, budget=8, model=cegis.llm.SONNET, max_workers=4,
+def run_fleet(specs, *, venv_python, budget=8, model=cegis.llm.SONNET, max_workers=1,
               compiled_path=None, desc_path=None, constraints_db=None, drafts_log=None,
               run_def_of_done=False, summary_path=None, ts=None):
-    """Synthesize every spec concurrently (bounded pool) and persist a KPI summary. max_workers is bounded
-    because admit()'s differential stage spawns an oracle subprocess per call. The path params thread
-    through to synthesize() so a test can isolate the shared registry/DB to tmp; ts is supplied by the
-    caller (determinism -- no time.time() here)."""
+    """Synthesize every spec and persist a KPI summary.
+
+    SAFETY: synthesize() does an unsynchronized read-modify-write of the SHARED registry (compiler.admit
+    write=True), the constraint DB, the enrichment file, and the drafts log -- concurrent writers corrupt
+    the registry and lose admitted recipes (a silent false non-admit + a non-reproducible KPI). So the
+    DEFAULT is serial (max_workers=1, the safe + tested + record/replay-deterministic path); when a caller
+    opts into a pool, every synthesize() call is serialized behind a lock so the shared writes stay
+    correct (the pool then buys nothing but cannot corrupt the registry). True parallel coverage needs
+    per-spec registries merged at the end -- a future change; until then the lock keeps the KPI honest."""
     results = []
+    _write_lock = threading.Lock()
 
     def _one(s):
-        return cegis.synthesize(s.metric_id, s, venv_python=venv_python, budget=budget, model=model,
-                                compiled_path=compiled_path, desc_path=desc_path,
-                                constraints_db=constraints_db, drafts_log=drafts_log,
-                                run_def_of_done=run_def_of_done)
+        with _write_lock:                                     # serialize the shared-registry/DB writes
+            return cegis.synthesize(s.metric_id, s, venv_python=venv_python, budget=budget, model=model,
+                                    compiled_path=compiled_path, desc_path=desc_path,
+                                    constraints_db=constraints_db, drafts_log=drafts_log,
+                                    run_def_of_done=run_def_of_done)
 
     if max_workers <= 1:
         for s in specs:                                   # sequential: a shared registry/DB is safe

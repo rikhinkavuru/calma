@@ -17,6 +17,7 @@ import pytest
 
 from mcp.shared.memory import create_connected_server_and_client_session as connect
 
+from calma_mcp import server
 from calma_mcp.server import build_server
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -101,6 +102,40 @@ def test_calma_verify_artifact_returns_report(monkeypatch, tmp_path):
     # the A1 report sorts catches first; nb_run's overstated total return is the catch
     assert res["claims"][0]["metric_id"] == "total_return"
     assert res["claims"][0]["verdict"] == "REFUTED"
+
+
+# === SECURITY: a caller-controlled claim cannot smuggle an engine flag ==========================
+def test_claim_cannot_smuggle_a_flag(monkeypatch):
+    import subprocess
+    seen = {}
+
+    class _Done:
+        returncode = 0
+        stdout = '{"verdict":"REFUTED","metrics":[],"gate_exit":1,"run_dir":"/x"}'
+        stderr = ""
+
+    def _spy(argv, **kw):
+        seen["argv"] = argv
+        return _Done()
+
+    monkeypatch.setenv("CALMA_MCP_WORKSPACE", REPO_ROOT)
+    monkeypatch.setattr(subprocess, "run", _spy)
+    server.verify(BTC_ASSET, claim="--restore")              # try to smuggle the network-using --restore
+    argv = seen["argv"]
+    # --restore is NOT a standalone token; the claim is bound via `--claim=...`, and the target sits
+    # after a `--` end-of-options separator (so a target/claim beginning with '-' can't smuggle a flag).
+    assert "--restore" not in argv
+    assert any(a == "--claim=--restore" for a in argv)
+    assert "--" in argv and argv.index("--") < argv.index(BTC_ASSET)
+
+
+def test_isolation_and_trust_are_validated(monkeypatch):
+    monkeypatch.setenv("CALMA_MCP_WORKSPACE", REPO_ROOT)
+    import pytest as _pt
+    with _pt.raises(ValueError):
+        server.verify(BTC_ASSET, isolation="none-disable-sandbox")
+    with _pt.raises(ValueError):
+        server.verify(BTC_ASSET, trust="fully-trusted")
 
 
 # === the calma_suggest surface returns ranked candidates =======================================
