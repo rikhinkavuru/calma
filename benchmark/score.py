@@ -9,9 +9,32 @@ Run: python3 benchmark/score.py   (after run_calma.py + the LLM-judge batches)
 Writes results/summary.json (per-method) and results/site_data.json (chart-ready, per-tier/family/track).
 """
 import json
+import math
 import os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+def _passk(reruns, label, k):
+    """pass^k for ONE case = C(c,k)/C(n,k), the probability that k i.i.d. runs (drawn without
+    replacement) are ALL correct (tau-bench, Yao 2024). A verifier 'succeeds' on a run when its verdict
+    is the correct prediction for the case label. NOT pass@k (which rewards 1-of-k). None if n<k."""
+    n = len(reruns)
+    if n < k or n == 0:
+        return None
+    want = "flawed" if label == "flawed" else "honest"
+    c = sum(1 for v in reruns if v == want)
+    return math.comb(c, k) / math.comb(n, k)
+
+
+def _passk_curve(rows, K):
+    """Arm-level pass^k curve over k=1..K = mean over cases of the per-case pass^k. pass^1 == pass@1 ==
+    the headline accuracy; the curve's drop by pass^8 is the 'consistency cliff' of a stochastic agent."""
+    curve = []
+    for k in range(1, K + 1):
+        vals = [p for r in rows if (p := _passk(r.get("reruns") or [], r["label"], k)) is not None]
+        curve.append(round(sum(vals) / len(vals), 4) if vals else None)
+    return curve
 
 
 def _load_judge():
@@ -163,19 +186,55 @@ def main():
         # validity-cut catch for the agent reads the engine-derived validity_family tag (NOT the metric
         # family) - this was previously dead (it filtered on `family`, which is never a validity family).
         av = axes.get("agent-with-exec", {})
+        # variance metrics that distinguish a stochastic agent from a deterministic checker:
+        K = max((len(r.get("reruns") or []) for r in agent_rows), default=1)
+        passk = _passk_curve(agent_rows, K)
+        agree = sum(1 for r in agent_rows if r["prediction"] == calma.get(r["id"], "abstain")) / len(agent_rows)
+        flip = sum(1 for r in agent_rows if r.get("unstable")) / len(agent_rows)  # = instability (verdict flips across reruns)
         line = ("\nagent-with-exec extras: verdict-instability %.0f%% (Calma 0%%) | cost $%.2f | p50 %dms"
                 % (inst * 100, usd, ams[len(ams) // 2]))
         if av.get("validity_n"):
             line += " | validity-cut catch %.0f%% (vs Calma 100%% by construction)" % ((av["validity_catch"] or 0) * 100)
         print(line)
-        summary["agent-with-exec_extras"] = {"instability": inst, "usd": usd, "p50_ms": ams[len(ams) // 2]}
+        print("  pass^k curve (k=1..%d): %s   |   agreement-with-Calma %.0f%%   |   flip-rate %.0f%%"
+              % (K, [("%.2f" % p) if p is not None else "n/a" for p in passk], agree * 100, flip * 100))
+        print("  (Calma: instability 0, pass^k = 1.0 flat, agreement-with-itself 1.0 - all BY CONSTRUCTION)")
+        summary["agent-with-exec_extras"] = {"instability": inst, "usd": usd, "p50_ms": ams[len(ams) // 2],
+                                             "passk_curve": passk, "K": K,
+                                             "agreement_with_calma": round(agree, 4), "flip_rate": round(flip, 4)}
+    # cross-model arm (G3): a second model from a DIFFERENT family kills the single-model artifact + the
+    # self-recognition self-preference bias (Panickssery 2024). Same metrics, side by side.
+    cross_model = []
+    cross_path = os.path.join(HERE, "results", "agent_cross.json")
+    if os.path.exists(cross_path):
+        print("\nCross-model (>=2 families - kills single-model artifact + self-preference bias):")
+        print("%-26s %8s %9s %8s %8s %8s %8s" % ("model", "catch", "validity", "instab", "pass^1", "agree", "$"))
+        for arm in json.load(open(cross_path)):
+            rows, mdl = arm.get("rows", []), arm.get("model", "?")
+            if not rows:
+                continue
+            cc = _confusion([{"label": r["label"], "pred": r["prediction"]} for r in rows])
+            vrows = [r for r in rows if r.get("validity_family")]
+            vcatch = (sum(1 for r in vrows if r["prediction"] == "flawed") / len(vrows)) if vrows else None
+            ki = max((len(r.get("reruns") or []) for r in rows), default=1)
+            pk = _passk_curve(rows, ki)
+            inst2 = sum(1 for r in rows if r.get("unstable")) / len(rows)
+            agr = sum(1 for r in rows if r["prediction"] == calma.get(r["id"], "abstain")) / len(rows)
+            usd2 = sum(r.get("usd", 0) for r in rows)
+            cross_model.append({"model": mdl, "catch_rate": cc["catch_rate"], "validity_catch": vcatch,
+                                "instability": inst2, "passk_curve": pk, "agreement_with_calma": round(agr, 4),
+                                "usd": round(usd2, 4)})
+            print("%-26s %6.0f%% %8s %7.0f%% %7s %7.0f%% %7.2f" % (
+                mdl, (cc["catch_rate"] or 0) * 100, ("%.0f%%" % (vcatch * 100)) if vcatch is not None else "n/a",
+                inst2 * 100, ("%.2f" % pk[0]) if pk and pk[0] is not None else "n/a", agr * 100, usd2))
+
     lat = sorted(r["ms"] for r in json.load(open(os.path.join(HERE, "results", "calma.json"))))
     site = {"n_cases": len(manifest), "n_honest": n_h, "n_flawed": n_f,
             "overall": summary, "tiers": tiers, "tracks": {
                 name: {tk: {"catch_rate": v[tk]["catch_rate"], "wrong": v[tk]["wrong"]}
                        for tk in v} for name, v in tracks.items()},
             "families": fams, "axes": axes, "validity_by_family": vfam_table,
-            "validity_cut_n": n_vcut, "validity_families": vfam_names,
+            "validity_cut_n": n_vcut, "validity_families": vfam_names, "cross_model": cross_model,
             "calma_p50_ms": lat[len(lat) // 2]}
     json.dump(summary, open(os.path.join(HERE, "results", "summary.json"), "w"), indent=2)
     json.dump(site, open(os.path.join(HERE, "results", "site_data.json"), "w"), indent=2)

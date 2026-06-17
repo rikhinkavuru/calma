@@ -50,6 +50,14 @@ SYSTEM = (
     "Use abstain only when you genuinely cannot decide (it is a safe non-answer, never a wrong one)."
 )
 
+# the NAIVE prompt - a weaker "does this look right?" framing, run to show the SPREAD vs the steelman.
+# The headline comparison is ALWAYS the steelmanned agent (above); naive is reported as a lower bound.
+NAIVE = (
+    "You are given a metric, a claim, and a data file. Does the claim look right? You may use the "
+    "run_python tool. Reply with ONLY a JSON object: "
+    '{"verdict":"honest|flawed|abstain","recomputed":<number or null>,"why":"<one line>"}.'
+)
+
 # rough Anthropic prices (USD per 1M tokens); update as needed. Only used for the cost column.
 _PRICES = {"claude-opus-4-8": (15.0, 75.0), "claude-sonnet-4-6": (3.0, 15.0),
            "claude-haiku-4-5": (0.80, 4.0)}
@@ -206,8 +214,8 @@ def _mock_agent(case, art):
 
 # ---- real agent (Anthropic Messages API via urllib) -----------------------
 
-def _anthropic_agent(case, art, model, max_turns=8):
-    """A real code-running agent. Returns (parsed_verdict_dict, usd). Requires ANTHROPIC_API_KEY."""
+def _anthropic_agent(case, art, model, system=SYSTEM, max_turns=8):
+    """A real code-running agent. Returns (parsed_verdict_dict, usd, transcript). Needs ANTHROPIC_API_KEY."""
     import urllib.request
     key = os.environ["ANTHROPIC_API_KEY"]
     work = os.path.join(case["dir"], ".agent_work")
@@ -232,7 +240,7 @@ def _anthropic_agent(case, art, model, max_turns=8):
             return json.load(r)
 
     for _ in range(max_turns):
-        resp = _post({"model": model, "max_tokens": 2048, "system": SYSTEM, "tools": tools, "messages": messages})
+        resp = _post({"model": model, "max_tokens": 2048, "system": system, "tools": tools, "messages": messages})
         u = resp.get("usage", {})
         in_tok += u.get("input_tokens", 0); out_tok += u.get("output_tokens", 0)
         content = resp.get("content", [])
@@ -242,7 +250,7 @@ def _anthropic_agent(case, art, model, max_turns=8):
             text = "".join(b.get("text", "") for b in content if b.get("type") == "text")
             pin, pout = _PRICES.get(model, (3.0, 15.0))
             usd = in_tok / 1e6 * pin + out_tok / 1e6 * pout
-            return _parse_verdict(text), usd, _transcript(model, SYSTEM, messages)
+            return _parse_verdict(text), usd, _transcript(model, system, messages)
         results = []
         for tu in tool_uses:
             code = (tu.get("input") or {}).get("code", "")
@@ -253,7 +261,7 @@ def _anthropic_agent(case, art, model, max_turns=8):
         messages.append({"role": "user", "content": results})
     pin, pout = _PRICES.get(model, (3.0, 15.0))
     return ({"verdict": "abstain", "recomputed": None, "why": "max turns"},
-            in_tok / 1e6 * pin + out_tok / 1e6 * pout, _transcript(model, SYSTEM, messages))
+            in_tok / 1e6 * pin + out_tok / 1e6 * pout, _transcript(model, system, messages))
 
 
 def _transcript(model, system, messages):
@@ -279,29 +287,81 @@ def _parse_verdict(text):
     return {"verdict": "abstain", "recomputed": None, "why": "unparseable"}
 
 
+# ---- cross-family backend: OpenAI Chat Completions (urllib, SAME sandbox) --
+_OPENAI_PRICES = {"gpt-4o": (2.5, 10.0), "gpt-4o-mini": (0.15, 0.60), "gpt-4.1": (2.0, 8.0),
+                  "gpt-5": (5.0, 15.0), "o3": (10.0, 40.0)}
+
+
+def _openai_agent(case, art, model, system=SYSTEM, max_turns=8):
+    """A code-running agent via the OpenAI Chat Completions API (urllib, stdlib) - a DIFFERENT model
+    family from Claude, to kill the single-model artifact + self-preference bias. Same run_python tool,
+    SAME network-off sandbox. Needs OPENAI_API_KEY. Returns (verdict, usd, transcript)."""
+    import urllib.request
+    key = os.environ["OPENAI_API_KEY"]
+    work = os.path.join(case["dir"], ".agent_work")
+    os.makedirs(work, exist_ok=True)
+    data_name = "data" + os.path.splitext(art)[1]
+    with open(art, "rb") as s, open(os.path.join(work, data_name), "wb") as d:
+        d.write(s.read())
+    tools = [{"type": "function", "function": {
+        "name": "run_python", "description": "Run Python in the data dir; prints go to stdout.",
+        "parameters": {"type": "object", "properties": {"code": {"type": "string"}}, "required": ["code"]}}}]
+    messages = [{"role": "system", "content": system},
+                {"role": "user", "content": "metric: %s\nclaim: %s\nfile in your working dir: %s\n"
+                 "Recompute the metric from %s and decide."
+                 % (case["metric"], case["claim_text"], data_name, data_name)}]
+    in_tok = out_tok = 0
+
+    def _post(body):
+        req = urllib.request.Request("https://api.openai.com/v1/chat/completions",
+                                     data=json.dumps(body).encode(),
+                                     headers={"authorization": "Bearer " + key, "content-type": "application/json"})
+        with urllib.request.urlopen(req, timeout=120) as r:
+            return json.load(r)
+
+    def _usd():
+        pin, pout = _OPENAI_PRICES.get(model, (2.5, 10.0))
+        return in_tok / 1e6 * pin + out_tok / 1e6 * pout
+
+    def _tr():
+        return {"backend": "openai", "model": model, "isolation_tier": _detect_tier(),
+                "system": system, "messages": messages}
+
+    for _ in range(max_turns):
+        resp = _post({"model": model, "messages": messages, "tools": tools, "max_tokens": 2048})
+        u = resp.get("usage", {})
+        in_tok += u.get("prompt_tokens", 0); out_tok += u.get("completion_tokens", 0)
+        msg = resp["choices"][0]["message"]
+        messages.append(msg)
+        calls = msg.get("tool_calls") or []
+        if not calls:
+            return _parse_verdict(msg.get("content") or ""), _usd(), _tr()
+        for c in calls:
+            try:
+                code = json.loads(c["function"]["arguments"]).get("code", "")
+            except (ValueError, KeyError, TypeError):
+                code = ""
+            out, _t = _sandboxed_run(code, work)
+            if out is None:
+                out = "error: this host could not verify a network-off sandbox; tool execution refused"
+            messages.append({"role": "tool", "tool_call_id": c.get("id"), "content": out})
+    return {"verdict": "abstain", "recomputed": None, "why": "max turns"}, _usd(), _tr()
+
+
+def _agent(case, art, model, system):
+    """Dispatch to the model's family backend - GPT/o-series -> OpenAI, else Anthropic."""
+    if model.startswith(("gpt", "o1", "o3", "o4", "chatgpt")):
+        return _openai_agent(case, art, model, system)
+    return _anthropic_agent(case, art, model, system)
+
+
 # ---- driver ----------------------------------------------------------------
 
-def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--mock", action="store_true", help="deterministic offline backend (no API key)")
-    ap.add_argument("--k", type=int, default=5, help="reruns per case (variance / instability)")
-    ap.add_argument("--model", default="claude-opus-4-8")
-    ap.add_argument("--limit", type=int, default=0, help="cap cases (for a quick check)")
-    a = ap.parse_args()
-    manifest = json.load(open(os.path.join(HERE, "manifest.json")))
-    if a.limit:
-        manifest = manifest[:a.limit]
-    if not a.mock and "ANTHROPIC_API_KEY" not in os.environ:
-        sys.exit("error: set ANTHROPIC_API_KEY, or pass --mock for the offline plumbing check")
-
-    tier = _detect_tier()
-    if tier == "host-not-isolated":
-        print("WARNING: no verified network-off sandbox on this host (tier=host-not-isolated) - agent "
-              "runs will NOT be counted (untrusted code is never run unsandboxed).", file=sys.stderr)
-    os.makedirs(os.path.join(HERE, "results"), exist_ok=True)
-    tdir = os.path.join(HERE, "results", "agent_transcripts")
-    os.makedirs(tdir, exist_ok=True)
+def _run_arm(manifest, a, model, system, tier, tdir):
+    """Run the arm once for ONE model. Each tool call runs in the network-off sandbox; the full
+    transcript per run is persisted (suffixed by model). Returns (counted_rows, excluded_rows)."""
     out, excluded = [], []
+    mslug = "".join(ch if ch.isalnum() else "-" for ch in model)
     for m in manifest:
         art = _ensure_data(m)
         t0 = time.time()
@@ -309,14 +369,13 @@ def main():
         for k in range(a.k):
             if a.mock:
                 res = _mock_agent(m, art); usd = 0.0
-                tr = {"backend": "mock", "isolation_tier": tier, "system": SYSTEM,
+                tr = {"backend": "mock", "model": model, "isolation_tier": tier, "system": system,
                       "user": {"metric": m["metric"], "claim": m.get("claim_text") or m.get("claim"),
                                "file": os.path.basename(art) if art else None}, "result": res}
             else:
-                res, usd, tr = _anthropic_agent(m, art, a.model)
+                res, usd, tr = _agent(m, art, model, system)
             reruns.append(res["verdict"]); usd_total += usd; last = res
-            # persist the full transcript per run (the publishable audit trail; every record has a tier)
-            json.dump(tr, open(os.path.join(tdir, "%s_run%d.json" % (m["id"], k)), "w"), indent=2)
+            json.dump(tr, open(os.path.join(tdir, "%s__%s_run%d.json" % (m["id"], mslug, k)), "w"), indent=2)
         ms = int((time.time() - t0) * 1000)
         # prediction = majority vote over the K reruns (ties -> abstain, the safe answer)
         counts = {v: reruns.count(v) for v in set(reruns)}
@@ -325,28 +384,66 @@ def main():
         pred = winners[0] if len(winners) == 1 else "abstain"
         rec = {"id": m["id"], "metric": m["metric"], "claim": m["claim"], "label": m["label"],
                "track": m.get("track"), "family": m.get("family"), "tier": m.get("tier"),
-               "validity_family": m.get("validity_family"),
+               "validity_family": m.get("validity_family"), "model": model, "prompt": a.prompt,
                "prediction": pred, "recomputed": (last or {}).get("recomputed"),
                "reruns": reruns, "unstable": len(set(reruns)) > 1,
                "ms": ms, "usd": round(usd_total, 4), "isolation_tier": tier}
         # a run that could not be network-off-isolated is EXCLUDED from the scored result, never counted
         (excluded if tier == "host-not-isolated" else out).append(rec)
-        print("%-22s pred=%-7s reruns=%s%s" % (m["id"], pred, reruns,
+        print("[%-16s] %-22s pred=%-7s reruns=%s%s" % (model[:16], m["id"], pred, reruns,
               "  UNSTABLE" if len(set(reruns)) > 1 else ""))
+    return out, excluded
 
-    dest = os.path.join(HERE, "results", "agent.json")
-    json.dump(out, open(dest, "w"), indent=2)
-    if excluded:
-        json.dump(excluded, open(os.path.join(HERE, "results", "agent_excluded.json"), "w"), indent=2)
-    inst = sum(1 for r in out if r["unstable"]) / len(out) if out else 0.0
-    usd = sum(r["usd"] for r in out)
-    print("\nwrote %s  (%d counted cases @ tier=%s, instability %.0f%%, $%.2f%s)"
-          % (dest, len(out), tier, inst * 100, usd, ", MOCK" if a.mock else ""))
-    if excluded:
-        print("EXCLUDED %d host-not-isolated case(s) -> results/agent_excluded.json (not counted)"
-              % len(excluded))
-    print("wrote %d transcripts to %s" % (len(manifest) * a.k, tdir))
-    print("now run: python3 benchmark/score.py   (it picks up results/agent.json automatically)")
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--mock", action="store_true", help="deterministic offline backend (no API key)")
+    ap.add_argument("--k", type=int, default=5, help="reruns per case (variance / instability / pass^k)")
+    ap.add_argument("--model", default="claude-opus-4-8", help="the primary (headline) model")
+    ap.add_argument("--models", default="", help="comma-separated models (>=2 = cross-family); overrides --model")
+    ap.add_argument("--prompt", choices=("steelman", "naive"), default="steelman",
+                    help="steelman = recompute+validity (headline); naive = 'does this look right?' (lower bound)")
+    ap.add_argument("--limit", type=int, default=0, help="cap cases (for a quick check)")
+    a = ap.parse_args()
+    manifest = json.load(open(os.path.join(HERE, "manifest.json")))
+    if a.limit:
+        manifest = manifest[:a.limit]
+    models = [s.strip() for s in (a.models.split(",") if a.models else [a.model]) if s.strip()]
+    system = NAIVE if a.prompt == "naive" else SYSTEM
+    _is_openai = lambda mm: mm.startswith(("gpt", "o1", "o3", "o4", "chatgpt"))
+    if not a.mock:
+        if any(not _is_openai(mm) for mm in models) and "ANTHROPIC_API_KEY" not in os.environ:
+            sys.exit("error: set ANTHROPIC_API_KEY (or --mock) for the Claude model(s) %s" % models)
+        if any(_is_openai(mm) for mm in models) and "OPENAI_API_KEY" not in os.environ:
+            sys.exit("error: set OPENAI_API_KEY (or --mock) for the GPT/o-series cross-family model")
+
+    tier = _detect_tier()
+    if tier == "host-not-isolated":
+        print("WARNING: no verified network-off sandbox on this host (tier=host-not-isolated) - agent "
+              "runs will NOT be counted (untrusted code is never run unsandboxed).", file=sys.stderr)
+    os.makedirs(os.path.join(HERE, "results"), exist_ok=True)
+    tdir = os.path.join(HERE, "results", "agent_transcripts")
+    os.makedirs(tdir, exist_ok=True)
+
+    arms = [(model,) + _run_arm(manifest, a, model, system, tier, tdir) for model in models]
+    # primary (headline) model -> agent.json; any additional models -> agent_cross.json (cross-family)
+    pmodel, pout, pexcl = arms[0]
+    json.dump(pout, open(os.path.join(HERE, "results", "agent.json"), "w"), indent=2)
+    if pexcl:
+        json.dump(pexcl, open(os.path.join(HERE, "results", "agent_excluded.json"), "w"), indent=2)
+    if len(arms) > 1:
+        json.dump([{"model": mdl, "rows": rows} for (mdl, rows, _e) in arms[1:]],
+                  open(os.path.join(HERE, "results", "agent_cross.json"), "w"), indent=2)
+    inst = sum(1 for r in pout if r["unstable"]) / len(pout) if pout else 0.0
+    usd = sum(r["usd"] for (_m, rows, excl) in arms for r in rows + excl)
+    print("\nwrote results/agent.json  (primary=%s/%s: %d counted @ tier=%s, instability %.0f%%%s)"
+          % (pmodel, a.prompt, len(pout), tier, inst * 100, ", MOCK" if a.mock else ""))
+    if len(arms) > 1:
+        print("wrote results/agent_cross.json  (cross-family: %s)" % ", ".join(mdl for mdl, _o, _e in arms[1:]))
+    if pexcl:
+        print("EXCLUDED %d host-not-isolated case(s) -> results/agent_excluded.json (not counted)" % len(pexcl))
+    print("wrote %d transcripts ($%.2f total) to %s" % (len(manifest) * a.k * len(models), usd, tdir))
+    print("now run: python3 benchmark/score.py   (it picks up results/agent.json + agent_cross.json)")
 
 
 if __name__ == "__main__":
