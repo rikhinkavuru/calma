@@ -1328,6 +1328,9 @@ def _json_result(res):
                      "headline": bool(c.get("headline")), "reason": c.get("reason")}
                     for c in claims if c.get("metric")],
         "fix": REP.fix_line(led) if res["repo_verdict"] != "CONFIRMED" else None,
+        # CAN'T-CONFIRM -> a structured demand (None unless INCONCLUSIVE): what could not be verified +
+        # exactly what to provide to resolve it. Turns the gap into leverage agents/diligence can act on.
+        "needs": REP.needs_demand(led),
         "note": res.get("claim_note"),
         "isolation_tier": led.get("scope", {}).get("isolation_tier"),
         "determinism_mode": led.get("scope", {}).get("determinism_mode"),

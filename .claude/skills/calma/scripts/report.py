@@ -257,6 +257,12 @@ def render(led, diff=None, color=False):
         fix = _fix_line(led, diff)
         if fix and rv in (V.INCONCLUSIVE, V.CAVEATS, V.INVALIDATED):
             lines.append(_wrap("fix: " + _plain(fix)))
+        # CAN'T-CONFIRM -> a structured demand: name what could not be verified + exactly what to provide
+        if rv == V.INCONCLUSIVE:
+            nd = needs_demand(led)
+            if nd and nd.get("provide"):
+                lines.append(_wrap("needs (to verify %s): %s"
+                                   % (nd["unverifiable"], "; ".join(_plain(p) for p in nd["provide"]))))
     # scope one-liner (the honest 'what we checked')
     sc = led.get("scope", {})
     if sc:
@@ -285,6 +291,89 @@ def render(led, diff=None, color=False):
 
 
 fix_line = _fix_line  # public alias (agent/JSON consumers)
+
+
+# --- CAN'T-CONFIRM -> a STRUCTURED demand -----------------------------------------------------------
+# A gap that just says "can't confirm" is a dead end. needs_demand() turns it into leverage: exactly
+# WHAT could not be verified and WHAT to provide to resolve it - the deliverable in diligence ("we
+# couldn't verify X; here's what we need"), which shifts the burden of proof onto the producer and is
+# useful even against an adversary. It reuses the ledger's own structured data (a driving finding's
+# `reverify` block) and falls back to a reason->needs table for the guard-path INCONCLUSIVEs that carry
+# no finding. source -> (what-could-not-be-verified, [concrete inputs to provide]):
+_SOURCE_NEEDS = {
+    "split":        ("train/test leakage", ["the train/test split (split.train + split.test, or split.file + split.column) so row / entity / temporal overlap can be checked"]),
+    "rows":         ("train/test leakage", ["the row id / time / target keys (keys.id, keys.time, keys.target) so overlap can be checked"]),
+    "corpus":       ("eval/benchmark contamination", ["the known / pretraining corpus manifest (corpus.manifest) to check eval-in-corpus overlap"]),
+    "windows":      ("regime / walk-forward robustness", ["out-of-sample / walk-forward windows (a windows block), or scope the claim to the regime the edge actually holds in"]),
+    "frictions":    ("execution realism", ["the execution frictions (fee_bps, slippage_bps, turnover, ADV) for a net-of-cost claim"]),
+    "trials":       ("overfitting / multiple-testing", ["the number of configurations searched (trials:N) or the grid-search / sweep log, so the deflated Sharpe / PBO can run"]),
+    "returns":      ("statistical plausibility", ["the periodicity and annualization convention, and an out-of-sample (walk-forward) re-run"]),
+    "baseline":     ("baseline comparison", ["a baseline series to compare the edge against"]),
+    "universe":     ("survivorship / point-in-time", ["the point-in-time universe membership (universe.point_in_time), including delisted names"]),
+    "availability": ("look-ahead", ["the per-row availability dates (an availability block) so availability <= effective can be checked"]),
+    "study":        ("study-wide multiple-testing", ["the study size (study: trials, periods) for the multiple-testing / HLZ haircut"]),
+}
+# reason-needle -> (what-could-not-be-verified, [concrete inputs]). Mirrors the _FIXES needles so a
+# guard-path INCONCLUSIVE (no finding) still emits a precise, structured demand.
+_REASON_NEEDS = [
+    ("exited non-zero", "reproduction", ["an entrypoint that runs to completion (exit 0) so the result re-executes"]),
+    ("outputs differ across identical re-runs", "determinism", ["a deterministic run (fixed seed + deterministic output writes) so the result is stable across re-runs"]),
+    ("determinism is uncontrolled", "determinism", ["a fixed seed / deterministic output writes (or a calibration run) so the band is controlled"]),
+    ("determinism is measured-band", "determinism", ["a fixed seed or a calibration run so the determinism band is controlled"]),
+    ("no recomputed numeric", "the headline number", ["the result's raw numbers in a machine-readable file (e.g. predictions.csv with y_true,y_pred), or state the metric and number you computed"]),
+    ("untrusted code", "isolation", ["a verified container / microVM tier (--isolation docker|e2b), or set trust: own-code if you wrote the code"]),
+    ("killed or isolation was refused", "execution budget", ["a larger budget (--timeout SECONDS), or a live isolation tier (check `run_hermetic.py doctor`)"]),
+    ("degenerate recompute", "data-cleaning policy", ["an na_policy for the NaN/Inf cells in the output file"]),
+    ("claim target is unconfirmed", "the metric", ["the metric in the claim (e.g. \"accuracy 0.99\") or pass --metric <id>"]),
+    ("not statistically distinguishable", "statistical resolution", ["a finer-grained claim or more data - the gap is within the claim's own noise"]),
+    ("declare the scope", "validity scope", ["the scope the claim asserts (e.g. the held-out split / window) so the validity concern can be adjudicated as claimed"]),
+]
+_NEEDS_UNTIL = "stays CAN'T-CONFIRM (INCONCLUSIVE) until the above is provided"
+
+
+def needs_demand(led):
+    """Structured 'what to provide to resolve a CAN'T-CONFIRM', for --json consumers (agents). Returns
+    None unless the outcome is INCONCLUSIVE - a WRONG number (REFUTED/INVALIDATED) needs a fix, not more
+    inputs. Shape: {unverifiable, reason, provide:[...], reverify:{...}|None, until_then}. Sources, in
+    order: a DRIVING finding's reverify.source (precise), then a reason->needs table (guard paths), then
+    the fix line as a single-item fallback."""
+    claims = led.get("claims") or []
+    if not claims:
+        return None
+    head = next((c for c in claims if c.get("headline")), claims[0])
+    if led.get("repo_verdict") != V.INCONCLUSIVE and head.get("verdict") != V.INCONCLUSIVE:
+        return None
+    reason = head.get("reason") or ""
+    # 1) a DRIVING finding (named by driving_dimension) carries a structured reverify hint we can map to
+    #    concrete inputs. Keyed on driving_dimension - never an arbitrary finding-with-reverify, which
+    #    could be an unrelated soft smell sitting next to a guard-path INCONCLUSIVE.
+    drv = head.get("driving_dimension")
+    finding = next((f for f in led.get("findings", []) if f.get("dimension") == drv), None) if drv else None
+    if finding is not None and finding.get("reverify"):
+        rev = finding["reverify"]
+        unver, provide = _SOURCE_NEEDS.get(rev.get("source"),
+                                           (finding.get("dimension") or "the claim", []))
+        if not provide and finding.get("unblock"):
+            provide = [finding["unblock"]]
+        return {"unverifiable": unver, "reason": finding.get("locator") or reason,
+                "provide": provide, "reverify": rev or None, "until_then": _NEEDS_UNTIL}
+    # 2) a precise recompute / binding error (column not found, non-finite cell) beats the generic
+    #    reason mapping - mirrors _fix_line's precedence so the demand names the real blocker.
+    rce = next((c.get("recompute_error") for c in claims if c.get("recompute_error")), None)
+    if rce:
+        return {"unverifiable": "the metric binding", "reason": rce,
+                "provide": ["bind the column the metric needs: pass --metric <id> or pin the binding "
+                            "in verify.yaml (recompute error: %s)" % rce],
+                "reverify": None, "until_then": _NEEDS_UNTIL}
+    # 3) no driving finding (a guard-path INCONCLUSIVE): map the reason to a concrete demand
+    for needle, unver, provide in _REASON_NEEDS:
+        if needle in reason:
+            return {"unverifiable": unver, "reason": reason, "provide": list(provide),
+                    "reverify": None, "until_then": _NEEDS_UNTIL}
+    # 4) fallback: still a CAN'T-CONFIRM - surface the fix line as the single demand
+    fx = _fix_line(led)
+    return {"unverifiable": "the claim", "reason": reason, "provide": [fx] if fx else [],
+            "reverify": None, "until_then": _NEEDS_UNTIL}
 
 
 def _esc(s):
