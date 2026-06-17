@@ -1603,6 +1603,16 @@ def main():
     rc = sub.add_parser("recipes", help="list every built-in metric recipe, grouped by family")
     rc.add_argument("--json", action="store_true", dest="as_json",
                     help="print {family: [metric ids]} as JSON")
+    mo = sub.add_parser("modes", help="show or set Calma's autonomy: the verify scope "
+                        "(off/headline/all) + the action mode (ask/suggest/auto)")
+    mo.add_argument("--verify", choices=AUT.VERIFY_SCOPES, default=None,
+                    help="set the VERIFY SCOPE: how aggressively the zero-touch hook auto-verifies")
+    mo.add_argument("--mode", choices=AUT.MODES, default=None,
+                    help="set the ACTION MODE: what Calma does after a catch (seal/timestamp/restore)")
+    mo.add_argument("--global", dest="glob", action="store_true",
+                    help="write to ~/.calma/config.json (everywhere) instead of ./.calma/config.json")
+    mo.add_argument("--dir", default=".", help="the project dir to read/write config for (default .)")
+    mo.add_argument("--json", action="store_true", dest="as_json", help="print the active modes as JSON")
     at = sub.add_parser("attest", help="sign a run into a portable bundle, or verify one offline")
     atsub = at.add_subparsers(dest="attest_cmd", required=True)
     kg = atsub.add_parser("keygen", help="generate a local Ed25519 signing key (~/.calma/keys)")
@@ -1834,6 +1844,43 @@ def main():
         if a.cmd == "stats":
             data, rendered = stats(a.target)
             print(json.dumps(data, indent=2) if a.as_json else rendered)
+            return 0
+        if a.cmd == "modes":
+            base = os.path.realpath(a.dir or ".")
+            cfg_path = (os.path.join(os.path.expanduser("~"), ".calma", "config.json") if a.glob
+                        else os.path.join(base, ".calma", "config.json"))
+            if a.verify is not None or a.mode is not None:   # SET: merge into config.json (preserve other keys)
+                try:
+                    cfg = json.load(open(cfg_path)) if os.path.exists(cfg_path) else {}
+                    cfg = cfg if isinstance(cfg, dict) else {}
+                except (OSError, ValueError):
+                    cfg = {}
+                if a.verify is not None:
+                    cfg["verify"] = a.verify
+                if a.mode is not None:
+                    cfg["mode"] = a.mode
+                os.makedirs(os.path.dirname(cfg_path), exist_ok=True)
+                json.dump(cfg, open(cfg_path, "w"), indent=2)
+            scope = AUT.resolve_verify_scope(base=base)   # SHOW the EFFECTIVE state (env/config/default)
+            mode = AUT.resolve_mode(None, base)
+            if a.as_json:
+                print(json.dumps({"verify": scope, "mode": mode, "config_path": cfg_path,
+                                  "verify_choices": list(AUT.VERIFY_SCOPES),
+                                  "mode_choices": list(AUT.MODES)}, indent=2))
+                return 0
+            print("Calma autonomy - a mode changes what Calma DOES, never what it DECIDES.\n")
+            print("  VERIFY SCOPE   %-9s  how aggressively the zero-touch hook auto-verifies your numbers"
+                  % scope)
+            print("                 off = never   |   headline = the one headline claim (default)   |   "
+                  "all = every checkable claim this turn")
+            print("  ACTION MODE    %-9s  what Calma does AFTER a catch (the verdict is unaffected)"
+                  % mode)
+            print("                 ask = report only   |   suggest = print the next command   |   "
+                  "auto = seal + timestamp, restore-retry")
+            print("\n  choose (this project):  calma modes --verify all --mode auto")
+            print("  choose (everywhere):    calma modes --verify all --global")
+            print("  per-run override:       CALMA_VERIFY=all CALMA_MODE=auto calma ...")
+            print("  config file:            %s" % cfg_path)
             return 0
         if a.cmd == "attest":
             if a.attest_cmd == "keygen":

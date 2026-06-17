@@ -111,7 +111,7 @@ Verified network-off own-code tiers — **Seatbelt** (macOS) and **bubblewrap** 
 Calma is one deterministic engine behind five surfaces. *AI proposes, determinism disposes.* Each surface is a thin transport that calls the engine as a black-box subprocess and never re-implements a verdict (enforced by firewall tests).
 
 - **Claude Code skill / inline agent guardrail** — a Stop hook catches numeric claims before an agent reports them; the agent's own work gets verified mid-loop.
-- **CLI** — `calma verify`, `recipes`, `suggest`, `replay`, `doctor`, `seal`, `registry verify`.
+- **CLI** — `calma verify`, `recipes`, `suggest`, `modes`, `replay`, `doctor`, `seal`, `registry verify`.
 - **MCP server** (`python -m calma_mcp`) — the deterministic verifier callable from *any* MCP host (Cursor, Codex CLI, Windsurf, Claude Desktop, CI bots).
 - **A1 artifact pipeline** (`python -m edges.extract`) — point it at a notebook / PDF / CSV and it verifies *every* number, each catch tied to its source span ("cell 14 says 0.94 → recomputes to 0.71").
 - **PR-review bot** (`pr/` + a hosted GitHub App in `app/`) — re-runs `calma verify` on a PR's changed result-dirs in the engine's sandbox and posts the verdicts inline + a gating check-run, built on the pwn-request-proof two-workflow pattern.
@@ -123,7 +123,7 @@ Calma is one deterministic engine behind five surfaces. *AI proposes, determinis
 | **Verify scope** — how aggressively the zero-touch hook auto-verifies | `off` · `headline` (default) · `all` (every checkable claim this turn) | env `CALMA_VERIFY` · `.calma/config.json {"verify": …}` |
 | **Action mode** — what it does *after* a check (seal / timestamp / restore-retry) | `ask` (default) · `suggest` · `auto` | env `CALMA_MODE` · `--mode` · `.calma/config.json {"mode": …}` |
 
-A break (REFUTED/MIXED/INVALIDATED) blocks at any scope; outward actions (publish/send) need a standing opt-in even in `auto`. For *every number in a notebook/report*, the A1 pipeline (`python -m edges.extract`) verifies them all in one shot. Every decision is breadcrumbed to `.calma/auto_history.jsonl` and summarized by `calma stats`.
+Choose them with one command — `calma modes` shows the current state and the choices; `calma modes --verify all --mode auto` sets them (this project), `--global` sets them everywhere. A break (REFUTED/MIXED/INVALIDATED) blocks at any scope; outward actions (publish/send) need a standing opt-in even in `auto`. For *every number in a notebook/report*, the A1 pipeline (`python -m edges.extract`) verifies them all in one shot. Every decision is breadcrumbed to `.calma/auto_history.jsonl` and summarized by `calma stats`.
 
 ### The AI edges (intelligence around a deterministic core)
 

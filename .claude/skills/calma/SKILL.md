@@ -146,8 +146,10 @@ blocks twice while code+data are unchanged; fixing the code re-verifies fresh.
   · `auto`. Set via env `CALMA_MODE`, `--mode`, or `.calma/config.json {"mode": "auto"}`. Outward
   actions (publish/send) need an explicit standing opt-in even in `auto`.
 
-Controls: env `CALMA_VERIFY=off` or `CALMA_HOOK=0` (kill switch) · `touch .calma/hook-off` (per-project
-or `~/.calma`) · `.calma/config.json` `{"verify": "headline", "hook": {"enabled": false, "timeout_s": 30, "max_claims": 1}}`.
+Choose the modes with one command: **`calma modes`** (show the current scope + mode + choices) ·
+**`calma modes --verify all --mode auto`** (set them; `--global` for everywhere). Other controls: env
+`CALMA_VERIFY=off` or `CALMA_HOOK=0` (kill switch) · `touch .calma/hook-off` (per-project or `~/.calma`) ·
+`.calma/config.json` `{"verify": "headline", "hook": {"enabled": false, "timeout_s": 30, "max_claims": 1}}`.
 Every hook decision (fired, skipped, error) is breadcrumbed to `.calma/auto_history.jsonl`
 and summarized by `calma stats` - the seed of a future claims-as-code manifest.
 
