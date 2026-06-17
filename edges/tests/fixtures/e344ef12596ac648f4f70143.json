@@ -360,63 +360,42 @@
     "messages": [
       {
         "role": "user",
-        "content": "Synthesize a calma/recipe-draft@1 for this metric.\n\nmetric_id: sem\nfamily: stats\ndescription: standard error of the mean of a sample.\n\nREFERENCE ORACLE (your ground truth):\n  call: scipy.stats.sem\n  args (input tags, in call order): [\"value\"]\n  kwargs: {\"ddof\": 1}\n\nDeclare program.inputs for exactly those tags (value), a generator per input in the oracle's valid\ndomain, the metamorphic relations the metric obeys, and the edge_cases degradation contract.\n\nInput type hints (tag -> list|rawlist): {\"value\": \"list\"}\n\n=== ACCUMULATED CONSTRAINTS (from other recipes in this family -- do not repeat these mistakes) ===\n  - [negative/metamorphic] METAMORPHIC 'duplicate' (relation #3) violated on seed 7000006 (n=7): expected 1.1277369243740825, got 0.7661463720153807. Your metric does not transform as you declared. Either the relation is wrong for this metric (a scale-INVARIANT metric must declare expect 'equal', a scale-H\n\n=== COUNTEREXAMPLES FROM YOUR PRIOR ATTEMPTS (this metric) ===\n  attempt 1 (metamorphic stage):\n    METAMORPHIC 'duplicate' (relation #3) violated on seed 7000006 (n=7): expected 1.1277369243740825, got 0.7661463720153807. Your metric does not transform as you declared. Either the relation is wrong for this metric (a scale-INVARIANT metric must declare expect 'equal', a scale-HOMOGENEOUS one 'linear'), or your expr introduces a dependence it shouldn't (e.g. an additive constant breaks scale-invariance).\n\nEmit the corrected full recipe-draft@1 object via the tool."
+        "content": "Synthesize a calma/recipe-draft@1 for this metric.\n\nmetric_id: harmonic_mean\nfamily: analytics\ndescription: harmonic mean of positive values: n over the sum of reciprocals.\n\nREFERENCE ORACLE (your ground truth):\n  call: statistics.harmonic_mean\n  args (input tags, in call order): [\"value\"]\n  kwargs: {}\n\nDeclare program.inputs for exactly those tags (value), a generator per input in the oracle's valid\ndomain, the metamorphic relations the metric obeys, and the edge_cases degradation contract.\n\nInput type hints (tag -> list|rawlist): {\"value\": \"list\"}\n\n=== ACCUMULATED CONSTRAINTS (from other recipes in this family -- do not repeat these mistakes) ===\n  - [negative/degenerate] DEGENERACY: on the 'single' input you returned 9.665018704022042 but the contract requires NaN. If you declared edge_cases.single, your program must actually produce it; if you returned +-inf, find the unbounded op (a /0 you turned into inf, an exp() overflow) and let it degrade \n\n=== COUNTEREXAMPLES FROM YOUR PRIOR ATTEMPTS (this metric) ===\n  attempt 1 (degenerate stage):\n    DEGENERACY: on the 'single' input you returned 9.665018704022042 but the contract requires NaN. If you declared edge_cases.single, your program must actually produce it; if you returned +-inf, find the unbounded op (a /0 you turned into inf, an exp() overflow) and let it degrade to NaN instead.\n  attempt 2 (degenerate stage):\n    DEGENERACY: on the 'single' input you returned 9.665018704022042 but the contract requires NaN. If you declared edge_cases.single, your program must actually produce it; if you returned +-inf, find the unbounded op (a /0 you turned into inf, an exp() overflow) and let it degrade to NaN instead.\n  attempt 3 (degenerate stage):\n    DEGENERACY: on the 'single' input you returned 9.665018704022042 but the contract requires NaN. If you declared edge_cases.single, your program must actually produce it; if you returned +-inf, find the unbounded op (a /0 you turned into inf, an exp() overflow) and let it degrade to NaN instead.\n\nEmit the corrected full recipe-draft@1 object via the tool."
       }
     ],
     "temperature": 0.0
   },
   "response": {
     "schema": "calma/recipe-draft@1",
-    "metric_id": "sem",
-    "family": "stats",
-    "description": "Standard error of the mean: std(ddof=1) / sqrt(n). Measures the precision of the sample mean estimate.",
+    "metric_id": "harmonic_mean",
+    "family": "analytics",
+    "description": "Harmonic mean of positive values: n divided by the sum of reciprocals.",
     "program": {
       "schema": "calma/recipe-dsl@1",
       "inputs": {
         "value": "list"
       },
       "expr": {
-        "op": "/",
+        "call": "harmonic_mean",
         "args": [
           {
-            "call": "fstd",
-            "args": [
-              {
-                "col": "value"
-              }
-            ],
-            "scalars": {
-              "ddof": 1
-            }
-          },
-          {
-            "op": "sqrt",
-            "args": [
-              {
-                "len": {
-                  "col": "value"
-                }
-              }
-            ]
+            "col": "value"
           }
         ]
       }
     },
     "generators": {
       "value": {
-        "kind": "uniform",
-        "lo": -10,
-        "hi": 10
+        "kind": "positive",
+        "scale": 10.0
       }
     },
     "oracle": {
-      "call": "scipy.stats.sem",
+      "call": "statistics.harmonic_mean",
       "args": [
         "value"
       ],
-      "kwargs": {
-        "ddof": 1
-      }
+      "kwargs": {}
     },
     "metamorphic": [
       {
@@ -429,27 +408,19 @@
         "expect": "linear"
       },
       {
-        "relation": "shift",
-        "delta": 5.0,
+        "relation": "duplicate",
         "expect": "equal"
       },
       {
         "relation": "bounds",
-        "min": 0
+        "min": 0.0
       }
     ],
     "edge_cases": {
       "empty": "nan",
       "single": "nan",
-      "constant": 0,
+      "constant": "nan",
       "nan": "nan"
-    },
-    "claim_hints": [
-      "standard error of the mean",
-      "SEM",
-      "standard error",
-      "mean standard error",
-      "precision of the mean"
-    ]
+    }
   }
 }

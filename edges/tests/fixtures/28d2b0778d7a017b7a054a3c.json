@@ -360,44 +360,26 @@
     "messages": [
       {
         "role": "user",
-        "content": "Synthesize a calma/recipe-draft@1 for this metric.\n\nmetric_id: sem\nfamily: stats\ndescription: standard error of the mean of a sample.\n\nREFERENCE ORACLE (your ground truth):\n  call: scipy.stats.sem\n  args (input tags, in call order): [\"value\"]\n  kwargs: {\"ddof\": 1}\n\nDeclare program.inputs for exactly those tags (value), a generator per input in the oracle's valid\ndomain, the metamorphic relations the metric obeys, and the edge_cases degradation contract.\n\nInput type hints (tag -> list|rawlist): {\"value\": \"list\"}\n\n=== ACCUMULATED CONSTRAINTS (from other recipes in this family -- do not repeat these mistakes) ===\n  - [negative/metamorphic] METAMORPHIC 'duplicate' (relation #3) violated on seed 7000006 (n=7): expected 1.1277369243740825, got 0.7661463720153807. Your metric does not transform as you declared. Either the relation is wrong for this metric (a scale-INVARIANT metric must declare expect 'equal', a scale-H\n\n=== COUNTEREXAMPLES FROM YOUR PRIOR ATTEMPTS (this metric) ===\n  attempt 1 (metamorphic stage):\n    METAMORPHIC 'duplicate' (relation #3) violated on seed 7000006 (n=7): expected 1.1277369243740825, got 0.7661463720153807. Your metric does not transform as you declared. Either the relation is wrong for this metric (a scale-INVARIANT metric must declare expect 'equal', a scale-HOMOGENEOUS one 'linear'), or your expr introduces a dependence it shouldn't (e.g. an additive constant breaks scale-invariance).\n\nEmit the corrected full recipe-draft@1 object via the tool."
+        "content": "Synthesize a calma/recipe-draft@1 for this metric.\n\nmetric_id: median_value\nfamily: analytics\ndescription: median (50th percentile) of a numeric column.\n\nREFERENCE ORACLE (your ground truth):\n  call: numpy.median\n  args (input tags, in call order): [\"value\"]\n  kwargs: {}\n\nDeclare program.inputs for exactly those tags (value), a generator per input in the oracle's valid\ndomain, the metamorphic relations the metric obeys, and the edge_cases degradation contract.\n\nInput type hints (tag -> list|rawlist): {\"value\": \"list\"}\n\n=== ACCUMULATED CONSTRAINTS (from other recipes in this family -- do not repeat these mistakes) ===\n  - [negative/degenerate] DEGENERACY: on the 'single' input you returned 9.665018704022042 but the contract requires NaN. If you declared edge_cases.single, your program must actually produce it; if you returned +-inf, find the unbounded op (a /0 you turned into inf, an exp() overflow) and let it degrade \n\nEmit the corrected full recipe-draft@1 object via the tool."
       }
     ],
     "temperature": 0.0
   },
   "response": {
     "schema": "calma/recipe-draft@1",
-    "metric_id": "sem",
-    "family": "stats",
-    "description": "Standard error of the mean: std(ddof=1) / sqrt(n). Measures the precision of the sample mean estimate.",
+    "metric_id": "median_value",
+    "family": "analytics",
+    "description": "Median (50th percentile) of a numeric column, computed as numpy.median.",
     "program": {
       "schema": "calma/recipe-dsl@1",
       "inputs": {
         "value": "list"
       },
       "expr": {
-        "op": "/",
+        "call": "col_median",
         "args": [
           {
-            "call": "fstd",
-            "args": [
-              {
-                "col": "value"
-              }
-            ],
-            "scalars": {
-              "ddof": 1
-            }
-          },
-          {
-            "op": "sqrt",
-            "args": [
-              {
-                "len": {
-                  "col": "value"
-                }
-              }
-            ]
+            "col": "value"
           }
         ]
       }
@@ -405,18 +387,16 @@
     "generators": {
       "value": {
         "kind": "uniform",
-        "lo": -10,
-        "hi": 10
+        "lo": -100,
+        "hi": 100
       }
     },
     "oracle": {
-      "call": "scipy.stats.sem",
+      "call": "numpy.median",
       "args": [
         "value"
       ],
-      "kwargs": {
-        "ddof": 1
-      }
+      "kwargs": {}
     },
     "metamorphic": [
       {
@@ -431,25 +411,22 @@
       {
         "relation": "shift",
         "delta": 5.0,
-        "expect": "equal"
+        "expect": "shift-by-delta"
       },
       {
-        "relation": "bounds",
-        "min": 0
+        "relation": "duplicate",
+        "expect": "equal"
       }
     ],
     "edge_cases": {
       "empty": "nan",
-      "single": "nan",
-      "constant": 0,
       "nan": "nan"
     },
     "claim_hints": [
-      "standard error of the mean",
-      "SEM",
-      "standard error",
-      "mean standard error",
-      "precision of the mean"
+      "median",
+      "50th percentile",
+      "middle value",
+      "central tendency"
     ]
   }
 }
