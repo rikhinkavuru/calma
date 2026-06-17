@@ -1,0 +1,17 @@
+[
+  {"metric_id": "sem", "family": "stats",
+   "description": "standard error of the mean of a sample.",
+   "oracle_call": "scipy.stats.sem", "oracle_args": ["value"], "oracle_kwargs": {"ddof": 1},
+   "inputs_hint": {"value": "list"},
+   "aliases_seed": ["sem", "standard error of the mean", "std error of the mean", "mean standard error"]},
+  {"metric_id": "harmonic_mean", "family": "analytics",
+   "description": "harmonic mean of positive values: n over the sum of reciprocals.",
+   "oracle_call": "statistics.harmonic_mean", "oracle_args": ["value"], "oracle_kwargs": {},
+   "inputs_hint": {"value": "list"},
+   "aliases_seed": ["harmonic mean", "hmean", "reciprocal mean", "rate average"]},
+  {"metric_id": "median_value", "family": "analytics",
+   "description": "median (50th percentile) of a numeric column.",
+   "oracle_call": "numpy.median", "oracle_args": ["value"], "oracle_kwargs": {},
+   "inputs_hint": {"value": "list"},
+   "aliases_seed": ["median", "middle value", "50th percentile", "p50"]}
+]

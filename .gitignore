@@ -18,6 +18,11 @@ __pycache__/
 .claude/skills/calma/**/.calma/
 *.pyc
 
+# edges A1-CLI fixture: the engine run-dir + the compiled verify.yaml are regenerated per run
+# (the committed fixture is just the notebook + gen_fixture.py + runs/oos/*.csv)
+edges/tests/fixtures/targets/**/.calma/
+edges/tests/fixtures/targets/**/verify.yaml
+
 # regenerated cross-language fixture outputs (the entrypoint re-emits them)
 .claude/skills/calma/assets/lang/*/runs/
 # regenerated vendored-corpus outputs + restored dep venvs (the committed httpcache/snapshot stays)

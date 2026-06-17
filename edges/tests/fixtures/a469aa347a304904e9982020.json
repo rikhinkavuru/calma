@@ -1,0 +1,504 @@
+{
+  "request": {
+    "model": "claude-sonnet-4-6",
+    "system": "You draft a Calma `verify.yaml` \"contract\" for a code repository. A contract tells a\nDETERMINISTIC verifier (a) how to re-run the repo, (b) which output columns carry which quantities, and\n(c) which headline numbers to recompute. You PROPOSE this structure. A separate deterministic checker then\nRE-DERIVES every binding's trustworthiness FROM THE ACTUAL DATA and recomputes every number. You will\nnever be believed on assertion; you are believed only when the data agrees. So your job is to make the\ncontract STRUCTURALLY CORRECT -- point each binding at the column whose VALUES actually match the role.\n\nYou are given a heuristic draft as a starting point. AUGMENT and CORRECT it. Keep what is right; fix\nmis-bindings; add the entrypoint, artifacts, bindings, conventions, and the train/test split the\nheuristics missed. Prefer editing the heuristic draft over drafting from scratch.\n\nHARD RULES (a violation is silently stripped, costing you the binding):\n1. Emit ONLY the contract schema. Do NOT emit a verdict, a confidence, a \"binding_status\", a\n   \"claim_confirmed\", or any grade. You CANNOT grade a binding -- the data checker does, and it is the\n   only thing that can reach the trusted grade \"independently-bound\".\n2. Use ONLY engine metric_ids (the recompute vocabulary the checker knows). Never invent a metric_id.\n   If no engine metric fits a number, omit that metric (an omission is honest; an invented id is dropped).\n3. Use ONLY the listed `tag` values for columns. A tag is a SEMANTIC role, not a column name.\n4. Point each metric `binding` at the column whose VALUES fit the role, not the one whose NAME looks\n   right. A column named \"score\" whose values exceed 1 is NOT a probability (it is a logit/raw score);\n   if the metric needs a probability in [0,1], bind the column whose values lie in [0,1]. A column named\n   \"return\" whose values are in the hundreds is a price or a percent, not a per-period return. Read the\n   provided data heads and CHOOSE BY THE VALUES.\n5. Set `headline: true` on exactly one primary metric. Set `claimed_value` only when the repo states a\n   number for that metric; otherwise null. Never set `claimed_precision` (leave null).\n6. Declare `split` ONLY when a real train/test partition exists. If none exists, omit split -- the leakage\n   family then abstains, which is correct. Same for keys/features/trials/frictions/corpus: declare a block\n   only when it genuinely applies; a wrong declaration is worse than an omission.\n\nHow the data checker grades a binding (so you can aim for the strong grade):\n- \"independently-bound\" (trusted): the column's VALUES pass the role's sanity check -- a score/prob lies\n  in [0,1]; a return is mostly |r|<1 and roughly centered; a label/prediction has few distinct values; a\n  duration/before/after is non-negative; a generic numeric value column is clean and finite and is the\n  ONLY column bound to that role in its file.\n- \"plausibly-bound\": the column is bound but its values VIOLATE the role's expectation (out of range,\n  non-finite, ambiguous). This caps the metric below trusted and yields an inconclusive result.\n- \"author-asserted\": no column matched / the tag is missing.\nAim every binding at \"independently-bound\" by choosing the right column. You do not write the grade; you\nearn it by binding correctly.\n\nReturn exactly one tool call to `emit` with the contract.",
+    "max_tokens": 4096,
+    "tools": [
+      {
+        "name": "emit",
+        "description": "Emit the result.",
+        "input_schema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "run",
+            "artifacts",
+            "metrics"
+          ],
+          "properties": {
+            "run": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "entrypoint"
+              ],
+              "properties": {
+                "entrypoint": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "the command/script that re-produces the result, e.g. run.sh or main.py"
+                },
+                "network": {
+                  "type": "string",
+                  "enum": [
+                    "off",
+                    "on"
+                  ],
+                  "default": "off"
+                },
+                "cwd": {
+                  "type": "string",
+                  "default": "."
+                }
+              }
+            },
+            "env": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "ecosystem": {
+                  "type": "string",
+                  "enum": [
+                    "auto",
+                    "python-stdlib",
+                    "python",
+                    "r",
+                    "julia",
+                    "rust",
+                    "cpp",
+                    "node"
+                  ]
+                },
+                "trust": {
+                  "type": "string",
+                  "enum": [
+                    "own-code",
+                    "untrusted-third-party"
+                  ]
+                }
+              }
+            },
+            "artifacts": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "path",
+                  "columns"
+                ],
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "repo-relative path to a CSV the run emits/contains"
+                  },
+                  "re_emit": {
+                    "type": "boolean",
+                    "description": "true if the entrypoint regenerates this file"
+                  },
+                  "columns": {
+                    "type": "object",
+                    "minProperties": 1,
+                    "additionalProperties": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "tag": {
+                          "type": [
+                            "string",
+                            "null"
+                          ],
+                          "description": "semantic role; MUST be one of the engine's tags",
+                          "enum": [
+                            "return",
+                            "benchmark",
+                            "price",
+                            "value",
+                            "score",
+                            "prob",
+                            "prediction",
+                            "label",
+                            "target",
+                            "reference",
+                            "before",
+                            "after",
+                            "duration",
+                            "hits",
+                            "query",
+                            "relevance",
+                            "rank",
+                            "problem",
+                            "correct",
+                            "sample_a",
+                            "sample_b",
+                            "group",
+                            "outcome",
+                            "flag",
+                            "cashflow",
+                            "cost",
+                            "weight",
+                            "timestamp",
+                            "x",
+                            "y",
+                            "magnitude",
+                            "amount",
+                            "quantity",
+                            "left_key",
+                            "joined_key",
+                            null
+                          ]
+                        },
+                        "dtype": {
+                          "type": "string",
+                          "enum": [
+                            "float",
+                            "int",
+                            "str",
+                            "bool"
+                          ]
+                        },
+                        "na_policy": {
+                          "type": "string",
+                          "enum": [
+                            "error",
+                            "drop",
+                            "zero"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            "metrics": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "metric_id",
+                  "artifact",
+                  "binding"
+                ],
+                "properties": {
+                  "metric_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "MUST be an engine metric_id; never invented"
+                  },
+                  "artifact": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "must equal one artifacts[].path"
+                  },
+                  "binding": {
+                    "type": "object",
+                    "minProperties": 1,
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "description": "map of required tag -> column name in `artifact`"
+                  },
+                  "convention": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "description": "recompute convention string; null = recipe default"
+                  },
+                  "claimed_value": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "description": "the author's reported number, or null"
+                  },
+                  "claimed_precision": {
+                    "type": [
+                      "number",
+                      "null"
+                    ],
+                    "description": "leave null (engine fills via claim_precision)"
+                  },
+                  "headline": {
+                    "type": "boolean",
+                    "description": "true for the single primary metric of the repo"
+                  }
+                }
+              }
+            },
+            "baselines": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "metric_id",
+                  "artifact",
+                  "binding"
+                ],
+                "properties": {
+                  "metric_id": {
+                    "type": "string"
+                  },
+                  "artifact": {
+                    "type": "string"
+                  },
+                  "binding": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  },
+                  "label": {
+                    "type": "string",
+                    "description": "human label, e.g. buy-and-hold"
+                  }
+                }
+              }
+            },
+            "split": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "additionalProperties": false,
+              "description": "train/test split for the leakage family; null/absent => NOT-APPLICABLE",
+              "properties": {
+                "train": {
+                  "type": "string"
+                },
+                "test": {
+                  "type": "string"
+                },
+                "file": {
+                  "type": "string"
+                },
+                "column": {
+                  "type": "string"
+                },
+                "test_value": {
+                  "type": [
+                    "string",
+                    "number"
+                  ]
+                },
+                "embargo": {
+                  "type": [
+                    "string",
+                    "number"
+                  ]
+                }
+              }
+            },
+            "keys": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "time": {
+                  "type": "string"
+                },
+                "target": {
+                  "type": "string"
+                }
+              }
+            },
+            "features": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "type": "string"
+              }
+            },
+            "trials": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 1
+            },
+            "trials_artifact": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "var_sr": {
+              "type": [
+                "number",
+                "null"
+              ],
+              "minimum": 0
+            },
+            "frictions": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "fee_bps": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "slippage_bps": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "borrow_bps": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "short_frac": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "adv": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "size": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "participation": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "impact_coef": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "turnover": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "leverage": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "turnover_col": {
+                  "type": "string"
+                },
+                "fill": {
+                  "type": "string"
+                },
+                "impact_model": {
+                  "type": "string"
+                }
+              }
+            },
+            "corpus": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "additionalProperties": false,
+              "required": [
+                "manifest"
+              ],
+              "properties": {
+                "manifest": {
+                  "type": "string"
+                },
+                "eval": {
+                  "type": "string"
+                },
+                "eval_col": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    ],
+    "tool_choice": {
+      "type": "tool",
+      "name": "emit"
+    },
+    "messages": [
+      {
+        "role": "user",
+        "content": "Repo: decoy_score_2\nDetected frameworks: ['numpy', 'sklearn']\n\nFile tree (truncated):\n  README.md\n  gen_fixture.py\n  out/\n  out/scores.csv\n  requirements.txt\n\nEntrypoint candidates (ranked):\n  - gen_fixture.py  -- a conventional entrypoint name (gen_fixture.py)\n\nOutput data files (header + first rows; CHOOSE BINDINGS BY THESE VALUES):\nout/scores.csv  (~60 rows)\n  columns: ['id', 'y', 'p_hat', 'score']\n  row 1: ['0', '0', '0.15', '3.025']\n  row 2: ['1', '1', '0.785', '5.2475']\n  row 3: ['2', '0', '0.22', '3.27']\n  row 4: ['3', '1', '0.855', '5.4925']\n  row 5: ['4', '0', '0.15', '3.025']\n  row 6: ['5', '1', '0.785', '5.2475']\n  row 7: ['6', '0', '0.22', '3.27']\n  row 8: ['7', '1', '0.855', '5.4925']\n\nVALID metric_ids (use EXACTLY one of these per metric -- e.g. 'auc' not 'roc_auc', 'log_loss' not\n'binary_cross_entropy'; if none fits a number, omit that metric):\nabdi_ranaldo_spread, accuracy, accuracy_parity_difference, acerbi_szekely_z1, acerbi_szekely_z2, active_return, active_share, adaptive_calibration_error, adjusted_r2, adjusted_rand_index, adjusted_sharpe_ratio, aic, aicc, alpha, alpha_tstat, altman_z, altman_z_double_prime, altman_z_prime, amihud_illiquidity, amivest_liquidity, anderson_darling, annuity_factor, anova, ansari_bradley, apdex, appraisal_ratio, arch_lm, arhr_at_k, arrival_slippage, asrf_capital_requirement, asrf_rwa, asset_turnover, atkinson_index, auc, autocorrelation, availability, average_abs_odds_difference, average_treatment_effect, balanced_accuracy, balanced_accuracy_adjusted, balanced_accuracy_parity_difference, bartlett, basel_traffic_light, batting_average, bcubed_f1, bcubed_precision, bcubed_recall, bear_beta, benjamini_yekutieli, berger_parker, beta, beta_tstat, bh_rejections, bhattacharyya_distance, bias_ratio, bic, bipower_variation, blomqvist_beta, bond_price, bonferroni_rejections, bowley_skewness, box_pierce, braycurtis_distance, brennan_prediger, breusch_pagan_fstat, breusch_pagan_lm, brier, brier_reliability, brier_resolution, brier_skill_score, brinson_allocation, brinson_fachler_allocation, brinson_interaction, brinson_selection, brinson_total_active, brunner_munzel, bs_charm, bs_color, bs_delta, bs_gamma, bs_implied_vol, bs_lambda, bs_rho, bs_speed, bs_theta, bs_ultima, bs_value, bs_vanna, bs_vega, bs_veta, bs_volga, bs_zomma, bull_beta, burke_ratio, cache_hit_rate, cagr, calibration_in_the_large, called_pct, calmar, canberra_distance, capital_adequacy_ratio, capture_ratio, carried_interest, cash_conversion_cycle, cdar, cds_implied_hazard, chatterjee_xi, chebyshev_distance, chi_square, chi_square_distance, christoffersen_cc, christoffersen_independence, churn_rate, cliffs_delta, coefficient_of_variation, cohen_kappa, cohen_kappa_linear, cohen_kappa_quadratic, cohens_f, cohens_h, cohens_w, column_max, column_mean, column_median, column_min, column_std, column_sum, common_language_effect_size, common_sense_ratio, completeness_score, comprehensive_concentration_index, compression_ratio, concentration_ratio, concordance_correlation, concordance_index, conditional_entropy, confidence_interval, convexity, cornish_fisher_var, correlation, correlation_distance, corwin_schultz_spread, cosine_distance, covariance, coverage_deviation, cramers_v, cumulative_forecast_error, cuped_ate, current_ratio, curve_pv, cvar, d2_absolute_error, d2_log_loss_score, d2_pinball_score, d2_tweedie_score, days_inventory_outstanding, days_payable_outstanding, days_sales_outstanding, debt_to_ebitda, debt_to_equity, defect_density, deflated_sharpe, demographic_parity_difference, demographic_parity_ratio, diagnostic_odds_ratio, dice_distance, differential_entropy, direct_alpha, distance_correlation, distinct_count, dividend_payout_ratio, down_capture_ratio, downside_deviation, downside_potential, dpi, dpmo, drawdown_at_risk, drawdown_deviation, duplicate_count, durbin_watson, dv01, ebitda_margin, ece, effect_size, effective_convexity, effective_duration, effective_number_of_bets, effective_spread_bps, energy_distance, entropy, epsilon_squared, equal_opportunity_difference, equalized_odds_difference, equalized_odds_ratio, equivalent_annual_annuity, err_at_k, error_budget_burn, error_rate, es_backtest_ratio, eta_squared, euclidean_distance, exact_match, expected_exceedance, expected_loss, expected_loss_rate, explained_variance, exponential_loss, exposure_weighted_maturity, exposure_weighted_pd, f1, f1_at_k, failure_rate, fallout_at_k, false_discovery_rate, false_negative_rate, false_positive_rate, fbeta, fdr_parity_difference, first_pass_yield, fisher_exact, fixed_charge_coverage, fligner, for_parity_difference, forecast_bias, forward_rate, fowlkes_mallows, fowlkes_mallows_clustering, fpr_parity_difference, fractional_bias, free_cash_flow_margin, g_mean, g_test, gain_loss_ratio, gain_to_pain_ratio, gamma_deviance, garman_klass_volatility, gastwirth_location, gaussian_rank_correlation, generalized_entropy_error, generalized_entropy_index, geometric_excess_return, geometric_mean, geometric_mean_absolute_error, geometric_std, gini_coefficient, gini_mean_difference, gini_norm, glass_delta, goldfeld_quandt_fstat, goodman_kruskal_gamma, gross_exposure, groupby_aggregate, growth_rate, gwet_ac1, hamming_distance, harmonic_mean, hedges_g, hellinger_distance, hhi, hill_estimator, hill_number, hinge_loss, hjorth_complexity, hjorth_mobility, hochberg_rejections, hodges_lehmann_estimator, holm_rejections, holm_sidak_rejections, homogeneity_score, hoover_index, hqic, huber_loss, hurst_rs, idiosyncratic_volatility, implementation_shortfall, indel_similarity, index_of_dispersion, information_ratio, information_value, interest_coverage, interval_coverage, iqr, irr, jaccard, jaccard_macro, jaro_similarity, jaro_winkler_similarity, jarque_bera, jeffreys_divergence, jitter, join_row_loss, joint_entropy, js_divergence, jump_variation, kappa_three, kelly_criterion, kendall_tau, kl_divergence, kling_gupta_efficiency, km_median_survival, km_survival_at, kruskal_wallis, ks_2samp, ks_pme, ks_statistic, ks_test, kstat_fourth, kstat_third, kupiec_pof, kurtosis, kurtosistest, kyle_lambda, l_cv, l_kurtosis, l_scale, l_skewness, largest_position, latency_p50, latency_p75, latency_p90, latency_p95, latency_p99, latency_p999, latency_stddev, legates_mccabe_efficiency, lehmer_mean, levene, levenshtein_similarity, lift, linregress_intercept_stderr, linregress_slope_stderr, liquidity_coverage, ljung_box, log_likelihood_gaussian, log_loss, log_nash_sutcliffe, long_exposure, long_short_ratio, longest_common_subsequence, m2_measure, macaulay_duration, macro_f1, mae, manhattan_distance, mann_whitney, map_at_k, mape, margalef_richness, margin_pct, markedness, martin_ratio, mase, max_consecutive_losses, max_drawdown, max_drawdown_duration, max_error, max_to_sum_ratio, maximum_calibration_error, mcc, mcintosh_diversity, mcnemar, mean_abs_deviation, mean_absolute_change, mean_arctangent_ape, mean_average_precision, mean_bias_error, mean_directional_accuracy, mean_interval_width, mean_log_deviation, mean_percentage_error, mean_squared_error, mean_time_to_failure, mean_time_to_repair, mean_tweedie_deviance, medae, median_abs_deviation, median_absolute_percentage_error, menhinick_richness, merton_distance_to_default, merton_pd, micro_f1, midhinge, minkowski_distance, mode_share, modified_duration, modified_irr, modified_sharpe_ratio, mood_median_test, mood_test, moors_kurtosis, mrr, msle, mtbf, mutual_info_score, nash_sutcliffe_efficiency, ndcg_at_k, negative_likelihood_ratio, negative_predictive_value, nelson_aalen_cumhaz, net_benefit, net_debt_to_ebitda, net_exposure, net_margin, normalized_hhi, normalized_mutual_info, normalized_variation_of_information, normaltest, npv, nrmse, null_fraction, number_needed_to_treat, odds_ratio, ols_intercept, ols_slope, omega_ratio, omega_sharpe_ratio, omega_squared, operating_margin, order_flow_imbalance, outlier_count, p_value, pabak, pain_index, pain_ratio, par_yield, parametric_es, parametric_var, parkinson_volatility, partial_autocorrelation, participation_rate, pass_at_k, peak_memory, pearson_contingency_coefficient, pearson_median_skewness, percentage_agreement, percentile, percentile_ratio, permutation_entropy, perplexity, pickands_estimator, pielou_evenness, pinball_loss, pme_plus_lambda, point_biserial, poisson_deviance, portfolio_turnover, positive_likelihood_ratio, power_mean, pr_auc, precision, precision_at_k, predictive_parity_difference, prevalence_threshold, price_impact_bps, probabilistic_sharpe_ratio, profit_factor, profitability_index, proportion_z, provision_coverage_ratio, psi, purity, quartile_coefficient_dispersion, quick_ratio, r2, r_precision, r_squared, rachev_ratio, rand_index, range_value, rank_biserial, ratio_share, rbp, realization_ratio, realized_shortfall, realized_spread_bps, realized_variance, realized_volatility, recall, recall_at_k, reconciliation_total, recovery_factor, recovery_rate, refined_willmott_index, regression_f_statistic, regression_t_statistic, relative_absolute_error, relative_mean_deviation, relative_mean_difference, relative_risk, relative_risk_reduction, relative_spread, relative_squared_error, renyi_entropy, rescaled_range, residual_standard_error, restricted_mean_survival_time, return_on_assets, return_on_equity, return_on_invested_capital, reward_to_var_ratio, risk_difference, rms_calibration_error, rms_successive_differences, rmse, rmsle, rmsse, rogers_satchell_volatility, rogers_tanimoto_distance, roll_spread, rolled_throughput_yield, root_mean_square, root_mean_square_percentage_error, rosenbluth_index, row_count, runs_test, russell_rao_distance, rvpi, scott_pi, sem, sen_welfare, shannon_diversity, share_turnover, sharpe, sharpness, short_exposure, sidak_rejections, siegel_slope, simpson_evenness, skewness, skewtest, slo_attainment, sokal_sneath_distance, somers_d, sortino, specificity, speedup_ratio, spiegelhalter_z, spread_duration, spread_dv01, springate_score, squared_euclidean_distance, squared_hinge_loss, srm_pvalue, standardized_mean_difference, starr_ratio, sterling_ratio, studentized_range, success_at_k, symmetric_uncertainty, tail_latency_ratio, tail_ratio, test_coverage, theil_index, theil_sen_slope, theil_u1, theil_u2, threat_score, throughput, tier1_leverage_ratio, time_underwater, token_dice, token_f1, token_jaccard, top_k_accuracy, total_return, total_variation_distance, tracking_error, tracking_signal, treatment_equality_difference, treynor_ratio, trimean, trimmed_mean, trimmed_std, tsallis_entropy, tschuprow_t, turning_point_rate, tvpi, ulcer_index, uncertainty_coefficient, unexpected_loss, uniqueness_ratio, up_capture_ratio, up_down_beta_ratio, upside_deviation, upside_potential, upside_potential_ratio, uptime_pct, v_measure_score, value_at_risk, var_breach_rate, variance, variance_ratio, variance_reduction_cuped, variation_of_information, vasicek_conditional_pd, volatility, vwap, vwap_slippage, wape, wasserstein_1d, weighted_average_life, weighted_f1, weighted_lgd, weighted_mean, wer, white_lm, wilcoxon_rank_sum, wilcoxon_signed_rank, willmott_index, wilson_lower, wilson_upper, win_loss_ratio, win_rate, winkler_score, winsorized_mean, winsorized_std, yang_zhang_volatility, yield_to_maturity, youden_j, yule_distance, z_spread, zero_crossing_rate, zmijewski_score\n\nVALID column tags (the only legal `tag` values): after, amount, before, benchmark, cashflow, correct, cost, duration, flag, group, hits, joined_key, label, left_key, magnitude, outcome, prediction, price, prob, problem, quantity, query, rank, reference, relevance, return, sample_a, sample_b, score, target, timestamp, value, weight, x, y\n\nHeuristic starting draft (AUGMENT/CORRECT this -- keep what is right, fix mis-bindings, add what's missing):\n{\n  \"run\": {\n    \"entrypoint\": \"gen_fixture.py\",\n    \"network\": \"off\",\n    \"cwd\": \".\"\n  },\n  \"env\": {\n    \"ecosystem\": \"auto\",\n    \"trust\": \"own-code\"\n  },\n  \"artifacts\": [\n    {\n      \"path\": \"out/scores.csv\",\n      \"columns\": {\n        \"y\": {\n          \"tag\": \"y\",\n          \"dtype\": \"float\",\n          \"na_policy\": \"error\"\n        },\n        \"p_hat\": {\n          \"tag\": \"score\",\n          \"dtype\": \"float\",\n          \"na_policy\": \"error\"\n        },\n        \"score\": {\n          \"tag\": \"score\",\n          \"dtype\": \"float\",\n          \"na_policy\": \"error\"\n        }\n      }\n    }\n  ],\n  \"metrics\": [],\n  \"baselines\": []\n}\n\nHeuristic notes (what the heuristics flagged as uncertain or missing):\n{\n  \"artifacts_found\": 1,\n  \"claim_metric_hint\": null,\n  \"needs_confirmation\": [],\n  \"warning\": \"no recomputable metric detected; provide --metric/--claim\"\n}\n\nProduce the corrected contract now. Bind each metric to the column whose VALUES fit the role. Use only\nengine metric_ids and the allowed tags. Do not emit any grade or verdict.\n\nKnown-shape skeleton (a repo of this framework/output shape was successfully drafted\nbefore; ADAPT its bindings/conventions/split to THIS repo's actual files and column values -- do not copy\npaths blindly):\n{\n  \"artifacts\": [\n    {\n      \"columns\": {\n        \"p_hat\": {\n          \"tag\": \"prob\"\n        },\n        \"score\": {\n          \"tag\": \"score\"\n        },\n        \"y\": {\n          \"tag\": \"label\"\n        }\n      },\n      \"path\": \"out/*.csv\",\n      \"re_emit\": true\n    }\n  ],\n  \"env\": {\n    \"ecosystem\": \"python-stdlib\",\n    \"trust\": \"own-code\"\n  },\n  \"metrics\": [\n    {\n      \"artifact\": \"out/*.csv\",\n      \"binding\": {\n        \"label\": \"y\",\n        \"prob\": \"p_hat\"\n      },\n      \"claimed_precision\": null,\n      \"claimed_value\": null,\n      \"headline\": true,\n      \"metric_id\": \"auc\"\n    }\n  ],\n  \"run\": {\n    \"cwd\": \".\",\n    \"entrypoint\": \"gen_fixture.py\",\n    \"network\": \"off\"\n  }\n}"
+      }
+    ],
+    "temperature": 0.0
+  },
+  "response": {
+    "run": {
+      "entrypoint": "gen_fixture.py",
+      "network": "off",
+      "cwd": "."
+    },
+    "env": {
+      "ecosystem": "python",
+      "trust": "own-code"
+    },
+    "artifacts": [
+      {
+        "path": "out/scores.csv",
+        "re_emit": true,
+        "columns": {
+          "id": {
+            "dtype": "int",
+            "na_policy": "error",
+            "tag": null
+          },
+          "y": {
+            "tag": "label",
+            "dtype": "int",
+            "na_policy": "error"
+          },
+          "p_hat": {
+            "tag": "prob",
+            "dtype": "float",
+            "na_policy": "error"
+          },
+          "score": {
+            "tag": "score",
+            "dtype": "float",
+            "na_policy": "error"
+          }
+        }
+      }
+    ],
+    "metrics": [
+      {
+        "metric_id": "auc",
+        "artifact": "out/scores.csv",
+        "binding": {
+          "label": "y",
+          "prob": "p_hat"
+        },
+        "claimed_value": null,
+        "claimed_precision": null,
+        "headline": true
+      },
+      {
+        "metric_id": "log_loss",
+        "artifact": "out/scores.csv",
+        "binding": {
+          "label": "y",
+          "prob": "p_hat"
+        },
+        "claimed_value": null,
+        "claimed_precision": null,
+        "headline": false
+      },
+      {
+        "metric_id": "brier",
+        "artifact": "out/scores.csv",
+        "binding": {
+          "label": "y",
+          "prob": "p_hat"
+        },
+        "claimed_value": null,
+        "claimed_precision": null,
+        "headline": false
+      }
+    ]
+  }
+}

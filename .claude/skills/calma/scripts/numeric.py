@@ -198,6 +198,12 @@ def col_mean(xs):
     return float("nan") if (not xs or _has_nan(xs)) else fmean(xs)
 
 
+def col_median(xs):
+    """Median = the 50th percentile (linear interpolation; numpy.median 'linear', statistics.median for
+    odd n). Pure-stdlib via the existing quantile kernel; NaN-degrades on empty / NaN-bearing input."""
+    return float("nan") if (not xs or _has_nan(xs)) else quantile(xs, 0.5)
+
+
 def brier(probs, labels):
     """Brier score = mean((p - y)^2) for probabilistic predictions p in [0,1], y in {0,1}. Lower=better."""
     if len(probs) != len(labels) or not probs or _has_nan(probs) or _has_nan(labels):

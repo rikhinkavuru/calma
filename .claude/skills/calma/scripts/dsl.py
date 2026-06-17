@@ -51,6 +51,13 @@ KERNELS = {
     "col_sum": (N.col_sum, ["list"], {}),
     "col_min": (N.col_min, ["list"], {}),
     "col_max": (N.col_max, ["list"], {}),
+    # P3.4 widening: generic mean/std/median + harmonic mean (all pure-stdlib numeric functions, now
+    # DSL-expressible). col_mean/col_std are named aliases of fmean/fstd (fan-out for "average X"/"std
+    # of X" metrics); col_median + harmonic_mean unlock metrics previously inexpressible in the DSL.
+    "col_mean": (N.col_mean, ["list"], {}),
+    "col_std": (N.col_std, ["list"], {"ddof": False}),
+    "col_median": (N.col_median, ["list"], {}),
+    "harmonic_mean": (N.harmonic_mean, ["list"], {}),
     "quantile": (N.quantile, ["list"], {"q": True}),
     "iqr": (N.iqr, ["list"], {}),
     "skewness": (N.skewness, ["list"], {}),

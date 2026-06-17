@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "calma-mcp"
+version = "0.1.0"
+description = "Host-agnostic MCP server exposing Calma's deterministic verifier (AI proposes, determinism disposes)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Calma" }]
+keywords = ["mcp", "calma", "verification", "backtest", "recompute", "deterministic"]
+
+# Transport-only dependency: the MCP SDK. The pure-stdlib calma engine stays dep-free -- this server
+# shells out to it as a subprocess and never imports it.
+dependencies = [
+  "mcp>=1.2.0",
+]
+
+[project.optional-dependencies]
+# the optional streamable-HTTP transport (`calma-mcp --http`)
+http = [
+  "starlette>=0.37",
+  "uvicorn>=0.29",
+]
+
+[project.scripts]
+calma-mcp = "calma_mcp.server:main"
+
+[tool.setuptools]
+packages = ["calma_mcp"]
