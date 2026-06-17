@@ -31,6 +31,7 @@ import leakage_checks as LC
 import overfitting_checks as OC
 import realism_checks as RLC
 import contamination_checks as CNC
+import plausibility_checks as PLC
 import compare as CMP
 import draft_contract as DC
 import intake as INTAKE
@@ -426,7 +427,7 @@ def _assemble_ledger(contract, diff, run_res, claim_text=None):
     # Each family promotes the (reproduced) headline DOWN only (INVALIDATED / CAN'T-CONFIRM / CAVEAT),
     # scope-guarded; none can inflate a verdict.
     leak_fam = over_fam = real_fam = cont_fam = bt_fam = pit_fam = ds_fam = reg_fam = ml_fam = None
-    shift_fam = None
+    shift_fam = plaus_fam = None
     if claims and run_res.get("exit_code", 0) == 0:
         _base = run_res.get("base") or (
             os.path.dirname(os.path.dirname(run_res["run_dir"])) if run_res.get("run_dir") else None)
@@ -493,6 +494,14 @@ def _assemble_ledger(contract, diff, run_res, claim_text=None):
             findings.extend(DShC.run_checks(contract, _base, claims[0]["id"], claim_text=claim_text))
             DShC.apply_validity(claims, findings, contract, claim_text, base=_base)
             shift_fam = DShC.family_status(contract, findings)
+            # WS-plausibility (V6): thin-input statistical smells (implausibly-high Sharpe, too-smooth
+            # equity curve). The ONLY family that needs no declared block - it fires from the bound
+            # return series alone. SOFT-ONLY: degrades a reproduced number to a CAVEAT (never INVALIDATED /
+            # REFUTED) and surfaces a precise "what to check" finding. Runs LAST so every authoritative
+            # family keeps precedence on the driving dimension.
+            findings.extend(PLC.run_checks(contract, _base, claims[0]["id"], claim_text=claim_text))
+            PLC.apply_validity(claims, findings, contract, claim_text, base=_base)
+            plaus_fam = PLC.family_status(contract, findings)
     # reconcile a claim's human reason with its FINAL verdict_inputs after any family promotion
     # (leakage/realism/overfitting/contamination): the promotion changes the verdict but not the
     # compare-time reason, which would otherwise read a stale "matches within budget" under a
@@ -550,7 +559,8 @@ def _assemble_ledger(contract, diff, run_res, claim_text=None):
                          **({"data-snooping": ds_fam} if ds_fam else {}),
                          **({"regime": reg_fam} if reg_fam else {}),
                          **({"model-leakage": ml_fam} if ml_fam else {}),
-                         **({"distribution-shift": shift_fam} if shift_fam else {})},
+                         **({"distribution-shift": shift_fam} if shift_fam else {}),
+                         **({"plausibility": plaus_fam} if plaus_fam else {})},
             "not_verified": _not_verified(metric_ids, leak_fam, over_fam, real_fam, cont_fam,
                                           bt_fam, pit_fam, ds_fam, reg_fam, ml_fam, shift_fam),
         },

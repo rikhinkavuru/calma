@@ -40,6 +40,9 @@ DIMENSIONS = {
     "model-leakage",
     # covariate / target distributional-shift validity family (V5).
     "distribution-shift",
+    # thin-input statistical-plausibility smells (V6): implausibly-high Sharpe / too-smooth curve.
+    # SOFT-ONLY (heuristic) - degrades a reproduced number to a CAVEAT, never INVALIDATED/REFUTED.
+    "plausibility",
 }
 # dimensions that are derived from execution and so may NOT be re-verified by a static re-read.
 # omitted-costs/window are computed off the bound artifact (artifact-recheck); survivorship is read
@@ -48,7 +51,7 @@ EXEC_DIMENSIONS = {
     "reproducibility", "execution-realism", "leakage", "overfitting", "contamination", "baseline",
     "selection", "metric-population-coverage", "environment-selected", "metric-mismatch",
     "omitted-costs", "window", "look-ahead", "data-snooping", "regime", "model-leakage",
-    "distribution-shift",
+    "distribution-shift", "plausibility",
 }
 SEVERITIES = {"blocker", "major", "minor", "info"}
 BLOCKING_SEVERITIES = {"blocker", "major"}
