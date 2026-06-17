@@ -1,7 +1,19 @@
 """The patch gate. Reviewer #0 (anti-test-hacking) is non-negotiable: the goalposts must be
 byte-identical across the repair, and the re-verify must have judged the same claim/metric/contract/
-artifact under the same isolation. Then spec/smell/build reviewers. Returns (all_passed, [reason, ...]).
-NEVER imports verdict-core (it reads the new ledger/diff/run.json as data; the firewall stays intact)."""
+artifact under the same isolation. Then a FABRICATION check on the re-emitted output, then spec/smell/
+build reviewers. Returns (all_passed, [reason, ...]). NEVER imports verdict-core (it reads the new
+ledger/diff/run.json as data; the firewall stays intact).
+
+HEURISTIC BOUNDARY (honest scope): these reviewers catch the goalpost moves and the OBVIOUS forgeries --
+a moved contract/artifact/claim/binding/isolation, a hard-coded claim value, and a CONSTANT (zero-
+dispersion) recompute column. They do NOT catch a forgery that emits a VARYING series engineered to
+compound to the claim: the genuine signal -- "this column was CONSTRUCTED to hit the target rather than
+COMPUTED from the bound raw inputs" -- is invisible to any output-statistics or literal scan, and every
+cheap threshold either false-positives a legitimate low-variance series or loses to trivial arithmetic
+obfuscation. Closing that class needs data-flow / input-sensitivity analysis (perturb the bound inputs,
+require the output to move) -- an M3-M4 engine item, not a reviewer heuristic. Until then, A4's safety
+rests on the proposer being honest plus these reviewers catching the common cheats; the deterministic
+re-verify still owns the verdict."""
 import hashlib
 import json
 import os
