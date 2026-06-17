@@ -15,14 +15,15 @@ keywords = ["mcp", "calma", "verification", "backtest", "recompute", "determinis
 # Transport-only dependency: the MCP SDK. The pure-stdlib calma engine stays dep-free -- this server
 # shells out to it as a subprocess and never imports it.
 dependencies = [
-  "mcp>=1.2.0",
+  # upper bound = a drift guard: block a SILENT jump into an untested new MAJOR (bump intentionally).
+  "mcp>=1.2.0,<2",
 ]
 
 [project.optional-dependencies]
 # the optional streamable-HTTP transport (`calma-mcp --http`)
 http = [
-  "starlette>=0.37",
-  "uvicorn>=0.29",
+  "starlette>=0.37,<1",
+  "uvicorn>=0.29,<1",
 ]
 
 [project.scripts]

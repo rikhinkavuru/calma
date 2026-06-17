@@ -8,8 +8,9 @@ version = "0.1.0"
 description = "AI edges for Calma — the schema-forcing LLM client, the black-box engine bridge, the append-only store, and the determinism firewall. Physically isolated from the pure-stdlib verdict core: edges reach the engine only as a subprocess."
 requires-python = ">=3.9"
 dependencies = [
-    "anthropic>=0.40",
-    "jsonschema>=4.18",
+    # upper bounds = drift guards: block a SILENT jump into an untested new MAJOR (bump intentionally).
+    "anthropic>=0.40,<2",
+    "jsonschema>=4.18,<5",
 ]
 
 [project.optional-dependencies]

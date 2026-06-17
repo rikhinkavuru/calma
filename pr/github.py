@@ -15,6 +15,16 @@ _BOT_MARK = "calma:fp="            # only OUR inline comments carry this - scope
 _SUMMARY_MARK = "calma:summary"
 
 
+def _retry_after_seconds(value, fallback):
+    """GitHub sends Retry-After as delta-seconds; parse it defensively and CAP the wait. Fall back to
+    exponential backoff on a missing / non-integer value (the RFC also allows an HTTP-date) - the retry
+    loop must never crash on a header it can't parse, nor sleep for an absurd duration."""
+    try:
+        return max(0, min(int(value), 60))
+    except (TypeError, ValueError):
+        return fallback
+
+
 class GitHubClient:
     def __init__(self, token, owner, repo, pr_number, api=_API):
         self.token, self.owner, self.repo, self.pr, self.api = token, owner, repo, pr_number, api
@@ -34,7 +44,7 @@ class GitHubClient:
             except urllib.error.HTTPError as e:
                 # primary/secondary rate limit: honor Retry-After, else exponential back off, then re-raise
                 if e.code in (403, 429) and attempt < 3:
-                    time.sleep(int(e.headers.get("Retry-After") or (2 ** attempt)))
+                    time.sleep(_retry_after_seconds(e.headers.get("Retry-After"), 2 ** attempt))
                     continue
                 raise
         return {}
