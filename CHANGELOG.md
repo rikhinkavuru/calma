@@ -2,6 +2,29 @@
 
 All notable changes to the calma skill/CLI. Dates are UTC.
 
+## Unreleased — producer-side guardrail: V6 plausibility, structured `needs`, and `calma draft`
+
+Repositioned as **an automatic guardrail for AI-generated results** (catch your own wrong number
+before it ships); the engine, verdict, and proof model are unchanged. New user-facing capabilities:
+
+- **V6 — statistical plausibility (`plausibility_checks.py`)**, the first **thin-input** validity
+  family: flags an implausibly-high Sharpe and a too-smooth (lag-1 serial-correlation) equity curve
+  from the bound return series **alone**, with no declared block. SOFT-ONLY — degrades a reproduced
+  number to CONFIRMED-WITH-CAVEATS with a precise `fix:`, never INVALIDATED/REFUTED. (11 families now.)
+- **CAN'T-CONFIRM → a structured `needs` demand** (`report.needs_demand`): an INCONCLUSIVE `--json`
+  verdict now carries a typed `needs` (what could not be verified + exactly what to provide to resolve
+  it), alongside the existing `fix:` line.
+- **`calma draft <repo>`**: point Calma at a messy repo and get a runnable `verify.yaml` — heuristic
+  by default (detects entrypoint/metric/split/trials + prints a coverage map of detected & suggested
+  blocks); `--ai` runs the LLM drafter + counterexample-repair loop (`python -m edges.contract`),
+  falling back to the heuristic when the edges deps / API key are unavailable.
+- **Conservative block auto-inference in the drafter**: auto-declares the safe, degrade-only blocks
+  (a `trials_artifact` when a trials/grid-search CSV is present; split already detected) and *suggests*
+  the verdict-flipping ones (a date column → `windows`/`availability`; a return metric → `frictions`).
+
+Tests: `test_plausibility_checks` 14, `test_needs_demand` 12, `test_draft_cmd` 9, `test_draft` 43;
+full core suite **43/0**.
+
 ## Unreleased — optional Sigstore Rekor transparency-log backing for the catch-history registry
 
 Additive, belt-and-suspenders **on top of** the registry's custom hash-chain — never a replacement.
