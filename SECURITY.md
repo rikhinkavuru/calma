@@ -29,6 +29,18 @@ Do **not** open a public issue for anything exploitable.
 - The verdict is only as good as the raw outputs the run produces; a program that fabricates
   its own raw outputs deterministically will reproduce. This is documented in README
   limitations ("reproducible is not the same as right").
+- **CI gate integrity (the engine must be trusted, not the PR's copy).** In the `pull_request` →
+  `workflow_run` pattern (`docs/pr-bot.md`), the unprivileged job re-executes the PR's code; the verdict
+  is only trustworthy if the ENGINE that grades it is not itself PR-controlled. Two controls enforce this:
+  (1) the privileged comment job binds to the **trusted** `github.event.workflow_run.head_sha`
+  (`CALMA_EXPECTED_HEAD`) and **refuses any bundle whose head SHA differs** — a forged or cross-PR artifact
+  cannot steer the check-run/review onto another commit or PR; (2) the verify job runs the engine + driver
+  from a **trusted, base-pinned checkout** — `pr/run_pr.py` resolves the engine, `edges`, and the `pr.*`
+  transport from its own `_ENGINE_ROOT` (never the PR tree), and `calma-verify-pr.yml` checks the engine
+  out at the PR **base**, so a PR cannot swap in its own engine to forge its OWN passing check. Adopters
+  get the same property by checking the engine out at the PR base (as this repo does) or by referencing the
+  reusable action by an immutable commit SHA. Signing the bundle in the verify step is available as optional
+  defense-in-depth.
 
 ## Key compromise
 

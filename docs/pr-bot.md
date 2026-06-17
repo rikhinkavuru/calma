@@ -27,6 +27,25 @@ only safe shape is GitHub Security Lab's **pwn-request-proof two-workflow patter
 `.github/workflows/codeql-actions.yml` runs CodeQL (`languages: actions`) as a guardrail for exactly
 these two failure modes.
 
+### Gate integrity — bind the comment job, and (for the strongest guarantee) pin the engine
+
+The split above stops a fork PR from stealing secrets, but it does **not** by itself make the findings
+artifact *authentic*: the unprivileged job runs the PR's code, and — when the engine is vendored into
+the repo — the **engine itself from the PR checkout**. Two controls follow:
+
+- The privileged comment job passes the **trusted** head SHA as `CALMA_EXPECTED_HEAD`
+  (`${{ github.event.workflow_run.head_sha }}`), and `pr/comment_pr.py` **refuses any bundle whose
+  `head_sha` differs** — and never trusts the artifact's own `pr_number`/`head_sha` for routing. This
+  stops a forged or cross-PR bundle from posting a check-run/review onto another commit or PR. (Pinning
+  every `actions/*` to a commit SHA closes the action-tag-mutation vector on the same privileged job.)
+- A PR must not be able to forge its **own** green check by editing the vendored engine, so the verify job
+  runs a **trusted, base-pinned engine**: `pr/run_pr.py` resolves the engine, `edges`, and the `pr.*`
+  transport from its own checkout (`_ENGINE_ROOT`), and `calma-verify-pr.yml` checks the engine out at the
+  PR **base** (`path: .calma-engine`) and runs *that* copy against the PR's result dirs. Adopters get the
+  same property either way: check the engine out at the PR base as shown, or reference the reusable action
+  by an **immutable commit SHA** (so `$GITHUB_ACTION_PATH` is the pinned engine, not the PR's copy). Signing
+  the bundle in the trusted verify step is available as optional defense-in-depth.
+
 ## Adopt it
 
 Copy `pr/` and the two workflow files into your repo. No GitHub App is required for this self-hosted-in-CI
