@@ -1338,6 +1338,86 @@ def _json_result(res):
     }
 
 
+def _ai_draft_subprocess(target, *, budget=3, model=None, timeout=600):
+    """Best-effort AI draft via the edges A2 seam, run as a SUBPROCESS - the core never imports edges
+    (firewall), exactly like the MCP server shelling out to `python -m edges.extract`. `python -m
+    edges.contract` is launched from the repo root so the `edges` package resolves; edges.contract.draft
+    self-bootstraps the core scripts dir onto its own sys.path. Returns {"ok": bool, ...}."""
+    import subprocess
+    # scripts -> calma -> skills -> .claude -> <repo root> (the dir that contains the edges/ package)
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
+    argv = [sys.executable, "-m", "edges.contract", target, "--json", "--budget", str(budget)]
+    if model:
+        argv += ["--model", model]
+    try:
+        p = subprocess.run(argv, capture_output=True, text=True, timeout=timeout, cwd=repo_root)
+    except (OSError, subprocess.SubprocessError) as e:
+        return {"ok": False, "error": "could not launch the AI drafter: %s" % e}
+    if p.returncode != 0:
+        tail = (p.stderr or "").strip().splitlines()
+        return {"ok": False, "error": tail[-1] if tail else "edges.contract exited %d" % p.returncode}
+    try:
+        return {"ok": True, **json.loads(p.stdout)}
+    except ValueError:
+        return {"ok": False, "error": "the AI drafter produced no JSON"}
+
+
+def draft_cmd(target, *, ai=False, budget=3, model=None, force=False, as_json=False):
+    """Generate <target>/verify.yaml so you can point Calma at a messy repo and get a runnable contract.
+    Heuristic (pure-stdlib DC.draft) by default; --ai shells out to the edges A2 drafter (an LLM draft +
+    a counterexample repair loop), FALLING BACK to the heuristic when the edges deps / API key are
+    unavailable. Prints what was detected + what still needs human confirmation before you trust it."""
+    target = os.path.abspath(target)
+    if not os.path.isdir(target):
+        print("not a directory: %s" % target, file=sys.stderr)
+        return 2
+    dest = os.path.join(target, "verify.yaml")
+    if os.path.exists(dest) and not force:
+        print("%s already exists - pass --force to overwrite, or edit it directly" % dest, file=sys.stderr)
+        return 2
+
+    ai_note, source, trace = None, "heuristic", None
+    if ai:
+        out = _ai_draft_subprocess(target, budget=budget, model=model)
+        if out.get("ok"):
+            source, trace = "ai", out.get("trace")
+            contract = DC.load_contract(dest)   # the edges subprocess already wrote verify.yaml
+        else:
+            ai_note = out.get("error")
+    if source != "ai":
+        contract = DC.draft(target)
+        json.dump(contract, open(dest, "w"), indent=2)
+
+    notes = contract.get("_draft_notes") or {}
+    mets = contract.get("metrics") or []
+    if as_json:
+        print(json.dumps({"source": source, "ai_fell_back": bool(ai_note), "verify_yaml": dest,
+                          "contract": contract, "trace": trace}, indent=2))
+        return 0
+    if ai_note:
+        print("AI drafting unavailable (%s) - wrote a heuristic draft instead." % ai_note)
+    print("wrote %s  (%s draft - review before relying on it)"
+          % (dest, "AI" if source == "ai" else "heuristic"))
+    print("  entrypoint: %s" % ((contract.get("run", {}) or {}).get("entrypoint") or "(none)"))
+    if mets:
+        for m in mets:
+            print("  metric:     %s over %s  (binding %s, %s)"
+                  % (m.get("metric_id"), m.get("artifact"),
+                     ", ".join(map(str, (m.get("binding") or {}).values())) or "?",
+                     m.get("binding_status", "ungraded")))
+    else:
+        print("  metric:     (none detected - pass --metric/--claim when you verify)")
+    if notes.get("needs_confirmation"):
+        print("  confirm:    %s" % ", ".join(notes["needs_confirmation"]))
+    if notes.get("warning"):
+        print("  warning:    %s" % notes["warning"])
+    if source == "ai" and trace:
+        print("  repair:     resolved=%s in %s round(s)"
+              % (trace.get("resolved"), trace.get("iterations_used")))
+    print("  next:       review the bindings, then  calma verify %s \"<your claim>\"" % target)
+    return 0
+
+
 def _batch_jobs(targets, manifest):
     """Resolve (path, claim, metric) jobs from dir/glob targets (committed contracts) + a TSV manifest
     of 'path<TAB>claim<TAB>[metric]' rows."""
@@ -1616,6 +1696,16 @@ def main():
     rc = sub.add_parser("recipes", help="list every built-in metric recipe, grouped by family")
     rc.add_argument("--json", action="store_true", dest="as_json",
                     help="print {family: [metric ids]} as JSON")
+    dr = sub.add_parser("draft", help="generate a verify.yaml for a repo (point it at a messy repo); "
+                                      "heuristic by default, --ai adds the LLM drafter + repair loop")
+    dr.add_argument("target", help="the repo/dir to draft a verify.yaml for")
+    dr.add_argument("--ai", action="store_true",
+                    help="use the LLM drafter + counterexample repair loop (needs the edges deps + an "
+                         "API key); falls back to the heuristic draft if unavailable")
+    dr.add_argument("--budget", type=int, default=3, help="max model draft+repair rounds for --ai (default 3)")
+    dr.add_argument("--model", default=None, help="advisory model tier for --ai")
+    dr.add_argument("--force", action="store_true", help="overwrite an existing verify.yaml")
+    dr.add_argument("--json", action="store_true", dest="as_json", help="print the drafted contract as JSON")
     mo = sub.add_parser("modes", help="show or set Calma's autonomy: the verify scope "
                         "(off/headline/all) + the action mode (ask/suggest/auto)")
     mo.add_argument("--verify", choices=AUT.VERIFY_SCOPES, default=None,
@@ -1827,6 +1917,9 @@ def main():
                 for ln in textwrap.wrap(", ".join(fams[fam]), width=wrap_w):
                     print("    " + ln)
             return 0
+        if a.cmd == "draft":
+            return draft_cmd(a.target, ai=a.ai, budget=a.budget, model=a.model,
+                             force=a.force, as_json=a.as_json)
         if a.cmd == "teardown":
             res = verify(a.target, a.claim_text or a.claim, a.metric, "teardown", force=a.force)
             print(res.get("teardown") or "(no teardown: the result is clean or inconclusive, not broken)")
