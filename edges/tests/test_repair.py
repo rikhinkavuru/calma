@@ -65,7 +65,16 @@ def test_llm_repair_btc_honestly_finds_no_code_only_fix(btc_run_dir, tmp_path):
     assert len(result.trajectory) == 4                        # all four hypotheses tried
     for h in result.trajectory:
         assert h.accepted is False
+        # PIN THE PRINCIPLED REASON (not a vacuous False): accepted=False because NO fix was PROPOSED,
+        # not because a genuine fix was REJECTED or the proposer crashed. Every hypothesis emits a
+        # LITERALLY EMPTY diff -> nothing is applied, re-verified, or gap-closed. (RULE 5: an in-sample
+        # best-of-N number can never be made an out-of-sample result by an honest code-only patch.)
+        assert h.diagnosis.unified_diff.strip() == ""         # empty diff == proposer declined
         assert h.after_verdict is None                        # empty diff never re-verified
+        assert h.gap_closed is False
+        assert h.review_reasons == ["empty diff -- no code-only fix proposed (RULE 5)"]
+        # ...and the decline is for the DOCUMENTED cause (the in-sample-vs-OOS lie), not some other reason
+        assert "in-sample" in h.diagnosis.cause.lower()
 
 
 # === ACCEPTANCE: a genuine minimal code patch IS accepted, gap closed, patch touches only the code ===

@@ -100,7 +100,9 @@ def test_refuted_sorts_first_with_provenance_citation(btc_like):
     assert first.verdict == eng_tr["verdict"]
     assert first.claimed == eng_tr["claimed"] and first.recomputed == eng_tr["recomputed"]
 
-    # fix is copied verbatim from the engine (DEVIATION: None for this value-mismatch REFUTED)
+    # fix is copied verbatim from the engine (DEVIATION: None for this value-mismatch REFUTED) -- pin the
+    # premise (the engine really does emit None here) so the verbatim-copy invariant isn't vacuously true
+    assert out["engine"]["fix"] is None
     assert rep.fix == out["engine"]["fix"]
     assert rep.target.endswith("btc_like")
     assert "3 numbers checked" in rep.summary

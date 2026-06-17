@@ -167,11 +167,19 @@ def repair(run_dir, *, budget=4, model=None, episodes_path=None):
                                        teardown_card=teardown_card, history=history,
                                        prior=prior, model=model)
 
-            applied = CK.apply_diff(scratch, diag.unified_diff)  # False if the diff doesn't apply
+            applied = CK.apply_diff(scratch, diag.unified_diff)  # False if the diff is empty OR doesn't apply
             if not applied:
+                # Distinguish the two non-apply paths honestly in the persisted trajectory: an EMPTY diff
+                # is the proposer DECLINING -- "no honest code-only fix exists" (the sanctioned RULE-5
+                # fallback) -- not a malformed patch the applier rejected. The record must say which.
+                reason = ("empty diff -- no code-only fix proposed (RULE 5)"
+                          if not (diag.unified_diff or "").strip() else "diff did not apply cleanly")
                 trajectory.append(HypothesisResult(i, diag, branch, before_verdict, None,
                                                    before_gap, None, eff_budget, False, False,
-                                                   ["diff did not apply cleanly"]))
+                                                   [reason]))
+                # The MODEL-facing feedback is kept verbatim ("diff did not apply") so the next-hypothesis
+                # prompt hash is unchanged and the recorded replay fixtures stay valid; only the PERSISTED
+                # trajectory reason above is sharpened. (Re-record with the model live to unify the wording.)
                 history.append((diag, "diff did not apply"))
                 continue
 
