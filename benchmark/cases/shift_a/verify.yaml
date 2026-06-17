@@ -1,0 +1,57 @@
+{
+  "run": {
+    "entrypoint": "gen.py",
+    "network": "off",
+    "cwd": "."
+  },
+  "env": {
+    "ecosystem": "auto",
+    "trust": "own-code"
+  },
+  "artifacts": [
+    {
+      "path": "runs/test.csv",
+      "columns": {
+        "feat": {
+          "tag": "feature",
+          "dtype": "float",
+          "na_policy": "error"
+        },
+        "y_pred": {
+          "tag": "prediction",
+          "dtype": "int",
+          "na_policy": "error"
+        },
+        "y_true": {
+          "tag": "label",
+          "dtype": "int",
+          "na_policy": "error"
+        }
+      }
+    }
+  ],
+  "metrics": [
+    {
+      "metric_id": "accuracy",
+      "artifact": "runs/test.csv",
+      "binding": {
+        "prediction": "y_pred",
+        "label": "y_true"
+      },
+      "convention": null,
+      "claimed_value": 0.8833,
+      "claimed_precision": 0.005,
+      "headline": true,
+      "binding_status": "independently-bound",
+      "claim_confirmed": true
+    }
+  ],
+  "baselines": [],
+  "split": {
+    "train": "runs/train.csv",
+    "test": "runs/test.csv"
+  },
+  "keys": {
+    "target": "y_true"
+  }
+}

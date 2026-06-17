@@ -354,6 +354,7 @@ _DIMENSION_GLOSS = {
     "data-snooping": "the edge doesn't survive study-wide multiple-testing (the HLZ haircut)",
     "regime": "the edge holds in one regime/window, not across the sample (walk-forward)",
     "model-leakage": "a transform saw the test set, or configs were selected on it",
+    "distribution-shift": "train and test come from different distributions (won't generalize)",
 }
 
 
