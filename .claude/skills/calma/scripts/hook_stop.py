@@ -92,19 +92,39 @@ def _killed_off_by_env():
                                                                 "disabled", "no")
 
 
+def _trusted_force_unverified():
+    """force_unverified BYPASSES the sandbox gate (auto-executes a project's code without a verified
+    tier), so it is honored ONLY from a source the OPERATOR controls: the env var
+    CALMA_HOOK_FORCE_UNVERIFIED, or the HOST-level config ($CALMA_STATE_DIR, else ~/.calma)/config.json
+    - NEVER a project-local .calma/config.json. Otherwise an untrusted repo could opt ITSELF into
+    unsandboxed auto-execution merely by being opened in an agent session."""
+    if os.environ.get("CALMA_HOOK_FORCE_UNVERIFIED", "").strip().lower() in ("1", "on", "true", "yes"):
+        return True
+    base = os.environ.get("CALMA_STATE_DIR") or os.path.join(os.path.expanduser("~"), ".calma")
+    try:
+        with open(os.path.join(base, "config.json")) as f:
+            return bool((json.load(f).get("hook") or {}).get("force_unverified", False))
+    except (OSError, ValueError, AttributeError):
+        return False
+
+
 def _hook_config(cwd):
-    """Merged hook config: defaults <- .calma/config.json {"hook": {...}}."""
+    """Merged hook config: defaults <- project .calma/config.json {"hook": {...}}. A project may only
+    DISABLE or LIMIT the hook (enabled / timeout_s / max_claims, all clamped downstream) - it can NEVER
+    escalate. force_unverified (a sandbox-gate bypass) comes from a TRUSTED source ONLY (see
+    _trusted_force_unverified), never from the project tree."""
     cfg = {"enabled": True, "timeout_s": DEFAULT_TIMEOUT_S, "max_claims": DEFAULT_MAX_CLAIMS,
            "force_unverified": False}
     try:
         with open(os.path.join(cwd, ".calma", "config.json")) as f:
             user = json.load(f).get("hook", {})
         if isinstance(user, dict):
-            for k in cfg:
+            for k in ("enabled", "timeout_s", "max_claims"):
                 if k in user:
                     cfg[k] = user[k]
     except (OSError, ValueError, AttributeError):
         pass
+    cfg["force_unverified"] = _trusted_force_unverified()
     return cfg
 
 

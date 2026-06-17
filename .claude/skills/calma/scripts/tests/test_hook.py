@@ -188,18 +188,23 @@ out, rc, _ = run_hook(gated, tp_gate, env_extra=host_env)
 truth(rc == 0 and out == "", "isolation gate: no verified sandbox -> silent")
 truth(any(e["event"] == "skip" and e.get("reason") == "no-verified-sandbox"
           for e in history(gated)), "isolation gate: skip breadcrumbed as no-verified-sandbox")
-# config force_unverified overrides the gate (operator explicitly trusts this host)
+# SECURITY (M5): a PROJECT-LOCAL .calma/config.json must NOT bypass the sandbox gate - an untrusted
+# repo cannot opt ITSELF into unsandboxed auto-execution merely by being opened.
 os.makedirs(os.path.join(gated, ".calma"), exist_ok=True)
 with open(os.path.join(gated, ".calma", "config.json"), "w") as f:
     json.dump({"hook": {"force_unverified": True}}, f)
 out, rc, _ = run_hook(gated, tp_gate, env_extra=host_env)
+truth(rc == 0 and out == "",
+      "isolation gate: project-local force_unverified is IGNORED (no untrusted unsandboxed auto-exec)")
+# but a TRUSTED override (an operator-set env var) DOES lift the gate on a host they explicitly trust
+out, rc, _ = run_hook(gated, tp_gate, env_extra=dict(host_env, CALMA_HOOK_FORCE_UNVERIFIED="1"))
 forced = {}
 try:
     forced = json.loads(out)
 except ValueError:
     pass
 truth(forced.get("decision") == "block",
-      "isolation gate: force_unverified override verifies (and catches) anyway")
+      "isolation gate: a TRUSTED force_unverified (env) verifies (and catches) anyway")
 os.remove(os.path.join(gated, ".calma", "config.json"))
 # a stale (past-TTL) host-cached tier is re-probed: the real doctor result governs
 stale_host = os.path.join(tmp_root, "host_stale")

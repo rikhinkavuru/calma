@@ -1220,7 +1220,9 @@ with tempfile.TemporaryDirectory() as td:
     truth(not isnan(by_id["p_value"]["value"]) and 0.0 < by_id["p_value"]["value"] < 0.05,
           "e2e welch p on na_policy=drop unequal columns is finite and small")
     truth(all(m["k_spread"] == 0.0 for m in rec["metrics"]), "e2e deterministic: zero k-spread")
-    diff = C.compare(rec, contract)
+    # this e2e asserts CONFIRMED, so it must declare a VERIFIED isolation context: compare()'s default
+    # is now fail-closed (host-not-isolated), which correctly adds an isolation caveat to a CONFIRMED.
+    diff = C.compare(rec, contract, isolation_tier="tier0")
     verd = {m["metric_id"]: m["verdict"] for m in diff["metrics"]}
     truth(verd["speedup_ratio"] == "CONFIRMED",
           "e2e speedup 2.47 claim CONFIRMED within reported precision (got %s)" % verd["speedup_ratio"])

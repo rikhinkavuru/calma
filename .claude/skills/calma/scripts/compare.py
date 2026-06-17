@@ -86,7 +86,7 @@ def _budget(claimed, sampling_se, claimed_precision=None):
     return eff, terms
 
 
-def compare(recompute, contract, isolation_tier="tier0", container_present=None,
+def compare(recompute, contract, isolation_tier="host-not-isolated", container_present=None,
             determinism_mode="controlled-to-bit", sufficient_k=True, m2_calibrated=False,
             untrusted=False, killed=False, exit_codes=(0,), outputs_unstable=False):
     _load_calibration()
@@ -194,7 +194,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--recompute", required=True)
     ap.add_argument("--contract", required=True)
-    ap.add_argument("--isolation", default="tier0")
+    ap.add_argument("--isolation", default="host-not-isolated")  # fail-closed: an omitted tier is NOT verified
     ap.add_argument("--determinism", default="controlled-to-bit")
     ap.add_argument("--m2-calibrated", action="store_true")
     ap.add_argument("--out")
