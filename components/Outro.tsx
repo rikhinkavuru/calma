@@ -15,7 +15,7 @@ export function Outro() {
           <div className="outro__grid">
             <div className="outro__brand">
               <div className="lockup">CALMA</div>
-              <div className="micro">Independent verification lab</div>
+              <div className="micro">A guardrail for AI-generated results</div>
             </div>
             <div className="outro__camp">
               <div className="lockup">
@@ -27,7 +27,7 @@ export function Outro() {
           </div>
         </Reveal>
         <Reveal delay={200}>
-          <p className="outro__line">Catch the bad number before the money moves.</p>
+          <p className="outro__line">Catch the wrong number before it ships.</p>
         </Reveal>
         <Reveal delay={300}>
           <p className="outro__cta">
@@ -46,7 +46,7 @@ export function Outro() {
             <a href="/registry">Registry</a>
             <a href="/recipes">Recipes</a>
           </nav>
-          <span>The producer is never the verifier</span>
+          <span>Catch your own wrong number first</span>
         </div>
       </div>
     </section>

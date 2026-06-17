@@ -13,8 +13,9 @@ export function Hero() {
 
         <Reveal delay={200}>
           <p className="lead hero__lead">
-            Your AI reports a number and calls the work done. Calma re-runs the work, rebuilds that
-            number from the raw outputs, and tells you in one word <b>whether to trust it.</b>
+            Your agent reports a number and calls the work done. Calma re-runs the work, rebuilds
+            that number from the raw outputs, and <b>blocks the wrong one before it ships</b> — in
+            the agent loop, in CI, before anyone has to trust it.
           </p>
         </Reveal>
 

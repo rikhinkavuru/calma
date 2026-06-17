@@ -6,8 +6,8 @@ const ITEMS: [string, React.ReactNode][] = [
   [
     "What is Calma, in one sentence?",
     <>
-      A tool that re-runs work done by AI and checks the numbers it reported —{" "}
-      <b>so you don&apos;t have to take its word for it.</b>
+      An automatic guardrail for AI-generated results — it re-runs your agent&apos;s work,
+      recomputes the numbers it reported, and <b>blocks the wrong ones before they ship.</b>
     </>,
   ],
   [
@@ -78,7 +78,7 @@ export function Faqs() {
                 height={896}
                 loading="lazy"
               />
-              <figcaption className="photo__cap">Whoever did the work never grades it.</figcaption>
+              <figcaption className="photo__cap">The verdict comes from code — not from whoever did the work.</figcaption>
             </figure>
           </Reveal>
         </div>

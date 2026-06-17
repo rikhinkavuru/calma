@@ -40,7 +40,7 @@ const STEPS: { key: string; kicker: string; body: ReactNode }[] = [
   },
   {
     key: "verdict",
-    kicker: "Blocks the lie",
+    kicker: "Blocks the wrong number",
     body: <>Only a definitive refute stops the turn — the wrong number dies in the loop instead of reaching you. Confirmed and can&apos;t-confirm pass silently.</>,
   },
 ];

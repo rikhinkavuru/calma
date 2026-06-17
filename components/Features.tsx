@@ -19,7 +19,7 @@ const FEATURES: { idx: string; name: string; art: AsciiVariant; p: string }[] = 
     idx: "02",
     name: "Deterministic verdict",
     art: "verdict",
-    p: "Write the claim the way you’d say it — “p95 latency 120 ms,” “net Sharpe 2.4,” “monthly CAGR 23.9%.” Calma parses the number and metric, finds the output column that holds it, and independently double-checks that binding before it can matter. Then every number and the verdict come from code, not a model, so a persuasive author can’t charm a pass: a claim is refuted only when the gap clears a calibrated tolerance, and an ambiguous one degrades to can’t-confirm with the exact fix.",
+    p: "Write the claim the way you’d say it — “p95 latency 120 ms,” “net Sharpe 2.4,” “monthly CAGR 23.9%.” Calma parses the number and metric, finds the output column that holds it, and independently double-checks that binding before it can matter. Then every number and the verdict come from code, not a model — so nothing, not even the agent that produced the number, can talk its way to a pass: a claim is refuted only when the gap clears a calibrated tolerance, and an ambiguous one degrades to can’t-confirm with the exact fix.",
   },
   {
     idx: "03",

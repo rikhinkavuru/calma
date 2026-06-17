@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const alt =
-  "Calma — AI did the work. Calma checks it. Independent verification of AI-produced results.";
+  "Calma — AI did the work. Calma checks it. A guardrail for AI-generated results.";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -94,7 +94,7 @@ export default function OpengraphImage() {
               color: "rgba(233, 221, 196, 0.7)",
             }}
           >
-            Independent verification of AI-produced results
+            A guardrail for the numbers your AI produces
           </div>
         </div>
 

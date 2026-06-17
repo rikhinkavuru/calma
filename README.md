@@ -2,11 +2,11 @@
 
 [calma1.vercel.app](https://calma1.vercel.app/) · `v0.10.0` · MIT · pure Python stdlib
 
-**Independently verify a computational result by re-executing it to ground truth and recomputing the headline number from the raw outputs — then prove or break the claim.**
+**An automatic guardrail for AI-generated results: Calma re-runs your agent's work, recomputes the numbers it reported, and blocks the wrong ones before they ship.**
 
 Calma is an open-source verifier for numbers that matter. Point it at a result — a backtest's Sharpe, a model's accuracy, a "2.3× faster" benchmark, a cleaned dataset, an LLM eval — and it **re-runs the code in a network-off sandbox, recomputes the metric from the raw output files (never the reported number), and diffs it against the claim** under a calibrated tolerance. The verdict comes from a single deterministic function, not a language model. If the number is real, Calma confirms it with a signed, replayable proof. If it isn't, Calma breaks it and shows you exactly where.
 
-> "SOC 2 for backtests." The auditor can't be the auditee — Calma re-derives every label byte-for-byte, so a stamp can't be faked, even by Calma.
+> The verdict is computed by deterministic code, not a model — so it's a guardrail you can't talk your way past, even when it's checking your own agent's work. Calma re-derives every label byte-for-byte, so a stamp can't be faked, even by Calma.
 
 **By default it's zero-touch — you type nothing.** Installed as a Claude Code hook (or the MCP tool in Cursor/Codex), Calma auto-verifies the numbers your agent computes *before you ever see them*, and blocks a wrong one so it can't be reported as fact:
 
@@ -31,7 +31,7 @@ $ calma verify ./my-backtest "Sharpe 2.6"
 
 ## Why
 
-Every dashboard, paper, and pitch deck reports a number. Almost none of them can be independently checked without trusting whoever produced it. AI agents make this worse: they now generate the backtests, the evals, and the "tests pass" — and they are confidently wrong at scale. The expensive failures (a fund allocates on an inflated Sharpe; a team ships a model that leaked its test set) come from a number that was **technically reproducible but not valid**.
+Every dashboard, paper, and pitch deck reports a number. Almost none of them can be independently checked without trusting whoever produced it. AI agents make this worse: they now generate the backtests, the evals, and the "tests pass" — and they are confidently wrong at scale. The expensive failures (a team ships a model that leaked its test set; a fund allocates on an inflated Sharpe) come from a number that was **technically reproducible but not valid**.
 
 Calma is built around one act almost no one else does: **recompute the claimed number from the raw outputs, and separately check that the result is sound.** Those are two different questions, and Calma answers both.
 

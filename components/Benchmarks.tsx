@@ -43,7 +43,7 @@ const CATCH: BarView = {
 const WRONG: BarView = {
   key: "wrong",
   title: "Wrong verdicts",
-  desc: "Times each approach blessed a fake number or rejected an honest one. Calma proves it or says “can’t confirm” — it is never wrong.",
+  desc: "Times each approach blessed a wrong number or rejected an honest one. Calma proves it or says “can’t confirm” — it is never wrong.",
   note: "wrong verdicts across all 117 cases · lower is better",
   unit: "count",
   max: 77,
@@ -57,7 +57,7 @@ const WRONG: BarView = {
 const HARD: GroupView = {
   key: "hard",
   title: "The hard cases",
-  desc: "Obvious lies are easy. The gap shows on subtle shading — a few points, the way numbers actually get fudged — and on real-world cases like a published leakage study and a +14,698% backtest.",
+  desc: "Obvious errors are easy. The gap shows on subtle shading — a few points, the way numbers actually go wrong — and on real-world cases like a published leakage study and a +14,698% backtest.",
   note: "catch rate by difficulty · calma vs claude-as-judge",
   groups: [
     { label: "Obvious", calma: 100, judge: 97 },

@@ -19,8 +19,8 @@ export function Benefits({ onRequest }: { onRequest: () => void }) {
               <span className="who">Builders</span>
               <h3>Catch the mistake before your users do</h3>
               <p>
-                Your agent checks its own work as it goes — so the wrong number dies in the loop,
-                not in production.
+                Your agent checks its own work as it goes — so the wrong backtest, eval, or metric
+                dies in the loop, not in production.
               </p>
               <div className="cta">
                 <a

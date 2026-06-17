@@ -32,11 +32,11 @@ const fontVarOverrides = {
 } as React.CSSProperties;
 
 const SITE_URL = "https://calma1.vercel.app";
-const TITLE = "Calma — independent verification of AI-produced results";
+const TITLE = "Calma — a guardrail for AI-generated results";
 const DESCRIPTION =
-  "AI did the work. Calma checks it. Calma independently re-executes AI-produced " +
-  "work, rebuilds the headline number from raw outputs, and tells you whether to " +
-  "trust the claim.";
+  "AI did the work. Calma checks it. An automatic guardrail for AI-generated " +
+  "results: Calma re-runs your agent's work, recomputes the numbers it reported, " +
+  "and blocks the wrong ones before they ship.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
