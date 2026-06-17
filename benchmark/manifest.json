@@ -1972,5 +1972,21 @@
     "claim_text": "out-of-sample tradeable total return 0.3881",
     "label": "flawed",
     "tier": "subtle"
+  },
+  {
+    "id": "snoop_a_invalid",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/snoop_a",
+    "metric": "sharpe",
+    "family": "quant",
+    "validity_family": "data-snooping",
+    "display": "sharpe",
+    "n_rows": 252,
+    "artifact": "runs/returns.csv",
+    "track": "synthetic",
+    "true_value": 2.5371,
+    "claim": 2.5371,
+    "claim_text": "a statistically significant factor, Sharpe of 2.5371",
+    "label": "flawed",
+    "tier": "subtle"
   }
 ]

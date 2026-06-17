@@ -1,0 +1,43 @@
+{
+  "run": {
+    "entrypoint": "gen.py",
+    "network": "off",
+    "cwd": "."
+  },
+  "env": {
+    "ecosystem": "auto",
+    "trust": "own-code"
+  },
+  "artifacts": [
+    {
+      "path": "runs/returns.csv",
+      "columns": {
+        "daily_return": {
+          "tag": "return",
+          "dtype": "float",
+          "na_policy": "error"
+        }
+      }
+    }
+  ],
+  "metrics": [
+    {
+      "metric_id": "sharpe",
+      "artifact": "runs/returns.csv",
+      "binding": {
+        "return": "daily_return"
+      },
+      "convention": null,
+      "claimed_value": 2.5371,
+      "claimed_precision": 0.005,
+      "headline": true,
+      "binding_status": "independently-bound",
+      "claim_confirmed": true
+    }
+  ],
+  "baselines": [],
+  "study": {
+    "trials": 50,
+    "t_stat": 3.46
+  }
+}

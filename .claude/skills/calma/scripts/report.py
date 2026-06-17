@@ -351,6 +351,7 @@ _DIMENSION_GLOSS = {
     "window": "the claimed period isn't the period actually tested",
     "survivorship": "the universe is survivors-only, not point-in-time",
     "look-ahead": "the signal used information that wasn't knowable in time",
+    "data-snooping": "the edge doesn't survive study-wide multiple-testing (the HLZ haircut)",
 }
 
 
