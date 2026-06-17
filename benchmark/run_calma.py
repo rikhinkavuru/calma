@@ -1,7 +1,7 @@
 """Run Calma over the benchmark corpus and score it against ground truth.
 
 For each case: `calma verify <dir> "<claim>" --metric <id> --json --force`, map the verdict to a
-prediction (REFUTED/MIXED -> flawed; CONFIRMED/CAVEATS -> honest; INCONCLUSIVE -> abstain), and
+prediction (REFUTED/MIXED/INVALIDATED -> flawed; CONFIRMED/CAVEATS -> honest; INCONCLUSIVE -> abstain), and
 compare to the label. Emits results/calma.json and prints a confusion summary + per-case latency.
 Run: python3 benchmark/run_calma.py
 """
@@ -16,7 +16,9 @@ CALMA = os.path.join(HERE, "..", ".claude", "skills", "calma", "scripts", "calma
 
 
 def _predict(verdict):
-    if verdict in ("REFUTED", "MIXED"):
+    # INVALIDATED is a catch (the number reproduces but the result is invalid - leaked/overfit/
+    # survivorship-biased/gross-sold-as-net) - a "flawed" prediction, like REFUTED/MIXED.
+    if verdict in ("REFUTED", "MIXED", "INVALIDATED"):
         return "flawed"
     if verdict in ("CONFIRMED", "CONFIRMED-WITH-CAVEATS"):
         return "honest"

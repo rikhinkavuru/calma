@@ -1,6 +1,6 @@
-"""calma.backtest_checks - the boring inflated-deck catches a trading recompute must make, each
-stating the assumption it made. NOT the M3-M4 forensic battery: just reliable catches for the
-failures that show up in real decks.
+"""calma.backtest_checks - the backtest-soundness validity family (V0): omitted costs, cherry-picked
+window, survivorship universe. A first-class INVALIDATED family on the findings rail, called from
+calma._assemble_ledger exactly like leakage/overfitting/realism/contamination.
 
   - omitted costs (gross-sold-as-net): apply the declared fee/slippage to the per-period returns and
     flag when the claimed return is the GROSS number while net-of-cost is materially lower.
@@ -9,18 +9,59 @@ failures that show up in real decks.
   - survivorship universe: flag a declared survivors-only / non-point-in-time universe (returns may
     be upward-biased); detection + explanation, never a silent pass.
 
-Each returns a ledger finding (reusing the existing dimensions: execution-realism / selection /
-data-integrity) with a concrete locator + unblock. Deterministic arithmetic only - no model. These
-are ADDITIVE findings; deck-vs-code mismatch (the claimed number differs from what the code emits)
-is already caught by the core recompute+verdict path.
+Each sub-check owns its OWN validity dimension (`omitted-costs` / `window` / `survivorship`,
+registered in ledger.DIMENSIONS) - distinct from realism's `execution-realism`, which owns the
+`frictions` surface (backtest owns the older `costs`/`universe`/`window` surface; no double-counting,
+see realism_checks). Deterministic arithmetic only - no model.
 
-Library: run_checks(contract, base, claim_id="c1") -> [finding, ...]
+The verdict follows the claim's own scope (mirrors the leakage/contamination scope-guards): a finding
+whose clean property the CLAIM positively asserts (net-of-cost / representative-period / point-in-time)
+-> INVALIDATED on that dimension; the SAME finding next to a bare reproduced number -> a CAVEAT. The
+contract block is the SIGNAL (it makes the check fire); the claim text is the ASSERTION that gates
+INVALIDATED. REFUTED is never manufactured here (deck-vs-code mismatch is the core recompute path;
+omitted-cost net-deflation REFUTED is realism's friction-deflated job). Each ABSTAINS (NOT-APPLICABLE)
+when its contract block isn't declared - never guesses.
+
+Library: run_checks(contract, base, claim_id="c1", claim_text=None) -> [finding,...];
+apply_validity(claims, findings, contract, claim_text, base=None); family_status(contract, findings).
 """
 import csv
 import os
 import re
 
+import verdict as V
+
 _RETURN_TAGS = {"return"}
+_BT_DIMS = {"omitted-costs", "window", "survivorship"}
+
+# Claim-scope guards (keyed on the claim TEXT only). INVALIDATED fires ONLY when the claim positively
+# asserts the clean property the data violates - mirrors leakage.oos_status / contamination_status.
+_NET_RE = re.compile(
+    r"net.?of.?(cost|fee|friction|commission|expense)|net of |"
+    r"after (cost|fee|expense|friction|commission)|net[\s-]?of[\s-]?cost|"
+    # a bare "net <metric>" (e.g. "net return", "net total return", "net CAGR") also asserts net:
+    r"\bnet\b[\w\s-]{0,18}\b(return|profit|performance|pnl|p&l|cagr|sharpe|yield)", re.I)
+_REPRESENTATIVE_RE = re.compile(
+    r"representative|full (history|sample|period|year|track|window)|entire (period|history|sample)|"
+    r"robust (across|over|to) (the )?(period|window|sample|time|regime)|across all (period|year)|"
+    r"\b(19|20)\d{2}\s*(?:[-]|to|through|–)+\s*(19|20)\d{2}\b|since (inception|(19|20)\d{2})|"
+    r"over the (full|entire|whole|complete)", re.I)
+_PIT_RE = re.compile(
+    r"point.?in.?time|survivorship.?(free|adjusted|bias.?free)|free of survivorship|"
+    r"includes? (the )?delist|no survivorship|delisting.?adjusted|with delisted|"
+    r"survivorship.?bias.?(free|adjusted)", re.I)
+
+
+def _claim_asserts(kind, claim_text):
+    """Does the CLAIM positively assert the clean property `kind` would invalidate?"""
+    t = claim_text if isinstance(claim_text, str) else ""  # replay passes a numeric claim -> no assertion
+    if kind == "omitted-costs":
+        return bool(_NET_RE.search(t))
+    if kind == "window":
+        return bool(_REPRESENTATIVE_RE.search(t))
+    if kind == "survivorship":
+        return bool(_PIT_RE.search(t))
+    return False
 _COST_NAME = re.compile(r"(cost|fee|commission|slippage|expense|carry)", re.I)
 _DATE_NAME = re.compile(r"(date|time|timestamp|dt|day|month|period)$", re.I)
 # the fraction by which net must fall below the claim before we call it gross-sold-as-net (5%
@@ -147,7 +188,7 @@ def check_omitted_costs(contract, base, claim_id="c1"):
     material = drag > _COST_MATERIAL * max(abs(gross), 1e-9) and net < claimed
     if tracks_gross and material:
         return {
-            "id": "f-%s-cost" % claim_id, "claim_id": claim_id, "dimension": "execution-realism",
+            "id": "f-%s-cost" % claim_id, "claim_id": claim_id, "dimension": "omitted-costs",
             "severity": "blocker", "status": "open", "confidence": "deterministic",
             "fixable_by": "author",
             "locator": ("costs omitted (gross sold as net): the claimed return tracks the GROSS series "
@@ -158,6 +199,7 @@ def check_omitted_costs(contract, base, claim_id="c1"):
             "reverify": {"kind": "artifact-recheck", "source": rcol,
                          "expected": "claimed return equals the net-of-cost recompute"},
             "assumed": "the per-period returns are pre-cost (gross) and the declared cost model applies",
+            "validity_class": "authoritative", "backtest_kind": "omitted-costs",
         }
     return None
 
@@ -191,7 +233,7 @@ def check_window(contract, base, claim_id="c1"):
     # padded history). 10% slack absorbs an off-by-a-few-rows boundary.
     if isinstance(claimed_periods, (int, float)) and n and claimed_periods > n * 1.10:
         return {
-            "id": "f-%s-window" % claim_id, "claim_id": claim_id, "dimension": "selection",
+            "id": "f-%s-window" % claim_id, "claim_id": claim_id, "dimension": "window",
             "severity": "blocker", "status": "open", "confidence": "deterministic",
             "fixable_by": "author",
             "locator": ("window mismatch: the claim states %s periods but the bound artifact covers "
@@ -201,11 +243,12 @@ def check_window(contract, base, claim_id="c1"):
             "reverify": {"kind": "artifact-recheck", "source": dcol or "rows",
                          "expected": "claimed window matches the data coverage"},
             "assumed": "one row per claimed period in the bound artifact",
+            "validity_class": "authoritative", "backtest_kind": "window",
         }
     # catch 2: claimed date window falls (partly) outside the data coverage
     if cstart and cend and first and last and (str(cstart) < str(first) or str(cend) > str(last)):
         return {
-            "id": "f-%s-window" % claim_id, "claim_id": claim_id, "dimension": "selection",
+            "id": "f-%s-window" % claim_id, "claim_id": claim_id, "dimension": "window",
             "severity": "blocker", "status": "open", "confidence": "deterministic",
             "fixable_by": "author",
             "locator": ("window mismatch: claimed %s..%s but the bound artifact covers only %s..%s"
@@ -214,6 +257,7 @@ def check_window(contract, base, claim_id="c1"):
             "reverify": {"kind": "artifact-recheck", "source": dcol or "rows",
                          "expected": "claimed window within the data coverage"},
             "assumed": "the date column delimits the realized track record",
+            "validity_class": "authoritative", "backtest_kind": "window",
         }
     return None
 
@@ -230,7 +274,7 @@ def check_survivorship(contract, base, claim_id="c1"):
     if not flag:
         return None
     return {
-        "id": "f-%s-surv" % claim_id, "claim_id": claim_id, "dimension": "data-integrity",
+        "id": "f-%s-surv" % claim_id, "claim_id": claim_id, "dimension": "survivorship",
         "severity": "major", "status": "open", "confidence": "deterministic", "fixable_by": "author",
         "locator": ("universe is survivorship-biased (declared survivors-only / not point-in-time): "
                     "names that delisted or blew up are absent, so the reported return is upward-biased"),
@@ -239,12 +283,15 @@ def check_survivorship(contract, base, claim_id="c1"):
         "reverify": {"kind": "static-reread", "source": "contract",
                      "expected": "a point-in-time universe with delisted names included"},
         "assumed": "the universe declaration reflects how the backtest selected names",
+        "validity_class": "authoritative", "backtest_kind": "survivorship",
     }
 
 
-def run_checks(contract, base, claim_id="c1"):
-    """All WS4 catches against one engagement. Returns the findings that fired (possibly empty).
-    Fail-soft: any check that errors is skipped (a check must never crash a verification)."""
+def run_checks(contract, base, claim_id="c1", claim_text=None):
+    """All backtest-soundness catches against one engagement. Returns the findings that fired (possibly
+    empty). claim_text is accepted for signature parity with the other four families (the detectors fire
+    on the contract+data; the claim text gates the INVALIDATED promotion in apply_validity, not the
+    detection). Fail-soft: any check that errors is skipped (a check must never crash a verification)."""
     out = []
     for fn in (check_omitted_costs, check_window, check_survivorship):
         try:
@@ -254,3 +301,59 @@ def run_checks(contract, base, claim_id="c1"):
         if f:
             out.append(f)
     return out
+
+
+def _applicable(contract):
+    """The backtest family is applicable iff a backtest surface is declared: a `costs` block, a
+    `claimed_window`/`claimed_periods`, or a survivors-only `universe`. ABSTAINS (NOT-APPLICABLE)
+    otherwise - never guesses, exactly like the other four families."""
+    if contract.get("costs"):
+        return True
+    if contract.get("claimed_window") or contract.get("claimed_periods") is not None:
+        return True
+    uni = contract.get("universe")
+    if isinstance(uni, str) and uni.lower() in ("survivors-only", "survivorship", "survivors"):
+        return True
+    if isinstance(uni, dict) and (uni.get("survivorship") or uni.get("survivors_only")):
+        return True
+    if contract.get("survivorship") is True:
+        return True
+    return False
+
+
+def family_status(contract, findings):
+    """Honest scope.families.backtest status (mirrors the other four families)."""
+    if not _applicable(contract):
+        return "not-applicable"
+    return "flagged" if any(f.get("dimension") in _BT_DIMS for f in findings) else "checked"
+
+
+def apply_validity(claims, findings, contract, claim_text, base=None):
+    """Promote the headline claim per the backtest findings + the claim scope. Conservative: only a
+    REPRODUCED number (CONFIRMED/CAVEATS) is promoted, and only DOWN. A sub-check whose clean property
+    the claim asserts (net / representative-window / point-in-time) -> INVALIDATED on that dimension; the
+    SAME finding next to a bare reproduced number -> a CAVEAT (soft). REFUTED is never manufactured here.
+    `base` is accepted for signature parity (the V0 detectors need no extra artifact read; V1 will)."""
+    bt = [f for f in findings if f.get("dimension") in _BT_DIMS]
+    if not bt or not claims:
+        return
+    head = next((c for c in claims if c.get("headline")), claims[0])
+    if head.get("verdict") not in (V.CONFIRMED, V.CAVEATS):
+        return  # the number didn't reproduce; backtest findings stay additive, no promotion
+    vi = head.get("verdict_inputs") or {}
+    invalidated = False
+    for f in bt:
+        if _claim_asserts(f.get("backtest_kind"), claim_text):
+            f["severity"] = "blocker"          # an INVALIDATED needs a linked blocker of this dimension
+            f["claim_id"] = head["id"]
+            vi["validity_invalidated"] = True
+            vi["oos_claim_asserted"] = True    # the generic clean-property assertion gate (verdict.py)
+            head["driving_dimension"] = f["dimension"]
+            invalidated = True
+        else:
+            vi["soft_validity_caveat"] = True  # bare reproduced number + a backtest finding -> a caveat
+    if not invalidated and not vi.get("soft_validity_caveat"):
+        return
+    head["verdict_inputs"] = vi
+    head["verdict"] = V.verdict(vi)
+    head["headline_confidence"] = V.confidence(vi, head["verdict"])

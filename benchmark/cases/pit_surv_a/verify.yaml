@@ -1,0 +1,44 @@
+{
+  "run": {
+    "entrypoint": "gen.py",
+    "network": "off",
+    "cwd": "."
+  },
+  "env": {
+    "ecosystem": "auto",
+    "trust": "own-code"
+  },
+  "artifacts": [
+    {
+      "path": "runs/returns.csv",
+      "columns": {
+        "daily_return": {
+          "tag": "return",
+          "dtype": "float",
+          "na_policy": "error"
+        }
+      }
+    }
+  ],
+  "metrics": [
+    {
+      "metric_id": "total_return",
+      "artifact": "runs/returns.csv",
+      "binding": {
+        "return": "daily_return"
+      },
+      "convention": null,
+      "claimed_value": 0.1553,
+      "claimed_precision": 0.0005,
+      "headline": true,
+      "binding_status": "independently-bound",
+      "claim_confirmed": true
+    }
+  ],
+  "baselines": [],
+  "universe": {
+    "membership": "runs/universe.csv",
+    "ticker_col": "ticker",
+    "delisted_col": "delisted"
+  }
+}
