@@ -163,7 +163,7 @@ benchmark/                      the 129-case corpus + the 4-arm comparison + sco
 
 ## Status & docs
 
-`v0.10.0`. Real and tested. See [`CHANGELOG.md`](CHANGELOG.md), the [PR-bot adopter guide](docs/pr-bot.md), the [GitHub App guide](app/README.md), and the [investor brief](docs/INVESTOR-BRIEF.md).
+`v0.10.0`. Real and tested. See [`CHANGELOG.md`](CHANGELOG.md), the [PR-bot adopter guide](docs/pr-bot.md), and the [GitHub App guide](app/README.md).
 
 ## License
 
