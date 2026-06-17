@@ -1120,6 +1120,31 @@ def _detect_features(split, arts, keys):
     return feats
 
 
+_TRIALS_NAME = re.compile(r"^(trials|grid_?search|sweep|configs?|candidates?)\.csv$", re.I)
+
+
+def _detect_trials_artifact(arts):
+    """A trials / grid-search / sweep matrix (one column per candidate) sitting in the repo -> declare
+    it so the overfitting family (Deflated Sharpe / PBO) is explicit in the committed contract. Mirrors
+    the runtime auto-detection in overfitting_checks (so behaviour is unchanged - this only makes the
+    coverage durable + self-documenting). Safe: the overfitting family only ever DEGRADES a number."""
+    for a in arts:
+        if _TRIALS_NAME.match(os.path.basename(a["path"])):
+            return a["path"]
+    return None
+
+
+def _detect_date_column(arts):
+    """A time/date column (tagged 'timestamp') in any artifact. SUGGESTED only - which block it unlocks
+    (walk-forward `windows` vs look-ahead `availability`) and the signal/return roles need human/AI
+    input, so the draft never auto-declares a verdict-flipping block from a bare date."""
+    for a in arts:
+        col = next((c for c, s in a["columns"].items() if s.get("tag") == "timestamp"), None)
+        if col:
+            return a["path"], col
+    return None
+
+
 def draft(target, claim=None, metric=None):
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     claim_value, hint = parse_claim(claim)
@@ -1186,11 +1211,34 @@ def draft(target, claim=None, metric=None):
         feats = _detect_features(split, arts, keys)
         if feats:
             contract["features"] = feats
+    # WS-overfitting: a trials / grid-search matrix in the repo -> declare it so the deflated-Sharpe /
+    # PBO check is explicit in the committed contract (the family also auto-detects it at runtime).
+    trials_art = _detect_trials_artifact(arts)
+    if trials_art:
+        contract["trials_artifact"] = trials_art
+    # A coverage map for the human: what got auto-inferred (and the validity family it enables) + the
+    # one declaration that would unlock more. CONSERVATIVE - only SAFE, degrade-only blocks are
+    # auto-declared (split, trials artifact); verdict-flipping ones (windows / availability / frictions)
+    # are SUGGESTED, never auto-set from a bare artifact.
+    detected, suggested = [], []
+    if split:
+        detected.append("split (%s) -> leakage + distribution-shift"
+                        % ("train/test files" if "train" in split else "column '%s'" % split.get("column")))
+    if trials_art:
+        detected.append("trials matrix (%s) -> overfitting (deflated Sharpe / PBO)" % trials_art)
+    _date = _detect_date_column(arts)
+    if _date:
+        suggested.append("a `windows` block (walk-forward / regime) or `availability` (look-ahead) - "
+                         "date column '%s' in %s" % (_date[1], _date[0]))
+    if any("return" in (m.get("binding") or {}) for m in contract["metrics"]):
+        suggested.append("a `frictions` block (fee / slippage / turnover) for a net-of-cost claim")
     contract["_draft_notes"] = {
         "artifacts_found": len(arts),
         "claim_metric_hint": hint,
         "needs_confirmation": [m["metric_id"] for m in contract["metrics"]
                                if m["binding_status"] != "independently-bound" or m["headline"]],
+        "detected_blocks": detected,
+        "suggested_blocks": suggested,
         "warning": None if contract["metrics"] else "no recomputable metric detected; provide --metric/--claim",
     }
     return contract

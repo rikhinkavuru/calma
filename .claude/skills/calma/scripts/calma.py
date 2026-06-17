@@ -1407,6 +1407,10 @@ def draft_cmd(target, *, ai=False, budget=3, model=None, force=False, as_json=Fa
                      m.get("binding_status", "ungraded")))
     else:
         print("  metric:     (none detected - pass --metric/--claim when you verify)")
+    for d in notes.get("detected_blocks") or []:
+        print("  detected:   %s" % d)
+    for sug in notes.get("suggested_blocks") or []:
+        print("  to add:     %s" % sug)
     if notes.get("needs_confirmation"):
         print("  confirm:    %s" % ", ".join(notes["needs_confirmation"]))
     if notes.get("warning"):

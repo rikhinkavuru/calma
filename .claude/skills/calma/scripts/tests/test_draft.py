@@ -149,5 +149,35 @@ truth(not DC.validate_contract(dict(_base, corpus={"manifest": "c.txt", "eval_co
 truth(DC.validate_contract(dict(_base, corpus={"manifest": "c.txt", "evalcol": "p"})),
       "an unknown corpus key (evalcol vs eval_col) is rejected")
 
+# --- conservative block auto-inference (2026-06-17): a trials matrix is auto-declared; a date column
+#     and a return metric are SUGGESTED (never auto-declared); a coverage map is emitted for the human ---
+dI = tempfile.mkdtemp()
+open(os.path.join(dI, "noop.py"), "w").write("pass\n")
+with open(os.path.join(dI, "grid_search.csv"), "w") as fh:   # a trials/grid-search matrix in the repo
+    fh.write("cand_1,cand_2,cand_3\n0.01,0.02,-0.01\n0.00,0.03,0.01\n")
+with open(os.path.join(dI, "returns.csv"), "w") as fh:       # a return series with a date column
+    fh.write("date,strat_return\n")
+    for i in range(8):
+        fh.write("2026-01-%02d,%.4f\n" % (i + 1, 0.01 + 0.001 * (i % 3)))
+cI = DC.draft(dI, claim="total return 0.1", metric="total_return")
+truth(cI.get("trials_artifact") == "grid_search.csv",
+      "a grid_search.csv is auto-detected and declared as trials_artifact (got %r)" % cI.get("trials_artifact"))
+truth(not DC.validate_contract(cI), "the auto-inferred trials_artifact contract validates")
+_nt = cI["_draft_notes"]
+truth(any("trials matrix" in d for d in _nt.get("detected_blocks", [])),
+      "the trials matrix shows up in detected_blocks (got %r)" % _nt.get("detected_blocks"))
+truth(any("date column" in s for s in _nt.get("suggested_blocks", [])),
+      "a date column is SUGGESTED (windows/availability), not auto-declared (got %r)" % _nt.get("suggested_blocks"))
+truth("windows" not in cI and "availability" not in cI,
+      "a bare date column never auto-declares a verdict-flipping windows/availability block")
+truth(any("frictions" in s for s in _nt.get("suggested_blocks", [])),
+      "a return-bound metric suggests a frictions block for a net-of-cost claim")
+# a non-trials csv must NOT be mistaken for a trials matrix
+dJ = tempfile.mkdtemp()
+open(os.path.join(dJ, "noop.py"), "w").write("pass\n")
+open(os.path.join(dJ, "prices.csv"), "w").write("px\n100\n101\n")
+truth(DC.draft(dJ).get("trials_artifact") is None,
+      "an ordinary csv is not auto-declared as a trials matrix (no false positive)")
+
 print("draft_contract: %d checks, %d failures" % (_n, _fail))
 sys.exit(1 if _fail else 0)
