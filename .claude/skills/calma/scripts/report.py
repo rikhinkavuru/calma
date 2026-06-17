@@ -347,6 +347,9 @@ _DIMENSION_GLOSS = {
     "overfitting": "the edge doesn't survive multiple-testing correction",
     "execution-realism": "the edge doesn't survive realistic frictions",
     "contamination": "the eval set is contaminated by the training corpus",
+    "omitted-costs": "the headline is gross, sold as a net-of-cost return",
+    "window": "the claimed period isn't the period actually tested",
+    "survivorship": "the universe is survivors-only, not point-in-time",
 }
 
 

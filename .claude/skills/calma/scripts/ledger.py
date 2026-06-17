@@ -26,18 +26,27 @@ DIMENSIONS = {
     "metric-appropriateness", "selection", "reproducibility", "metric-mismatch",
     "isolation-security", "input-binding", "contract-grounding", "metric-population-coverage",
     "selective-reporting", "artifact-provenance", "environment-selected",
+    # backtest-soundness validity family (V0): each sub-check owns its own dimension so a promotion
+    # names the precise failure - distinct from realism's "execution-realism" (the frictions surface).
+    "omitted-costs", "window", "survivorship",
 }
-# dimensions that are derived from execution and so may NOT be re-verified by a static re-read
+# dimensions that are derived from execution and so may NOT be re-verified by a static re-read.
+# omitted-costs/window are computed off the bound artifact (artifact-recheck); survivorship is read
+# from the contract's universe declaration (static-reread is honest for V0), so it stays OUT.
 EXEC_DIMENSIONS = {
     "reproducibility", "execution-realism", "leakage", "overfitting", "contamination", "baseline",
     "selection", "metric-population-coverage", "environment-selected", "metric-mismatch",
+    "omitted-costs", "window",
 }
 SEVERITIES = {"blocker", "major", "minor", "info"}
 BLOCKING_SEVERITIES = {"blocker", "major"}
 CLEARED_STATUSES = {"resolved", "waived", "accepted"}
-# soundness dimensions (WS4) whose open blocking findings degrade a clean CONFIRMED to CAVEATS:
-# the number reproduces, but it is gross-not-net / cherry-picked / survivorship-biased.
-SOUNDNESS_CAVEAT_DIMENSIONS = {"execution-realism", "selection", "data-integrity"}
+# soundness dimensions whose open blocking findings degrade a clean CONFIRMED to CAVEATS: the number
+# reproduces, but it is gross-not-net / cherry-picked / survivorship-biased. Covers both the legacy
+# generic dims and the V0 backtest dims (so a bare-number backtest finding still degrades to CAVEATS
+# even when apply_validity does not promote to INVALIDATED - the scope-guard backstop).
+SOUNDNESS_CAVEAT_DIMENSIONS = {"execution-realism", "selection", "data-integrity",
+                               "omitted-costs", "window", "survivorship"}
 REVERIFY_KINDS = {"static-reread", "artifact-recheck", "requires-reexecution"}
 FIXABLE = {"editor", "author", "operator", "none"}
 BINDING_STATES = {"independently-bound", "plausibly-bound", "author-asserted"}

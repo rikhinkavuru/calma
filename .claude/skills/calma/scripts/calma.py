@@ -209,10 +209,10 @@ def _reconcile_claim(contract, claim, metric):
 
 
 def _not_verified(metric_ids, leakage_status=None, overfitting_status=None,
-                  realism_status=None, contamination_status=None):
-    """Honest 'what we did NOT check' list. Leakage / overfitting / realism / contamination are now real
-    families: each is listed as a gap ONLY when it was NOT-APPLICABLE (nothing to assess) - never claimed
-    as a gap once it ran, and never called 'roadmap' now that it exists."""
+                  realism_status=None, contamination_status=None, backtest_status=None):
+    """Honest 'what we did NOT check' list. Leakage / overfitting / realism / contamination / backtest-
+    soundness are now real families: each is listed as a gap ONLY when it was NOT-APPLICABLE (nothing to
+    assess) - never claimed as a gap once it ran, and never called 'roadmap' now that it exists."""
     out = []
     if leakage_status in (None, "not-applicable"):
         out.append("data leakage (no train/test split or keys declared)")
@@ -222,8 +222,13 @@ def _not_verified(metric_ids, leakage_status=None, overfitting_status=None,
         out.append("execution realism (no frictions declared)")
     if contamination_status in (None, "not-applicable"):
         out.append("eval/benchmark contamination (no corpus declared)")
-    if any(m in QUANT_METRICS for m in metric_ids):
-        out.append("survivorship-free vendor data (managed roadmap)")
+    # backtest soundness (V0): survivorship / cherry-picked window / omitted costs. Listed as a gap only
+    # when NOT-APPLICABLE (no costs/window/survivors-only universe declared) and a quant metric is in
+    # play - the point-in-time VENDOR-DATA deepening (rebuild the universe with delisted names) is V1's
+    # frontier, so we still note it isn't auto-verified absent a declared universe.
+    if backtest_status in (None, "not-applicable") and any(m in QUANT_METRICS for m in metric_ids):
+        out.append("backtest soundness (no costs / window / survivors-only universe declared; "
+                   "point-in-time vendor data is the V1 frontier)")
     return out
 
 
@@ -390,15 +395,16 @@ def _assemble_ledger(contract, diff, run_res, claim_text=None):
             "reverify": {"kind": "requires-reexecution", "source": "baseline",
                          "expected": "strategy edge over baseline > 0"},
         })
-    # WS4 backtest catches (omitted costs / cherry-picked window / survivorship universe) - additive
-    # findings off the bound artifact. Only when the run actually reproduced (exit 0) and there is a
-    # claim to judge; deck-vs-code mismatch is already handled above by the recompute+verdict path.
-    leak_fam = over_fam = real_fam = cont_fam = None
+    # Validity families (leakage / overfitting / realism / contamination / backtest-soundness) - additive
+    # findings off the bound artifact + contract. Only when the run actually reproduced (exit 0) and there
+    # is a claim to judge; deck-vs-code mismatch is already handled above by the recompute+verdict path.
+    # Each family promotes the (reproduced) headline DOWN only (INVALIDATED / CAN'T-CONFIRM / CAVEAT),
+    # scope-guarded; none can inflate a verdict.
+    leak_fam = over_fam = real_fam = cont_fam = bt_fam = None
     if claims and run_res.get("exit_code", 0) == 0:
         _base = run_res.get("base") or (
             os.path.dirname(os.path.dirname(run_res["run_dir"])) if run_res.get("run_dir") else None)
         if _base:
-            findings.extend(BC.run_checks(contract, _base, claims[0]["id"]))
             # WS-leakage: additive leakage findings, then promote the (reproduced) headline verdict per
             # the findings + the claim scope (INVALIDATED / CAN'T-CONFIRM / CAVEAT). Never manufactures
             # REFUTED - that stays the gap-gated recompute path (+ the leakage-corrected re-run, Step 4).
@@ -423,6 +429,14 @@ def _assemble_ledger(contract, diff, run_res, claim_text=None):
             findings.extend(CNC.run_checks(contract, _base, claims[0]["id"], claim_text=claim_text))
             CNC.apply_validity(claims, findings, contract, claim_text)
             cont_fam = CNC.family_status(contract, findings)
+            # WS-backtest-soundness (V0): omitted-costs / cherry-picked window / survivorship. Additive
+            # findings + the same scope-guarded promotion - INVALIDATED only under a claim asserting the
+            # clean property (net / representative-window / point-in-time), else a CAVEAT. Runs LAST so
+            # the four ML-validity families above take precedence on the driving dimension; backtest only
+            # promotes a still-clean headline (apply_validity returns early once it is non-clean).
+            findings.extend(BC.run_checks(contract, _base, claims[0]["id"], claim_text=claim_text))
+            BC.apply_validity(claims, findings, contract, claim_text, base=_base)
+            bt_fam = BC.family_status(contract, findings)
     # reconcile a claim's human reason with its FINAL verdict_inputs after any family promotion
     # (leakage/realism/overfitting/contamination): the promotion changes the verdict but not the
     # compare-time reason, which would otherwise read a stale "matches within budget" under a
@@ -474,8 +488,9 @@ def _assemble_ledger(contract, diff, run_res, claim_text=None):
                          **({"leakage": leak_fam} if leak_fam else {}),
                          **({"overfitting": over_fam} if over_fam else {}),
                          **({"realism": real_fam} if real_fam else {}),
-                         **({"contamination": cont_fam} if cont_fam else {})},
-            "not_verified": _not_verified(metric_ids, leak_fam, over_fam, real_fam, cont_fam),
+                         **({"contamination": cont_fam} if cont_fam else {}),
+                         **({"backtest": bt_fam} if bt_fam else {})},
+            "not_verified": _not_verified(metric_ids, leak_fam, over_fam, real_fam, cont_fam, bt_fam),
         },
         "repo_verdict": None,
     }
