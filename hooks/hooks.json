@@ -1,5 +1,5 @@
 {
-  "description": "calma zero-touch guardrail: when an agent's final message contains a checkable numeric claim (precision-tuned sniffer), re-execute the work and recompute the number; block the stop only on a definitive REFUTED/MIXED so a wrong number is never reported as fact. Silent otherwise. Fail-open by construction. Opt out: CALMA_HOOK=0, or touch .calma/hook-off.",
+  "description": "calma zero-touch guardrail: when an agent's final message contains a checkable numeric claim (precision-tuned sniffer), re-execute the work and recompute the number; block the stop only on a definitive REFUTED/MIXED/INVALIDATED so a wrong number is never reported as fact. Silent otherwise. Fail-open by construction. Verify scope CALMA_VERIFY=off|headline|all (default headline). Opt out: CALMA_VERIFY=off, CALMA_HOOK=0, or touch .calma/hook-off.",
   "hooks": {
     "Stop": [
       {

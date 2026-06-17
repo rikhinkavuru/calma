@@ -364,6 +364,24 @@ for ext in ("data.csv", "preds.parquet", "out.jsonl", "scores.npy", "results.jso
 for cfg in ("package.json", "tsconfig.json", "next.config.json", "vercel.json"):
     truth(not HK._is_data_artifact(cfg), "config json is NOT a data artifact: %s" % cfg)
 
+# --- VERIFY SCOPE (autonomy): off disables auto-verification entirely; headline (default) blocks ---
+_BLOCK_MSG = "Done! The backtest returned +14,698% on the held-out period."
+btc_off = os.path.join(tmp_root, "btc_off")
+shutil.copytree(BTC_SRC, btc_off, ignore=shutil.ignore_patterns(".calma"))
+out_off, rc_off, _ = run_hook(btc_off, write_transcript(tdir, _BLOCK_MSG), env_extra={"CALMA_VERIFY": "off"})
+truth(rc_off == 0 and out_off == "", "scope=off: the same blocking claim is NOT verified (silent)")
+truth(history(btc_off) == [], "scope=off: leaves no breadcrumbs (no .calma litter)")
+
+btc_hl = os.path.join(tmp_root, "btc_hl")
+shutil.copytree(BTC_SRC, btc_hl, ignore=shutil.ignore_patterns(".calma"))
+out_hl, _rc, _ = run_hook(btc_hl, write_transcript(tdir, _BLOCK_MSG), env_extra={"CALMA_VERIFY": "headline"})
+_b = {}
+try:
+    _b = json.loads(out_hl)
+except ValueError:
+    pass
+truth(_b.get("decision") == "block", "scope=headline (default): the claim is verified and blocks")
+
 shutil.rmtree(tmp_root, ignore_errors=True)
 print("hook: %d checks, %d failures" % (_n, _fail))
 sys.exit(1 if _fail else 0)

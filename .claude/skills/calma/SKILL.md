@@ -137,8 +137,17 @@ it or restate the refuted number - follow the reporting contract above (diagnose
 the producing code, state the honest recomputed number, offer the seal). The same break never
 blocks twice while code+data are unchanged; fixing the code re-verifies fresh.
 
-Controls: env `CALMA_HOOK=0` (kill switch) · `touch .calma/hook-off` (per-project or `~/.calma`)
-· `.calma/config.json` `{"hook": {"enabled": false, "timeout_s": 30, "max_claims": 1}}`.
+**Autonomy has two independent axes (a scope/mode changes what Calma DOES, never what it DECIDES):**
+- **VERIFY SCOPE** - how aggressively the hook auto-verifies: `off` (never) · `headline` (default; the
+  one headline claim) · `all` (every checkable claim this turn, capped). Set via env `CALMA_VERIFY`
+  or `.calma/config.json {"verify": "all"}`. A break at any scope still blocks. (For *every
+  number in a notebook/report*, run the A1 pipeline `python -m edges.extract <artifact>`.)
+- **ACTION MODE** - what Calma does after a check (seal/timestamp/restore): `ask` (default) · `suggest`
+  · `auto`. Set via env `CALMA_MODE`, `--mode`, or `.calma/config.json {"mode": "auto"}`. Outward
+  actions (publish/send) need an explicit standing opt-in even in `auto`.
+
+Controls: env `CALMA_VERIFY=off` or `CALMA_HOOK=0` (kill switch) · `touch .calma/hook-off` (per-project
+or `~/.calma`) · `.calma/config.json` `{"verify": "headline", "hook": {"enabled": false, "timeout_s": 30, "max_claims": 1}}`.
 Every hook decision (fired, skipped, error) is breadcrumbed to `.calma/auto_history.jsonl`
 and summarized by `calma stats` - the seed of a future claims-as-code manifest.
 

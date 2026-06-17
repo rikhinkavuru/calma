@@ -113,7 +113,9 @@ def _hook_config(cwd):
     DISABLE or LIMIT the hook (enabled / timeout_s / max_claims, all clamped downstream) - it can NEVER
     escalate. force_unverified (a sandbox-gate bypass) comes from a TRUSTED source ONLY (see
     _trusted_force_unverified), never from the project tree."""
-    cfg = {"enabled": True, "timeout_s": DEFAULT_TIMEOUT_S, "max_claims": DEFAULT_MAX_CLAIMS,
+    # max_claims default is None = "unset": the VERIFY SCOPE (autonomy) drives the per-turn budget, and
+    # an explicit project max_claims only further LOWERS it (a project can limit the hook, never escalate).
+    cfg = {"enabled": True, "timeout_s": DEFAULT_TIMEOUT_S, "max_claims": None,
            "force_unverified": False}
     try:
         with open(os.path.join(cwd, ".calma", "config.json")) as f:
@@ -412,6 +414,13 @@ def main():
     cfg = _hook_config(cwd)
     if not cfg.get("enabled", True):
         return 0
+    # VERIFY SCOPE (autonomy): off -> never auto-verify (silent, leaves no .calma litter); headline
+    # (default) -> the one headline claim; all -> every checkable claim this turn (capped). Resolved
+    # from --verify / env CALMA_VERIFY / .calma/config.json {"verify"} (and the legacy CALMA_HOOK=0).
+    import autonomy as AU
+    scope = AU.resolve_verify_scope(base=cwd)
+    if scope == "off":
+        return 0
     # Prefer the harness-provided final message: on current Claude Code the
     # transcript file is not yet flushed when the Stop hook runs, so parsing
     # the transcript silently misses the very message that states the claim.
@@ -454,10 +463,11 @@ def main():
         timeout_s = max(5, min(int(cfg.get("timeout_s", DEFAULT_TIMEOUT_S)), 300))
     except (TypeError, ValueError):
         timeout_s = DEFAULT_TIMEOUT_S
-    try:
-        max_claims = max(1, min(int(cfg.get("max_claims", DEFAULT_MAX_CLAIMS)), 3))
-    except (TypeError, ValueError):
-        max_claims = DEFAULT_MAX_CLAIMS
+    # the per-turn verification budget comes from the VERIFY SCOPE (headline -> 1, all -> capped);
+    # an explicit project {"hook":{"max_claims"}} only LOWERS it further (never escalates).
+    max_claims = AU.max_claims_for(scope, cfg.get("max_claims"))
+    if max_claims < 1:
+        return 0
     for cand in claims[:max_claims]:
         res, ms, err = _run_verify(cwd, cand, timeout_s)
         if res is None:

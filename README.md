@@ -8,6 +8,16 @@ Calma is an open-source verifier for numbers that matter. Point it at a result �
 
 > "SOC 2 for backtests." The auditor can't be the auditee — Calma re-derives every label byte-for-byte, so a stamp can't be faked, even by Calma.
 
+**By default it's zero-touch — you type nothing.** Installed as a Claude Code hook (or the MCP tool in Cursor/Codex), Calma auto-verifies the numbers your agent computes *before you ever see them*, and blocks a wrong one so it can't be reported as fact:
+
+```
+# an agent finishes a task and is about to report a number — the Stop hook fires automatically:
+  ⓧ calma caught a number: REFUTED — claimed Sharpe 2.6, the code recomputes 0.4
+    the agent must now report the honest 0.4 and diagnose the cause, not the inflated 2.6
+```
+
+Or run it explicitly — from the CLI, CI, or a PR check:
+
 ```
 $ calma verify ./my-backtest "Sharpe 2.6"
   REFUTED — confidence 0.81
@@ -105,6 +115,15 @@ Calma is one deterministic engine behind five surfaces. *AI proposes, determinis
 - **MCP server** (`python -m calma_mcp`) — the deterministic verifier callable from *any* MCP host (Cursor, Codex CLI, Windsurf, Claude Desktop, CI bots).
 - **A1 artifact pipeline** (`python -m edges.extract`) — point it at a notebook / PDF / CSV and it verifies *every* number, each catch tied to its source span ("cell 14 says 0.94 → recomputes to 0.71").
 - **PR-review bot** (`pr/` + a hosted GitHub App in `app/`) — re-runs `calma verify` on a PR's changed result-dirs in the engine's sandbox and posts the verdicts inline + a gating check-run, built on the pwn-request-proof two-workflow pattern.
+
+### Autonomy — two axes you control (a mode changes what Calma *does*, never what it *decides*)
+
+| Axis | Values | Controls |
+|---|---|---|
+| **Verify scope** — how aggressively the zero-touch hook auto-verifies | `off` · `headline` (default) · `all` (every checkable claim this turn) | env `CALMA_VERIFY` · `.calma/config.json {"verify": …}` |
+| **Action mode** — what it does *after* a check (seal / timestamp / restore-retry) | `ask` (default) · `suggest` · `auto` | env `CALMA_MODE` · `--mode` · `.calma/config.json {"mode": …}` |
+
+A break (REFUTED/MIXED/INVALIDATED) blocks at any scope; outward actions (publish/send) need a standing opt-in even in `auto`. For *every number in a notebook/report*, the A1 pipeline (`python -m edges.extract`) verifies them all in one shot. Every decision is breadcrumbed to `.calma/auto_history.jsonl` and summarized by `calma stats`.
 
 ### The AI edges (intelligence around a deterministic core)
 
