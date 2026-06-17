@@ -1,0 +1,43 @@
+# UNPRIVILEGED half of the pwn-request-proof two-workflow pattern (GitHub Security Lab). Triggered by
+# `pull_request`, so a FORK PR here gets a READ-ONLY token and NO secrets - re-executing the PR's
+# (untrusted) code is safe because the engine sandboxes it network-off (Seatbelt/bwrap/microVM). This
+# job writes a findings ARTIFACT and posts NOTHING; the privileged comment job (workflow_run) does the
+# writing. NEVER use pull_request_target + a head checkout (that is the pwn request).
+name: calma-verify-pr
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read          # read-only; a fork PR gets no secrets and cannot use the token to write
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false                      # the PR's code can never use the token
+          ref: ${{ github.event.pull_request.head.sha }}  # the PR head (the code under test)
+          fetch-depth: 0                                  # need base..head for the diff
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: detect changed result dirs, re-verify each in the engine sandbox, write the bundle
+        # PR-controlled values reach the script via env ONLY - never macro-expanded into the shell line
+        # (no `${{ github.event.* }}` inside `run:`, so a crafted branch/title can't inject a command).
+        env:
+          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GITHUB_PR_NUMBER: ${{ github.event.pull_request.number }}
+          GITHUB_WORKSPACE: ${{ github.workspace }}
+          RUNNER_TEMP: ${{ runner.temp }}
+        run: python3 "$GITHUB_WORKSPACE/pr/run_pr.py"
+      - name: upload the findings bundle for the privileged comment job
+        uses: actions/upload-artifact@v4
+        with:
+          name: calma-findings
+          path: ${{ runner.temp }}/calma-findings.json   # carries pr_number + head_sha (read there)
+          if-no-files-found: error
+          retention-days: 1

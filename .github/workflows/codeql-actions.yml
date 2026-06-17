@@ -1,0 +1,30 @@
+# CodeQL static analysis of the repo's OWN GitHub Actions - a guardrail for the PR bot's security model.
+# `languages: actions` flags Untrusted-Checkout (pwn requests) and script-injection (PR-controlled values
+# expanded into a shell), exactly the two failure modes the two-workflow split is designed to avoid.
+name: codeql-actions
+
+on:
+  push:
+    branches: [main]
+    paths: [".github/workflows/**", ".github/actions/**"]
+  pull_request:
+    branches: [main]
+    paths: [".github/workflows/**", ".github/actions/**"]
+  schedule:
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: actions
+      - uses: github/codeql-action/analyze@v3

@@ -1,0 +1,28 @@
+# Reusable composite action for the UNPRIVILEGED detect+verify+bundle step, so any repo can adopt the
+# bot by copying the two workflows + referencing this action. It runs pr/run_pr.py (no GitHub writes,
+# no secrets); the engine's own network-off sandbox isolates the PR code. DO NOT extend this to post
+# comments - the privileged surface is kept split (see calma-comment-pr.yml).
+name: "Calma PR review (detect + verify + bundle)"
+description: "Detect changed result dirs in a PR, re-verify each in the engine's network-off sandbox, and write a findings bundle."
+inputs:
+  base_sha:
+    description: "The PR base SHA (the merge-base side of the diff)"
+    required: true
+  head_sha:
+    description: "The PR head SHA (the code under test)"
+    required: true
+  pr_number:
+    description: "The PR number (stamped into the bundle for the privileged comment job)"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - shell: bash
+      # env-indirection: inputs never touch the shell line (no word-splitting, no injection)
+      env:
+        GITHUB_BASE_SHA: ${{ inputs.base_sha }}
+        GITHUB_HEAD_SHA: ${{ inputs.head_sha }}
+        GITHUB_PR_NUMBER: ${{ inputs.pr_number }}
+        GITHUB_WORKSPACE: ${{ github.workspace }}
+        RUNNER_TEMP: ${{ runner.temp }}
+      run: python3 "$GITHUB_ACTION_PATH/../../../pr/run_pr.py"

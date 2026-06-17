@@ -1,0 +1,58 @@
+# Calma PR-review bot — adopter guide
+
+The deterministic verifier as a GitHub PR check (the CodeRabbit-shaped sibling of the MCP server). On a
+PR it re-executes the changed result dirs/notebooks **in the engine's network-off sandbox**, recomputes
+every headline number from raw outputs, and posts the verdicts **inline** + a gating **check-run**. Every
+verdict and number is the engine's, copied verbatim — the bot is a transport (`pr/`), it imports no
+verdict core (firewall test).
+
+## The two-workflow security model (do not shortcut it)
+
+A PR from a fork carries attacker-controlled code, and Calma's whole job is to **re-execute it**. The
+only safe shape is GitHub Security Lab's **pwn-request-proof two-workflow pattern**:
+
+1. **`.github/workflows/calma-verify-pr.yml`** — trigger `pull_request`, `permissions: { contents: read }`
+   only, **no secrets**. A fork PR here gets a read-only token, so re-executing its code is safe; the
+   engine *also* sandboxes it (`--trust third-party --isolation auto` → Seatbelt/bwrap/microVM,
+   network-off). It checks out the PR **head** with `persist-credentials: false`, runs `pr/run_pr.py`
+   (diff → targets → verify → bundle), uploads the **`calma-findings`** artifact, and **posts nothing**.
+2. **`.github/workflows/calma-comment-pr.yml`** — trigger `workflow_run` on the first workflow completing,
+   runs **privileged** (`pull-requests: write`, `checks: write`, `contents: read`) in the *base* repo's
+   trusted context. It downloads the artifact, **treats it as untrusted data** (schema-validate, never
+   execute, never shell-interpolate a field), and runs `pr/comment_pr.py` to post the review + summary +
+   check-run.
+
+**Never** use `pull_request_target` + a head checkout (the pwn request). **Never** interpolate
+`${{ github.event.* }}` into a `run:` shell — PR context reaches the scripts through `env:` only.
+`.github/workflows/codeql-actions.yml` runs CodeQL (`languages: actions`) as a guardrail for exactly
+these two failure modes.
+
+## Adopt it
+
+Copy `pr/` and the two workflow files into your repo. No GitHub App is required for this self-hosted-in-CI
+path. The unprivileged step is also packaged as a reusable composite action
+(`.github/actions/calma-pr-review`). For a hosted variant where your LLM keys never touch the customer
+repo, see the GitHub App (`app/`, B4).
+
+What gets a comment: a changed result dir with a committed `verify.yaml` (a `contract` target) or a
+changed `.ipynb`/`.csv` under a runnable dir (an `artifact` target, drafted by `python -m edges.extract`).
+A `REFUTED`/`INVALIDATED`/`MIXED` target ⇒ a failing `calma` check-run + a line-anchored inline comment
+("cell 5 says +14,698% → recomputes to −31.6%"); a clean PR ⇒ a passing check + a one-line summary.
+Re-pushing is incremental + idempotent (no duplicate comments; fixed catches resolve).
+
+## Manual end-to-end verification (BLOCKED in offline CI — requires a live repo or `act`)
+
+The unit suites (`pr/tests`, run with the engine venv: `python -m pytest pr -q`) cover the bundle, the
+rendering, and the commenter against a **mock** GitHub client — no network, no token. The full
+workflow round-trip needs a live GitHub repo (or [`act`](https://github.com/nektos/act)) and a token, so
+it is **not** part of the automated tests. To verify by hand:
+
+1. On a sandbox repo, open a PR that commits a deliberately-`REFUTED` result dir (a `verify.yaml`
+   claiming a number the data contradicts — e.g. copy `.claude/skills/calma/assets/btc`).
+2. Confirm **calma-verify-pr** runs on the fork PR with a read-only token and uploads `calma-findings`
+   (it must post nothing and hold no secrets).
+3. Confirm **calma-comment-pr** then posts one batched inline review + a summary comment + a **failing**
+   `calma` check-run; push a fix and confirm the comment resolves and the check goes green.
+4. Confirm CodeQL Actions reports no `UntrustedCheckout` / script-injection finding.
+
+Keep secrets out of any committed test fixture.
