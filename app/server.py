@@ -12,9 +12,17 @@ import http.server
 import json
 import os
 import re
+import sys
+import traceback
 
 _CMD_RE = re.compile(r"@calma\s+(full\s+review|review)\b", re.I)
 _PR_ACTIONS = ("opened", "synchronize", "reopened", "ready_for_review")
+_MAX_BODY = 1 << 20          # 1 MiB cap on the request body, enforced from Content-Length BEFORE the body
+                             # is read into memory (these webhook payloads are far smaller) - an
+                             # unauthenticated client cannot OOM the receiver with a huge Content-Length.
+# only a repo OWNER / MEMBER / COLLABORATOR may trigger a (compute-spending, privileged-posting) command
+# - never a drive-by commenter on a public PR. GitHub stamps comment.author_association on the event.
+_ALLOWED_ASSOC = ("OWNER", "MEMBER", "COLLABORATOR")
 
 
 def verify_signature(secret, body_bytes, signature_header):
@@ -46,9 +54,13 @@ def route_event(event_type, payload):
                 "repo": (payload.get("repository") or {}).get("full_name"),
                 "installation_id": (payload.get("installation") or {}).get("id")}
     if event_type == "issue_comment" and payload.get("action") == "created":
-        cmd = parse_command((payload.get("comment") or {}).get("body"))
+        comment = payload.get("comment") or {}
+        cmd = parse_command(comment.get("body"))
         issue = payload.get("issue") or {}
-        if cmd and issue.get("pull_request"):   # commands only on PRs (issue_comment fires for both)
+        assoc = (comment.get("author_association") or "").upper()
+        # commands only on PRs (issue_comment fires for issues too), AND only from an authorized
+        # association - a drive-by commenter cannot spend compute or trigger a privileged post.
+        if cmd and issue.get("pull_request") and assoc in _ALLOWED_ASSOC:
             return {"kind": "command", "command": cmd, "pr_number": issue.get("number"),
                     "repo": (payload.get("repository") or {}).get("full_name"),
                     "installation_id": (payload.get("installation") or {}).get("id")}
@@ -71,18 +83,32 @@ def enqueue(job):
     bundle = run_pr.build_bundle(job["base_sha"], job["head_sha"], job["pr_number"], repo=workdir)
     owner, repo = job["repo"].split("/", 1)
     client = github.GitHubClient(token, owner, repo, job["pr_number"])
-    return comment_pr.run(client, bundle, dry_run=(job.get("command") == "review" and False))
+    # both `review` (incremental) and `full review` post: comment_pr is already idempotent + incremental
+    # (same head -> nothing new; a new push -> only the delta), so there is no dry-run on this path.
+    return comment_pr.run(client, bundle)
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
     """The webhook endpoint. The HMAC secret is read from CALMA_WEBHOOK_SECRET (or set as a class attr)."""
     secret = None
+    timeout = 15        # per-request socket timeout: bound a slow-loris client on this single-threaded server
 
     def _secret(self):
         return self.secret or os.environ.get("CALMA_WEBHOOK_SECRET", "")
 
     def do_POST(self):
-        length = int(self.headers.get("content-length", 0) or 0)
+        delivery = self.headers.get("X-GitHub-Delivery", "?")
+        try:
+            length = int(self.headers.get("content-length", 0) or 0)
+        except ValueError:                       # a non-integer Content-Length is a malformed request
+            self.send_response(400)
+            self.end_headers()
+            return
+        if length < 0 or length > _MAX_BODY:     # reject an oversize body BEFORE reading it (no OOM)
+            self.send_response(413)
+            self.end_headers()
+            self.wfile.write(b"payload too large")
+            return
         body = self.rfile.read(length)
         if not verify_signature(self._secret(), body, self.headers.get("X-Hub-Signature-256")):
             self.send_response(401)
@@ -101,11 +127,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if job:
             try:
                 enqueue(job)
-            except Exception as ex:           # a deployment-time failure must not crash the receiver
-                self.log_message("enqueue failed: %s", ex)
+            except Exception:                 # a deployment-time failure must not crash the receiver, but
+                # it MUST be visible: a swallowed job is a PR that silently never gets its gating check.
+                sys.stderr.write("calma: enqueue failed (delivery %s, kind %s):\n%s\n"
+                                 % (delivery, job.get("kind"), traceback.format_exc()))
+                sys.stderr.flush()
 
     def log_message(self, fmt, *args):
-        pass  # quiet by default; a real deployment wires structured logging
+        pass  # suppress default per-request access logging; the failure path above logs to stderr
 
 
 def serve(host="0.0.0.0", port=8080, secret=None):

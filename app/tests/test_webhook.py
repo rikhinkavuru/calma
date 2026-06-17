@@ -55,15 +55,23 @@ def test_route_pull_request_to_verify_job():
 def test_route_issue_comment_command_only_on_prs():
     base = {"action": "created", "repository": {"full_name": "o/r"}, "installation": {"id": 1},
             "issue": {"number": 12, "pull_request": {"url": "…"}},
-            "comment": {"body": "@calma full review"}}
+            "comment": {"body": "@calma full review", "author_association": "OWNER"}}
     job = S.route_event("issue_comment", base)
     assert job and job["kind"] == "command" and job["command"] == "full" and job["pr_number"] == 12
     # the SAME comment on a plain issue (no pull_request key) -> ignored
     no_pr = dict(base, issue={"number": 12})
     assert S.route_event("issue_comment", no_pr) is None
     # an unrelated comment on a PR -> ignored
-    chatter = dict(base, comment={"body": "lgtm, thanks!"})
+    chatter = dict(base, comment={"body": "lgtm, thanks!", "author_association": "OWNER"})
     assert S.route_event("issue_comment", chatter) is None
+    # AUTHORIZATION (M3): a valid command from an UNAUTHORIZED association is ignored - a drive-by
+    # commenter (or a first-time contributor) cannot spend compute or trigger a privileged post.
+    drive_by = dict(base, comment={"body": "@calma full review", "author_association": "NONE"})
+    assert S.route_event("issue_comment", drive_by) is None
+    contrib = dict(base, comment={"body": "@calma review", "author_association": "FIRST_TIME_CONTRIBUTOR"})
+    assert S.route_event("issue_comment", contrib) is None
+    missing = dict(base, comment={"body": "@calma review"})        # no association field at all -> ignored
+    assert S.route_event("issue_comment", missing) is None
 
 
 def _serve():
@@ -103,6 +111,19 @@ def test_live_handler_rejects_bad_signature_and_routes_good_one():
                               "comment": {"body": "hi"}}).encode()
         assert _post(srv, chatter, _sign(chatter), event="issue_comment") == 204
     finally:
+        srv.shutdown()
+
+
+def test_live_handler_rejects_oversize_body_before_auth():
+    # H2: an oversize Content-Length is rejected with 413 BEFORE the body is read into memory and
+    # BEFORE the signature check - an unauthenticated client cannot OOM the single-threaded receiver.
+    srv = _serve()
+    saved = S._MAX_BODY
+    S._MAX_BODY = 8                      # tiny cap so a trivial body trips it (no multi-MB test payload)
+    try:
+        assert _post(srv, b"x" * 64, sig=None) == 413
+    finally:
+        S._MAX_BODY = saved
         srv.shutdown()
 
 
