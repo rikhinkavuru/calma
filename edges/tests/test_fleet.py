@@ -52,8 +52,10 @@ def test_fleet_admission_rate_and_histogram(tmp_path):
     assert summary["admitted"] == 2                          # sem + median_value
     assert abs(summary["admission_rate"] - 2 / 3) < 1e-9
     assert summary["admission_rate"] > 0                     # the KPI is sensible
-    assert summary["stage_failure_histogram"] == {"degenerate": 1}   # harmonic_mean stuck at degeneracy
-    assert summary["mean_iters_to_admit"] is not None
+    # the ONE non-admit is a genuine DEGENERACY stop (not an "error:..." crash), and by complement
+    # (n=3, admitted={sem, median_value} below) it is harmonic_mean -- the documented principled reason.
+    assert summary["stage_failure_histogram"] == {"degenerate": 1}
+    assert abs(summary["mean_iters_to_admit"] - 1.5) < 1e-9          # sem@2 + median_value@1 -> 1.5 (real KPI)
 
     admitted = {r["metric_id"] for r in summary["admitted_recipes"]}
     assert admitted == {"sem", "median_value"}
