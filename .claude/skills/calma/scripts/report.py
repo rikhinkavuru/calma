@@ -350,6 +350,7 @@ _DIMENSION_GLOSS = {
     "omitted-costs": "the headline is gross, sold as a net-of-cost return",
     "window": "the claimed period isn't the period actually tested",
     "survivorship": "the universe is survivors-only, not point-in-time",
+    "look-ahead": "the signal used information that wasn't knowable in time",
 }
 
 

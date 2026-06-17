@@ -1940,5 +1940,37 @@
     "claim_text": "survivorship-bias-free total return 0.1686",
     "label": "flawed",
     "tier": "subtle"
+  },
+  {
+    "id": "pit_surv_a_invalid",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/pit_surv_a",
+    "metric": "total_return",
+    "family": "quant",
+    "validity_family": "survivorship",
+    "display": "total return",
+    "n_rows": 120,
+    "artifact": "runs/returns.csv",
+    "track": "synthetic",
+    "true_value": 0.1553,
+    "claim": 0.1553,
+    "claim_text": "point-in-time survivorship-free total return 0.1553",
+    "label": "flawed",
+    "tier": "subtle"
+  },
+  {
+    "id": "lookahead_a_invalid",
+    "dir": "/Users/rikhinkavuru/calma/benchmark/cases/lookahead_a",
+    "metric": "total_return",
+    "family": "quant",
+    "validity_family": "look-ahead",
+    "display": "total return",
+    "n_rows": 60,
+    "artifact": "runs/bt.csv",
+    "track": "synthetic",
+    "true_value": 0.3881,
+    "claim": 0.3881,
+    "claim_text": "out-of-sample tradeable total return 0.3881",
+    "label": "flawed",
+    "tier": "subtle"
   }
 ]

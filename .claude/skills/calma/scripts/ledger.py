@@ -29,6 +29,9 @@ DIMENSIONS = {
     # backtest-soundness validity family (V0): each sub-check owns its own dimension so a promotion
     # names the precise failure - distinct from realism's "execution-realism" (the frictions surface).
     "omitted-costs", "window", "survivorship",
+    # point-in-time / look-ahead validity family (V1): deeper survivorship reuses "survivorship";
+    # availability/look-ahead (the +1-period-lag probe) is its own dimension.
+    "look-ahead",
 }
 # dimensions that are derived from execution and so may NOT be re-verified by a static re-read.
 # omitted-costs/window are computed off the bound artifact (artifact-recheck); survivorship is read
@@ -36,7 +39,7 @@ DIMENSIONS = {
 EXEC_DIMENSIONS = {
     "reproducibility", "execution-realism", "leakage", "overfitting", "contamination", "baseline",
     "selection", "metric-population-coverage", "environment-selected", "metric-mismatch",
-    "omitted-costs", "window",
+    "omitted-costs", "window", "look-ahead",
 }
 SEVERITIES = {"blocker", "major", "minor", "info"}
 BLOCKING_SEVERITIES = {"blocker", "major"}
