@@ -71,6 +71,9 @@ calma verify <target> "<claim>" --isolation bwrap     # native Linux own-code ti
                                                       # daemon); auto picks it on Linux, Seatbelt on macOS
 calma verify <target> "<claim>" --restore             # restore + PIN the repo's declared deps into
                                                       # .calma_venv before the run (network used in this phase only)
+calma draft <target>                # point at a messy repo -> a runnable verify.yaml (heuristic: detects
+                                    # entrypoint/metric/split/trials + a coverage map). --ai adds the LLM
+                                    # drafter + repair loop (falls back to heuristic with no key); --force
 calma batch <dir>... | --manifest m.tsv   # verify MANY results in one run -> one summary table + roll-up exit
 calma recipes                       # all 623 metric ids, grouped by family (for --metric)
 calma suggest "<free-text ask>"     # unclear what to verify? rank the likely recipes (suggestion only)
@@ -245,7 +248,7 @@ committed claim and says so in the report and `--json` (`note`).
    actually reached, never asserted.
 6. **Every INCONCLUSIVE names a concrete, who-can-act unblock** (the `fix:` line); bias to CAVEAT over a
    false FAIL.
-7. **Any "validity layer / five families / language-agnostic" claim carries the installed-milestone gate.**
+7. **Any "validity layer / 11 families / language-agnostic" claim carries the installed-milestone gate.**
 
 Script I/O contract:
 `references/script-interfaces.md`. The recipe-catalog reference (binding tags, conventions, data

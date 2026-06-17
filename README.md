@@ -74,12 +74,12 @@ One total pure function (`verdict.py`) maps a fully-specified input vector to on
 | **CONFIRMED-WITH-CAVEATS** | it holds, but narrower than claimed (e.g. only plausibly-bound, or cross-stack numeric noise) |
 | **REFUTED** | the code recomputes a materially different number — heavily guarded (independent binding, controlled determinism, claim outside the CI) |
 | **INVALIDATED** | the number *reproduces*, but the result is not valid (leaked / overfit / survivorship-biased / contaminated) |
-| **CAN'T-CONFIRM** | not enough structure / determinism / isolation to decide — always carries a concrete `fix:` |
+| **CAN'T-CONFIRM** | not enough structure / determinism / isolation to decide — always carries a concrete `fix:` and a structured `needs:` (exactly what to provide to resolve it) |
 | **MIXED** | multi-claim, at least one broken |
 
 Defaults are conservative: missing information degrades toward CAN'T-CONFIRM, never toward an accidental CONFIRMED or REFUTED.
 
-### The validity layer — 10 families → INVALIDATED
+### The validity layer — 11 families
 
 Reproducibility (the number recomputes) is *not* validity (the result is sound). Calma ships a real, integrated validity layer — pure-stdlib, bit-stable, each detector only ever **degrades** a verdict, and `INVALIDATED` fires only under a scope-guard (when the claim positively asserts the clean property the data violates):
 
@@ -95,6 +95,7 @@ Reproducibility (the number recomputes) is *not* validity (the result is sound).
 | **Regime / walk-forward** | in-sample → out-of-sample edge collapse, corroborated by a two-sample KS regime shift |
 | **Model-process leakage** | featurization fit on train+test, validation-reuse / selection-on-test |
 | **Distributional shift** | covariate / target shift between train and test (KS + PSI) |
+| **Statistical plausibility** *(thin-input)* | implausibly-high Sharpe + too-smooth (serial-correlation) equity curve — fires from the return series **alone**, no block needed; SOFT (→ CAVEATS + a precise `fix:`, never INVALIDATED) |
 
 ### Breadth
 
@@ -111,7 +112,7 @@ Verified network-off own-code tiers — **Seatbelt** (macOS) and **bubblewrap** 
 Calma is one deterministic engine behind five surfaces. *AI proposes, determinism disposes.* Each surface is a thin transport that calls the engine as a black-box subprocess and never re-implements a verdict (enforced by firewall tests).
 
 - **Claude Code skill / inline agent guardrail** — a Stop hook catches numeric claims before an agent reports them; the agent's own work gets verified mid-loop.
-- **CLI** — `calma verify`, `recipes`, `suggest`, `modes`, `replay`, `doctor`, `seal`, `registry verify`.
+- **CLI** — `calma verify`, `draft` (point it at a messy repo → a runnable `verify.yaml`), `recipes`, `suggest`, `modes`, `replay`, `doctor`, `seal`, `registry verify`.
 - **MCP server** (`python -m calma_mcp`) — the deterministic verifier callable from *any* MCP host (Cursor, Codex CLI, Windsurf, Claude Desktop, CI bots).
 - **A1 artifact pipeline** (`python -m edges.extract`) — point it at a notebook / PDF / CSV and it verifies *every* number, each catch tied to its source span ("cell 14 says 0.94 → recomputes to 0.71").
 - **PR-review bot** (`pr/` + a hosted GitHub App in `app/`) — re-runs `calma verify` on a PR's changed result-dirs in the engine's sandbox and posts the verdicts inline + a gating check-run, built on the pwn-request-proof two-workflow pattern.
@@ -160,7 +161,7 @@ calma replay ./result/.calma/run
 python3 .claude/skills/calma/scripts/run_hermetic.py doctor
 ```
 
-A `verify.yaml` pins *how* to verify (entrypoint, column bindings, conventions, and any validity blocks — `split` / `trials` / `frictions` / `corpus` / `universe` / `study` / `windows` / `pipeline`). Validity checks activate only when their block is declared — Calma never guesses a scope.
+A `verify.yaml` pins *how* to verify (entrypoint, column bindings, conventions, and any validity blocks — `split` / `trials` / `frictions` / `corpus` / `universe` / `study` / `windows` / `pipeline`). Most validity checks activate only when their block is declared — Calma never guesses a scope that could flip a verdict; the exception is the thin-input plausibility family, which flags from the series alone. Don't write it by hand: `calma draft <repo>` points Calma at a messy repo and writes a runnable `verify.yaml`, auto-detecting the safe blocks (split, trials) and *suggesting* the rest.
 
 ---
 
@@ -168,7 +169,7 @@ A `verify.yaml` pins *how* to verify (entrypoint, column bindings, conventions, 
 
 ```
 .claude/skills/calma/scripts/   the deterministic engine (pure stdlib): verdict · ledger · compare ·
-                                recompute · numeric · 10 *_checks.py validity families · run_hermetic
+                                recompute · numeric · 11 *_checks.py validity families · run_hermetic
 edges/                          the AI edges (extract / draft / synth / repair) — firewalled from core
 mcp/                            the host-agnostic MCP server (transport)
 pr/  ·  app/                    the PR-review bot (CI) + the hosted GitHub App (transport)
