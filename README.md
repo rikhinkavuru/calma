@@ -1,388 +1,170 @@
 # Calma
 
-[calma1.vercel.app](https://calma1.vercel.app/) (for now lol)
+[calma1.vercel.app](https://calma1.vercel.app/) · `v0.10.0` · MIT · pure Python stdlib
 
-**Calma checks whether a result is actually true — by re-running the code and recomputing the number itself, instead of trusting what was reported.**
+**Independently verify a computational result by re-executing it to ground truth and recomputing the headline number from the raw outputs — then prove or break the claim.**
 
-Software (and AI agents) produce numbers all day: a model's accuracy, a trading backtest's return, "I cleaned
-10,000 rows," "the total is $4.2M." Most of the time it's fine. When it isn't, the failure is silent — a
-number that doesn't reproduce, a leak in the data, an overfit that only shows up later. Calma re-executes the
-work in a sandbox, **recomputes the headline number from the raw output files** (never the number that was
-reported), and tells you whether the claim holds — with a one-command way to reproduce it.
+Calma is an open-source verifier for numbers that matter. Point it at a result — a backtest's Sharpe, a model's accuracy, a "2.3× faster" benchmark, a cleaned dataset, an LLM eval — and it **re-runs the code in a network-off sandbox, recomputes the metric from the raw output files (never the reported number), and diffs it against the claim** under a calibrated tolerance. The verdict comes from a single deterministic function, not a language model. If the number is real, Calma confirms it with a signed, replayable proof. If it isn't, Calma breaks it and shows you exactly where.
 
-It's an open-source [Claude Code](https://code.claude.com) skill, and also runs as a plain Python CLI. Every
-number, the verdict, and even the confidence score come from deterministic scripts, **not** from a model's
-opinion.
-
-## Demo
-
-![Calma catching a real inflated backtest: `calma demo` re-executes it and recomputes +14,698% down to −32.4%](docs/demo.gif)
-
-Try it on a real inflated backtest that ships with this repo — one command, no setup, no network:
+> "SOC 2 for backtests." The auditor can't be the auditee — Calma re-derives every label byte-for-byte, so a stamp can't be faked, even by Calma.
 
 ```
-$ calma demo
-
-re-verifying a real overfit backtest (it claimed +14,698% on BTC)...
-
-REFUTED  (confidence 98/100)  -  the result does not hold
-  - also: strategy underperforms the trivial baseline (edge -0.7422 <= 0)
-  claimed +14,698%  ->  recomputed -32.4%
-  reproduce: calma replay <demo-copy>/.calma/run
-
-that was a real inflated backtest. now try your own:  calma verify <folder> "<claim>"
+$ calma verify ./my-backtest "Sharpe 2.6"
+  REFUTED — confidence 0.81
+  claimed 2.6 → the code recomputes 0.4 over runs/returns.csv
+  re-executed under seatbelt-verified isolation, controlled-to-bit
+  fix:  the headline uses 252-day annualization on weekly returns; recompute with the right convention
+  replay:  calma replay ./my-backtest/.calma/run     # re-derive this verdict offline, byte-for-byte
 ```
 
-This is real output: the fixture lives at `.claude/skills/calma/assets/btc`, and `calma demo` copies
-it to a temp dir, re-executes it on the held-out data, and recomputes the number
-(equivalently: `calma verify .claude/skills/calma/assets/btc "+14,698% backtest"`).
+---
 
-You get one of these answers:
+## Why
 
-- **CONFIRMED** — it re-runs and the number checks out.
-- **CONFIRMED-WITH-CAVEATS** — it holds, but narrower than claimed (and the caveat is named).
-- **REFUTED** — the recomputed number contradicts the claim, with a reproduction you can run yourself.
-- **INVALIDATED** — the number reproduces, but the *result* is invalid: a data leak, an overfit, or a
-  contaminated benchmark means the held-out claim isn't real even though the arithmetic checks out.
-- **MIXED** — more than one claim was checked; at least one is REFUTED while the others hold.
-- **CAN'T-CONFIRM** — it can't be fully checked yet, plus a `fix:` line with the exact change to make it
-  checkable (e.g. "set a fixed seed", "write predictions to a CSV"). Calma never cries wolf.
+Every dashboard, paper, and pitch deck reports a number. Almost none of them can be independently checked without trusting whoever produced it. AI agents make this worse: they now generate the backtests, the evals, and the "tests pass" — and they are confidently wrong at scale. The expensive failures (a fund allocates on an inflated Sharpe; a team ships a model that leaked its test set) come from a number that was **technically reproducible but not valid**.
 
-## Install
+Calma is built around one act almost no one else does: **recompute the claimed number from the raw outputs, and separately check that the result is sound.** Those are two different questions, and Calma answers both.
 
-The skill is one self-contained folder with **no dependencies** (pure Python standard library,
-Python 3.9 or newer).
+---
 
-Platforms: **macOS** (verified Seatbelt sandbox) and **Linux** (verified bubblewrap sandbox, no
-daemon) are both first-class — each proven by the same built-in `doctor` self-test. A host where the
-self-test can't verify (sandbox binary absent, or unprivileged user namespaces disabled) is honestly
-stamped `host-not-isolated` in the ledger — the stamp never lies. **Windows is unsupported**.
-
-As a Claude Code plugin:
+## How it works
 
 ```
-/plugin marketplace add rikhinkavuru/calma
-/plugin install calma@calma
+  artifact + claim
+        │
+        ▼
+   ┌─────────┐   draft or load a verify.yaml contract (how to run, what to bind)
+   │ contract│
+   └────┬────┘
+        ▼
+   ┌─────────┐   re-execute the entrypoint in a NETWORK-OFF sandbox (Seatbelt / bubblewrap /
+   │ run     │   Docker / remote Firecracker microVM), re-emitting the raw output files.
+   └────┬────┘   A planted secret-read AND a network-connect must FAIL, proven by an in-sandbox self-test.
+        ▼
+   ┌─────────┐   recompute the headline metric from those raw files with one of 623 SOTA recipes
+   │recompute│   (Python / R / Julia / C++ / Rust, run as a black box) — never the reported number.
+   └────┬────┘
+        ▼
+   ┌─────────┐   diff recomputed vs claimed under a CALIBRATED tolerance (BLAS/reduction-order noise is a
+   │ verdict │   caveat, not a refutation), then run the validity layer, then derive ONE deterministic label.
+   └────┬────┘
+        ▼
+   ┌─────────┐   a hash-chained ledger + a signed, offline-verifiable attestation (DSSE + OpenSSH
+   │ attest  │   SSHSIG, RFC-3161 timestamp, optional Sigstore/Rekor transparency log).
+   └─────────┘
 ```
 
-That's the whole setup. The plugin installs two things:
+### The verdict is deterministic and non-gameable
 
-1. **The skill** — your agent runs `calma verify` on results it produces (and you can ask for it
-   any time: "verify this").
-2. **The zero-touch guardrail** — a Stop hook that watches the agent's final message for checkable
-   numeric claims ("accuracy is 0.91", "the backtest returned +340%"). When it finds one in a
-   verifiable project, it re-executes the work and recomputes the number *before the agent finishes
-   its turn*. If the number doesn't hold, the agent is stopped and handed the verdict — a wrong
-   number can't be reported to you as fact. If everything checks out (or nothing is checkable),
-   you never hear from it.
+One total pure function (`verdict.py`) maps a fully-specified input vector to one label. It is imported by **both** the emitter and the gate, which re-derives every label byte-for-byte — so a hand-edited or model-authored verdict cannot pass.
 
-The guardrail is built to be invisible until the moment it isn't: precision-tuned detection (it
-would rather miss than misfire), cache-first re-checks (~80ms when nothing changed), a hard time
-budget, and fail-open everywhere — an error in the hook can never break your session. Cost: the
-first catch costs up to 30s; repeats are cache-instant. It only auto-executes where a verified
-sandbox tier is live (otherwise it skips and says so in the breadcrumb log). Opt out any
-time: `CALMA_HOOK=0`, `touch .calma/hook-off`, or `.calma/config.json → {"hook": {"enabled": false}}`.
-Every decision it makes is logged to `.calma/auto_history.jsonl` (see `calma stats`).
+| Verdict | Meaning |
+|---|---|
+| **CONFIRMED** | the number reproduces and matches the claim within the calibrated budget |
+| **CONFIRMED-WITH-CAVEATS** | it holds, but narrower than claimed (e.g. only plausibly-bound, or cross-stack numeric noise) |
+| **REFUTED** | the code recomputes a materially different number — heavily guarded (independent binding, controlled determinism, claim outside the CI) |
+| **INVALIDATED** | the number *reproduces*, but the result is not valid (leaked / overfit / survivorship-biased / contaminated) |
+| **CAN'T-CONFIRM** | not enough structure / determinism / isolation to decide — always carries a concrete `fix:` |
+| **MIXED** | multi-claim, at least one broken |
 
-Or copy the folder into any project (works with every agent that reads SKILL.md — Claude Code, Codex,
-Cursor, ...):
+Defaults are conservative: missing information degrades toward CAN'T-CONFIRM, never toward an accidental CONFIRMED or REFUTED.
+
+### The validity layer — 10 families → INVALIDATED
+
+Reproducibility (the number recomputes) is *not* validity (the result is sound). Calma ships a real, integrated validity layer — pure-stdlib, bit-stable, each detector only ever **degrades** a verdict, and `INVALIDATED` fires only under a scope-guard (when the claim positively asserts the clean property the data violates):
+
+| Family | Catches |
+|---|---|
+| **Leakage** | row / id / temporal look-ahead / target leakage + a leakage-corrected re-run |
+| **Overfitting** | Deflated Sharpe (Bailey–López de Prado) + PBO via CSCV; N is never guessed |
+| **Execution realism** | fees / slippage / borrow / financing + Almgren √ market-impact + net-of-friction re-run + capacity |
+| **Contamination** | exact eval-in-corpus (sha256) + near-duplicate MinHash/LSH |
+| **Backtest soundness** | omitted costs (gross-sold-as-net), cherry-picked window, survivorship universe |
+| **Point-in-time / look-ahead** | point-in-time membership / attrition + availability-date checks + a +1-period-lag probe |
+| **Data-snooping** | study-wide multiple-testing — Bonferroni / Holm / BHY + the Harvey-Liu-Zhu Sharpe haircut (t > 3.0) |
+| **Regime / walk-forward** | in-sample → out-of-sample edge collapse, corroborated by a two-sample KS regime shift |
+| **Model-process leakage** | featurization fit on train+test, validation-reuse / selection-on-test |
+| **Distributional shift** | covariate / target shift between train and test (KS + PSI) |
+
+### Breadth
+
+`calma recipes` → **623 metrics across 16 families**, each validated against byte-reproducible reference vectors: trading (Sharpe/Sortino/Calmar/VaR/CVaR), classification (accuracy/AUC/F1/log-loss/ECE/Brier), regression (RMSE/MAE/R²), analytics (sum/mean/percentile/groupby/join-loss), engineering ("2.3× faster"/p50–p99/throughput/coverage), retrieval & LLM evals (recall@k/NDCG/MRR/pass@k/exact-match), statistics (p-value/CI/effect-size), derivatives (Black-Scholes + Greeks/IV), credit, rates, fund & LP (TVPI/DPI/KS-PME), forecasting (MAPE/sMAPE/MASE/pinball), and more. Black-box over **Python, R, Julia, C++, Rust**.
+
+### Isolation & attestation
+
+Verified network-off own-code tiers — **Seatbelt** (macOS) and **bubblewrap** (Linux) — each self-tested (a planted secret-read and an egress attempt must both fail), plus a network-denied **Docker** tier and a **remote Firecracker microVM** (`--isolation e2b`, vendor-neutral: E2B cloud or self-hosted, egress denied in-guest) for untrusted counterparty code on a Docker-less host. Every catch ships a proof object: a hash-chained public registry, **DSSE + OpenSSH SSHSIG dual-signing** (zero-install verify), an RFC-3161 timestamp, and an optional Sigstore/Rekor transparency log with offline-verifiable inclusion proofs. Pure Python stdlib, no third-party runtime dependencies.
+
+---
+
+## Surfaces — the engine, everywhere
+
+Calma is one deterministic engine behind five surfaces. *AI proposes, determinism disposes.* Each surface is a thin transport that calls the engine as a black-box subprocess and never re-implements a verdict (enforced by firewall tests).
+
+- **Claude Code skill / inline agent guardrail** — a Stop hook catches numeric claims before an agent reports them; the agent's own work gets verified mid-loop.
+- **CLI** — `calma verify`, `recipes`, `suggest`, `replay`, `doctor`, `seal`, `registry verify`.
+- **MCP server** (`python -m calma_mcp`) — the deterministic verifier callable from *any* MCP host (Cursor, Codex CLI, Windsurf, Claude Desktop, CI bots).
+- **A1 artifact pipeline** (`python -m edges.extract`) — point it at a notebook / PDF / CSV and it verifies *every* number, each catch tied to its source span ("cell 14 says 0.94 → recomputes to 0.71").
+- **PR-review bot** (`pr/` + a hosted GitHub App in `app/`) — re-runs `calma verify` on a PR's changed result-dirs in the engine's sandbox and posts the verdicts inline + a gating check-run, built on the pwn-request-proof two-workflow pattern.
+
+### The AI edges (intelligence around a deterministic core)
+
+LLMs are used only where they can't fake a verdict: **extracting** claims from messy artifacts, **drafting** verify contracts for repos that ship none (the heuristic always disposes), **synthesizing** new recipes via CEGIS (draft → admit → counterexample → re-draft; data has the final say), and **auto-repairing** a broken result then re-verifying with an anti-test-hacking gate. The `edges/` package is firewalled off from the pure-stdlib core.
+
+---
+
+## The benchmark
+
+`benchmark/` ships a 129-case corpus (synthetic + external UCI/sklearn + real-world) scored on two axes (NASEM 2019):
+
+- **Reproducibility** — does the headline number recompute? Calma **100%** catch / 0 false-confirm / 0 false-alarm vs an LLM-as-judge ~82% and trust-the-number 0%.
+- **Validity** — the cell where the number *reproduces* but the result is invalid: Calma **100%** (it INVALIDATES the 12 tagged leaked / overfit / survivorship / shift cases) vs a recompute-only method's **0%**.
+
+A fourth `agent-with-exec` arm (a frontier agent with a `run_python` tool, sandboxed identically) measures the *honest* differences once an agent can execute: verdict-instability (Calma 0 by construction), a pass^k consistency curve, agreement-with-Calma, cost, and the validity blind spot — across ≥2 model families, every counted run network-off-isolated, every transcript published.
+
+---
+
+## Quickstart
 
 ```bash
-git clone https://github.com/rikhinkavuru/calma
-cp -r calma/.claude/skills/calma  your-project/.claude/skills/
+# install the CLI (pure stdlib; no runtime deps)
+./install.sh                      # or: pip install -e . from the repo
+
+# verify a result directory (auto-drafts a contract, or reads a committed verify.yaml)
+calma verify ./result "accuracy 0.94" --metric accuracy --json
+
+# see the catalog, get a recipe suggestion, replay a sealed verdict offline
+calma recipes
+calma suggest ./result
+calma replay ./result/.calma/run
+
+# prove the sandbox actually isolates on this host
+python3 .claude/skills/calma/scripts/run_hermetic.py doctor
 ```
 
-Or use it as a plain CLI (pure stdlib — no pip, no deps; just puts `calma` on your PATH):
+A `verify.yaml` pins *how* to verify (entrypoint, column bindings, conventions, and any validity blocks — `split` / `trials` / `frictions` / `corpus` / `universe` / `study` / `windows` / `pipeline`). Validity checks activate only when their block is declared — Calma never guesses a scope.
 
-```bash
-cd calma            # the repo you just cloned
-./install.sh        # or: make install   (symlinks bin/calma; prints a PATH hint if needed)
-calma demo
-```
+---
 
-## Commands
-
-```bash
-calma demo                          # zero-setup: catch a bundled real inflated backtest (offline, seconds)
-calma verify <folder> "<claim>"     # check a result (exit codes below)
-calma verify <folder>               # no claim: checks the result reproduces (CONFIRMED scope=reproduction)
-calma batch <dir>... | --manifest m.tsv   # verify MANY results at once + one summary table (CI/sprint)
-calma recipes                       # the 623 built-in metrics, grouped by family
-calma verify <folder> "<claim>" --json               # machine-readable verdict (for agents/CI)
-calma verify <folder> "<claim>" --check-determinism  # run twice; flaky outputs can't confirm anything
-calma verify <folder> "<claim>" --timeout 300        # raise the re-execution budget (default 120s)
-calma verify <folder> "<claim>" --trust third-party  # counterparty code: refuse unless a verified
-                                    # container/VM tier is live (never run someone else's code unsafely)
-calma verify <folder> "<claim>" --trust third-party --isolation e2b   # no Docker? run it in a remote
-                                    # Firecracker microVM (E2B cloud OR self-hosted); egress denied in-guest
-calma teardown <folder> "<claim>" [--svg card.svg]   # shareable "claimed X -> really Y" card (+ SVG image)
-calma replay <run_dir>              # re-run a saved verification; exit 0 iff the verdict reproduces
-calma stats <folder>                # verification history: counts, recent catches, hook activity
-calma seal <run_dir> [--publish registry/]   # one command: sign + RFC 3161 timestamp + counterparty
-                                    # instructions (VERIFY-THIS.txt), optionally publish
-calma attest keygen [--import ~/.ssh/id_ed25519]  # one-time signing key; after this, every verify is signed
-calma attest verify <bundle> [--key pub.hex] [--replay]   # check a signed bundle, fully offline
-calma attest timestamp <bundle>     # RFC 3161 trusted timestamp - proves "verified before <date>" once the TSA chain verifies
-calma attest sigstore <bundle>      # lab tier: keyless countersign into the public Rekor log
-calma publish <run_dir>             # append a REDACTED entry to the public catch-history registry
-calma publish <run_dir> --rekor <URL> [--rekor-optional]   # ALSO log to a Sigstore Rekor transparency log
-                                    # (self-hostable, Apache-2.0; default off) -> offline inclusion proof stored
-calma registry verify [dir] [--rekor-log-key HEX|FILE]   # audit the chain offline: hashes, links,
-                                    # signatures + re-verify every stored Rekor inclusion proof offline
-python3 .claude/skills/calma/scripts/run_hermetic.py doctor   # prove the sandbox works on your machine
-```
-
-Exit codes (`calma verify`):
-
-| code | meaning |
-|------|---------|
-| 0 | clean — CONFIRMED / CONFIRMED-WITH-CAVEATS |
-| 1 | not clean — REFUTED / MIXED / CAN'T-CONFIRM (under the default `--fail-on not-clean`) |
-| 2 | bad input — missing target, malformed contract, unknown `--metric` |
-| 3 | refused — execution declined (e.g. `--trust third-party` without a verified container/VM tier) |
-| 4 | killed — the re-execution exceeded the `--timeout` budget |
-
-In CI, the GitHub Action wraps the same verify:
-
-```yaml
-- uses: rikhinkavuru/calma/.github/actions/calma@main
-  with:
-    target: ./results
-    claim: "accuracy 0.87"
-    fail_on: refuted
-```
-
-Claims are natural language: `"accuracy 0.87"`, `"+14,698% backtest"`, `"$4.2M revenue"`,
-`"processed 10,000 rows"` — the number and the metric are parsed from the words (`--metric` pins it
-explicitly). With no claim at all, Calma still checks that the result reproduces — a clean re-run whose
-number recomputes from the raw outputs reports `CONFIRMED (scope=reproduction)` and exits 0.
-
-Verification is **incremental**: results are cached by the content hash of the code, data, contract, and
-claim, so re-verifying something unchanged returns the prior verdict instantly (`--force` re-executes).
-That makes it cheap enough for an agent to call in its loop after every result.
-
-Drop a `verify.yaml` next to a result (JSON or simple YAML) to pin the contract. The contract pins **how**
-to verify (entrypoint, which column is the metric, conventions) — the claim under test is always **yours**:
-if your claim states a different value for the pinned metric, Calma checks *your* value; if it names a
-metric the contract doesn't pin, you get CAN'T-CONFIRM with a fix line (never a verdict about a claim you
-didn't make); if your text has no checkable number, the committed claim is verified and the output says so.
-In CI, use the GitHub Action (`.github/actions/calma`) — `fail_on: refuted` fails the build only when a
-claim actually breaks.
-
-## What it can check
-
-- **Does it reproduce?** Re-run → same number, or it isn't a result. (A crashed re-run can never CONFIRM —
-  stale output files don't count.)
-- **Does the number recompute?** The headline metric, rebuilt from the raw outputs.
-- **Does it beat a basic baseline?** (e.g. buy-and-hold, or majority-class.)
-- **Is it stable?** A calibrated tolerance so normal hardware/threading noise never causes a false alarm.
-
-And the deeper question — **is the result valid, or just reproducible?** A number can recompute perfectly
-and still be meaningless. Calma runs four validity families on the findings rail; any one can turn a
-would-be CONFIRMED into **INVALIDATED** (the number reproduces, but the held-out result doesn't):
-
-- **Data leakage** — train/test overlap (rows, ids, time) and target leakage. On a hit it re-runs the
-  metric on a leakage-corrected split and reports the honest number.
-- **Overfitting** — the Deflated Sharpe Ratio and PBO/CSCV (probability of backtest overfitting) from the
-  declared number of trials / grid-search log, so an in-sample winner can't pass as an out-of-sample one.
-- **Execution realism** — deflates a backtest to declared frictions (cost, slippage, borrow, square-root
-  market impact) and re-runs net-of-friction: a "net" claim that's really gross is REFUTED; one that's
-  uninvestable at size is INVALIDATED.
-- **Eval/benchmark contamination** — exact memorization (hash overlap with a declared corpus) and
-  near-duplicate (minhash), so a "held-out" score that's actually in the training corpus is caught.
-
-Each family is silent unless the contract declares what it needs (a split, a trials count, a `frictions`
-block, a corpus manifest) — Calma never invents a leak that wasn't there, and these checks only ever make
-a verdict *more* cautious, never inflate it.
-
-Built-in metrics cover **trading** (Sharpe, return, drawdown), **machine learning** (accuracy, AUC,
-F1/macro/micro, PR-AUC, log-loss, MCC, calibration/ECE, Brier), **regression & forecasting** (RMSE, MAE, R²,
-MAPE/sMAPE, MASE, pinball), **retrieval & LLM evals** (recall@k, NDCG, MRR, top-k, exact-match, pass@k),
-**analytics** (sums, means, medians, percentiles, group-bys, distinct/null/duplicate counts, join row-loss),
-**engineering** ("2.3× faster", latency p50–p99, throughput, peak memory, test coverage, error rates),
-**statistics** (p-values, confidence intervals, A/B lift, chi-square, correlation, effect size), and
-**business/finance** (CAGR, NPV/IRR, churn, margin, ledger reconciliation), **quant risk** (Sortino, Calmar,
-VaR/CVaR, beta/alpha, information ratio), and **deeper stats/ML/analytics** (Mann-Whitney, ANOVA, Fisher exact,
-KS, Cohen's κ, balanced accuracy, WER, perplexity, MAP@k, HHI, Gini, entropy…) — **623 recipes**, each validated
-against the published reference implementation (scikit-learn, SciPy, NumPy, numpy-financial, statsmodels, jiwer; see
-`.claude/skills/calma/references/recipes.md`). It works on programs written in **Python, R, Julia, C++, or
-Rust** — Calma treats your program as a black box and does the recompute itself.
-
-## Under the hood
-
-`calma verify` runs a small pipeline, one script per step, so the result is auditable:
-
-1. **Detect** the entrypoint, output files, and which column is the metric (`verify.yaml`, auto-drafted).
-2. **Run** the code in a verified sandbox (macOS Seatbelt or Linux bubblewrap; network off, no daemon).
-   A built-in `doctor` self-test proves the sandbox actually blocks secret-reads and network access before
-   the tier is claimed. On a host where neither verifies (e.g. unprivileged user namespaces disabled) the
-   code still runs, but the verdict is stamped `host-not-isolated` and a clean pass is capped at
-   CONFIRMED-WITH-CAVEATS — the stamp never lies.
-3. **Recompute** each metric from the raw outputs, the same way every time (no floating-point surprises).
-4. **Compare** recomputed vs claimed, allowing for the claim's own measurement noise.
-5. **Stress-test validity** — the leakage / overfitting / execution-realism / contamination families run on
-   the findings rail (each only when the contract declares what it needs), so a number that recomputes but
-   is invalid degrades to INVALIDATED instead of CONFIRMED.
-6. **Verdict** from a single deterministic function — re-checked byte-for-byte so it can't be fudged.
-7. **Attest** with a content-addressed manifest (in-toto/SLSA statement + CycloneDX ML-BOM) — and, after a
-   one-time `calma attest keygen`, every verify is signed into a portable DSSE bundle whose predicate is a
-   VSA-style verdict statement (`github.com/rikhinkavuru/calma/verdict/v1` — bundles signed under the
-   legacy `calma.dev/verdict/v1` URI remain valid: verifier + version, the contract and calibration
-   hashes as policy, the verdict, the claims). The same Ed25519 key signs twice: a raw DSSE signature (the
-   envelope Sigstore countersigns) and an OpenSSH SSHSIG — so a counterparty can check the signature with
-   stock `ssh-keygen -Y verify` and **zero installs** (sidecar files land next to the bundle).
-   `calma attest verify <bundle>` is the full offline check: both signatures, the subject digests, and a
-   byte-for-byte re-derivation of every verdict label — neither a tampered bundle nor one re-signed under a
-   different key with forged labels can pass. `--key` pins the expected signer; `--replay` re-executes.
-   `calma attest timestamp` adds an RFC 3161 trusted timestamp (network needed only at stamping time; the
-   token then verifies offline). Its anti-backdating guarantee holds only once the TSA's CA chain verifies —
-   a structural-only token (no CA chain embedded, or `openssl` absent) is reported as UNVERIFIED ("date
-   self-asserted, not proven"), not as proof of the date. `calma attest sigstore` (lab tier, needs sigstore-python)
-   countersigns the same payload keylessly into the public Rekor transparency log.
-8. **Publish** (opt-in): `calma publish <run_dir>` appends a redacted entry — claim, metric, claimed vs
-   recomputed, verdict, content hashes; never code, never data — to a hash-chained, signed public registry
-   (the catch history at `/registry`). Publish requires attest; `calma registry verify` audits the whole
-   chain offline.
-9. **Optional Rekor transparency-log backing** (opt-in, default off): pass `--rekor <URL>` to ALSO log each
-   registry entry to a [Sigstore Rekor](https://github.com/sigstore/rekor) transparency log — Apache-2.0 and
-   **self-hostable**, so you can run your own — and the returned inclusion proof is stored alongside the entry.
-   A third party can then verify the append-only property **offline** with standard tooling (`rekor-cli` or
-   `calma registry verify`) without contacting or trusting the log: the check is pure RFC 6962 Merkle math
-   over the stored proof, cross-checked against the entry's content hash. This is **belt-and-suspenders on top
-   of** the custom hash-chain, never a replacement. Rekor v2 (GA Oct 2025) supports only `hashedrekord` + `dsse`
-   entry types — it dropped `intoto`/`rfc3161` — so calma logs `hashedrekord` over the entry's content address
-   and refuses the dropped types. Logging is **fail-closed** by default (a requested log that fails writes
-   nothing; `--rekor-optional` opts into fail-open) and happens strictly **after** the verdict is finalized and
-   the entry signed — Rekor sits outside the hermetic boundary and can never alter a verdict.
-
-   *Third-party verification* — the stored proof (under `entries/*.json` → `rekor`) re-verifies offline:
-
-   ```
-   calma registry verify registry/ --rekor-log-key <rekor-pubkey-hex>   # anchors the root to the log key
-   # rekor-cli equivalent (the same logIndex + inclusion proof, checked against the public/instance log):
-   rekor-cli --rekor_server <URL> get --log-index <index>               # fetch the entry
-   rekor-cli --rekor_server <URL> verify --log-index <index>            # verify its inclusion proof
-   ```
-
-   *Self-hosting* a Rekor v2 instance (so the whole chain is yours) is a `docker compose up` against the
-   published Rekor + Trillian images; point `--rekor http://localhost:3000` at it. See `docs/rekor.md`.
-
-## Limitations
-
-Calma proves a result is **real and reproduces** — not that it answered the *right* question. When it can't
-fully verify something, it says so and tells you the fix, rather than guessing. The verified-isolation
-own-code tier ships on macOS (Seatbelt) and Linux (bubblewrap, no daemon); on a host where the self-test
-can't verify, runs are honestly stamped as unisolated. Running untrusted third-party code safely needs a
-container or VM: a network-denied Docker container (`--isolation docker`) or, on a host **without Docker**,
-a remote Firecracker microVM (`--isolation e2b` — E2B cloud or self-hosted). Either way egress is denied
-in-guest and proven by an in-sandbox self-test before the tier is stamped; untrusted code with no verified
-container/VM tier is refused (exit 3) rather than run unsafely. See **Self-hosting the microVM tier** below.
-
-### Self-hosting the microVM tier (BYOC)
-
-The `e2b` tier is vendor-neutral by construction — **trust lives in the isolation tech, not the vendor**.
-There is no hard-coded endpoint: you point it at E2B's managed cloud *or* your own cluster with three config
-values (env or a JSON file at `CALMA_E2B_CONFIG`):
-
-| value | env | notes |
-|-------|-----|-------|
-| endpoint | `CALMA_E2B_ENDPOINT` | API URL / domain of the control plane (cloud or self-hosted) |
-| API token | `CALMA_E2B_API_KEY` (or `CALMA_E2B_TOKEN`) | never logged, stamped, or written to the replay bundle |
-| template id | `CALMA_E2B_TEMPLATE` | the microVM image to boot |
-| self-hosted | `CALMA_E2B_SELF_HOSTED=1` | stamps `e2b-firecracker (self-hosted)` (provenance only — the endpoint URL is never put in the stamp) |
-
-E2B is **Apache-2.0** and **Terraform-self-hostable** (Firecracker under the hood), so a regulated desk can run
-the whole tier inside its own VPC and still get the same `e2b-firecracker` verdict. The SDK is an **optional
-extra** (`pip install e2b`) — core installs without it keep working and simply can't select `e2b`. The microVM
-only *produces* raw outputs; recompute runs host-side over those bytes, so the verdict is reproduced
-independently of the VM (the tier adds no nondeterminism to compare/recompute).
-
-## FAQ
-
-**Can't I just ask my agent to verify it — or to re-run the code itself?**
-Asked to "double-check," a model usually re-reads its reasoning and says it looks right — that's a second
-opinion, not verification. And even when an agent does re-run the code, three gaps remain: (1) the agent
-*decides* whether the output matches the claim — a judgment call it can rationalize, especially about its
-own work; (2) nothing stops it from "fixing" the comparison instead of the code; (3) there's no
-reusable artifact — no tolerance model, no audit trail, no exit code for CI. Calma closes all three: the
-diff happens under a calibrated tolerance in deterministic, unit-tested scripts, the ledger re-derives
-every label byte-for-byte so a model can't author a passing verdict, and every run leaves a
-content-addressed manifest — signed into a portable attestation bundle once you've made a key. Independent benchmarks back this up: agents *assessing* reproducibility score
-~21% accuracy (REPRO-Bench) — judgment fails where re-execution works. The auditor can't be the auditee.
-
-**What do people use for this problem today?**
-Honestly: mostly nothing — they trust the printed number, or eyeball it. The adjacent tools solve
-different problems: eval/observability platforms (LangSmith, Langfuse, Arize) trace and score with
-LLM-judges; data validators (Great Expectations, Pandera) check schemas and drift; CI tests check code
-paths the author thought to test. None of them re-execute the work and recompute the claimed number from
-the raw outputs. In quant, independent backtest validation exists — as bespoke human consulting. That
-empty cell is what Calma fills.
-
-**Why not just put my rules / bounds / invariants in CLAUDE.md or the start of the session?**
-Instructions in context are advisory and probabilistic. A model can forget them, deprioritize them, or
-rationalize around them, especially late in a long session, and they only shape what gets *generated* —
-they don't prove the output is correct. Calma enforces the check by *running* the code: it recomputes the
-metric, compares it to the claim under a calibrated tolerance, and decides with code. Put the intent in
-CLAUDE.md to guide generation; use Calma to verify the result that comes out.
-
-**How is this different from eval / observability tools (LangSmith, Langfuse, Arize, etc.)?**
-Those trace runs and score them with model-as-judge, or track drift over time. None re-execute the work
-and recompute the claimed number. Calma is verification by execution to ground truth, not by judgment.
-
-**Can the agent game the verdict?**
-The label and every statistic come from deterministic, unit-tested scripts, and the ledger re-derives the
-verdict byte-for-byte from its inputs — a model can't author a passing label. The one surface the producer
-influences is which output column maps to the claim; a REFUTED is only allowed when that binding passed an
-independent sanity check AND the claim target is unambiguous (named in the claim or pinned with --metric).
-An ambiguous binding degrades to CAN'T-CONFIRM, never a verdict.
-
-**A number can reproduce perfectly and still be wrong — does Calma catch that?**
-Yes — that's the **INVALIDATED** verdict. Reproducing the arithmetic isn't the same as the result being
-valid. Calma runs four validity families on the findings rail — data leakage (train/test overlap + target
-leakage, with a leakage-corrected re-run), overfitting (Deflated Sharpe + PBO/CSCV), execution realism (a
-friction-deflated re-run), and eval/benchmark contamination (corpus hash overlap + near-duplicate minhash)
-— so a number that recomputes but is invalid is stamped INVALIDATED, not CONFIRMED. Each is silent unless
-the contract declares what it needs (a split, a trials count, a `frictions` block, a corpus manifest), so
-it never invents a leak; the checks only ever make a verdict more cautious, never inflate it.
-
-**Does it work if there's no specific number to check?**
-Yes. With a claim it recomputes-and-diffs; without one it still checks that the result reproduces and that
-any declared invariants hold.
-
-**Does my code or data leave my machine?**
-No. Everything runs locally; nothing is uploaded. On macOS (Seatbelt) and Linux (bubblewrap) the run is
-inside a verified, network-off sandbox; on a host without one, the verdict says so explicitly instead of
-pretending.
-
-**Is it only for trading/quant?**
-No. It ships 623 metrics across trading, ML (classification, regression, retrieval/RAG, LLM evals),
-analytics, engineering/performance, statistics, and business/finance, and treats your program as a black
-box, so it works across Python, R, Julia, C++, and Rust.
-
-**What if it can't fully verify something?**
-It returns CAN'T-CONFIRM with a `fix:` line naming the exact change to make it checkable (e.g. "set a
-fixed seed", "write predictions to a file"), instead of guessing. It biases toward a caveat over a false
-alarm.
-
-## Development
-
-```bash
-python3 .claude/skills/calma/scripts/tests/run_all.py     # full test suite (pure stdlib, no deps)
-```
-
-## Repository layout
+## Architecture & guarantees
 
 ```
-.claude/skills/calma/    the skill — SKILL.md, scripts/, assets/, calibration/
-.claude-plugin/          plugin + marketplace manifests (/plugin install calma@calma)
-hooks/hooks.json         the zero-touch guardrail (Stop hook) registration
-bin/calma                CLI launcher
-scripts/teardowns/       the worked backtest example
-registry/                the public, hash-chained catch-history registry
-app/  components/        the project website (optional; not needed to use the skill)
-docs/                    design specs and notes
+.claude/skills/calma/scripts/   the deterministic engine (pure stdlib): verdict · ledger · compare ·
+                                recompute · numeric · 10 *_checks.py validity families · run_hermetic
+edges/                          the AI edges (extract / draft / synth / repair) — firewalled from core
+mcp/                            the host-agnostic MCP server (transport)
+pr/  ·  app/                    the PR-review bot (CI) + the hosted GitHub App (transport)
+benchmark/                      the 129-case corpus + the 4-arm comparison + scoring
 ```
+
+- **The verdict is one function**, re-derived byte-for-byte at the gate — non-gameable.
+- **Pure stdlib, fully offline, code never leaves your machine.** The honest answer to "where is our data processed?" is *"on your machine, network-off."*
+- **Every transport is firewalled** — `mcp/`, `pr/`, `app/` import no verdict core; the validity detectors import no model.
+- **Tested:** 39 core suites / 0 failed (pure stdlib) + 147 transport tests; 623 recipes against reference vectors.
+
+## Status & docs
+
+`v0.10.0`. Real and tested. See [`CHANGELOG.md`](CHANGELOG.md), the [PR-bot adopter guide](docs/pr-bot.md), the [GitHub App guide](app/README.md), and the [investor brief](docs/INVESTOR-BRIEF.md).
 
 ## License
 
-MIT
+MIT. Calma is pure Python stdlib at runtime — no copyleft exposure, no third-party supply chain.
