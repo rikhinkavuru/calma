@@ -9,6 +9,12 @@ OPUS   = "claude-opus-4-8"
 SONNET = "claude-sonnet-4-6"
 HAIKU  = "claude-haiku-4-5-20251001"
 
+# Opus 4.7/4.8 (and Fable 5) reject sampling params (temperature/top_p/top_k) with a 400. Send
+# `temperature` only to models that accept it -- OPUS gets none. Determinism here comes from
+# record/replay, not temperature=0, so omitting it changes nothing about reproducibility. Haiku/Sonnet
+# keep temperature, so their already-recorded fixture hashes are unchanged.
+_NO_SAMPLING = {OPUS}
+
 _client = None
 def _c():
     global _client
@@ -20,9 +26,12 @@ def _c():
     return _client
 
 def complete(prompt, *, model=SONNET, system=None, max_tokens=4096, temperature=0.0):
-    """Plain text completion. Deterministic by default (temperature 0). Goes through record/replay."""
+    """Plain text completion. Determinism comes from record/replay. `temperature` is sent only to
+    models that accept it (omitted for OPUS, which 400s on sampling params)."""
     req = {"model": model, "system": system, "max_tokens": max_tokens,
-           "temperature": temperature, "messages": [{"role": "user", "content": prompt}]}
+           "messages": [{"role": "user", "content": prompt}]}
+    if model not in _NO_SAMPLING:
+        req["temperature"] = temperature
     cached = record.replay(req)
     if cached is not None:
         return cached
@@ -38,9 +47,11 @@ def structured(prompt, *, schema, model=SONNET, system=None, max_tokens=4096,
     Raises after `retries`."""
     from jsonschema import validate, ValidationError
     tools = [{"name": tool_name, "description": "Emit the result.", "input_schema": schema}]
-    req0 = {"model": model, "system": system, "max_tokens": max_tokens, "temperature": 0.0,
+    req0 = {"model": model, "system": system, "max_tokens": max_tokens,
             "tools": tools, "tool_choice": {"type": "tool", "name": tool_name},
             "messages": [{"role": "user", "content": prompt}]}
+    if model not in _NO_SAMPLING:
+        req0["temperature"] = 0.0
     messages = list(req0["messages"])
     for attempt in range(retries + 1):
         req = dict(req0, messages=messages)
