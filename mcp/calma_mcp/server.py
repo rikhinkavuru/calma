@@ -116,6 +116,28 @@ def verify(target, *, claim=None, metric=None, mode="ask", trust="own-code",
     return _run_json(argv, timeout=timeout + 30)
 
 
+def debug(target, *, claim=None, metric=None, trust="own-code", isolation="auto", timeout=600) -> dict:
+    """`calma verify <target> --run-only --json` -> {run_only, metrics:[{metric, binding, claimed,
+    recomputed, gap, reason}], isolation_tier, ...}. NO verdict, NO gate: it re-runs + recomputes + diffs
+    so an agent can SEE what the code actually computes and how far the claim is, mid-task, then iterate -
+    instead of a pass/fail. Same isolation pass-through as calma_verify; the engine still owns every
+    number (the transport never recomputes a thing)."""
+    abs_target = _require_in_workspace(target)
+    timeout = max(1, min(int(timeout), 86400))
+    if str(trust) not in ("own-code", "third-party"):
+        raise ValueError("trust must be 'own-code' or 'third-party'")
+    if str(isolation) not in _ISOLATION_TIERS:
+        raise ValueError("isolation must be one of %s" % (_ISOLATION_TIERS,))
+    argv = ["python3", _calma_script(), "verify", "--run-only", "--json",
+            "--trust", str(trust), "--isolation", str(isolation), "--timeout", str(timeout)]
+    if claim:
+        argv.append("--claim=" + str(claim))            # `--opt=VALUE` so a leading '-' can't smuggle a flag
+    if metric:
+        argv.append("--metric=" + str(metric))
+    argv += ["--", abs_target]                            # end-of-options: target is unambiguously positional
+    return _run_json(argv, timeout=timeout + 30)
+
+
 def verify_artifact(target, *, mode="flag") -> dict:
     """`python -m edges.extract <target> --json --mode <mode>` -> the A1 Report JSON (catches first,
     each tied to its source span). Wraps the A1 CLI seam; the engine still owns every verdict."""
@@ -194,6 +216,28 @@ _TOOLS = [
             },
         },
     ),
+    types.Tool(
+        name="calma_debug",
+        description="Iterate mid-task: re-run the target, RECOMPUTE the metric from the raw outputs, and "
+                    "return the binding + recomputed value + gap vs your claim - with NO verdict and NO "
+                    "gate. Use this while building (\"what does the code actually compute, and how far off "
+                    "is my number?\"); use calma_verify for the gating pass/fail. Returns "
+                    "{metrics:[{metric, binding, claimed, recomputed, gap, reason}], isolation_tier, ...}.",
+        inputSchema={
+            "type": "object",
+            "required": ["target"],
+            "properties": {
+                "target": {"type": "string", "description": "folder with the code and its outputs"},
+                "claim": {"type": ["string", "null"], "default": None,
+                          "description": "optional claim to measure the gap against, e.g. 'accuracy 0.94'"},
+                "metric": {"type": ["string", "null"], "default": None,
+                           "description": "force a specific recipe/metric id"},
+                "trust": {"type": "string", "enum": ["own-code", "third-party"], "default": "own-code"},
+                "isolation": {"type": "string", "default": "auto", "enum": list(_ISOLATION_TIERS)},
+                "timeout": {"type": "integer", "default": 600, "minimum": 1},
+            },
+        },
+    ),
 ]
 
 _RESOURCES = [
@@ -213,6 +257,10 @@ _DISPATCH = {
         timeout=a.get("timeout", 600), check_determinism=a.get("check_determinism", False)),
     "calma_verify_artifact": lambda a: verify_artifact(a["target"], mode=a.get("mode", "flag")),
     "calma_suggest": lambda a: suggest(a["query"], top=a.get("top", 5)),
+    "calma_debug": lambda a: debug(
+        a["target"], claim=a.get("claim"), metric=a.get("metric"),
+        trust=a.get("trust", "own-code"), isolation=a.get("isolation", "auto"),
+        timeout=a.get("timeout", 600)),
 }
 
 

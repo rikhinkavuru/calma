@@ -50,6 +50,7 @@ def test_list_tools_includes_calma_verify_schema():
     assert "calma_verify" in by_name
     assert "calma_verify_artifact" in by_name
     assert "calma_suggest" in by_name
+    assert "calma_debug" in by_name
 
     schema = by_name["calma_verify"].inputSchema
     assert schema["required"] == ["target"]
@@ -59,6 +60,11 @@ def test_list_tools_includes_calma_verify_schema():
                  "check_determinism"):
         assert flag in props, flag
     assert props["trust"]["enum"] == ["own-code", "third-party"]
+    # calma_debug advertises the same target/claim/metric/isolation surface, minus the verdict knobs
+    dbg = by_name["calma_debug"].inputSchema
+    assert dbg["required"] == ["target"]
+    for flag in ("target", "claim", "metric", "trust", "isolation", "timeout"):
+        assert flag in dbg["properties"], flag
 
 
 # === ACCEPTANCE: calma_verify on the btc asset -> REFUTED, recomputed ~ -0.32, run_dir exists ===
@@ -73,6 +79,23 @@ def test_calma_verify_btc_asset_is_refuted(monkeypatch):
     assert os.path.isdir(res["run_dir"])                      # the engine run dir really exists
     # the transport never weakened the verdict: gate_exit reflects the catch
     assert res["gate_exit"] == 1
+
+
+# === ACCEPTANCE: calma_debug on the btc asset -> a no-verdict recompute view (binding + gap) ====
+def test_calma_debug_btc_asset_is_no_verdict_recompute(monkeypatch):
+    monkeypatch.setenv("CALMA_MCP_WORKSPACE", REPO_ROOT)
+    res = _payload(anyio.run(_call, "calma_debug", {"target": BTC_ASSET, "claim": "+14,698%"}))
+    # a host that can't verify a sandbox returns the inconclusive verdict view instead; skip there.
+    if not res.get("run_only"):
+        pytest.skip("host could not verify a network-off sandbox; calma_debug recompute view skipped")
+    assert "verdict" not in res and "repo_verdict" not in res    # NO verdict in the debug view
+    assert "gate_exit" not in res                                # NO gate
+    mets = res["metrics"]
+    assert mets and mets[0]["metric"] == "total_return"
+    assert mets[0]["binding"] == {"return": "strat_return"}      # the binding is surfaced
+    assert mets[0]["recomputed"] is not None and mets[0]["recomputed"] < 0   # recomputed from raw outputs
+    assert isinstance(mets[0]["gap"], (int, float)) and mets[0]["gap"] > 100  # gap vs the claim
+    assert os.path.isdir(res["run_dir"])
 
 
 # === ACCEPTANCE: the workspace jail rejects a path that escapes the workspace ===================
