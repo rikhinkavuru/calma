@@ -1754,6 +1754,10 @@ def main():
     sl.add_argument("--note", default=None, help="one redacted line of context for the registry entry")
     sl.add_argument("--engagement", default=None, help="link the registry entry to an engagement id")
     sl.add_argument("--key", help="signing key file (default: ~/.calma/keys/ed25519.key)")
+    sl.add_argument("--evidence", nargs="?", const=True, default=None, metavar="DIR",
+                    help="also export an ALLOCATOR evidence bundle (verified result + input lineage + "
+                         "runtime digests + replay, mapped to GIPS-2026 / ODD) to DIR "
+                         "(default: <run_dir>/evidence)")
     _add_rekor_publish_args(sl)
     pb = sub.add_parser("publish", help="append a REDACTED entry (claim/verdict/gap only - never "
                                         "code or data) to the public catch-history registry")
@@ -2116,6 +2120,16 @@ def main():
                           % wrapper["rekor_error"])
                 print("            to make it PUBLIC: commit registry/ with a signed commit "
                       "and push - the site rebuilds itself")
+            if a.evidence is not None:
+                import evidence_bundle as EV
+                ev_out = None if a.evidence is True else a.evidence
+                try:
+                    out = EV.build_evidence(run_dir, ev_out)
+                    print("evidence    %s/EVIDENCE.md  (+ evidence.json + carried proof)" % out)
+                    print("            allocator/ODD pack: verified result + input lineage + runtime "
+                          "digests + replay, mapped to GIPS-2026 / ODD")
+                except (OSError, ValueError) as e:
+                    print("evidence    SKIPPED (%s)" % e)
             print("sealed      %s" % run_dir)
             print("            share this folder; VERIFY-THIS.txt inside has the exact "
                   "commands a counterparty runs (incl. zero-install OpenSSH)")
