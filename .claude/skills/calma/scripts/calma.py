@@ -32,6 +32,7 @@ import overfitting_checks as OC
 import realism_checks as RLC
 import contamination_checks as CNC
 import plausibility_checks as PLC
+import cross_engine as CE
 import compare as CMP
 import draft_contract as DC
 import intake as INTAKE
@@ -796,7 +797,7 @@ def _resolve_timeout(cli_timeout, contract):
 
 
 def verify(target, claim=None, metric=None, run_id="run", force=False, check_determinism=False,
-           trust="own-code", timeout=None, isolation=None, restore=False):
+           trust="own-code", timeout=None, isolation=None, restore=False, cross_engine=False):
     target = os.path.realpath(target)
     if trust not in ("own-code", "third-party"):
         raise ValueError("--trust must be own-code or third-party (got %r)" % trust)
@@ -871,7 +872,7 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
     # the cache: same contract + same entrypoint bytes + same artifact bytes => same verdict.
     # Inline/agent-loop use re-verifies only what changed; --force always re-executes, and a
     # determinism check is new evidence, so it never reads the cache (it still stores).
-    if block_finding is None and not force and not check_determinism:
+    if block_finding is None and not force and not check_determinism and not cross_engine:
         hit = _cached_result(target, _input_fingerprint(target, contract, isolation))
         if hit:
             _trace("cache", "code+data+claim unchanged -> prior verdict (--force re-executes)")
@@ -881,6 +882,7 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
             return hit
 
     diff = None
+    cross = None        # B2: the cross-engine correctness block (only when --cross-engine is set)
     refused = killed = False
     entry = contract.get("run", {}).get("entrypoint")
     if block_finding is not None:
@@ -1013,6 +1015,19 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
                            % (_rm.get("metric_id"), _rm.get("artifact", "outputs"),
                               REP.fmt_value(_rm.get("value"), _rm.get("metric_id")),
                               _rm.get("k", 1)))
+            # B2 (opt-in --cross-engine): recompute each metric through an INDEPENDENT second kernel and
+            # diff. ADDITIVE - it attaches a cross_engine block + writes cross_engine.json, and NEVER
+            # touches the verdict/ledger (the primary numeric.py recompute stays authoritative). Fail-soft.
+            if cross_engine:
+                try:
+                    cross = CE.cross_check_contract(contract, target, rec)
+                    json.dump(cross, open(os.path.join(run_dir, "cross_engine.json"), "w"), indent=2)
+                    if cross.get("n_checked"):
+                        _trace("cross-engine", "%d metric(s) recomputed on a 2nd independent kernel: %s"
+                               % (cross["n_checked"], "DIVERGENCE" if cross.get("any_divergence")
+                                  else "agree to %g" % CE.ABS_FLOOR))
+                except (OSError, ValueError, KeyError, TypeError):
+                    cross = None
             man = attest.manifest_for(os.path.join(target, "runs")) if os.path.isdir(os.path.join(target, "runs")) else {}
             json.dump(man, open(os.path.join(run_dir, "manifest.json"), "w"), indent=2)
             run_res["manifest_ref"] = "sha256:" + man.get("manifest_sha256", "none")
@@ -1135,7 +1150,7 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
         pass
     return {"gate_exit": code, "gate": summary, "repo_verdict": led["repo_verdict"],
             "report": rendered, "display": display, "first_run_notice": first_run_notice,
-            "teardown": card, "run_dir": run_dir, "ledger": led,
+            "teardown": card, "run_dir": run_dir, "ledger": led, "cross_engine": cross,
             "cached": False, "claim_note": claim_note, "refused": refused, "killed": killed}
 
 
@@ -1335,6 +1350,8 @@ def _json_result(res):
         "isolation_tier": led.get("scope", {}).get("isolation_tier"),
         "determinism_mode": led.get("scope", {}).get("determinism_mode"),
         "run_dir": res["run_dir"],
+        # B2: present only when --cross-engine ran; agents key on cross_engine.any_divergence
+        **({"cross_engine": res["cross_engine"]} if res.get("cross_engine") else {}),
     }
 
 
@@ -1649,6 +1666,10 @@ def main():
                         "the mode governs only follow-on ACTIONS. Also CALMA_MODE / .calma/config.json")
     v.add_argument("--json", action="store_true", dest="as_json",
                    help="print a machine-readable verdict object instead of the report")
+    v.add_argument("--cross-engine", action="store_true", dest="cross_engine",
+                   help="CROSS-ENGINE correctness: recompute each metric through an INDEPENDENT second "
+                        "kernel and diff (quantifies the implementation uncertainty single-engine results "
+                        "leave unmeasured). Additive - reports agreement, never changes the verdict")
     b = sub.add_parser("batch", help="verify MANY targets at once + a summary table (CI/sprint use)")
     b.add_argument("targets", nargs="*",
                    help="dirs (each with a committed verify.yaml) or globs, e.g. 'runs/*'")
@@ -1797,7 +1818,8 @@ def main():
         if a.cmd == "verify":
             res = verify(a.target, a.claim_text or a.claim, a.metric, a.run_id,
                          force=a.force, check_determinism=a.check_determinism,
-                         trust=a.trust, timeout=a.timeout, isolation=a.isolation, restore=a.restore)
+                         trust=a.trust, timeout=a.timeout, isolation=a.isolation, restore=a.restore,
+                         cross_engine=a.cross_engine)
             _base = os.path.realpath(a.target)
             mode = AUT.resolve_mode(a.mode, _base)
             # autonomy (auto): transparently retry a missing-dependency failure under --restore
@@ -1808,7 +1830,8 @@ def main():
                     print("  auto: a dependency was missing - retrying once with --restore ...")
                 res = verify(a.target, a.claim_text or a.claim, a.metric, a.run_id,
                              force=True, check_determinism=a.check_determinism,
-                             trust=a.trust, timeout=a.timeout, isolation=a.isolation, restore=True)
+                             trust=a.trust, timeout=a.timeout, isolation=a.isolation, restore=True,
+                             cross_engine=a.cross_engine)
             if a.fail_on == "refuted":
                 exit_code = 1 if res["repo_verdict"] in V.CATCH_VERDICTS else 0
             else:
@@ -1823,6 +1846,19 @@ def main():
                 print(json.dumps(_json_finite(_json_result(res)), indent=2))
             else:
                 print(res.get("display") or res["report"])
+                _ce = res.get("cross_engine")
+                if _ce and _ce.get("n_checked"):
+                    ext = (" (host can also cross-check via %s)" % ", ".join(_ce["external_available"])) \
+                          if _ce.get("external_available") else ""
+                    if _ce.get("any_divergence"):
+                        d = next(m for m in _ce["metrics"] if not m["agree"])
+                        print("  cross-engine: DIVERGENCE on %s - primary %s vs independent kernel %s "
+                              "(implementation-dependent; reconcile the definition)%s"
+                              % (d["metric"], REP.fmt_value(d["primary"], d["metric"]),
+                                 REP.fmt_value(d["second"], d["metric"]), ext))
+                    else:
+                        print("  cross-engine: %d metric(s) agree to %g on a second independent kernel%s"
+                              % (_ce["n_checked"], CE.ABS_FLOOR, ext))
                 # the trust footnote prints AFTER the verdict (dimmed on a tty), never above it
                 note = res.get("first_run_notice")
                 if note:
