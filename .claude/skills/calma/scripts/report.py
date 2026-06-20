@@ -59,16 +59,16 @@ UNSIGNED_PERCENT_METRICS = {"test_coverage", "error_rate", "ratio_share", "null_
 
 # INCONCLUSIVE reason -> the concrete unblock ('who-can-act' fix). Substring-matched, first hit wins.
 _FIXES = [
-    ("exited non-zero", "make the entrypoint run to completion (exit 0), then re-run calma verify"),
-    ("determinism is uncontrolled", "set a fixed seed and write outputs deterministically, then re-run"),
-    ("determinism is measured-band", "set a fixed seed (or run calibration) so the band is controlled"),
-    ("claim target is unconfirmed", "name the metric in the claim (e.g. \"accuracy 0.99\") or pass --metric"),
+    ("exited non-zero", "make the entrypoint run to completion (exit 0) - check the captured stderr in .calma/run/run.json - then re-run calma verify"),
+    ("determinism is uncontrolled", "set a fixed seed (e.g. np.random.seed(42) / torch.manual_seed(42) / random.seed(42), or R set.seed(42)) and write outputs deterministically (sort rows before writing, pin float formatting), then re-run"),
+    ("determinism is measured-band", "set a fixed seed (e.g. np.random.seed(42) / torch.manual_seed(42)), or run a calibration pass, so the determinism band is controlled"),
+    ("claim target is unconfirmed", "name the metric in the claim (e.g. \"accuracy 0.99\") or pass --metric (e.g. --metric accuracy)"),
     ("not statistically distinguishable", "the gap is within the claim's own noise - a finer-grained claim or more data is needed"),
     ("no recomputed numeric", "write the result's raw numbers to a machine-readable file (e.g. predictions.csv with y_true,y_pred)"),
-    ("untrusted code", "third-party code needs a verified container/VM tier - or set trust: own-code if you wrote it"),
+    ("untrusted code", "third-party code needs a verified container/VM tier (--isolation docker, or --isolation e2b for a remote microVM) - or set trust: own-code in verify.yaml if you wrote it"),
     ("killed or isolation was refused", "the run was killed or refused - raise the budget with --timeout SECONDS, or check `run_hermetic.py doctor`"),
-    ("degenerate recompute", "the recompute hit NaN/Inf - check for missing values in the output file"),
-    ("outputs differ across identical re-runs", "set a fixed seed (and write outputs deterministically), then re-run"),
+    ("degenerate recompute", "the recompute hit NaN/Inf - check for missing/blank cells in the output file, or declare an na_policy in verify.yaml"),
+    ("outputs differ across identical re-runs", "set a fixed seed (e.g. np.random.seed(42) / torch.manual_seed(42) / random.seed(42), or R set.seed(42)) and write outputs deterministically, then re-run"),
     ("plausibly-bound", "confirm which column is the metric: pass --metric, or pin the binding in verify.yaml"),
     ("author-asserted", "the input binding could not be independently sanity-checked - pin it in verify.yaml"),
 ]
@@ -317,9 +317,9 @@ _SOURCE_NEEDS = {
 # guard-path INCONCLUSIVE (no finding) still emits a precise, structured demand.
 _REASON_NEEDS = [
     ("exited non-zero", "reproduction", ["an entrypoint that runs to completion (exit 0) so the result re-executes"]),
-    ("outputs differ across identical re-runs", "determinism", ["a deterministic run (fixed seed + deterministic output writes) so the result is stable across re-runs"]),
-    ("determinism is uncontrolled", "determinism", ["a fixed seed / deterministic output writes (or a calibration run) so the band is controlled"]),
-    ("determinism is measured-band", "determinism", ["a fixed seed or a calibration run so the determinism band is controlled"]),
+    ("outputs differ across identical re-runs", "determinism", ["a deterministic run: a fixed seed (np.random.seed(42) / torch.manual_seed(42) / random.seed(42), or R set.seed(42)) plus deterministic output writes, so the result is stable across re-runs"]),
+    ("determinism is uncontrolled", "determinism", ["a fixed seed (np.random.seed(42) / torch.manual_seed(42)) and deterministic output writes, or a calibration run, so the band is controlled"]),
+    ("determinism is measured-band", "determinism", ["a fixed seed (np.random.seed(42) / torch.manual_seed(42)) or a calibration run, so the determinism band is controlled"]),
     ("no recomputed numeric", "the headline number", ["the result's raw numbers in a machine-readable file (e.g. predictions.csv with y_true,y_pred), or state the metric and number you computed"]),
     ("untrusted code", "isolation", ["a verified container / microVM tier (--isolation docker|e2b), or set trust: own-code if you wrote the code"]),
     ("killed or isolation was refused", "execution budget", ["a larger budget (--timeout SECONDS), or a live isolation tier (check `run_hermetic.py doctor`)"]),

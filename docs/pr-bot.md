@@ -6,6 +6,21 @@ every headline number from raw outputs, and posts the verdicts **inline** + a ga
 verdict and number is the engine's, copied verbatim — the bot is a transport (`pr/`), it imports no
 verdict core (firewall test).
 
+## What it is: a merge gate, not a comment bot
+
+The SKU is **"block the merge on a wrong number."** CodeRabbit and the other PR bots post an LLM
+*opinion* on your diff — advisory, dismissible, and itself ungrounded. Calma posts a **gating
+check-run** that is a pure function of the engine's deterministic verdicts (`pr/render.py::check_conclusion`):
+
+- **`failure`** on any **REFUTED / INVALIDATED / MIXED** — a number that doesn't recompute, or reproduces
+  but isn't valid, fails the check.
+- **`neutral`** on **CAN'T-CONFIRM** — not enough structure to decide; never a silent pass, never a hard block.
+- **`success`** otherwise.
+
+Mark that check **required** in branch protection and a wrong number physically can't be merged. This is a
+different category from a reviewer that comments: it's a **blocking correctness gate** on the *result*, not
+a suggestion on the *code*. *Prove your own numbers before you ship.*
+
 ## The two-workflow security model (do not shortcut it)
 
 A PR from a fork carries attacker-controlled code, and Calma's whole job is to **re-execute it**. The
