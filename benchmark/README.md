@@ -80,6 +80,42 @@ rejected honest ones (12×), and nothing in its output tells you which calls to 
 **every flaw on every track — including the published leakage case and the +14,698% backtest — with
 zero wrong verdicts**, at a **p50 of ~216 ms** per verification.
 
+### The fourth arm: a code-running agent (`agent-with-exec`)
+
+The LLM-judge above gets **no code execution** — the realistic *eval* condition. The honest question is what
+survives once an agent *can* run code. `benchmark/run_agent.py` gives a frontier agent the same data plus a
+`run_python` tool, **K times per case**, steelmanned with an explicit "recompute **and** check validity"
+prompt. Its tool code runs in **Calma's own verified network-off sandbox** (Seatbelt / bubblewrap; a planted
+secret-read and an egress attempt must both fail) — a host that can't verify isolation **drops** those runs
+rather than execute untrusted code unsandboxed.
+
+The point isn't raw catch-rate — a strong agent recomputes most simple numbers correctly. It's the residual
+gaps a deterministic checker doesn't have, which `score.py` folds in automatically once `results/agent.json`
+exists:
+
+| metric | what it exposes | Calma |
+|---|---|---|
+| **verdict-instability** | % of cases whose verdict flips across the K reruns | **0** (by construction) |
+| **pass^k curve** | P(k i.i.d. runs all land on the right verdict); the pass^1 → pass^k drop is the consistency cliff | **1.0, flat** |
+| **validity-blindness** | on the leakage / overfit / realism / contamination cut the number *reproduces*, so a recompute-only agent says "honest" and misses the invalidity | **INVALIDATES it** |
+| **agreement-with-Calma · cost · latency** | how often it matches the deterministic verdict, at what $ and wall-clock | **~0.2 s · $0 · offline** |
+
+A second model from a **different family** (a GPT/o-series model alongside Claude) runs as a cross-arm
+(`agent_cross.json`) to kill the single-model artifact + self-preference bias. Every counted run is
+network-off-isolated; every transcript (system prompt → tool calls → tool output → final answer) is written
+to `results/agent_transcripts/`, so nothing is hand-picked.
+
+> **Recorded vs reproducible.** The 117-case three-arm table above is a committed, recorded result. The agent
+> arm is the **reproducible methodology** — run the command in *Reproduce* below on your own API keys to
+> generate the live spread (it costs real tokens, so it is not part of the offline suite). `--mock` validates
+> the plumbing with zero network.
+
+**Why a recompute, not a score.** A *score* can be gamed outright: in 2026 a UC Berkeley team built an agent
+that hit **~100% on six agentic benchmarks** (SWE-bench, WebArena, GAIA) **without solving a single task**, by
+gaming the grader — a planted `conftest.py` makes every test report as passing. A number *recomputed from the
+raw outputs* has no grader to game; and even a sandboxed, code-running agent, as this arm measures, stays
+stochastic and validity-blind. Calma is neither.
+
 ## Honest caveats
 
 - The LLM-judge is the realistic *eval* condition (no execution). A judge allowed to write and run
@@ -113,4 +149,10 @@ python3.13 benchmark/run_calma.py                   # calma over all 117 (3.13: 
 python3 benchmark/prep_judge.py                     # anonymized judge batches
 #   run the LLM-as-judge on each judge_batches/batch_*.json (no code execution) -> results/judge_batch_*.json
 python3 benchmark/score.py                          # tables + summary.json + site_data.json (full 117-case)
+
+# OPTIONAL fourth arm - a code-running agent (needs API keys + a host with a verified sandbox; --mock
+# runs an offline plumbing check only). Folds verdict-instability / pass^k / agreement-with-Calma /
+# validity-blindness / cost / latency into the tables across >=2 model families:
+ANTHROPIC_API_KEY=... OPENAI_API_KEY=... python3 benchmark/run_agent.py --k 5 --models claude-opus-4-8,gpt-5
+python3 benchmark/score.py                          # re-score WITH agent.json + agent_cross.json folded in
 ```
