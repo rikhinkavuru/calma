@@ -27,6 +27,22 @@ python3 .claude/skills/calma/scripts/calma.py registry verify registry/ [--key <
 
 re-hashes every entry, walks the chain, and checks every signature — fully offline.
 
+## Publish + deploy (the credibility flywheel)
+
+In **auto mode** Calma appends every catch to a **local** catch-record by default
+(`~/.calma/registry`, or `$CALMA_REGISTRY_DIR`) — local-only, no network; opt out with
+`.calma/config.json {"autonomy": {"local_catch_record": false}}`. Pushing to a *shared/public*
+registry stays an explicit step (`calma publish` / `calma seal --publish`, or the `auto_publish`
+opt-in). Turn any registry into a self-contained, hostable site:
+
+```bash
+calma registry site registry/ --out site/   # index.html + the raw, re-verifiable registry
+```
+
+Deploy `site/` to any static host (GitHub Pages / S3 / Netlify) or open `index.html`. The page leads
+with the offline-re-derived chain status and ships the raw `registry/` beside it, so a visitor verifies
+the bytes (`calma registry verify`), never the HTML. Rebuild after each publish.
+
 Or check any single entry with **stock OpenSSH and nothing else** — the signature, public
 key, and allowed-signers line are embedded in the entry file. The signed payload is the
 canonical JSON of the `entry` object (sorted keys, no whitespace):
