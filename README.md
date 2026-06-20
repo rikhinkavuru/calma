@@ -95,7 +95,7 @@ Reproducibility (the number recomputes) is *not* validity (the result is sound).
 | **Regime / walk-forward** | in-sample → out-of-sample edge collapse, corroborated by a two-sample KS regime shift |
 | **Model-process leakage** | featurization fit on train+test, validation-reuse / selection-on-test |
 | **Distributional shift** | covariate / target shift between train and test (KS + PSI) |
-| **Statistical plausibility** *(thin-input)* | implausibly-high Sharpe + too-smooth (serial-correlation) equity curve — fires from the return series **alone**, no block needed; SOFT (→ CAVEATS + a precise `fix:`, never INVALIDATED) |
+| **Statistical plausibility** *(thin-input)* | fires with **no declared block**, SOFT-only (→ CAVEATS, never INVALIDATED): implausibly-high Sharpe, a too-smooth (serial-correlation) curve, and a **regime-drift** non-stationarity smell off the return series; plus an **undeclared-split leakage** smell (an inferred train/test split + real row overlap) and a **train/test loss-gap** overfit smell off ML artifacts — each names the exact block to declare for the authoritative verdict |
 
 ### Breadth
 

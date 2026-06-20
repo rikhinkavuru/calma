@@ -141,5 +141,87 @@ def _ledger_valid(claims, findings):
 
 truth(_ledger_valid([hc], hf)[0] in (0, 1), "plausibility CAVEATS ledger validates")
 
+
+# ============================================================================================
+# B1 thin-input broadening: regime drift (series) + undeclared-split leakage + train/test loss gap
+# ============================================================================================
+
+# --- regime drift: the two halves are a materially different distribution (a variance regime) ---
+_glo, _ghi = _lcg(101), _lcg(202)
+regime = ([round(0.001 + (next(_glo) - 0.5) * 0.004, 8) for _ in range(24)]
+          + [round(0.001 + (next(_ghi) - 0.5) * 0.080, 8) for _ in range(24)])  # 2nd half ~20x vol
+fr = PLC.run_checks(_contract(), _repo(regime), "c1", "total return")
+truth(any(f["plausibility_kind"] == "regime-drift" for f in fr),
+      "regime-drift: a variance-regime shift across the halves fires from the series alone (no block)")
+truth(all(f["validity_class"] == "heuristic" and f["severity"] == "minor" for f in fr),
+      "regime-drift: SOFT (heuristic, minor) — never INVALIDATED")
+truth(not any(f["plausibility_kind"] == "regime-drift"
+              for f in PLC.run_checks(_contract(), R_ok, "c1", "total return")),
+      "regime-drift: a stationary (ordinary) series does NOT fire it (no false alarm)")
+_sup = PLC.run_checks(_contract(), _repo(regime), "c1", "total return",
+                      findings=[{"dimension": "regime", "id": "f-c1-regime"}])
+truth(not any(f["plausibility_kind"] == "regime-drift" for f in _sup),
+      "regime-drift: defers to the authoritative regime family when it already flagged")
+
+
+# --- undeclared-split leakage: inferred train/test split + real row overlap -> SOFT smell ---
+def _split_repo(train_rows, test_rows, header="x,y"):
+    d = tempfile.mkdtemp()
+    for name, rows in (("train.csv", train_rows), ("test.csv", test_rows)):
+        with open(os.path.join(d, name), "w", newline="") as fh:
+            fh.write(header + "\n")
+            for r in rows:
+                fh.write(r + "\n")
+    return d
+
+
+def _ml_contract(**extra):
+    c = {"metrics": [{"metric_id": "accuracy", "artifact": "test.csv",
+                      "binding": {"pred": "p", "label": "y"}, "claimed_value": 0.9, "headline": True}],
+         "artifacts": [{"path": "train.csv", "columns": {"x": {}, "y": {}}},
+                       {"path": "test.csv", "columns": {"x": {}, "y": {}}}]}
+    c.update(extra)
+    return c
+
+
+_leak_base = _split_repo(["%d,%d" % (i, i % 2) for i in range(20)],
+                         ["3,1", "5,1", "100,0", "101,1"])  # "3,1"/"5,1" duplicate train rows
+fl = PLC.run_checks(_ml_contract(), _leak_base, "c1", "accuracy 0.9")
+_leak = next((f for f in fl if f["plausibility_kind"] == "undeclared-split-leak"), None)
+truth(_leak is not None,
+      "undeclared-split: an inferred train/test split + real row overlap fires a SOFT leakage smell")
+truth(_leak and _leak["dimension"] == "plausibility" and _leak["validity_class"] == "heuristic"
+      and _leak["severity"] == "minor",
+      "undeclared-split: SOFT (CAVEAT) — never an authoritative leakage blocker")
+truth(_leak and "split:" in _leak["unblock"],
+      "undeclared-split: the fix names the exact split block to declare")
+truth(not any(f["plausibility_kind"] == "undeclared-split-leak"
+              for f in PLC.run_checks(_ml_contract(split={"train": "train.csv", "test": "test.csv"}),
+                                      _leak_base, "c1", "accuracy 0.9")),
+      "undeclared-split: SILENT once a split is DECLARED (the authoritative family takes over)")
+_clean = _split_repo(["%d,%d" % (i, i % 2) for i in range(20)], ["100,0", "101,1", "102,0"])
+truth(not any(f["plausibility_kind"] == "undeclared-split-leak"
+              for f in PLC.run_checks(_ml_contract(), _clean, "c1", "accuracy 0.9")),
+      "undeclared-split: a clean (non-overlapping) split does NOT fire (no false alarm)")
+
+
+# --- train/test loss gap: a history artifact whose val loss far exceeds train loss ---
+def _hist_repo():
+    d = tempfile.mkdtemp()
+    with open(os.path.join(d, "history.csv"), "w", newline="") as fh:
+        fh.write("epoch,train_loss,val_loss\n1,0.50,0.55\n2,0.30,0.48\n3,0.10,0.42\n")
+    return d
+
+
+_hist_contract = {"metrics": [{"metric_id": "log_loss", "artifact": "history.csv",
+                               "binding": {"value": "val_loss"}, "claimed_value": 0.42, "headline": True}],
+                  "artifacts": [{"path": "history.csv",
+                                 "columns": {"epoch": {}, "train_loss": {}, "val_loss": {}}}]}
+fg = PLC.run_checks(_hist_contract, _hist_repo(), "c1", "log loss 0.42")
+truth(any(f["plausibility_kind"] == "train-test-loss-gap" for f in fg),
+      "loss-gap: a large train/val loss gap fires the overfit smell from the artifact alone")
+truth(all(f["validity_class"] == "heuristic" and f["severity"] == "minor" for f in fg),
+      "loss-gap: SOFT (heuristic, minor)")
+
 print("plausibility_checks: %d checks, %d failures" % (_n, _fail))
 sys.exit(1 if _fail else 0)

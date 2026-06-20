@@ -494,12 +494,15 @@ def _assemble_ledger(contract, diff, run_res, claim_text=None):
             findings.extend(DShC.run_checks(contract, _base, claims[0]["id"], claim_text=claim_text))
             DShC.apply_validity(claims, findings, contract, claim_text, base=_base)
             shift_fam = DShC.family_status(contract, findings)
-            # WS-plausibility (V6): thin-input statistical smells (implausibly-high Sharpe, too-smooth
-            # equity curve). The ONLY family that needs no declared block - it fires from the bound
-            # return series alone. SOFT-ONLY: degrades a reproduced number to a CAVEAT (never INVALIDATED /
-            # REFUTED) and surfaces a precise "what to check" finding. Runs LAST so every authoritative
-            # family keeps precedence on the driving dimension.
-            findings.extend(PLC.run_checks(contract, _base, claims[0]["id"], claim_text=claim_text))
+            # WS-plausibility (V6 + B1): thin-input statistical smells that need NO declared block.
+            # Return series: implausibly-high Sharpe, too-smooth curve, regime drift (first/second-half
+            # KS). ML/tabular result: undeclared-split leakage (inferred split + real row overlap) and a
+            # train/test loss gap. SOFT-ONLY: degrades a reproduced number to a CAVEAT (never INVALIDATED /
+            # REFUTED) and surfaces a precise "what to declare" finding. Runs LAST so every authoritative
+            # family keeps precedence; `findings` is passed so the regime smell defers to the
+            # authoritative regime family when that one already fired.
+            findings.extend(PLC.run_checks(contract, _base, claims[0]["id"], claim_text=claim_text,
+                                           findings=findings))
             PLC.apply_validity(claims, findings, contract, claim_text, base=_base)
             plaus_fam = PLC.family_status(contract, findings)
     # reconcile a claim's human reason with its FINAL verdict_inputs after any family promotion
