@@ -11,7 +11,7 @@ REPO = os.path.normpath(os.path.join(HERE, "..", ".."))
 sys.path.insert(0, REPO)
 from pr import bundle as B  # noqa: E402
 from pr import run_pr  # noqa: E402
-from pr.diff_targets import changed_paths, verify_targets  # noqa: E402
+from pr.diff_targets import changed_paths, verify_targets, _is_framework_artifact  # noqa: E402
 
 CATCH = ("REFUTED", "INVALIDATED", "MIXED")
 
@@ -98,3 +98,32 @@ def test_engine_resolves_from_trusted_root_not_the_pr_tree(tmp_path, monkeypatch
     assert calma.startswith(run_pr._ENGINE_ROOT), calma                  # engine binary from the TRUSTED root
     assert ".claude" in calma and str(tmp_path) not in calma             # NOT from the PR tree
     assert captured["cwd"] == str(tmp_path)                              # the target is still READ in the PR tree
+
+
+def test_framework_artifact_autodetect(tmp_path):
+    """C2: a PR touching a tracked ML/backtest run's outputs (MLflow mlruns/, W&B, Ray Tune) is
+    auto-detected as an 'artifact' target when a runnable entrypoint sits above it - even though an
+    MLflow metric file carries NO extension. A framework output with no entrypoint above it stays
+    un-targeted (we can only verify what we can re-run)."""
+    repo = str(tmp_path)
+    # MLflow metric file (no extension) under a project dir whose entrypoint is train.py
+    _w(os.path.join(repo, "proj", "train.py"), "print('train')\n")
+    _w(os.path.join(repo, "proj", "mlruns", "0", "abc", "metrics", "accuracy"), "0.94 1700000000 0\n")
+    # W&B summary under a backtest dir whose entrypoint is strategy.py (Backtrader-style)
+    _w(os.path.join(repo, "bt", "strategy.py"), "")
+    _w(os.path.join(repo, "bt", "wandb", "run-xyz", "files", "wandb-summary.json"), '{"sharpe": 2.6}')
+    # Ray Tune result.json with NO runnable entrypoint anywhere above it
+    _w(os.path.join(repo, "sweeps", "trial0", "result.json"), '{"loss": 0.1}')
+    changed = ["proj/mlruns/0/abc/metrics/accuracy",
+               "bt/wandb/run-xyz/files/wandb-summary.json",
+               "sweeps/trial0/result.json"]
+    targets = {t["target"]: t for t in verify_targets(changed, repo=repo)}
+    assert targets.get("proj", {}).get("kind") == "artifact", targets   # MLflow run -> proj/ (train.py)
+    assert targets.get("bt", {}).get("kind") == "artifact", targets     # W&B run -> bt/ (strategy.py)
+    assert not any(t.startswith("sweeps") for t in targets), targets    # no entrypoint -> not targeted
+    # the predicate is narrow: distinctive framework signals only, never an ordinary source/doc file
+    assert _is_framework_artifact("a/mlruns/0/r/metrics/auc")
+    assert _is_framework_artifact("x/wandb/run-1/files/wandb-summary.json")
+    assert _is_framework_artifact("tune/result.json")
+    assert not _is_framework_artifact("src/model.py")
+    assert not _is_framework_artifact("docs/readme.md")

@@ -10,6 +10,7 @@ GH = os.path.normpath(os.path.join(HERE, "..", "..", ".github"))
 VERIFY = os.path.join(GH, "workflows", "calma-verify-pr.yml")
 COMMENT = os.path.join(GH, "workflows", "calma-comment-pr.yml")
 ACTION = os.path.join(GH, "actions", "calma-pr-review", "action.yml")
+COMMENT_ACTION = os.path.join(GH, "actions", "calma-pr-comment", "action.yml")
 DANGER = ("${{ github.event", "${{ inputs.", "${{ github.head_ref", "${{ steps.")
 
 
@@ -42,7 +43,7 @@ def _no_shell_injection(text):
 
 
 def test_no_pull_request_target_anywhere():
-    for p in (VERIFY, COMMENT, ACTION):
+    for p in (VERIFY, COMMENT, ACTION, COMMENT_ACTION):
         assert "pull_request_target" not in _code(_read(p)), p   # the pwn request - never allowed
 
 
@@ -72,3 +73,13 @@ def test_action_uses_env_indirection():
     _no_shell_injection(t)
     # the inputs reach the script via env, and the run line references the action path, not an input
     assert "run_pr.py" in t and "$GITHUB_ACTION_PATH" in t
+
+
+def test_comment_action_uses_env_indirection_and_runs_no_pr_code():
+    # the PRIVILEGED composite: env-indirection, runs the PINNED comment_pr.py, and NEVER checks out or
+    # runs PR code (it holds the write token, so a PR-head checkout here would be the pwn request).
+    t = _read(COMMENT_ACTION)
+    assert "using: \"composite\"" in t or "using: composite" in t
+    _no_shell_injection(t)
+    assert "comment_pr.py" in t and "$GITHUB_ACTION_PATH" in t
+    assert "actions/checkout" not in _code(t) and "pull_request.head" not in _code(t)

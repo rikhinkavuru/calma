@@ -9,8 +9,28 @@ import sys
 # `edges.extract` ARTIFACT target (draft a contract from the artifact, then verify every number).
 _ARTIFACT_EXTS = (".ipynb", ".pdf")
 _DATA_EXTS = (".csv", ".tsv", ".parquet", ".json")
-# a dir is runnable (edges.extract can draft+run it) when it ships one of these entrypoints.
-_ENTRYPOINTS = ("gen.py", "gen_fixture.py", "main.py", "run.py")
+# a dir is runnable (edges.extract can draft+run it) when it ships one of these entrypoints. Broadened
+# past the demo names to the ones real ML/quant repos actually use, so a training script or a Backtrader
+# strategy is recognized as the runnable producer of the result dir beneath it.
+_ENTRYPOINTS = ("gen.py", "gen_fixture.py", "main.py", "run.py", "train.py", "backtest.py",
+                "strategy.py", "evaluate.py", "eval.py", "experiment.py")
+# ML / backtest framework OUTPUT layouts. A changed file under one of these run-output dirs (by a path
+# SEGMENT) or with one of these characteristic names is a RESULT artifact even when its extension is not
+# a generic data ext - MLflow writes metric files with NO extension (mlruns/<exp>/<run>/metrics/<name>).
+# Recognized so a PR that touches a tracked run's outputs is auto-verified when a runnable entrypoint
+# exists above it: MLflow, Weights & Biases, Ray Tune, PyTorch-Lightning / TensorBoard.
+_FRAMEWORK_DIRS = ("mlruns", "wandb", "ray_results", "lightning_logs", "tensorboard", "tb_logs")
+_FRAMEWORK_FILES = ("wandb-summary.json", "result.json", "progress.csv")
+
+
+def _is_framework_artifact(path):
+    """True when a changed file belongs to a known ML/backtest framework's run output - by a directory
+    segment on its path (mlruns/ , wandb/ , ray_results/ , ...) or a characteristic filename. Kept
+    narrow (distinctive dir names + files) so an ordinary source/doc change is never misread as a result."""
+    parts = path.replace("\\", "/").lower().split("/")
+    if any(seg in _FRAMEWORK_DIRS for seg in parts[:-1]):
+        return True
+    return (parts[-1] if parts else "") in _FRAMEWORK_FILES
 
 
 def changed_paths(base_sha, head_sha, repo="."):
@@ -46,8 +66,10 @@ def verify_targets(changed, repo=".", cap=20):
       - a changed/added verify.yaml -> its dir is a 'contract' target (a committed contract).
       - a changed file under a dir (or ancestor) that HAS a verify.yaml -> that dir, 'contract'
         (re-verify on a data change, e.g. runs/**/*.csv).
-      - else a changed .ipynb/.pdf/.csv under a dir (or ancestor) with a runnable entrypoint but NO
-        verify.yaml -> that dir, 'artifact' (edges.extract drafts + verifies every number).
+      - else a changed .ipynb/.pdf/.csv - OR a recognized ML/backtest framework output (mlruns/ ,
+        wandb/ , ray_results/ , a wandb-summary.json / result.json / progress.csv) - under a dir (or
+        ancestor) with a runnable entrypoint but NO verify.yaml -> that dir, 'artifact' (edges.extract
+        drafts + verifies every number).
     Dedup to dirs; cap to `cap` (a giant PR must not fan out unbounded - the overflow is reported on
     stderr, never silently dropped). Returns [{target, kind, changed_files:[...]}]."""
     targets = {}
@@ -59,7 +81,7 @@ def verify_targets(changed, repo=".", cap=20):
             cdir = _ancestor_with(repo, d0, lambda dd: _has(repo, dd, "verify.yaml"))
             if cdir is not None:
                 tdir, kind = cdir, "contract"
-            elif p.lower().endswith(_ARTIFACT_EXTS + _DATA_EXTS):
+            elif p.lower().endswith(_ARTIFACT_EXTS + _DATA_EXTS) or _is_framework_artifact(p):
                 adir = _ancestor_with(repo, d0, lambda dd: any(_has(repo, dd, e) for e in _ENTRYPOINTS))
                 tdir, kind = (adir, "artifact") if adir is not None else (None, None)
             else:

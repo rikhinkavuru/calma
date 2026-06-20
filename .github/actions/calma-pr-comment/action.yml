@@ -1,0 +1,33 @@
+# Reusable composite for the PRIVILEGED comment step, so an adopter's calma-comment-pr.yml is a thin
+# `uses:` instead of vendoring pr/. It posts the inline review + summary + a GATING check-run from a
+# findings bundle the caller already downloaded. It runs the TRUSTED comment_pr.py from the pinned
+# action checkout ($GITHUB_ACTION_PATH), never PR code. DO NOT add a PR-head checkout or run any PR
+# code here - this surface holds the write token (see calma-comment-pr.yml + docs/pr-bot.md).
+name: "Calma PR comment (post verdicts + gating check-run)"
+description: "Post the inline review, the summary, and a gating check-run from a calma findings bundle. The privileged half of the two-workflow pattern; it never runs PR code."
+inputs:
+  bundle:
+    description: "Path to calma-findings.json (downloaded from the unprivileged calma-verify-pr run)"
+    required: true
+  expected_head:
+    description: "The TRUSTED head SHA of the triggering run (workflow_run.head_sha). comment_pr REFUSES any bundle whose head_sha differs, so a forged/cross-PR artifact can't steer the check-run onto another commit."
+    required: true
+  github_token:
+    description: "A token with pull-requests:write + checks:write (the privileged job's GITHUB_TOKEN)"
+    required: true
+  repository:
+    description: "owner/repo for the REST/GraphQL calls"
+    required: false
+    default: ${{ github.repository }}
+runs:
+  using: "composite"
+  steps:
+    - shell: bash
+      # env-indirection: every input reaches the script as an env var, never the shell line (no
+      # word-splitting, no injection). comment_pr.py comes from the PINNED action checkout, not the PR.
+      env:
+        CALMA_BUNDLE: ${{ inputs.bundle }}
+        CALMA_EXPECTED_HEAD: ${{ inputs.expected_head }}
+        GITHUB_TOKEN: ${{ inputs.github_token }}
+        GITHUB_REPOSITORY: ${{ inputs.repository }}
+      run: python3 "$GITHUB_ACTION_PATH/../../../pr/comment_pr.py"
