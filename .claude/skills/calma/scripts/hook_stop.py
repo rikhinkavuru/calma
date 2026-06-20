@@ -17,14 +17,21 @@ Operating rules (each one is load-bearing - see tests/test_hook.py):
                 from cache (code+data+claim unchanged) and the state file shows the claim
                 was already reported, stay silent. New code or data -> a fresh verdict may
                 block again, legitimately.
-  STAY QUIET    CONFIRMED, CAN'T-CONFIRM, INCONCLUSIVE, unbindable, timeout, error: silent
-                (breadcrumbed to .calma/auto_history.jsonl, surfaced by `calma stats`).
+  NEVER BLOCK   on anything but a definitive break: CONFIRMED / CAN'T-CONFIRM / INCONCLUSIVE /
+  BUT REPORT    unbindable / timeout / error never block (all breadcrumbed to
+                .calma/auto_history.jsonl, surfaced by `calma stats`). When the hook ENGAGED
+                (ran >=1 verify) it prints a one-line, non-blocking "what got checked this turn"
+                coverage note (a systemMessage) so a team can SEE the guardrail is alive and
+                leave it on - default on; CALMA_HOOK_COVERAGE=0 or config
+                {"hook": {"coverage": false}} turns it off. A re-checked, already-reported
+                break stays silent (never-nag).
   OPT OUT       env CALMA_HOOK=0|off|false, a `.calma/hook-off` file in the project or in
                 $HOME/.calma, or `.calma/config.json` {"hook": {"enabled": false}}.
-  STAY CHEAP    preflight (entrypoint + a CSV artifact, or an existing contract/.calma)
-                gates the expensive step; the verify itself is cache-first and runs under
-                a hard wall-clock budget (default 30s, config `timeout_s`; the child's
-                --timeout is capped at 30s regardless), killed by process group on overrun.
+  STAY CHEAP    preflight (entrypoint + a data artifact, or an existing contract/.calma) gates
+                the expensive step; the verify is cache-first and runs under a wall-clock budget
+                (default 120s; env CALMA_TIMEOUT, else project config `timeout_s`), killed by
+                process group on overrun. The child verify gets the FULL resolved budget - a real
+                minutes-long backtest is verified, not silently killed at 30s.
   NO LITTER     breadcrumbs (and the .calma dir they live in) are only created AFTER the
                 verifiable-target gate passes - a metric mention in an unrelated repo
                 leaves nothing behind.
@@ -35,7 +42,8 @@ Operating rules (each one is load-bearing - see tests/test_hook.py):
 
 stdin:  the Stop-hook JSON from Claude Code (session_id, transcript_path, cwd,
         stop_hook_active, ...).
-stdout: nothing (silent pass), or {"decision": "block", "reason": ...} on a catch.
+stdout: nothing (silent pass), {"systemMessage": ...} carrying the coverage note when it ran
+        a verify, or {"decision": "block", "reason": ...} on a catch.
 exit:   always 0.
 """
 import hashlib
@@ -51,9 +59,13 @@ if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
 
 MAX_TRANSCRIPT_TAIL = 256 * 1024     # bytes of transcript read (the final turn lives here)
-DEFAULT_TIMEOUT_S = 30
-HOOK_TIMEOUT_CAP_S = 30              # hard cap on the child verify's --timeout (the hook must
-                                     # stay imperceptible regardless of the CLI's 120s default)
+DEFAULT_TIMEOUT_S = 120              # re-execution budget when nothing is configured. Real ML evals
+                                     # and medium backtests finish well inside this; a long run raises
+                                     # it via env CALMA_TIMEOUT or .calma/config.json {"hook":{"timeout_s"}}.
+MIN_TIMEOUT_S = 5
+MAX_TIMEOUT_S = 1800                 # operator (env CALMA_TIMEOUT) ceiling: 30 min.
+PROJECT_MAX_TIMEOUT_S = 600          # a PROJECT's own timeout_s is bounded lower (10 min) so an
+                                     # untrusted repo can't make the Stop hook hang the session.
 DEFAULT_MAX_CLAIMS = 1               # verifications per stop - keep the hook imperceptible
 STATE_NAME = "hook_state.json"
 HISTORY_NAME = "auto_history.jsonl"
@@ -115,19 +127,84 @@ def _hook_config(cwd):
     _trusted_force_unverified), never from the project tree."""
     # max_claims default is None = "unset": the VERIFY SCOPE (autonomy) drives the per-turn budget, and
     # an explicit project max_claims only further LOWERS it (a project can limit the hook, never escalate).
-    cfg = {"enabled": True, "timeout_s": DEFAULT_TIMEOUT_S, "max_claims": None,
-           "force_unverified": False}
+    # timeout_s defaults to None ("unset") so _resolve_timeout owns the precedence
+    # (env CALMA_TIMEOUT > this project value > DEFAULT_TIMEOUT_S). coverage defaults on.
+    cfg = {"enabled": True, "timeout_s": None, "max_claims": None,
+           "coverage": True, "force_unverified": False}
     try:
         with open(os.path.join(cwd, ".calma", "config.json")) as f:
             user = json.load(f).get("hook", {})
         if isinstance(user, dict):
-            for k in ("enabled", "timeout_s", "max_claims"):
+            for k in ("enabled", "timeout_s", "max_claims", "coverage"):
                 if k in user:
                     cfg[k] = user[k]
     except (OSError, ValueError, AttributeError):
         pass
     cfg["force_unverified"] = _trusted_force_unverified()
     return cfg
+
+
+def _resolve_timeout(cfg):
+    """The child verify's re-execution budget (seconds). Precedence:
+        env CALMA_TIMEOUT  (operator, up to MAX_TIMEOUT_S)
+        > project .calma/config.json {"hook": {"timeout_s"}}  (bounded lower - an untrusted repo
+          must not be able to make the Stop hook hang the session for half an hour)
+        > DEFAULT_TIMEOUT_S.
+    The child gets the FULL resolved value - there is no silent 30s down-cap, so a real
+    minutes-long backtest is actually re-executed and verified instead of killed mid-run."""
+    env = os.environ.get("CALMA_TIMEOUT", "").strip()
+    if env:
+        try:
+            return max(MIN_TIMEOUT_S, min(int(float(env)), MAX_TIMEOUT_S))
+        except ValueError:
+            pass
+    raw = cfg.get("timeout_s")
+    if raw is not None:
+        try:
+            return max(MIN_TIMEOUT_S, min(int(float(raw)), PROJECT_MAX_TIMEOUT_S))
+        except (TypeError, ValueError):
+            pass
+    return DEFAULT_TIMEOUT_S
+
+
+def _coverage_on(cfg):
+    """Whether to print the one-line 'what got checked this turn' note. Default ON: a team has to be
+    able to SEE the guardrail run to trust it and leave it on. env CALMA_HOOK_COVERAGE=0|off|false
+    or .calma/config.json {"hook": {"coverage": false}} turns it off."""
+    env = os.environ.get("CALMA_HOOK_COVERAGE", "").strip().lower()
+    if env in ("0", "off", "false", "no", "disabled"):
+        return False
+    if env in ("1", "on", "true", "yes"):
+        return True
+    return bool(cfg.get("coverage", True))
+
+
+_COVERAGE_WORDS = {
+    "CONFIRMED": "confirmed", "CONFIRMED-WITH-CAVEATS": "confirmed (caveats)",
+    "REFUTED": "refuted", "INVALIDATED": "invalidated", "MIXED": "mixed",
+    "CAN'T-CONFIRM": "can't-confirm", "INCONCLUSIVE": "can't-confirm",
+}
+
+
+def _coverage_line(tally, budget):
+    """One human line summarizing what calma checked this turn - the visible heartbeat that tells a
+    team the guardrail is alive (vs. having silently no-op'd). Suppressed already-reported breaks are
+    not counted here (never-nag). Never raises."""
+    bits = []
+    for v, c in sorted(tally.get("verdicts", {}).items()):
+        bits.append("%d %s" % (c, _COVERAGE_WORDS.get(v, str(v).lower())))
+    if tally.get("timeout"):
+        bits.append("%d timed out" % tally["timeout"])
+    if tally.get("error"):
+        bits.append("%d couldn't run" % tally["error"])
+    n = (sum(tally.get("verdicts", {}).values()) + tally.get("timeout", 0)
+         + tally.get("error", 0))
+    msg = "calma checked %d number%s this turn: %s." % (
+        n, "" if n == 1 else "s", ", ".join(bits) if bits else "nothing conclusive")
+    if tally.get("timeout"):
+        msg += (" The slow one hit the %ds budget - raise it with CALMA_TIMEOUT "
+                "(or .calma/config.json {\"hook\":{\"timeout_s\"}}) to verify it." % budget)
+    return msg
 
 
 def _opted_out(cwd):
@@ -324,11 +401,11 @@ def _run_verify(cwd, cand, timeout_s):
     """`calma verify <cwd> "<claim>" --metric <id> --json --run-id hook` under a process
     group with a hard kill. Returns (result dict | None, elapsed_ms, error string|None).
     No shell anywhere - transcript text can never inject into the command.
-    The child's own re-execution budget is capped at HOOK_TIMEOUT_CAP_S regardless of the
-    CLI's larger default - a stop hook must never hold a session for minutes."""
+    The child gets the FULL resolved budget (see _resolve_timeout); the parent waits the same
+    wall-clock and SIGKILLs the process group on overrun, so a hang can never wedge the session."""
     argv = [sys.executable or "python3", os.path.join(_HERE, "calma.py"), "verify", cwd,
             cand["claim"], "--metric", cand["metric"], "--json", "--run-id", "hook",
-            "--timeout", str(min(int(timeout_s), HOOK_TIMEOUT_CAP_S))]
+            "--timeout", str(int(timeout_s))]
     t0 = time.time()
     try:
         p = subprocess.Popen(argv, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
@@ -459,18 +536,20 @@ def main():
                     claim=claims[0]["claim"], metric=claims[0]["metric"])
         return 0
     informed = state.get("informed", {})
-    try:
-        timeout_s = max(5, min(int(cfg.get("timeout_s", DEFAULT_TIMEOUT_S)), 300))
-    except (TypeError, ValueError):
-        timeout_s = DEFAULT_TIMEOUT_S
+    timeout_s = _resolve_timeout(cfg)
     # the per-turn verification budget comes from the VERIFY SCOPE (headline -> 1, all -> capped);
     # an explicit project {"hook":{"max_claims"}} only LOWERS it further (never escalates).
     max_claims = AU.max_claims_for(scope, cfg.get("max_claims"))
     if max_claims < 1:
         return 0
+    # tally every check, to emit ONE non-blocking "what got checked this turn" coverage note after the
+    # loop. A suppressed (already-reported) break is intentionally NOT tallied -> a re-check of a known
+    # break stays fully silent (never-nag).
+    tally = {"verdicts": {}, "timeout": 0, "error": 0}
     for cand in claims[:max_claims]:
         res, ms, err = _run_verify(cwd, cand, timeout_s)
         if res is None:
+            tally["timeout" if err == "timeout" else "error"] += 1
             _breadcrumb(cwd, "error", reason=err, claim=cand["claim"],
                         metric=cand["metric"], ms=ms)
             continue
@@ -480,6 +559,7 @@ def main():
                     recomputed=res.get("recomputed"), cached=bool(res.get("cached")),
                     ms=ms, run_dir=res.get("run_dir"))
         if verdict not in ("REFUTED", "MIXED", "INVALIDATED"):
+            tally["verdicts"][verdict] = tally["verdicts"].get(verdict, 0) + 1
             continue
         key = _claim_key(cand)
         prior = informed.get(key)
@@ -497,6 +577,11 @@ def main():
         _save_state(cwd, state)
         print(json.dumps(_block_payload(cand, res)))
         return 0
+    # no fresh break: surface the one-line coverage note (non-blocking) so the team can SEE the
+    # guardrail ran this turn - the heartbeat that keeps it switched on. Engaged turns only; a lone
+    # suppressed re-break leaves the tally empty and stays silent.
+    if _coverage_on(cfg) and (tally["verdicts"] or tally["timeout"] or tally["error"]):
+        print(json.dumps({"systemMessage": _coverage_line(tally, timeout_s)}))
     return 0
 
 

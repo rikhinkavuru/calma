@@ -249,9 +249,20 @@ with open(os.path.join(honest, "verify.yaml"), "w") as f:
 tp_honest = write_transcript(tdir, "The strategy returned %+.1f%% on the held-out window."
                              % (true_val * 100))
 out, rc, _ = run_hook(honest, tp_honest)
-truth(rc == 0 and out == "", "silent: honest claim (not REFUTED) never blocks")
+cov = {}
+try:
+    cov = json.loads(out)
+except ValueError:
+    pass
+truth(rc == 0 and cov.get("decision") != "block", "coverage: an honest claim never blocks")
+truth("checked" in cov.get("systemMessage", "")
+      and "confirmed" in cov.get("systemMessage", "").lower(),
+      "coverage: an honest turn shows a non-blocking 'what got checked' line")
 truth(any(e["event"] == "verified" and e.get("verdict") not in ("REFUTED", "MIXED")
-          for e in history(honest)), "silent: honest verification breadcrumbed")
+          for e in history(honest)), "coverage: honest verification breadcrumbed")
+# CALMA_HOOK_COVERAGE=0 restores full silence on a clean turn (still no block)
+out_q, rc_q, _ = run_hook(honest, tp_honest, env_extra={"CALMA_HOOK_COVERAGE": "0"})
+truth(rc_q == 0 and out_q == "", "coverage: CALMA_HOOK_COVERAGE=0 -> silent on a clean turn")
 
 # ---------------------------------------------------------------------------
 # 6. fail-open hardening
@@ -283,10 +294,18 @@ with open(os.path.join(slow, ".calma", "config.json"), "w") as f:
 t0 = time.time()
 out, rc, _ = run_hook(slow, tp_claim)
 dt = time.time() - t0
-truth(rc == 0 and out == "", "fail-open: hung entrypoint stays silent")
-truth(dt < 30, "fail-open: hung entrypoint killed by budget (%.1fs)" % dt)
+cov = {}
+try:
+    cov = json.loads(out)
+except ValueError:
+    pass
+truth(rc == 0 and cov.get("decision") != "block", "timeout: a hung entrypoint never blocks")
+truth("timed out" in cov.get("systemMessage", "").lower()
+      or "CALMA_TIMEOUT" in cov.get("systemMessage", ""),
+      "timeout: reported in the coverage line, not a silent no-op")
+truth(dt < 30, "timeout: hung entrypoint killed by the (5s) budget (%.1fs)" % dt)
 truth(any(e["event"] == "error" and e.get("reason") == "timeout" for e in history(slow)),
-      "fail-open: timeout breadcrumbed")
+      "timeout: breadcrumbed")
 
 # ---------------------------------------------------------------------------
 # 7. transcript extraction unit checks (the parsing the subprocess runs rely on)
@@ -318,6 +337,51 @@ with open(os.path.join(webish, "main.py"), "w") as f:
     f.write("print('hi')\n")
 truth(not HK._verifiable_target(webish),
       "preflight: entrypoint without artifacts never auto-executes")
+
+# ---------------------------------------------------------------------------
+# 7b. C1: timeout is configurable (env > project config > default) and the
+#     default is a SANE HIGHER budget (a real backtest is no longer killed at 30s),
+#     plus the one-line coverage heartbeat.
+# ---------------------------------------------------------------------------
+truth(HK.DEFAULT_TIMEOUT_S >= 120, "timeout: default budget is sane-higher (>=120s, not 30s)")
+truth(HK._resolve_timeout({"timeout_s": None}) == HK.DEFAULT_TIMEOUT_S,
+      "timeout: unset -> default")
+truth(HK._resolve_timeout({"timeout_s": 240}) == 240, "timeout: project config honored")
+truth(HK._resolve_timeout({"timeout_s": 99999}) == HK.PROJECT_MAX_TIMEOUT_S,
+      "timeout: a project can't exceed the project ceiling (no session-hang)")
+truth(HK._resolve_timeout({"timeout_s": 1}) == HK.MIN_TIMEOUT_S, "timeout: floored at MIN")
+_saved_t = os.environ.get("CALMA_TIMEOUT")
+os.environ["CALMA_TIMEOUT"] = "900"
+truth(HK._resolve_timeout({"timeout_s": 30}) == 900, "timeout: env CALMA_TIMEOUT overrides config")
+os.environ["CALMA_TIMEOUT"] = "99999"
+truth(HK._resolve_timeout({}) == HK.MAX_TIMEOUT_S, "timeout: env capped at the operator ceiling")
+os.environ["CALMA_TIMEOUT"] = "not-a-number"
+truth(HK._resolve_timeout({"timeout_s": 200}) == 200, "timeout: junk env falls through to config")
+if _saved_t is None:
+    os.environ.pop("CALMA_TIMEOUT", None)
+else:
+    os.environ["CALMA_TIMEOUT"] = _saved_t
+
+truth(HK._coverage_on({}) is True, "coverage: on by default")
+truth(HK._coverage_on({"coverage": False}) is False, "coverage: project config can disable")
+_saved_c = os.environ.get("CALMA_HOOK_COVERAGE")
+os.environ["CALMA_HOOK_COVERAGE"] = "0"
+truth(HK._coverage_on({"coverage": True}) is False, "coverage: CALMA_HOOK_COVERAGE=0 overrides on")
+os.environ["CALMA_HOOK_COVERAGE"] = "1"
+truth(HK._coverage_on({"coverage": False}) is True, "coverage: CALMA_HOOK_COVERAGE=1 overrides off")
+if _saved_c is None:
+    os.environ.pop("CALMA_HOOK_COVERAGE", None)
+else:
+    os.environ["CALMA_HOOK_COVERAGE"] = _saved_c
+
+_cl = HK._coverage_line({"verdicts": {"CONFIRMED": 1, "CAN'T-CONFIRM": 1}, "timeout": 0, "error": 0}, 120)
+truth("checked 2 numbers" in _cl and "1 confirmed" in _cl and "can't-confirm" in _cl,
+      "coverage line: number count + per-verdict words")
+_clt = HK._coverage_line({"verdicts": {}, "timeout": 1, "error": 0}, 120)
+truth("timed out" in _clt and "CALMA_TIMEOUT" in _clt,
+      "coverage line: a timeout names the budget knob to raise")
+truth("checked 1 number this turn" in HK._coverage_line(
+      {"verdicts": {"REFUTED": 1}, "timeout": 0, "error": 0}, 120), "coverage line: singular grammar")
 
 # ---------------------------------------------------------------------------
 # 8. transcript-flush race: on current Claude Code the transcript file is NOT yet

@@ -131,9 +131,11 @@ branch on the verdict without parsing prose (`metrics[]` carries every claim in 
 The plugin registers a **Stop hook** (`scripts/hook_stop.py`): when an agent's final message
 contains a checkable numeric claim (precision-tuned detector, `scripts/sniff_claims.py`) in a
 verifiable project, the claim is auto-verified before the turn ends. On a definitive
-REFUTED/MIXED the stop is **blocked** and the verdict is injected back; on everything else the
-hook is completely silent. Fail-open by construction: any error, timeout, or ambiguity means
-silence, never a broken session.
+REFUTED/MIXED the stop is **blocked** and the verdict is injected back. On everything else it never
+blocks, but when it actually ran a verify it prints a one-line, non-blocking **coverage note**
+("calma checked N numbers this turn: ...") so you can see the guardrail is alive and leave it on
+(default on; `CALMA_HOOK_COVERAGE=0` or config `{"hook":{"coverage":false}}` silences it). Fail-open
+by construction: any error or ambiguity means no block, never a broken session.
 
 **Agents: if your stop is blocked with a calma verdict, that is the hook.** Do not argue with
 it or restate the refuted number - follow the reporting contract above (diagnose the cause in
@@ -152,7 +154,9 @@ blocks twice while code+data are unchanged; fixing the code re-verifies fresh.
 Choose the modes with one command: **`calma modes`** (show the current scope + mode + choices) ·
 **`calma modes --verify all --mode auto`** (set them; `--global` for everywhere). Other controls: env
 `CALMA_VERIFY=off` or `CALMA_HOOK=0` (kill switch) · `touch .calma/hook-off` (per-project or `~/.calma`) ·
-`.calma/config.json` `{"verify": "headline", "hook": {"enabled": false, "timeout_s": 30, "max_claims": 1}}`.
+**re-execution budget**: `CALMA_TIMEOUT=600` (operator, ≤1800s) or `.calma/config.json {"hook":{"timeout_s":300}}`
+(default **120s** - a real minutes-long backtest is verified, not silently killed at 30s) ·
+`.calma/config.json` `{"verify": "headline", "hook": {"enabled": false, "timeout_s": 300, "max_claims": 1, "coverage": true}}`.
 Every hook decision (fired, skipped, error) is breadcrumbed to `.calma/auto_history.jsonl`
 and summarized by `calma stats` - the seed of a future claims-as-code manifest.
 
