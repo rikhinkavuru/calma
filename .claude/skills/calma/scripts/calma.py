@@ -1362,6 +1362,36 @@ def _ai_draft_subprocess(target, *, budget=3, model=None, timeout=600):
         return {"ok": False, "error": "the AI drafter produced no JSON"}
 
 
+def init_cmd(framework, target=".", *, force=False):
+    """Scaffold a framework-tuned starter verify.yaml so a quant/ML team adopts on its own stack without
+    learning the contract format. Emits a runnable SKELETON (the right entrypoint hint, artifact layout,
+    headline metric + binding, and validity-block hints) the user fills in, then runs `calma verify`."""
+    import textwrap
+    import frameworks as FW
+    contract = FW.starter_contract(framework)
+    if contract is None:
+        print("unknown framework %r. Available: %s (aliases: torch, xgb, scikit-learn, ...)"
+              % (framework, ", ".join(FW.list_frameworks())), file=sys.stderr)
+        return 2
+    target = os.path.abspath(target)
+    if not os.path.isdir(target):
+        print("not a directory: %s" % target, file=sys.stderr)
+        return 2
+    dest = os.path.join(target, "verify.yaml")
+    if os.path.exists(dest) and not force:
+        print("%s already exists - pass --force to overwrite, or edit it directly" % dest, file=sys.stderr)
+        return 2
+    note = contract.pop("_note", None)   # printed for the human; not written into the contract file
+    json.dump(contract, open(dest, "w"), indent=2)
+    m = (contract.get("metrics") or [{}])[0]
+    print("wrote %s  (%s starter contract)" % (dest, framework))
+    print("  entrypoint: %s   metric: %s over %s"
+          % ((contract.get("run") or {}).get("entrypoint"), m.get("metric_id"), m.get("artifact")))
+    if note:
+        print(textwrap.fill(note, 94, initial_indent="  next: ", subsequent_indent="        "))
+    return 0
+
+
 def draft_cmd(target, *, ai=False, budget=3, model=None, force=False, as_json=False):
     """Generate <target>/verify.yaml so you can point Calma at a messy repo and get a runnable contract.
     Heuristic (pure-stdlib DC.draft) by default; --ai shells out to the edges A2 drafter (an LLM draft +
@@ -1700,6 +1730,12 @@ def main():
     rc = sub.add_parser("recipes", help="list every built-in metric recipe, grouped by family")
     rc.add_argument("--json", action="store_true", dest="as_json",
                     help="print {family: [metric ids]} as JSON")
+    ini = sub.add_parser("init", help="scaffold a starter verify.yaml for an ML/quant framework "
+                                      "(backtrader/vectorbt/zipline/pytorch/xgboost/sklearn)")
+    ini.add_argument("framework", help="backtrader | vectorbt | zipline | pytorch | xgboost | sklearn "
+                                       "(aliases: torch, xgb, scikit-learn)")
+    ini.add_argument("target", nargs="?", default=".", help="dir to write verify.yaml into (default: .)")
+    ini.add_argument("--force", action="store_true", help="overwrite an existing verify.yaml")
     dr = sub.add_parser("draft", help="generate a verify.yaml for a repo (point it at a messy repo); "
                                       "heuristic by default, --ai adds the LLM drafter + repair loop")
     dr.add_argument("target", help="the repo/dir to draft a verify.yaml for")
@@ -1921,6 +1957,8 @@ def main():
                 for ln in textwrap.wrap(", ".join(fams[fam]), width=wrap_w):
                     print("    " + ln)
             return 0
+        if a.cmd == "init":
+            return init_cmd(a.framework, a.target, force=a.force)
         if a.cmd == "draft":
             return draft_cmd(a.target, ai=a.ai, budget=a.budget, model=a.model,
                              force=a.force, as_json=a.as_json)
