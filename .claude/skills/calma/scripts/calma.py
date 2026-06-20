@@ -1551,6 +1551,52 @@ def _autonomy_followup(res, mode, base, quiet=False):
         if not quiet:
             print("  auto: signed the verdict (timestamp skipped, %s) -> %s" % (type(e).__name__, disp))
         AUT.log(base, mode, "seal", "execute", "timestamp-failed")
+    # D1 credibility flywheel: in auto mode, append the REDACTED verdict to the operator's LOCAL
+    # catch-record by default, so a trusted catch-history accumulates with zero ceremony. This is
+    # LOCAL-ONLY (a dir on this machine) - NOT the gated outward push to a SHARED/public registry or
+    # Rekor, which still needs the explicit `auto_publish` opt-in. Default on in auto; opt out with
+    # .calma/config.json {"autonomy": {"local_catch_record": false}}.
+    _auto_local_publish(res, mode, base, quiet=quiet)
+
+
+def _local_catch_record_enabled(base):
+    """Whether auto-mode appends catches to the local catch-record (default ON). Local-only; never the
+    outward/shared publish (that stays behind auto_publish)."""
+    cfg = AUT._config(base)
+    au = cfg.get("autonomy") if isinstance(cfg.get("autonomy"), dict) else {}
+    return au.get("local_catch_record", True) is not False
+
+
+def _local_catch_record_dir():
+    """The operator's local catch-record: $CALMA_REGISTRY_DIR, else ~/.calma/registry. Local to this
+    machine - the seed of a public record the operator later chooses to deploy (calma registry site)."""
+    return os.environ.get("CALMA_REGISTRY_DIR") or os.path.join(os.path.expanduser("~"), ".calma", "registry")
+
+
+def _auto_local_publish(res, mode, base, quiet=False):
+    """Append the run's REDACTED verdict to the LOCAL catch-record (auto mode, default on). Reuses the
+    same hash-chained, SSHSIG-signed registry as `calma publish` - the redaction whitelist is identical,
+    so nothing but claim/verdict/gap/hashes is ever written. Fail-open: a registry hiccup never breaks
+    the verdict path."""
+    if not _local_catch_record_enabled(base):
+        return
+    bpath = os.path.join(res.get("run_dir", ""), attest.BUNDLE_NAME)
+    seed = attest.load_signing_key()
+    if seed is None or not os.path.exists(bpath):
+        return  # no key -> no signed entry (the local record stays signature-consistent)
+    try:
+        import registry as REG
+        reg_dir = _local_catch_record_dir()
+        os.makedirs(reg_dir, exist_ok=True)
+        bundle = json.load(open(bpath))
+        entry = REG.derive_entry(bundle, note="auto: local catch-record")
+        fname, wrapper = REG.append_entry(reg_dir, entry, seed)
+        if not quiet:
+            print("  auto: appended to the local catch-record -> %s (deploy: calma registry site %s)"
+                  % (_redact_home(os.path.join(reg_dir, "entries", fname)), _redact_home(reg_dir)))
+        AUT.log(base, mode, "local_catch_record", "execute", wrapper["entry"].get("verdict"))
+    except (OSError, ValueError, KeyError) as e:
+        AUT.log(base, mode, "local_catch_record", "skip", type(e).__name__)
 
 
 # ---- OPTIONAL Rekor transparency-log backing (publish/seal) -------------------
@@ -1782,6 +1828,12 @@ def main():
                      help="pin the Rekor log's Ed25519 checkpoint key (hex or a file) to ANCHOR each "
                           "stored inclusion proof's root; without it proofs still re-verify offline "
                           "but the root is reported self-asserted")
+    rgs = rgsub.add_parser("site", help="render the registry into a self-contained, deployable static "
+                                        "site (index.html + the raw re-verifiable registry)")
+    rgs.add_argument("dir", nargs="?", default=None,
+                     help="registry directory (default: $CALMA_REGISTRY_DIR, then ./registry)")
+    rgs.add_argument("--out", default=None, metavar="DIR",
+                     help="output dir for the site (default: <registry>/site)")
     # bare `calma` (or `calma help`) is a person looking for the door, not an error
     if len(sys.argv) <= 1 or sys.argv[1] == "help":
         ap.print_help()
@@ -2195,6 +2247,20 @@ def main():
                                                    rekor_log_pub_hex=_rekor_log_pub(a))
             print(REG.render_verify(ok, checks, summary))
             return 0 if ok else 1
+        if a.cmd == "registry" and a.registry_cmd == "site":
+            import registry_site as RS
+            reg_dir = a.dir or os.environ.get("CALMA_REGISTRY_DIR") or "registry"
+            if not os.path.isdir(reg_dir):
+                print("error: no registry directory at %r - pass a path or set CALMA_REGISTRY_DIR"
+                      % reg_dir, file=sys.stderr)
+                return 2
+            out = RS.build_site(reg_dir, a.out)
+            print("site        %s/index.html" % out)
+            print("            raw re-verifiable registry copied to %s/registry/" % out)
+            print("            deploy: any static host (GitHub Pages / S3 / Netlify), or open index.html")
+            print("            rebuild after publishing new catches: calma registry site %s --out %s"
+                  % (reg_dir, out))
+            return 0
     except (ValueError, OSError) as e:
         # ValueError = bad input/contract; OSError = a file path that can't be read/written
         # (--out to a missing dir, --key pointing at a directory, a missing bundle). Both are
