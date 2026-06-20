@@ -63,16 +63,30 @@ the repo — the **engine itself from the PR checkout**. Two controls follow:
 
 ## Adopt it
 
-Copy `pr/` and the two workflow files into your repo. No GitHub App is required for this self-hosted-in-CI
-path. The unprivileged step is also packaged as a reusable composite action
-(`.github/actions/calma-pr-review`). For a hosted variant where your LLM keys never touch the customer
-repo, see the GitHub App (`app/`, B4).
+**One command** — no vendoring of `pr/` or the engine:
 
-What gets a comment: a changed result dir with a committed `verify.yaml` (a `contract` target) or a
-changed `.ipynb`/`.csv` under a runnable dir (an `artifact` target, drafted by `python -m edges.extract`).
-A `REFUTED`/`INVALIDATED`/`MIXED` target ⇒ a failing `calma` check-run + a line-anchored inline comment
-("cell 5 says +14,698% → recomputes to −31.6%"); a clean PR ⇒ a passing check + a one-line summary.
-Re-pushing is incremental + idempotent (no duplicate comments; fixed catches resolve).
+```bash
+python -m pr.init --ref <calma-commit-sha>   # writes .github/workflows/calma-{verify,comment}-pr.yml
+git add .github/workflows && git commit -m "add the Calma merge-gate"
+# then mark the `calma` check Required in branch protection (Settings -> Branches)
+```
+
+The two generated workflows `uses:` the pinned composite actions — `calma-pr-review` (the UNPRIVILEGED
+detect+verify+bundle half) and `calma-pr-comment` (the PRIVILEGED review + gating-check-run half) — so the
+**pinned action SHA is the base-pin**: a PR cannot swap the engine that grades it, because the engine is
+fetched from the immutable calma `@ref`, not the PR head. Pin `--ref` to a commit SHA (a mutable branch
+lets the engine change under you; `pr.init` warns when you pass one). For a hosted variant where your LLM
+keys never touch the customer repo, see the GitHub App (`app/`, B4). (Manual path, as calma's own CI uses:
+copy `pr/` + the two workflow files and run `run_pr.py` / `comment_pr.py` directly.)
+
+What gets verified: a changed result dir with a committed `verify.yaml` (a `contract` target); a changed
+`.ipynb`/`.csv` under a runnable dir (an `artifact` target, drafted by `python -m edges.extract`); or a
+changed **ML/backtest framework run** — MLflow `mlruns/`, Weights & Biases `wandb/`, Ray Tune
+`ray_results/`, or a `wandb-summary.json` / `result.json` / `progress.csv` — under a dir with a runnable
+entrypoint (`train.py` / `backtest.py` / `strategy.py` / …). A `REFUTED`/`INVALIDATED`/`MIXED` target ⇒ a
+failing `calma` check-run + a line-anchored inline comment ("cell 5 says +14,698% → recomputes to
+−31.6%"); a clean PR ⇒ a passing check + a one-line summary. Re-pushing is incremental + idempotent (no
+duplicate comments; fixed catches resolve).
 
 ## Manual end-to-end verification (BLOCKED in offline CI — requires a live repo or `act`)
 
