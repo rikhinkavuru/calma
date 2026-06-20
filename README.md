@@ -4,6 +4,8 @@
 
 **An automatic guardrail for AI-generated results: Calma re-runs your agent's work, recomputes the numbers it reported, and blocks the wrong ones before they ship.**
 
+> **Everyone else reads the diff or trusts the score. Calma re-runs the work and recomputes the number** — from the raw output files, never the number your agent reported. A diff review and an LLM-judge both reason *about* a result; Calma re-derives it. There's no score left to game.
+
 Calma is an open-source verifier for numbers that matter. Point it at a result — a backtest's Sharpe, a model's accuracy, a "2.3× faster" benchmark, a cleaned dataset, an LLM eval — and it **re-runs the code in a network-off sandbox, recomputes the metric from the raw output files (never the reported number), and diffs it against the claim** under a calibrated tolerance. The verdict comes from a single deterministic function, not a language model. If the number is real, Calma confirms it with a signed, replayable proof. If it isn't, Calma breaks it and shows you exactly where.
 
 > The verdict is computed by deterministic code, not a model — so it's a guardrail you can't talk your way past, even when it's checking your own agent's work. Calma re-derives every label byte-for-byte, so a stamp can't be faked, even by Calma.
@@ -34,6 +36,8 @@ $ calma verify ./my-backtest "Sharpe 2.6"
 Every dashboard, paper, and pitch deck reports a number. Almost none of them can be independently checked without trusting whoever produced it. AI agents make this worse: they now generate the backtests, the evals, and the "tests pass" — and they are confidently wrong at scale. The expensive failures (a team ships a model that leaked its test set; a fund allocates on an inflated Sharpe) come from a number that was **technically reproducible but not valid**.
 
 Calma is built around one act almost no one else does: **recompute the claimed number from the raw outputs, and separately check that the result is sound.** Those are two different questions, and Calma answers both.
+
+**Why recompute, instead of reading the diff or trusting the score?** Because a score is the thing that gets gamed. In 2026 a UC Berkeley team built an agent that scored **~100% on six major agentic benchmarks** — SWE-bench, WebArena, GAIA — *without solving a single task*: on SWE-bench it dropped a `conftest.py` that makes the grader report every test as passing; on WebArena it read the gold answer straight off a `file://` URL ([Wang et al., 2026](https://www.rdworldonline.com/how-a-berkeley-team-broke-8-major-ai-benchmarks-six-of-them-hit-100-without-solving-a-single-task/)). The score was perfect; the work was never done. Reading the diff doesn't catch that, and neither does asking a model whether the result *looks* right — on [Calma's own head-to-head benchmark](benchmark/), an LLM-as-judge **silently confirmed 14 wrong numbers** and caught only half the real-world cases, while trusting the reported number caught **0 of 77**. Calma re-executes the work and recomputes the number from the raw output files, so there is no score left to game.
 
 ---
 
@@ -97,6 +101,13 @@ Reproducibility (the number recomputes) is *not* validity (the result is sound).
 | **Distributional shift** | covariate / target shift between train and test (KS + PSI) |
 | **Statistical plausibility** *(thin-input)* | implausibly-high Sharpe + too-smooth (serial-correlation) equity curve — fires from the return series **alone**, no block needed; SOFT (→ CAVEATS + a precise `fix:`, never INVALIDATED) |
 
+### Two catches that survive every other gate
+
+A number can clear every check you already run — dbt tests, Pandera schemas, snapshot diffs, an LLM-eval harness — and still be wrong, because all of those confirm a number is *internally consistent*, not *correct*. Two of Calma's catches target exactly that blind spot, and both fire on a number that **recomputes perfectly**:
+
+- **The trivial-baseline edge** (a diff-time guard, not one of the validity families above). A model card reports 92% accuracy and recomputes to 92% — but if 92% of the rows are one class, predicting the majority every time scores the same. The headline is real, reproducible, and worthless. Calma recomputes the trivial baseline next to the claim and flags a number that doesn't beat it.
+- **Eval contamination** (the *Contamination* family above). A "zero-shot held-out" benchmark scores 0.92 and recomputes to 0.92 — but Calma hashes the eval items against the declared corpus (exact sha256 + near-duplicate MinHash/LSH) and finds 40% already in pretraining, so the *held-out* claim is **INVALIDATED**. The number is genuine; the held-out framing isn't. The entire eval-tooling category checks for none of this.
+
 ### Breadth
 
 `calma recipes` → **623 metrics across 16 families**, each validated against byte-reproducible reference vectors: trading (Sharpe/Sortino/Calmar/VaR/CVaR), classification (accuracy/AUC/F1/log-loss/ECE/Brier), regression (RMSE/MAE/R²), analytics (sum/mean/percentile/groupby/join-loss), engineering ("2.3× faster"/p50–p99/throughput/coverage), retrieval & LLM evals (recall@k/NDCG/MRR/pass@k/exact-match), statistics (p-value/CI/effect-size), derivatives (Black-Scholes + Greeks/IV), credit, rates, fund & LP (TVPI/DPI/KS-PME), forecasting (MAPE/sMAPE/MASE/pinball), and more. Black-box over **Python, R, Julia, C++, Rust**.
@@ -119,7 +130,7 @@ Calma is one deterministic engine behind five surfaces. *AI proposes, determinis
 - **CLI** — `calma verify`, `draft` (point it at a messy repo → a runnable `verify.yaml`), `recipes`, `suggest`, `modes`, `replay`, `doctor`, `seal`, `registry verify`.
 - **MCP server** (`python -m calma_mcp`) — the deterministic verifier callable from *any* MCP host (Cursor, Codex CLI, Windsurf, Claude Desktop, CI bots).
 - **A1 artifact pipeline** (`python -m edges.extract`) — point it at a notebook / PDF / CSV and it verifies *every* number, each catch tied to its source span ("cell 14 says 0.94 → recomputes to 0.71").
-- **PR-review bot** (`pr/` + a hosted GitHub App in `app/`) — re-runs `calma verify` on a PR's changed result-dirs in the engine's sandbox and posts the verdicts inline + a gating check-run, built on the pwn-request-proof two-workflow pattern.
+- **The merge gate — *block the merge on a wrong number*** (`pr/` + a hosted GitHub App in `app/`) — re-runs `calma verify` on a PR's changed result-dirs in the engine's network-off sandbox and posts the verdicts inline. But the SKU is the **gating check-run**: a pure function of the engine's verdicts (`failure` on any REFUTED / INVALIDATED / MIXED, `neutral` on CAN'T-CONFIRM, `success` otherwise) that you mark **required** in branch protection. A comment-bot posts an LLM opinion you can dismiss; this is a **blocking correctness gate** — *prove your own numbers before you ship.* Built on the pwn-request-proof two-workflow pattern.
 
 ### Autonomy — two axes you control (a mode changes what Calma *does*, never what it *decides*)
 

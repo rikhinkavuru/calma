@@ -10,6 +10,14 @@ headline number, decide whether the claim is **honest** (matches what the data a
 | **LLM-as-judge** | the common "ask an LLM whether this result looks right" eval — reasons over the data + claim, **no code execution** |
 | **Calma** | re-executes the project and **recomputes** the metric from the raw outputs on deterministic kernels |
 
+**Why recompute, instead of trusting the score?** Because a score is the thing that gets gamed. In 2026 a
+UC Berkeley team built an agent that scored ~100% on six major agentic benchmarks (SWE-bench, WebArena,
+GAIA) *without solving a single task* — on SWE-bench by planting a `conftest.py` that makes the grader
+report every test as passing ([Wang et al., 2026](https://www.rdworldonline.com/how-a-berkeley-team-broke-8-major-ai-benchmarks-six-of-them-hit-100-without-solving-a-single-task/)).
+The results below are the same lesson at metric scale: trust-the-number catches **0 of 77** planted wrong
+numbers, and an LLM-as-judge **silently confirms 14** of them. You can't game a number recomputed from raw
+outputs — which is the one thing Calma does and the other two don't.
+
 ## Corpus: 117 cases, 3 tracks, 29 metrics, 8 families
 
 **Synthetic track (84 cases).** 28 deterministic pure-stdlib bases across classification (accuracy,
