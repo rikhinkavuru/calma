@@ -15,6 +15,7 @@ engine stays dependency-free; the only dependency here is the MCP SDK.
 | Tool | What it does | LLM? |
 |------|--------------|------|
 | `calma_verify(target, claim?, metric?, mode="ask", trust="own-code", isolation="auto", timeout=600, check_determinism=false)` | Re-execute `target` and recompute the headline number, then prove or break the claim. The agent guardrail — **works today**. | No (the engine is deterministic) |
+| `calma_debug(target, claim?, metric?, trust="own-code", isolation="auto", timeout=600)` | Iterate mid-task: re-run + recompute + return the **binding, recomputed value, and gap** vs your claim, with **NO verdict and NO gate**. "What does the code actually compute, and how far off is my number?" Pair with `calma_verify` for the gating pass/fail. | No (recompute only) |
 | `calma_verify_artifact(target, mode="flag")` | Verify *every* number in an artifact directory (notebook / PDF / CSV + the data it was computed from), each catch tied to its source span. Wraps the A1 claim-graph pipeline (`python -m edges.extract`). | Extraction only; the verdict is still deterministic |
 | `calma_suggest(query, top=5)` | Rank the recipes a free-text description best matches (the shipped suggester). | No |
 

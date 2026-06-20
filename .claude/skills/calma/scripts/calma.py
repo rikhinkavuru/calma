@@ -796,7 +796,7 @@ def _resolve_timeout(cli_timeout, contract):
 
 
 def verify(target, claim=None, metric=None, run_id="run", force=False, check_determinism=False,
-           trust="own-code", timeout=None, isolation=None, restore=False):
+           trust="own-code", timeout=None, isolation=None, restore=False, run_only=False):
     target = os.path.realpath(target)
     if trust not in ("own-code", "third-party"):
         raise ValueError("--trust must be own-code or third-party (got %r)" % trust)
@@ -871,7 +871,7 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
     # the cache: same contract + same entrypoint bytes + same artifact bytes => same verdict.
     # Inline/agent-loop use re-verifies only what changed; --force always re-executes, and a
     # determinism check is new evidence, so it never reads the cache (it still stores).
-    if block_finding is None and not force and not check_determinism:
+    if block_finding is None and not force and not check_determinism and not run_only:
         hit = _cached_result(target, _input_fingerprint(target, contract, isolation))
         if hit:
             _trace("cache", "code+data+claim unchanged -> prior verdict (--force re-executes)")
@@ -1040,6 +1040,24 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
                               "within the calibrated budget" if _dm.get("verdict") in
                               ("CONFIRMED", "CONFIRMED-WITH-CAVEATS")
                               else "OUTSIDE the calibrated budget"))
+            if run_only:
+                # --run-only / calma_debug: re-run + recompute + diff, then emit the binding +
+                # recomputed value + gap and STOP - no verdict, no gate, no ledger/cache/attest. Lets an
+                # agent iterate mid-task ("what does the code actually compute, and how far off is my
+                # claim?") without a pass/fail. recompute.json + diff.json are already written; this just
+                # shapes a no-verdict view. Guarded by run_only, so the normal verdict path is untouched.
+                _bind = {m.get("metric_id"): (m.get("binding") or {}) for m in contract.get("metrics", [])}
+                dbg = []
+                for dm in diff.get("metrics", []):
+                    cl, rcv = dm.get("claimed"), dm.get("recomputed")
+                    num = (isinstance(cl, (int, float)) and not isinstance(cl, bool)
+                           and isinstance(rcv, (int, float)) and not isinstance(rcv, bool))
+                    dbg.append({"metric": dm.get("metric_id"), "binding": _bind.get(dm.get("metric_id")),
+                                "claimed": cl, "recomputed": rcv,
+                                "gap": (abs(cl - rcv) if num else None), "reason": dm.get("reason")})
+                return {"run_only": True, "target": os.path.basename(target), "run_dir": run_dir,
+                        "isolation_tier": run_res.get("isolation_tier"),
+                        "determinism_mode": run_res.get("determinism_mode"), "metrics": dbg}
             led = _assemble_ledger(contract, diff, run_res, claim_text=claim)
             # calma AUTO-PICKED the metric (producer didn't pin it) and it didn't confirm -> the
             # ask was unclear. Offer ranked alternatives from the claim + data columns and let the
@@ -1649,6 +1667,10 @@ def main():
                         "the mode governs only follow-on ACTIONS. Also CALMA_MODE / .calma/config.json")
     v.add_argument("--json", action="store_true", dest="as_json",
                    help="print a machine-readable verdict object instead of the report")
+    v.add_argument("--run-only", action="store_true",
+                   help="DEBUG/iterate: re-run + recompute + show the binding, recomputed value, and gap "
+                        "vs the claim, with NO verdict and NO gate (always exits 0) - for an agent to see "
+                        "what the code actually computes mid-task. Pair with --json for the structured view")
     b = sub.add_parser("batch", help="verify MANY targets at once + a summary table (CI/sprint use)")
     b.add_argument("targets", nargs="*",
                    help="dirs (each with a committed verify.yaml) or globs, e.g. 'runs/*'")
@@ -1795,6 +1817,30 @@ def main():
     a = ap.parse_args()
     try:
         if a.cmd == "verify":
+            if a.run_only:
+                # DEBUG path: re-run + recompute + gap, NO verdict / NO gate. Always exit 0.
+                res = verify(a.target, a.claim_text or a.claim, a.metric, a.run_id,
+                             force=a.force, trust=a.trust, timeout=a.timeout,
+                             isolation=a.isolation, restore=a.restore, run_only=True)
+                if not res.get("run_only"):
+                    # the run could not complete (refused / killed / no entrypoint / no metric): nothing
+                    # to recompute, so surface the engine's reason - still exit 0 (debug, never a gate).
+                    print(json.dumps(_json_finite(_json_result(res)), indent=2) if a.as_json
+                          else (res.get("display") or res.get("report") or "run-only: nothing to recompute"))
+                    return 0
+                if a.as_json:
+                    print(json.dumps(_json_finite(res), indent=2))
+                else:
+                    print("run-only (no verdict) - %s  [isolation %s · determinism %s]"
+                          % (res.get("target"), res.get("isolation_tier"), res.get("determinism_mode")))
+                    for m in res.get("metrics", []):
+                        cl, rcv = m.get("claimed"), m.get("recomputed")
+                        extra = (("  (claimed %s, gap %s)"
+                                  % (REP.fmt_value(cl, m.get("metric")), REP.fmt_value(m.get("gap"), m.get("metric"))))
+                                 if cl is not None else "")
+                        print("  %-16s recomputed %s%s" % (m.get("metric"), REP.fmt_value(rcv, m.get("metric")), extra))
+                    print("  proof + raw outputs: %s" % res.get("run_dir"))
+                return 0
             res = verify(a.target, a.claim_text or a.claim, a.metric, a.run_id,
                          force=a.force, check_determinism=a.check_determinism,
                          trust=a.trust, timeout=a.timeout, isolation=a.isolation, restore=a.restore)
