@@ -120,7 +120,7 @@ A 2026 study found **no backtest engine publishes cross-engine correctness** —
 
 ### Isolation & attestation
 
-Verified network-off own-code tiers — **Seatbelt** (macOS) and **bubblewrap** (Linux) — each self-tested (a planted secret-read and an egress attempt must both fail), plus a network-denied **Docker** tier and a **remote Firecracker microVM** (`--isolation e2b`, vendor-neutral: E2B cloud or self-hosted, egress denied in-guest) for untrusted counterparty code on a Docker-less host. Every catch ships a proof object: a hash-chained public registry, **DSSE + OpenSSH SSHSIG dual-signing** (zero-install verify), an RFC-3161 timestamp, and an optional Sigstore/Rekor transparency log with offline-verifiable inclusion proofs. Pure Python stdlib, no third-party runtime dependencies.
+Verified network-off own-code tiers — **Seatbelt** (macOS) and **bubblewrap** (Linux) — each self-tested (a planted secret-read and an egress attempt must both fail), plus a network-denied **Docker** tier and a **remote Firecracker microVM** (`--isolation e2b`, vendor-neutral: E2B cloud or self-hosted, egress denied in-guest) for untrusted counterparty code on a Docker-less host. Every catch ships a proof object: a hash-chained public registry, **DSSE + OpenSSH SSHSIG dual-signing** (zero-install verify), an RFC-3161 timestamp, an optional Sigstore/Rekor transparency log, and **calma's own RFC 6962 transparency log** emitting self-contained **`.proof` bundles** (`calma registry proof`) that re-verify **offline** — an inclusion proof + a signed checkpoint + external-witness cosignatures, so a published catch re-verifies years later with no calma server. Pure Python stdlib, no third-party runtime dependencies.
 
 ---
 
