@@ -2120,6 +2120,19 @@ def main():
                      help="registry directory (default: $CALMA_REGISTRY_DIR, then ./registry)")
     rgs.add_argument("--out", default=None, metavar="DIR",
                      help="output dir for the site (default: <registry>/site)")
+    rgp = rgsub.add_parser("proof", help="emit a self-contained, offline-re-verifiable .proof bundle "
+                                         "(RFC 6962 inclusion proof + a signed checkpoint) for one entry")
+    rgp.add_argument("ref", help="the entry to prove: its seq number, or a content-address id / prefix")
+    rgp.add_argument("dir", nargs="?", default=None,
+                     help="registry directory (default: $CALMA_REGISTRY_DIR, then ./registry)")
+    rgp.add_argument("--key", help="the signing key (hex seed or a path); default ~/.calma/keys")
+    rgp.add_argument("--out", default=None, metavar="FILE", help="write the .proof bundle here (default: stdout)")
+    rgpv = rgsub.add_parser("verify-proof", help="re-verify a .proof bundle OFFLINE (no calma server)")
+    rgpv.add_argument("proof", help="path to the .proof bundle JSON")
+    rgpv.add_argument("--log-key", metavar="PATH_OR_HEX", default=None,
+                      help="pin the calma log's Ed25519 checkpoint key to ANCHOR the root (else self-asserted)")
+    rgpv.add_argument("--witness", metavar="PATH_OR_HEX", action="append", default=None,
+                      help="pin an external witness key (repeatable); >=1 cosignature -> the witnessed tier")
     # bare `calma` (or `calma help`) is a person looking for the door, not an error
     if len(sys.argv) <= 1 or sys.argv[1] == "help":
         ap.print_help()
@@ -2598,6 +2611,44 @@ def main():
             print("            rebuild after publishing new catches: calma registry site %s --out %s"
                   % (reg_dir, out))
             return 0
+        if a.cmd == "registry" and a.registry_cmd == "proof":
+            import merkle as MK
+            reg_dir = a.dir or os.environ.get("CALMA_REGISTRY_DIR") or "registry"
+            if not os.path.isdir(reg_dir):
+                print("error: no registry directory at %r - pass a path or set CALMA_REGISTRY_DIR"
+                      % reg_dir, file=sys.stderr)
+                return 2
+            seed = attest.load_signing_key(a.key)  # signs the checkpoint (the tree head)
+            if not isinstance(seed, (bytes, bytearray)) or len(seed) != 32:
+                raise ValueError("no usable 32-byte signing key - run `calma attest keygen`, or pass a "
+                                 "valid --key (a hex seed or an OpenSSH ed25519 private key)")
+            bundle = MK.build_proof_bundle(reg_dir, a.ref, seed)
+            text = json.dumps(bundle, indent=2)
+            if a.out:
+                with open(a.out, "w") as fh:
+                    fh.write(text)
+                print("proof       %s  (entry index=%s of a %d-leaf log)" % (a.out, bundle["index"], bundle["size"]))
+                print("            re-verify OFFLINE: %s registry verify-proof %s --log-key <calma.pub>"
+                      % (_invocation(), a.out))
+            else:
+                print(text)
+            return 0
+        if a.cmd == "registry" and a.registry_cmd == "verify-proof":
+            import merkle as MK
+
+            def _key(v):
+                return open(v).read().strip() if v and os.path.exists(v) else (v.strip() if v else None)
+            bundle = json.load(open(a.proof))
+            ok, tier, detail = MK.verify_proof_bundle(
+                bundle, log_pub_hex=_key(a.log_key),
+                witness_pub_hexes=[_key(w) for w in (a.witness or [])] or None)
+            print("%s proof %s  (tier: %s)" % ("✓" if ok else "✗",
+                                               "VERIFIES OFFLINE" if ok else "FAILED", tier))
+            print("  %s" % detail)
+            if isinstance(bundle.get("entry"), dict):
+                e = bundle["entry"]
+                print("  entry: seq %s · %s %s" % (e.get("seq"), e.get("verdict"), e.get("claim") or ""))
+            return 0 if ok else 1
     except (ValueError, OSError) as e:
         # ValueError = bad input/contract; OSError = a file path that can't be read/written
         # (--out to a missing dir, --key pointing at a directory, a missing bundle). Both are
