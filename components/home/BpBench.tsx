@@ -15,7 +15,7 @@ const CATCH: BarView = {
 };
 const WRONG: BarView = {
   key: "wrong", title: "Wrong verdicts",
-  desc: "Times each approach blessed a wrong number or rejected an honest one. The LLM judge silently blessed 14 wrong numbers as correct — the dangerous error. Calma proves it or says “can’t confirm,” and is never wrong.",
+  desc: "Times each approach blessed a wrong number or rejected an honest one. The LLM judge silently blessed 14 wrong numbers as correct — the dangerous error. Across these 117 cases Calma made 0 wrong verdicts; when it can’t decide it says “can’t confirm” instead of guessing.",
   note: "wrong verdicts across all 117 cases · lower is better", unit: "count", max: 77,
   bars: [{ label: "Calma", value: 0, tone: "amber" }, { label: "Claude as judge", value: 26, tone: "mid" }, { label: "Trust the number", value: 77, tone: "dim" }],
 };

@@ -55,7 +55,7 @@ Calma is built around one act almost no one else does: **recompute the claimed n
    │ run     │   Docker / remote Firecracker microVM), re-emitting the raw output files.
    └────┬────┘   A planted secret-read AND a network-connect must FAIL, proven by an in-sandbox self-test.
         ▼
-   ┌─────────┐   recompute the headline metric from those raw files with one of 623 SOTA recipes
+   ┌─────────┐   recompute the headline metric from those raw files with one of 625 SOTA recipes
    │recompute│   (Python / R / Julia / C++ / Rust, run as a black box) — never the reported number.
    └────┬────┘
         ▼
@@ -83,14 +83,14 @@ One total pure function (`verdict.py`) maps a fully-specified input vector to on
 
 Defaults are conservative: missing information degrades toward CAN'T-CONFIRM, never toward an accidental CONFIRMED or REFUTED.
 
-### The validity layer — 11 families
+### The validity layer — 13 families
 
 Reproducibility (the number recomputes) is *not* validity (the result is sound). Calma ships a real, integrated validity layer — pure-stdlib, bit-stable, each detector only ever **degrades** a verdict, and `INVALIDATED` fires only under a scope-guard (when the claim positively asserts the clean property the data violates):
 
 | Family | Catches |
 |---|---|
 | **Leakage** | row / id / temporal look-ahead / target leakage + a leakage-corrected re-run |
-| **Overfitting** | Deflated Sharpe (Bailey–López de Prado) + PBO via CSCV; N is never guessed |
+| **Overfitting** | Deflated Sharpe (Bailey–López de Prado) + PBO via CSCV + the deflated-**AUC** selection-overfit haircut; N is never guessed |
 | **Execution realism** | fees / slippage / borrow / financing + Almgren √ market-impact + net-of-friction re-run + capacity |
 | **Contamination** | exact eval-in-corpus (sha256) + near-duplicate MinHash/LSH |
 | **Backtest soundness** | omitted costs (gross-sold-as-net), cherry-picked window, survivorship universe |
@@ -99,6 +99,8 @@ Reproducibility (the number recomputes) is *not* validity (the result is sound).
 | **Regime / walk-forward** | in-sample → out-of-sample edge collapse, corroborated by a two-sample KS regime shift |
 | **Model-process leakage** | featurization fit on train+test, validation-reuse / selection-on-test |
 | **Distributional shift** | covariate / target shift between train and test (KS + PSI) |
+| **Era-embargo / purged-CV** *(tournament)* | train↔validation windows too close for the target's forward horizon (Numerai's published 8-era/20-day, 16-era/60-day purge; the López de Prado purge+embargo form) + the leading-era CORR inflation premium |
+| **Risk-sim assumptions** *(Chaos / Gauntlet)* | per-block invariants of a DeFi risk simulation: ≤1 liquidation/account/block, a VaR labeled p99 that is really the p95 of the loss vector, calibration-window look-ahead, the close-factor bound |
 | **Statistical plausibility** *(thin-input)* | fires with **no declared block**, SOFT-only (→ CAVEATS, never INVALIDATED): implausibly-high Sharpe, a too-smooth (serial-correlation) curve, and a **regime-drift** non-stationarity smell off the return series; plus an **undeclared-split leakage** smell (an inferred train/test split + real row overlap) and a **train/test loss-gap** overfit smell off ML artifacts — each names the exact block to declare for the authoritative verdict |
 
 ### Two catches that survive every other gate
@@ -110,7 +112,7 @@ A number can clear every check you already run — dbt tests, Pandera schemas, s
 
 ### Breadth
 
-`calma recipes` → **623 metrics across 16 families**, each validated against byte-reproducible reference vectors: trading (Sharpe/Sortino/Calmar/VaR/CVaR), classification (accuracy/AUC/F1/log-loss/ECE/Brier), regression (RMSE/MAE/R²), analytics (sum/mean/percentile/groupby/join-loss), engineering ("2.3× faster"/p50–p99/throughput/coverage), retrieval & LLM evals (recall@k/NDCG/MRR/pass@k/exact-match), statistics (p-value/CI/effect-size), derivatives (Black-Scholes + Greeks/IV), credit, rates, fund & LP (TVPI/DPI/KS-PME), forecasting (MAPE/sMAPE/MASE/pinball), and more. Black-box over **Python, R, Julia, C++, Rust**.
+`calma recipes` → **625 metrics across 16 families**, each validated against byte-reproducible reference vectors: trading (Sharpe/Sortino/Calmar/VaR/CVaR), classification (accuracy/AUC/F1/log-loss/ECE/Brier), regression (RMSE/MAE/R²), analytics (sum/mean/percentile/groupby/join-loss), engineering ("2.3× faster"/p50–p99/throughput/coverage), retrieval & LLM evals (recall@k/NDCG/MRR/pass@k/exact-match), statistics (p-value/CI/effect-size), derivatives (Black-Scholes + Greeks/IV), credit, rates, fund & LP (TVPI/DPI/KS-PME), forecasting (MAPE/sMAPE/MASE/pinball), and more. Black-box over **Python, R, Julia, C++, Rust**.
 
 ### Cross-engine correctness
 
@@ -180,11 +182,11 @@ A `verify.yaml` pins *how* to verify (entrypoint, column bindings, conventions, 
 
 ---
 
-## Architecture & guarantees
+## Architecture & design properties
 
 ```
 .claude/skills/calma/scripts/   the deterministic engine (pure stdlib): verdict · ledger · compare ·
-                                recompute · numeric · 11 *_checks.py validity families · run_hermetic
+                                recompute · numeric · 13 *_checks.py validity families · run_hermetic
 edges/                          the AI edges (extract / draft / synth / repair) — firewalled from core
 mcp/                            the host-agnostic MCP server (transport)
 pr/  ·  app/                    the PR-review bot (CI) + the hosted GitHub App (transport)
@@ -192,9 +194,18 @@ benchmark/                      the 129-case corpus + the 4-arm comparison + sco
 ```
 
 - **The verdict is one function**, re-derived byte-for-byte at the gate — non-gameable.
-- **Pure stdlib, fully offline, code never leaves your machine.** The honest answer to "where is our data processed?" is *"on your machine, network-off."*
+- **Pure stdlib; offline by default — your code and data never leave your machine.** The honest answer to "where is our data processed?" is *"on your machine, network-off."* (Optional tiers you turn on explicitly — a remote microVM for untrusted code, an RFC-3161 timestamp, a Rekor log — make a network call, and the ledger records exactly which.)
 - **Every transport is firewalled** — `mcp/`, `pr/`, `app/` import no verdict core; the validity detectors import no model.
-- **Tested:** 60 core suites / 0 failed (pure stdlib) + 39 transport tests (10 mcp + 29 pr); one command runs all three — `make test-all`; 623 recipes against reference vectors.
+- **Tested:** 67 core suites / 0 failed (pure stdlib) + 39 transport tests (10 mcp + 29 pr); one command runs all three — `make test-all`; 625 recipes against reference vectors.
+
+## Limitations
+
+Read these before you rely on a verdict.
+
+- **Reproducible is not the same as right.** A `CONFIRMED` verdict means the headline number **re-derives from the raw outputs and is internally sound under the stated scope** — it is *not* a guarantee of real-world correctness, future performance, model soundness, or investment merit, and it is **not investment advice**. A program that deterministically fabricates its own raw outputs will reproduce; calma checks the number against the outputs, not the outputs against reality.
+- **Validity depth scales with what you declare.** The leakage / overfitting / survivorship / look-ahead / regime / era-embargo / risk-sim families run when you point calma at the split, trials, frictions, universe, embargo, or simulation_assumptions they need. A thin-input result with nothing declared gets the *soft* plausibility-smell layer only (it degrades a number to `CONFIRMED-WITH-CAVEATS`, never `INVALIDATED`). Missing information degrades toward `CAN'T-CONFIRM`, never toward an accidental `CONFIRMED`/`REFUTED`.
+- **Coverage is honest, not total.** Some assumptions are not checkable from one output log (e.g. a risk sim's one-of-n non-collusion); calma reports those as out-of-scope rather than asserting them. The per-verdict ledger lists exactly what was and was not checked.
+- **Isolation varies by host.** A verified sandbox is used where available; on other hosts re-execution runs with reduced isolation and **the ledger records the tier it actually achieved**. Treat third-party code accordingly.
 
 ## Status & docs
 
