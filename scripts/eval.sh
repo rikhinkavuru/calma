@@ -24,8 +24,12 @@ echo "== [3/4] recompute-only validity-gap baseline ======================="
 "$PY" benchmark/recompute_only.py
 
 echo ""
-echo "== [4/4] determinism (byte-identical recompute, k_spread==0) ========="
+echo "== [4/5] determinism (byte-identical recompute, k_spread==0) ========="
 "$PY" benchmark/determinism_check.py
 
 echo ""
-echo "OK: make eval green (core + framework-vectors + recompute-baseline + determinism)"
+echo "== [5/5] recipe-coverage no-regression gate (Tier-1 independently-verified %) =="
+"$PY" benchmark/coverage_report.py --check
+
+echo ""
+echo "OK: make eval green (core + framework-vectors + recompute-baseline + determinism + coverage)"
