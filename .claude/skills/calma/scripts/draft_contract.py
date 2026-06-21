@@ -804,6 +804,46 @@ def validate_contract(contract):
                 if k not in _EMB_NUM and k not in _EMB_STR:
                     errs.append("embargo.%s is not a recognized key (known: %s)"
                                 % (k, ", ".join(_EMB_NUM + _EMB_STR)))
+    # WS-simulation-assumptions (WS-C ii): optional risk-firm assumption block. All absent -> NOT-APPLICABLE;
+    # only the SHAPE is checked (the firm constants and per-block invariants are never guessed).
+    _SA_STR = ("firm", "event_log", "account_col", "block_col", "event_col", "repaid_col", "pre_debt_col")
+    sa = contract.get("simulation_assumptions")
+    if sa is not None:
+        if not isinstance(sa, dict):
+            errs.append("simulation_assumptions must be a mapping ({firm, event_log, var, calibration, ...})")
+        else:
+            for k in _SA_STR:
+                if sa.get(k) is not None and not isinstance(sa[k], str):
+                    errs.append("simulation_assumptions.%s must be a string" % k)
+            cfm = sa.get("close_factor_max")
+            if cfm is not None and not (isinstance(cfm, (int, float)) and not isinstance(cfm, bool) and cfm > 0):
+                errs.append("simulation_assumptions.close_factor_max must be a positive number")
+            var = sa.get("var")
+            if var is not None:
+                if not isinstance(var, dict):
+                    errs.append("simulation_assumptions.var must be a mapping ({loss_log, loss_col, percentile, reported})")
+                else:
+                    p = var.get("percentile")
+                    if p is not None and not (isinstance(p, (int, float)) and not isinstance(p, bool) and 0.0 < p < 1.0):
+                        errs.append("simulation_assumptions.var.percentile must be a number in (0,1)")
+                    for k in ("loss_log", "loss_col"):
+                        if var.get(k) is not None and not isinstance(var[k], str):
+                            errs.append("simulation_assumptions.var.%s must be a string" % k)
+                    if var.get("reported") is not None and not (isinstance(var["reported"], (int, float))
+                                                                and not isinstance(var["reported"], bool)):
+                        errs.append("simulation_assumptions.var.reported must be a number")
+            cal = sa.get("calibration")
+            if cal is not None:
+                if not isinstance(cal, dict):
+                    errs.append("simulation_assumptions.calibration must be a mapping ({window_end, sim_start})")
+                else:
+                    for k in ("window_end", "sim_start"):
+                        if cal.get(k) is not None and not isinstance(cal[k], (str, int, float)):
+                            errs.append("simulation_assumptions.calibration.%s must be a date string or number" % k)
+            known = set(_SA_STR) | {"close_factor_max", "var", "calibration"}
+            for k in sa:
+                if k not in known:
+                    errs.append("simulation_assumptions.%s is not a recognized key" % k)
     return errs
 
 

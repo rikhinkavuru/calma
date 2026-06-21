@@ -34,6 +34,7 @@ import realism_checks as RLC
 import contamination_checks as CNC
 import plausibility_checks as PLC
 import embargo_checks as EMB
+import simulation_assumptions_checks as SAC
 import cross_engine as CE
 import compare as CMP
 import draft_contract as DC
@@ -224,7 +225,7 @@ def _reconcile_claim(contract, claim, metric):
 def _not_verified(metric_ids, leakage_status=None, overfitting_status=None,
                   realism_status=None, contamination_status=None, backtest_status=None,
                   pit_status=None, snoop_status=None, regime_status=None, modelleak_status=None,
-                  shift_status=None, embargo_status=None):
+                  shift_status=None, embargo_status=None, simassume_status=None):
     """Honest 'what we did NOT check' list. Leakage / overfitting / realism / contamination / backtest-
     soundness are now real families: each is listed as a gap ONLY when it was NOT-APPLICABLE (nothing to
     assess) - never claimed as a gap once it ran, and never called 'roadmap' now that it exists."""
@@ -265,6 +266,9 @@ def _not_verified(metric_ids, leakage_status=None, overfitting_status=None,
     # era-embargo / purged-CV leakage (WS-C i): listed only when NOT-APPLICABLE (no embargo block declared).
     if embargo_status in (None, "not-applicable"):
         out.append("era-embargo / purged-CV leakage (no embargo:{horizon_days,train,...} block declared)")
+    # risk-sim assumptions (WS-C ii): listed only when NOT-APPLICABLE (no simulation_assumptions block).
+    if simassume_status in (None, "not-applicable"):
+        out.append("risk-sim assumptions (no simulation_assumptions:{firm,event_log,...} block declared)")
     return out
 
 
@@ -437,7 +441,7 @@ def _assemble_ledger(contract, diff, run_res, claim_text=None):
     # Each family promotes the (reproduced) headline DOWN only (INVALIDATED / CAN'T-CONFIRM / CAVEAT),
     # scope-guarded; none can inflate a verdict.
     leak_fam = over_fam = real_fam = cont_fam = bt_fam = pit_fam = ds_fam = reg_fam = ml_fam = None
-    shift_fam = plaus_fam = emb_fam = None
+    shift_fam = plaus_fam = emb_fam = sim_fam = None
     if claims and run_res.get("exit_code", 0) == 0:
         _base = run_res.get("base") or (
             os.path.dirname(os.path.dirname(run_res["run_dir"])) if run_res.get("run_dir") else None)
@@ -511,6 +515,13 @@ def _assemble_ledger(contract, diff, run_res, claim_text=None):
             findings.extend(EMB.run_checks(contract, _base, claims[0]["id"], claim_text=claim_text))
             EMB.apply_validity(claims, findings, contract, claim_text, base=_base)
             emb_fam = EMB.family_status(contract, findings)
+            # WS-simulation-assumptions (WS-C ii): risk-firm (Chaos/Gauntlet) per-block invariants -
+            # <=1 liquidation/account/block, VaR-percentile mis-statement, calibration look-ahead,
+            # close-factor bound. Silent unless a `simulation_assumptions` block is declared; INVALIDATED
+            # under a VaR/risk/methodology claim, else a CAVEAT (or a soft 'not auditable' finding).
+            findings.extend(SAC.run_checks(contract, _base, claims[0]["id"], claim_text=claim_text))
+            SAC.apply_validity(claims, findings, contract, claim_text, base=_base)
+            sim_fam = SAC.family_status(contract, findings)
             # WS-plausibility (V6 + B1): thin-input statistical smells that need NO declared block.
             # Return series: implausibly-high Sharpe, too-smooth curve, regime drift (first/second-half
             # KS). ML/tabular result: undeclared-split leakage (inferred split + real row overlap) and a
@@ -581,9 +592,11 @@ def _assemble_ledger(contract, diff, run_res, claim_text=None):
                          **({"model-leakage": ml_fam} if ml_fam else {}),
                          **({"distribution-shift": shift_fam} if shift_fam else {}),
                          **({"era-embargo": emb_fam} if emb_fam else {}),
+                         **({"simulation-assumptions": sim_fam} if sim_fam else {}),
                          **({"plausibility": plaus_fam} if plaus_fam else {})},
             "not_verified": _not_verified(metric_ids, leak_fam, over_fam, real_fam, cont_fam,
-                                          bt_fam, pit_fam, ds_fam, reg_fam, ml_fam, shift_fam, emb_fam),
+                                          bt_fam, pit_fam, ds_fam, reg_fam, ml_fam, shift_fam, emb_fam,
+                                          sim_fam),
         },
         "repo_verdict": None,
     }
