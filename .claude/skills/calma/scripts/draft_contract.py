@@ -17,6 +17,8 @@ import os
 import re
 import sys
 
+import pathsafe as PS
+
 # Unicode minus/hyphen codepoints that mean "negative" in a numeric claim, normalized to ASCII
 # '-' before the value regex runs - so a claim copied from a PDF/editor/LLM ("−14%", U+2212) is
 # not silently parsed with the WRONG SIGN (a correct negative claim would otherwise false-REFUTE).
@@ -640,7 +642,14 @@ def regrade_committed(contract, target):
     cell = {}  # (artifact_path, column) -> (grade, finite, tag, tag_count_in_artifact)
     for a in contract.get("artifacts", []):
         path = a.get("path")
-        full = os.path.join(target, path) if path else None
+        # L1: contain the committed-contract artifact path. A committed verify.yaml is UNTRUSTED counterparty
+        # input; `artifacts:[{path: "../../etc/passwd"}]` must NOT resolve to an out-of-base read here (the
+        # sibling _artifact_hashes already contains the same field - this was the inconsistent outlier). A
+        # path that escapes -> unreadable (author-asserted, never sampled).
+        try:
+            full = PS.safe_join(target, path) if path else None
+        except ValueError:
+            full = None
         cols = a.get("columns") or {}
         tcount = {}
         for _cn, spec in cols.items():
@@ -648,7 +657,9 @@ def regrade_committed(contract, target):
             if t:
                 tcount[t] = tcount.get(t, 0) + 1
         header_idx = {}
-        if full and os.path.isfile(full):  # isfile (not exists): a FIFO/device would block open()
+        # within_cap (not bare isfile): a regular file within the byte-cap - caps the single-line header
+        # read (a no-newline multi-GB header would otherwise OOM) and refuses a FIFO/device that would block.
+        if full and PS.within_cap(full):
             try:
                 header_idx = {h: i for i, h in enumerate(next(csv.reader(
                     open(full, newline="", encoding="utf-8", errors="replace"))))}
