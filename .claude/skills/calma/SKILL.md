@@ -171,6 +171,30 @@ user claimed. If the claim states a different value for the pinned metric, the U
 line, never a verdict about an unclaimed metric; claim text with no checkable number verifies the
 committed claim and says so in the report and `--json` (`note`).
 
+### Validity blocks (declare these in `verify.yaml` to unlock the authoritative validity families)
+
+The number always recomputes; these optional blocks let calma also check the result is *valid* and
+INVALIDATE it (under a scope-asserting claim) when it isn't. Absent a block, that family is NOT-APPLICABLE
+and the verdict lists it under `not verified:`. Each is shape-validated (unknown keys are rejected):
+
+```yaml
+split: {train: train.csv, test: test.csv}      # leakage (row/id/temporal) + distribution-shift
+keys:  {id: entity, time: date, target: y}      # the id/time/target columns the leakage check keys on
+trials: 50                                       # overfitting: Deflated-Sharpe/PBO (Sharpe) or deflated-AUC
+frictions: {fee_bps: 5, slippage_bps: 10, adv: 1e6, size: 1e5}   # execution realism (net-of-cost re-run)
+windows: [["2020-01-01","2021-01-01"], ...]      # walk-forward / regime robustness
+universe: {membership: members.csv, point_in_time: true}          # survivorship / look-ahead (point-in-time)
+corpus: {manifest: corpus.sha256, eval: eval.csv, eval_col: text} # eval/benchmark contamination
+study: {trials: 200, sharpe: 1.0, periods: 12}   # study-wide multiple-testing / HLZ haircut
+pipeline: {fit_on: "train+test"}                 # featurization-leakage; sweep:{configs:N} = selection-on-test
+embargo: {horizon_days: 20, era_col: era, train: train.csv, val: predictions.csv}   # Numerai era-embargo / purged-CV
+simulation_assumptions:                          # DeFi risk-sim invariants (Chaos p99 / Gauntlet p95)
+  firm: chaos
+  event_log: events.csv                          # <=1 liquidation/account/block + close-factor bound
+  var: {loss_log: losses.csv, percentile: 0.99}  # the VaR-percentile recompute + mis-statement check
+  calibration: {window_end: "2024-01-01", sim_start: "2024-01-02"}   # look-ahead gate
+```
+
 ## Pipeline checklist (one script per step; the model READS outputs, never computes them)
 
 0. **Discover + draft contract** - `scripts/draft_contract.py` -> a `verify.yaml`: entrypoint, typed+graded
