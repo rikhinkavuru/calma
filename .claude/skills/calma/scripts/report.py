@@ -129,14 +129,14 @@ def fmt_pair(claimed, recomputed, metric_id=None):
 
 
 def _fix_line(led, diff=None):
-    """The actionable unblock for a non-CONFIRMED outcome. Sources, in order: an explicit `unblock` on a
-    finding, then the reason->fix table applied to the claim/diff reason."""
-    for f in led.get("findings", []):
-        if f.get("unblock"):
-            return f["unblock"]
-    # a precise recompute/binding error (column not found, non-finite cell) beats the generic
-    # "NaN/Inf - check for missing values" guidance the reason->fix table would otherwise pick.
-    # Check claims (always present, so --json's fix_line(led) sees it too) then the diff.
+    """The actionable unblock for a non-CONFIRMED outcome. Sources, in order: a precise recompute/binding
+    error (the ROOT blocker), then an explicit `unblock` on a finding, then the reason->fix table."""
+    # a precise recompute/binding error (artifact not found / column missing / non-finite cell) is the ROOT
+    # blocker and leads: if the headline number could NOT even be recomputed, that beats any validity
+    # finding's unblock - a validity family can't meaningfully assess a number that didn't reproduce, and a
+    # secondary "the split files couldn't be read" message would bury the real "artifact <X> not found"
+    # cause (the misleading-fix bug). REFUTED/INVALIDATED reproduce, so they carry no recompute_error and
+    # fall through to the finding unblock unchanged. Check claims (always present, so --json sees it) then diff.
     for m in led.get("claims", []):
         if m.get("recompute_error"):
             return m["recompute_error"]
@@ -144,6 +144,9 @@ def _fix_line(led, diff=None):
         for m in diff.get("metrics", []):
             if m.get("recompute_error"):
                 return m["recompute_error"]
+    for f in led.get("findings", []):
+        if f.get("unblock"):
+            return f["unblock"]
     reasons = []
     for c in led.get("claims", []):
         if c.get("reason"):

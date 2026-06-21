@@ -1672,11 +1672,17 @@ def _batch_jobs(targets, manifest):
                 raise ValueError("manifest line %d has an empty path" % ln_no)
             jobs.append((parts[0], parts[1] if len(parts) > 1 and parts[1] else None,
                          parts[2] if len(parts) > 2 and parts[2] else None))
-    # dedupe identical (path, claim, metric) jobs - they would render as indistinguishable rows
-    # and (for a repeated dir) overwrite each other's run dir on disk
+    # dedupe identical (path, claim, metric) jobs - they would render as indistinguishable rows and (for a
+    # repeated dir) overwrite each other's run dir on disk. ALSO: when a path is given BOTH as a bare
+    # positional (no claim - a reproduction) AND in the manifest (with a claim), the MANIFEST row wins; the
+    # bare reproduction is redundant and would silently double-count the dir in the roll-up.
+    claimed = {os.path.realpath(j[0]) for j in jobs if j[1] is not None}
     seen, uniq = set(), []
     for j in jobs:
-        key = (os.path.realpath(j[0]), j[1], j[2])
+        rp = os.path.realpath(j[0])
+        if j[1] is None and rp in claimed:
+            continue  # a bare positional superseded by a manifest claim for the same path
+        key = (rp, j[1], j[2])
         if key not in seen:
             seen.add(key)
             uniq.append(j)
