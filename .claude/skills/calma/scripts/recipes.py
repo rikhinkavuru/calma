@@ -533,6 +533,57 @@ def correlation(cols, binding, convention=None):
     return _result(val, {"n": len(xs), "mode": mode})
 
 
+def _per_group(a, b, keys, fn):
+    """Group the paired series (a,b) by `keys`, apply fn(a_g, b_g) per group, return {key: value} in
+    key-sorted order. Groups with <2 points are skipped (a correlation needs >=2). The grouping is what
+    tournament scoring needs: per-era (Numerai) / per-moon (CrunchDAO) metrics, then aggregate."""
+    groups = {}
+    for x, y, k in zip(a, b, keys):
+        g = groups.get(k)
+        if g is None:
+            g = groups[k] = ([], [])
+        g[0].append(x)
+        g[1].append(y)
+    out = {}
+    for k in sorted(groups):
+        xs, ys = groups[k]
+        if len(xs) >= 2:
+            out[k] = fn(xs, ys)
+    return out
+
+
+@register("numerai_corr", family="stats", required_tags=["prediction", "target", "era"],
+          string_tags=["era"], set_maturity="reviewed")
+def numerai_corr(cols, binding, convention=None):
+    """Numerai validation CORR: the per-era numerai_corr (rank -> norm.ppf -> signed^1.5 on predictions,
+    center -> signed^1.5 on target, then Pearson) AVERAGED across eras - the number a Numerai DS stakes
+    NMR on. NOT a global Pearson/Spearman (the `correlation` recipe), which silently computes a different
+    statistic and can false-refute a correct CORR. Matches numerai-tools scoring.numerai_corr."""
+    pred, tgt, era = cols[binding["prediction"]], cols[binding["target"]], cols[binding["era"]]
+    per = _per_group(pred, tgt, era, N.numerai_corr_series)
+    vals = [v for v in per.values() if v == v]
+    if not vals:
+        return _result(float("nan"))
+    return _result(N.fmean(vals), {"eras": len(vals)})
+
+
+@register("numerai_sharpe", family="stats", required_tags=["prediction", "target", "era"],
+          string_tags=["era"], set_maturity="reviewed")
+def numerai_sharpe(cols, binding, convention=None):
+    """Numerai validation Sharpe = mean / std(ddof=0) of the per-era numerai_corr. No risk-free, no
+    annualization (the Numerai convention). The generic `sharpe` recipe can't express this (it needs a
+    return series); this is the per-era aggregate a DS actually reports and stakes on."""
+    pred, tgt, era = cols[binding["prediction"]], cols[binding["target"]], cols[binding["era"]]
+    per = _per_group(pred, tgt, era, N.numerai_corr_series)
+    vals = [v for v in per.values() if v == v]
+    if len(vals) < 2:
+        return _result(float("nan"))
+    mean = N.fmean(vals)
+    sd = N.fstd(vals, 0)  # population std (ddof=0), per the Numerai convention
+    return _result(mean / sd if sd > 0 else float("nan"),
+                   {"eras": len(vals), "corr_mean": mean, "corr_std": sd})
+
+
 @register("effect_size", family="stats", required_tags=["sample_a", "sample_b"], set_maturity="reviewed",
           accepted_conventions=["cohen_d", "hedges_g", "glass_delta"])
 def effect_size(cols, binding, convention=None):

@@ -78,11 +78,29 @@ def _sign(x):
 
 
 def _budget(claimed, sampling_se, claimed_precision=None):
-    prec = claimed_precision if claimed_precision is not None else _infer_precision(claimed)
+    inferred = _infer_precision(claimed)
+    # SECURITY: claimed_precision is a COUNTERPARTY-CONTROLLED verify.yaml field. It may only ever TIGHTEN
+    # the budget, NEVER widen it - otherwise a hostile committed contract sets it huge (claimed_precision:
+    # 5.0) to false-CONFIRM an arbitrary overclaim (the number reproduces honestly; only the self-declared
+    # tolerance is the lie, so the binding/determinism guards never fire). So clamp explicit precision to
+    # the claim's OWN inferred half-ULP, and ignore a non-finite / non-positive / non-numeric value.
+    explicit = (isinstance(claimed_precision, (int, float)) and not isinstance(claimed_precision, bool)
+                and math.isfinite(claimed_precision) and claimed_precision > 0)
+    prec = min(float(claimed_precision), inferred) if explicit else inferred
     terms = {"abs_floor": ABS_FLOOR, "rel_floor": REL_FLOOR * abs(claimed), "claim_precision": prec}
     if isinstance(sampling_se, float) and sampling_se == sampling_se and sampling_se > 0:
         terms["sampling_se"] = Z * sampling_se
-    eff = max(terms.values())
+    # An EXPLICIT (now clamped-tighter) claimed_precision CAPS the budget so a metric's sampling-SE band
+    # can't widen it back out. The producer-side question - "did you report the number your data actually
+    # produces?" - is about the EXACT recompute on the same data, not resampling noise; a declared
+    # precision makes that the binding tolerance. (E.g. a DeLong AUC SE on n=400 is ~0.05 and would
+    # otherwise CONFIRM a claim 0.05 above the true AUC - too loose for a tournament decided in the 3rd-4th
+    # decimal.) With the clamp this is strictly TIGHTENING and opt-in - never a widening lever. Without an
+    # explicit precision the sampling-SE band still governs (the statistical-robustness reading).
+    if explicit:
+        eff = max(ABS_FLOOR, REL_FLOOR * abs(claimed), prec)
+    else:
+        eff = max(terms.values())
     return eff, terms
 
 

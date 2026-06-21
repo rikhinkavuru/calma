@@ -26,8 +26,9 @@ def truth(cond, label):
 
 
 # --- every starter template validates against the contract schema ---
-truth(set(FW.list_frameworks()) == {"backtrader", "vectorbt", "zipline", "pytorch", "xgboost", "sklearn"},
-      "frameworks: the six expected frameworks are present")
+truth(set(FW.list_frameworks()) == {"backtrader", "vectorbt", "zipline", "pytorch", "xgboost", "sklearn",
+                                    "numerai", "crunchdao"},
+      "frameworks: the eight expected frameworks are present (incl. the numerai/crunchdao tournament on-ramps)")
 for fw in FW.list_frameworks():
     c = FW.starter_contract(fw)
     errs = DC.validate_contract({k: v for k, v in c.items() if not k.startswith("_")})

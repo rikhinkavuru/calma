@@ -4619,6 +4619,27 @@
       ],
       "description": "Number of patients treated to prevent one additional adverse outcome."
     },
+    "numerai_corr": {
+      "aliases": [
+        "numerai corr",
+        "validation corr",
+        "numerai correlation",
+        "per-era corr",
+        "corr20",
+        "the number i stake on numerai"
+      ],
+      "description": "Numerai validation CORR: the per-era rank-gaussianize-pow-1.5 correlation between predictions and target, averaged across eras (not a plain Pearson/Spearman)."
+    },
+    "numerai_sharpe": {
+      "aliases": [
+        "numerai sharpe",
+        "validation sharpe",
+        "corr sharpe",
+        "per-era corr sharpe",
+        "consistency of per-era corr"
+      ],
+      "description": "Numerai validation Sharpe: mean divided by population std (ddof=0) of the per-era numerai_corr."
+    },
     "odds_ratio": {
       "aliases": [
         "or",

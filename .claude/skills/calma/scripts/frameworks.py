@@ -96,12 +96,49 @@ FRAMEWORKS = {
                      "headline": True}],
         "split": dict(_ML_SPLIT),
     },
+    "numerai": {
+        "_note": ("Numerai starter. Write your VALIDATION predictions to predictions.csv with three "
+                  "columns: era, prediction, target. The headline numerai_corr is the per-era mean of "
+                  "Numerai's rank->norm.ppf->^1.5 correlation (the number you stake NMR on - NOT a plain "
+                  "Pearson), and numerai_sharpe is mean/std(ddof=0) of per-era CORR. IMPORTANT: drop the "
+                  "first 4 validation eras after your last train era BEFORE writing the file (the 20-day "
+                  "target overlaps them - the embargo). Then: calma verify . \"validation corr 0.026\"."),
+        "run": {"entrypoint": "predict.py", "network": "off"},
+        "env": _ML_ENV,
+        "artifacts": [{"path": "predictions.csv", "columns": {
+            "era": {"tag": "era"}, "prediction": {"tag": "prediction"}, "target": {"tag": "target"}}}],
+        "metrics": [
+            {"metric_id": "numerai_corr", "artifact": "predictions.csv",
+             "binding": {"prediction": "prediction", "target": "target", "era": "era"},
+             "claimed_precision": 0.002, "headline": True},
+            {"metric_id": "numerai_sharpe", "artifact": "predictions.csv",
+             "binding": {"prediction": "prediction", "target": "target", "era": "era"},
+             "claimed_precision": 0.05}],
+    },
+    "crunchdao": {
+        "_note": ("CrunchDAO starter (ADIA-Lab structural-break). Write predictions.csv with two columns: "
+                  "structural_breakpoint (the 0/1 label) and score (your break-probability in [0,1]). The "
+                  "headline is ROC-AUC, exactly sklearn.metrics.roc_auc_score(y_true, score). Then: "
+                  "calma verify . \"ROC-AUC 0.62\". For the per-moon DataCrunch crunch instead, use "
+                  "moon,prediction,target and metric numerai_corr (per-group Spearman-like correlation)."),
+        "run": {"entrypoint": "infer.py", "network": "off"},
+        "env": _ML_ENV,
+        "artifacts": [{"path": "predictions.csv", "columns": {
+            "structural_breakpoint": {"tag": "label"}, "score": {"tag": "score"}}}],
+        "metrics": [{"metric_id": "auc", "artifact": "predictions.csv",
+                     "binding": {"label": "structural_breakpoint", "score": "score"},
+                     "convention": "roc-auc", "claimed_precision": 0.005, "headline": True}],
+    },
 }
+# the tournament starters pin a tight claimed_precision (CORR +/-0.002, AUC +/-0.005): a leaderboard is
+# decided in the 3rd-4th decimal, so the verdict must hold the claim to its stated precision rather than
+# widen to the metric's sampling-SE band. (compare._budget caps the budget when claimed_precision is set.)
 
 # common spellings -> the canonical key (so `calma init torch` / `init scikit-learn` just work)
 ALIASES = {"bt": "backtrader", "vbt": "vectorbt", "torch": "pytorch", "xgb": "xgboost",
            "lightgbm": "xgboost", "lgbm": "xgboost", "scikit-learn": "sklearn", "scikit": "sklearn",
-           "sk-learn": "sklearn", "skl": "sklearn"}
+           "sk-learn": "sklearn", "skl": "sklearn", "numer.ai": "numerai", "numer": "numerai",
+           "crunch": "crunchdao", "adia": "crunchdao", "datacrunch": "crunchdao"}
 
 
 def list_frameworks():

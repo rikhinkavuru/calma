@@ -982,6 +982,52 @@ def spearman_r(xs, ys):
     return pearson_r(_avg_ranks(xs), _avg_ranks(ys))
 
 
+def inv_norm_cdf(p):
+    """Inverse standard-normal CDF (the normal quantile / probit) via Acklam's rational approximation:
+    |relative error| < ~1.15e-9 across the whole open (0,1) interval, bit-deterministic across platforms
+    (pure +,-,*,/,sqrt,log; no numpy/scipy). That is far beyond what the gaussianize step in numerai_corr
+    needs - the staked CORR is reported to ~4 decimals, so a sub-1e-9 quantile error is invisible. (We do
+    NOT chase the last few ULPs with an erfc/exp Halley step: near the centre 0.5*erfc(-x/sqrt2)-p cancels
+    catastrophically and the "refinement" actually loses accuracy.) Returns NaN outside (0,1)."""
+    if not (0.0 < p < 1.0):
+        return float("nan")
+    a = (-3.969683028665376e+01, 2.209460984245205e+02, -2.759285104469687e+02,
+         1.383577518672690e+02, -3.066479806614716e+01, 2.506628277459239e+00)
+    b = (-5.447609879822406e+01, 1.615858368580409e+02, -1.556989798598866e+02,
+         6.680131188771972e+01, -1.328068155288572e+01)
+    c = (-7.784894002430293e-03, -3.223964580411365e-01, -2.400758277161838e+00,
+         -2.549732539343734e+00, 4.374664141464968e+00, 2.938163982698783e+00)
+    d = (7.784695709041462e-03, 3.224671290700398e-01, 2.445134137142996e+00, 3.754408661907416e+00)
+    plow = 0.02425
+    if p < plow:
+        q = math.sqrt(-2 * math.log(p))
+        return (((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5]) / ((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1)
+    if p <= 1 - plow:
+        q = p - 0.5
+        r = q * q
+        return (((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q / (((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1)
+    q = math.sqrt(-2 * math.log(1 - p))
+    return -(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5]) / ((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1)
+
+
+def _signed_pow(v, e):
+    return (1.0 if v >= 0 else -1.0) * abs(v) ** e
+
+
+def numerai_corr_series(pred, tgt):
+    """One era's Numerai CORR (numerai-tools scoring.numerai_corr): rank predictions -> percentile
+    (rank-0.5)/n -> norm.ppf -> signed ^1.5; center the target -> signed ^1.5; then Pearson. NOT a plain
+    Pearson/Spearman - the rank-gaussianize + 1.5 tail-weighting is the whole point. NaN if degenerate."""
+    n = len(pred)
+    if n != len(tgt) or n < 2 or _has_nan(pred) or _has_nan(tgt):
+        return float("nan")
+    ranks = _avg_ranks(pred)
+    gp = [_signed_pow(inv_norm_cdf(min(max((r - 0.5) / n, 1e-6), 1 - 1e-6)), 1.5) for r in ranks]
+    mt = fmean(tgt)
+    pt = [_signed_pow(t - mt, 1.5) for t in tgt]
+    return pearson_r(gp, pt)
+
+
 def cohen_d(a, b, mode="cohen_d"):
     """Standardized mean difference (a - b). 'cohen_d': pooled SD. 'hedges_g': exact small-sample
     correction J = Gamma(df/2) / (sqrt(df/2) * Gamma((df-1)/2)). 'glass_delta': control(=b) SD."""
