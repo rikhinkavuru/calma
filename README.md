@@ -163,8 +163,8 @@ A fourth `agent-with-exec` arm (a frontier agent with a `run_python` tool, sandb
 ## Quickstart
 
 ```bash
-# install the CLI (pure stdlib; no runtime deps)
-./install.sh                      # or: pip install -e . from the repo
+# install the CLI (pure stdlib; no runtime deps) — see docs/install.md for all paths
+pip install calma                 # or: ./install.sh (symlink) · pip install 'calma[parquet]' for .parquet
 
 # verify a result directory (auto-drafts a contract, or reads a committed verify.yaml)
 calma verify ./result "accuracy 0.94" --metric accuracy --json

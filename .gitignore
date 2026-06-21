@@ -58,3 +58,8 @@ benchmark/results/agent.json
 benchmark/results/agent_cross.json
 benchmark/results/agent_excluded.json
 benchmark/results/agent_transcripts/
+
+# Python packaging build artifacts (WS-B)
+/dist
+*.egg-info
+src/*.egg-info

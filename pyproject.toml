@@ -1,0 +1,63 @@
+# calma packaging (roadmap WS-B). Library-first: this installs a THIN `calma` package that is a client of
+# the ONE pure-stdlib engine (under .claude/skills/calma/scripts/, bundled into the wheel as calma/_engine/),
+# never a second implementation. dependencies = [] keeps the zero-install, code-never-leaves guarantee; the
+# only third-party line is the optional parquet extra (pyarrow), itself lazy + firewalled from the core.
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "calma"
+dynamic = ["version"]
+description = "Recompute-and-diff verification: re-execute a result, recompute its headline number from the raw outputs, and prove or break the claim — plus a validity layer (leakage / overfitting / survivorship / look-ahead / era-embargo / risk-sim)."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Rikhin Kavuru" }]
+keywords = ["verification", "backtest", "reproducibility", "data-leakage", "overfitting", "quant", "ml-eval", "numerai"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Financial and Insurance Industry",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Topic :: Scientific/Engineering",
+]
+dependencies = []          # the core is pure-stdlib (the moat); heavy deps live in extras only
+
+[project.optional-dependencies]
+parquet = ["pyarrow>=15"]  # the OPTIONAL columnar adapter; imported lazily, never reachable from the core
+
+[project.scripts]
+calma = "calma.cli:main"
+
+[project.urls]
+Homepage = "https://calma1.vercel.app/"
+Source = "https://github.com/rikhinkavuru/calma"
+
+# version-from-the-engine (single source of truth): calma.__version__ == the engine's __version__, so the
+# library and the CLI/skill can never drift. (A future v-tag bump can switch this to hatch-vcs.)
+[tool.hatch.version]
+path = ".claude/skills/calma/scripts/calma.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/calma"]
+exclude = [
+  "**/__pycache__", "**/*.pyc",
+  "calma/_engine/tests/**",                # the test suite isn't shipped in the wheel
+  "calma/assets/reference_vectors.json",   # 3.2M test-only reference vectors (not a runtime dep)
+  "calma/assets/corpus/**",                # 1.1M contamination test fixtures
+  "calma/assets/demos/**",                 # 840K benchmark/demo fixtures (the `demo` btc fixture stays)
+]
+
+# bundle the pure-stdlib engine (-> calma/_engine/) AND the runtime assets the engine loads at runtime
+# (calibration.json for the verdict budget, compiled_recipes.json, recipe_descriptions.json, the btc demo
+# fixture, the schema) into the wheel; the thin facade adds _engine/ to sys.path and the engine resolves
+# assets at _engine/../assets, which maps to calma/assets/ in the installed layout.
+[tool.hatch.build.targets.wheel.force-include]
+".claude/skills/calma/scripts" = "calma/_engine"
+".claude/skills/calma/assets" = "calma/assets"
+
+[tool.hatch.build.targets.sdist]
+include = ["src/calma", ".claude/skills/calma/scripts", "README.md", "LICENSE", "pyproject.toml"]
+exclude = ["**/__pycache__", "**/*.pyc"]
