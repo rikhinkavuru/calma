@@ -27,11 +27,18 @@ _INF, _NINF = float("inf"), float("-inf")
 _MAX_ARTIFACT_BYTES = int(float(os.environ.get("CALMA_MAX_ARTIFACT_MB", "256")) * 1024 * 1024)
 
 
-def _load_cols(path):
+def _load_cols(path, columns=None):
     if not os.path.isfile(path):
         # a FIFO / socket / device artifact would BLOCK open() forever (a hostile entrypoint can
         # plant one in runs/); fail it as a degenerate recompute instead of hanging the verifier.
         raise ValueError("artifact %s is not a regular file" % os.path.basename(path))
+    # WS-A: an optional .parquet artifact is read by the lazy, firewalled pyarrow adapter (calma[parquet]).
+    # Memory is bounded by the adapter's row guard + COLUMN PROJECTION (the wide tournament file is never
+    # fully materialized), so the on-disk byte-cap - the wrong guard for a projected columnar read - does
+    # not apply here; the pure-stdlib core never imports pyarrow (the import is lazy, inside io_parquet).
+    if path.lower().endswith(".parquet"):
+        import io_parquet as IOPQ  # noqa: PLC0415 - intentionally lazy (keeps the core import graph clean)
+        return IOPQ.read_columns(path, columns=columns)
     sz = os.path.getsize(path)
     if sz > _MAX_ARTIFACT_BYTES:
         raise ValueError("artifact %s is %d MB, over the %d MB recompute cap (a hostile entrypoint can "
@@ -97,10 +104,13 @@ def _numeric_cols(contract, artifact_path, binding, base, metric_id=None):
     string_tags = set((fn.manifest.get("string_tags") if fn else []) or [])
     cache = {}
     na_cache = {}
+    # the bound column NAMES (the bare cname, dropping any 'other.csv::col' sibling-artifact ref) - passed
+    # as the projection set so a .parquet artifact materializes ONLY these columns, not the full width.
+    needed = sorted({str(cn).partition("::")[2] or str(cn) for cn in binding.values()})
 
     def load(path):
         if path not in cache:
-            cache[path] = _load_cols(_safe_join(base, path))
+            cache[path] = _load_cols(_safe_join(base, path), columns=needed)
         return cache[path]
 
     def na_policies(path):  # memoized per artifact - avoid re-walking contract.artifacts per column
