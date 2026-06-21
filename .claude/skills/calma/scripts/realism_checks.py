@@ -31,6 +31,7 @@ import os
 import re
 
 import numeric as N
+import pathsafe as PS
 import verdict as V
 
 # the fraction by which the net-of-friction metric must fall below the gross before we call the
@@ -57,13 +58,10 @@ _GROSS_RE = re.compile(
 
 def _safe_join(base, rel):
     """Resolve rel under base and refuse anything that escapes it (absolute path, .. traversal, symlink
-    out). Mirrors recompute._safe_join - a detector must never be coerced into reading a file outside the
-    contract base (path-traversal / file-exfiltration via an attacker-authored verify.yaml)."""
-    full = os.path.realpath(os.path.join(base, rel))
-    rb = os.path.realpath(base)
-    if full != rb and not full.startswith(rb + os.sep):
-        raise ValueError("path escapes the contract base: %r" % rel)
-    return full
+    out). Delegates to the shared guard (pathsafe) so there is ONE audited containment implementation
+    (L1) - a detector must never be coerced into reading a file outside the contract base (path-traversal
+    / file-exfiltration via an attacker-authored verify.yaml)."""
+    return PS.safe_join(base, rel)
 
 
 def _read_csv(path):

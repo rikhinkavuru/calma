@@ -31,6 +31,8 @@ import math
 import os
 import shutil
 
+import pathsafe as PS
+
 # the calibrated agreement budget: two correct implementations of the same metric on the same raw data
 # should agree to floating-point reduction-order noise. Mirrors compare.py's ABS/REL floors.
 ABS_FLOOR = 1e-9
@@ -157,11 +159,9 @@ def _agree(a, b):
 
 
 def _safe_join(base, rel):
-    full = os.path.realpath(os.path.join(base, rel))
-    rb = os.path.realpath(base)
-    if full != rb and not full.startswith(rb + os.sep):
-        raise ValueError("path escapes the contract base: %r" % rel)
-    return full
+    """Resolve rel under base; refuse escapes (abs path / .. traversal / symlink-out). Delegates to the
+    shared guard (pathsafe) so there is ONE audited containment implementation (L1)."""
+    return PS.safe_join(base, rel)
 
 
 def _read_floats(path, colnames):

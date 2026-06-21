@@ -838,15 +838,14 @@ class VerifyOptions:
 _OPT_FIELDS = frozenset(f.name for f in fields(VerifyOptions))
 
 
-def verify(target, claim=None, metric=None, run_id="run", opts=None, **legacy):
-    # H2: run-mode flags travel in ONE VerifyOptions object. `opts=` is the canonical path (every
-    # production callsite uses it); the **legacy kwargs are a thin, STRICT back-compat shim for
-    # direct callers/tests - unknown keys raise (VerifyOptions(**legacy)), and you cannot pass both.
+def verify(target, claim=None, metric=None, run_id="run", opts=None):
+    # H2: run-mode flags travel in ONE VerifyOptions object - opts= is the ONLY way to pass them. Every
+    # callsite (production AND tests) constructs a VerifyOptions, so there is exactly one entry shape; a
+    # frozen, fixed-field options object means a typo or a dropped flag fails loud at construction instead
+    # of being silently swallowed as a loose kwarg (the root cause of the old dropped-flag bug). Verdict
+    # inputs (target/claim/metric/run_id) stay positional.
     if opts is None:
-        opts = VerifyOptions(**legacy) if legacy else VerifyOptions()
-    elif legacy:
-        raise TypeError("pass run-mode flags via opts=VerifyOptions(...), not as loose kwargs: %s"
-                        % ", ".join(sorted(legacy)))
+        opts = VerifyOptions()
     # unpack into locals so the (large) body below reads unchanged - opts is the source of truth.
     force, check_determinism = opts.force, opts.check_determinism
     run_only, cross_engine = opts.run_only, opts.cross_engine
@@ -1066,6 +1065,12 @@ def verify(target, claim=None, metric=None, run_id="run", opts=None, **legacy):
             # code (third-party), OR bit-determinism could NOT be proven statically (measured-band/
             # uncontrolled) AND a claim is being judged. A controlled-to-bit run is provably stable.
             det_mode = run_res.get("determinism_mode", "uncontrolled")
+            # PERF: the recompute kernels are PURE (numeric.py) - re-running one on the same fixed columns
+            # is bit-identical, so the k>1 intra-recompute spread is provably 0 on the controlled-to-bit
+            # path. Run the recipe ONCE there (k=3 is wasted work that scales with artifact size - a 3x
+            # cost on large pilot datasets). measured-band / uncontrolled keep k=3 (there the SANDBOX run,
+            # not the kernel, is what's being sampled, and k_spread is meaningful).
+            _rk = 1 if det_mode == "controlled-to-bit" else 3
             any_claim_value = any(m.get("claimed_value") is not None
                                   for m in contract.get("metrics", []))
             do_recheck = run_res.get("exit_code") == 0 and (
@@ -1074,7 +1079,7 @@ def verify(target, claim=None, metric=None, run_id="run", opts=None, **legacy):
             outputs_unstable = False
             if do_recheck:
                 h1 = _artifact_hashes(target, contract)
-                rec1 = RC.recompute_contract(contract_path, base=target)  # run-1 metric values
+                rec1 = RC.recompute_contract(contract_path, base=target, k=_rk)  # run-1 metric values
                 run2 = H.run(contract_path, base=target, timeout=eff_timeout,
                              trust_override=("untrusted-third-party" if trust == "third-party"
                                              else None),
@@ -1084,7 +1089,7 @@ def verify(target, claim=None, metric=None, run_id="run", opts=None, **legacy):
                     h2 = _artifact_hashes(target, contract)
                     unstable_paths = sorted(p for p in set(h1) | set(h2) if h1.get(p) != h2.get(p))
                     if unstable_paths:  # quantify the swing on the headline metric (reads as rigor)
-                        variance = _metric_variance(rec1, RC.recompute_contract(contract_path, base=target))
+                        variance = _metric_variance(rec1, RC.recompute_contract(contract_path, base=target, k=_rk))
                 else:
                     unstable_paths = ["<second run exited %s>" % run2.get("exit_code")]
                 outputs_unstable = bool(unstable_paths)
@@ -1095,7 +1100,7 @@ def verify(target, claim=None, metric=None, run_id="run", opts=None, **legacy):
                                 "third-party-auto" if trust == "third-party" else
                                 "static-nondeterminism-auto"),
                 }
-            rec = RC.recompute_contract(contract_path, base=target)
+            rec = RC.recompute_contract(contract_path, base=target, k=_rk)
             json.dump(rec, open(os.path.join(run_dir, "recompute.json"), "w"), indent=2)
             for _rm in rec.get("metrics", []):
                 if not _rm.get("degenerate"):

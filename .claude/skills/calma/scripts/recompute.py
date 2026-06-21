@@ -13,9 +13,18 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import pathsafe as PS  # noqa: E402
 import recipes as R  # noqa: E402
 
 _INF, _NINF = float("inf"), float("-inf")
+
+
+# DoS bound: the artifact is emitted by the (sandboxed but UNTRUSTED) entrypoint and then read by the HOST
+# verifier OUTSIDE the sandbox (recompute runs post-execution). Cap the on-disk size so a hostile multi-GB
+# CSV can't OOM the verifier / CI runner; over the cap is a degenerate recompute (-> INCONCLUSIVE), never
+# an unbounded load. Generous vs any real artifact (Numerai/Gauntlet datasets are < a few MB); override
+# with CALMA_MAX_ARTIFACT_MB.
+_MAX_ARTIFACT_BYTES = int(float(os.environ.get("CALMA_MAX_ARTIFACT_MB", "256")) * 1024 * 1024)
 
 
 def _load_cols(path):
@@ -23,6 +32,12 @@ def _load_cols(path):
         # a FIFO / socket / device artifact would BLOCK open() forever (a hostile entrypoint can
         # plant one in runs/); fail it as a degenerate recompute instead of hanging the verifier.
         raise ValueError("artifact %s is not a regular file" % os.path.basename(path))
+    sz = os.path.getsize(path)
+    if sz > _MAX_ARTIFACT_BYTES:
+        raise ValueError("artifact %s is %d MB, over the %d MB recompute cap (a hostile entrypoint can "
+                         "emit a giant file to OOM the host verifier); raise CALMA_MAX_ARTIFACT_MB for a "
+                         "genuinely large dataset" % (os.path.basename(path), sz // (1024 * 1024),
+                                                      _MAX_ARTIFACT_BYTES // (1024 * 1024)))
     with open(path, newline="") as fh:
         rd = csv.reader(fh)
         header = next(rd, None)
@@ -56,12 +71,10 @@ def _to_numeric(raw, na_policy="error"):
 
 
 def _safe_join(base, rel):
-    """Resolve rel under base and refuse anything that escapes base (abs path, .. traversal)."""
-    full = os.path.realpath(os.path.join(base, rel))
-    rb = os.path.realpath(base)
-    if full != rb and not full.startswith(rb + os.sep):
-        raise ValueError("artifact path escapes the contract base: %r" % rel)
-    return full
+    """Resolve rel under base and refuse anything that escapes base (abs path / .. traversal /
+    symlink-out). Delegates to the shared guard (pathsafe) so there is ONE audited containment
+    implementation (L1); recompute was historically the reference copy every detector mirrored."""
+    return PS.safe_join(base, rel)
 
 
 def _na_policies(contract, artifact_path):

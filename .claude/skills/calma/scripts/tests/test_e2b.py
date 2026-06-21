@@ -285,7 +285,7 @@ _set_creds(endpoint=_ENDPOINT_SENTINEL, token=_TOKEN_SENTINEL, template="tmpl-pr
 _sink = []
 H.set_e2b_session_factory(fake_factory(sink=_sink))
 try:
-    res = C.verify(_d, run_id="e2b", force=True, trust="third-party", isolation="e2b")
+    res = C.verify(_d, run_id="e2b", opts=C.VerifyOptions(force=True, trust="third-party", isolation="e2b"))
     truth(res["repo_verdict"] in (V.CONFIRMED, V.CAVEATS),
           "e2e: honest claim over microVM-produced output -> not REFUTED (got %s)" % res["repo_verdict"])
     truth(os.path.exists(os.path.join(_d, "runs", "oos", "returns.csv")),
@@ -363,7 +363,7 @@ if _live:
     _c = json.load(open(_vy)); _c["metrics"][0]["claimed_value"] = _true
     _c["metrics"][0]["claim_confirmed"] = True; json.dump(_c, open(_vy, "w"))
     shutil.rmtree(os.path.join(_d, "runs"))
-    res = C.verify(_d, run_id="e2b_live", force=True, trust="third-party", isolation="e2b")
+    res = C.verify(_d, run_id="e2b_live", opts=C.VerifyOptions(force=True, trust="third-party", isolation="e2b"))
     led = json.load(open(os.path.join(res["run_dir"], "ledger.json")))
     _stamp = led.get("scope", {}).get("isolation_tier")
     truth(_stamp in ("e2b-firecracker", "e2b-firecracker (self-hosted)"),

@@ -118,7 +118,7 @@ except ValueError:
     truth(True, "keygen refuses to overwrite without --force")
 
 # a real REFUTED run on the BTC fixture; auto-sign should fire because a key now exists
-res = C.verify(BTC, run_id="test_attest", force=True)
+res = C.verify(BTC, run_id="test_attest", opts=C.VerifyOptions(force=True))
 bundle_path = os.path.join(res["run_dir"], A.BUNDLE_NAME)
 truth(os.path.exists(bundle_path), "verify auto-signs when a local key exists")
 bundle = json.load(open(bundle_path))

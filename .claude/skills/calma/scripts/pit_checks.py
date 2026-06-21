@@ -36,6 +36,7 @@ import csv
 import os
 import re
 
+import pathsafe as PS
 import verdict as V
 
 _PIT_DIMS = {"survivorship", "look-ahead"}
@@ -60,12 +61,9 @@ _FORWARD_RE = re.compile(
 
 
 def _safe_join(base, rel):
-    """Resolve rel under base; refuse escapes (abs/.. /symlink-out). Mirrors recompute._safe_join."""
-    full = os.path.realpath(os.path.join(base, rel))
-    rb = os.path.realpath(base)
-    if full != rb and not full.startswith(rb + os.sep):
-        raise ValueError("path escapes the contract base: %r" % rel)
-    return full
+    """Resolve rel under base; refuse escapes (abs path / .. traversal / symlink-out). Delegates to the
+    shared guard (pathsafe) so there is ONE audited containment implementation (L1)."""
+    return PS.safe_join(base, rel)
 
 
 def _read_csv(path):

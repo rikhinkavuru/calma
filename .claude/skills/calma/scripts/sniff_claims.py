@@ -421,34 +421,49 @@ def _strengthener_ok(kind, text, nm):
     return False
 
 
+def _term_re(term):
+    """The word-boundary matcher for one vocabulary term (alnum-tight: 'auc' must not fire inside
+    'sauce')."""
+    return re.compile(r"(?<![a-z0-9])%s(?![a-z0-9])" % re.escape(term))
+
+
+# Pre-compile every vocabulary term's pattern ONCE at import, and pre-resolve its metric id. The sniffer
+# runs on every agent message; _term_occurrences used to rebuild ~70 `re.escape`+compile patterns AND
+# re-call _hint_metric per term per call. Hoisting that to import time makes the 2s SIGALRM watchdog a
+# backstop, not the load-bearing defense against per-call cost. (Order: STRONG_TERMS/CONDITIONAL_TERMS/
+# _ALIASES/_EXPLICIT_TERMS/_ADJECTIVES and _hint_metric are all defined above.) Terms whose _hint_metric
+# is None are dropped here exactly as the old loop's `continue` did.
+_STRONG_C = [(t, _term_re(t), _m) for t in STRONG_TERMS if (_m := _hint_metric(t)) is not None]
+_CONDITIONAL_C = [(t, _term_re(t), _m, kind) for t, kind in CONDITIONAL_TERMS.items()
+                  if (_m := _hint_metric(t)) is not None]
+_ALIASES_C = [(t, _term_re(t), mid, kind) for t, (mid, _canon, kind) in _ALIASES.items()]
+_EXPLICIT_C = [(t, _term_re(t), mid) for t, mid in _EXPLICIT_TERMS.items()]
+_ADJECTIVES_C = [(t, _term_re(t), mid, kind) for t, (mid, kind, _canon) in _ADJECTIVES.items()]
+
+
 def _term_occurrences(text):
     """Yield (term_text, start, end, metric_id, kind) for every vocabulary hit.
-    kind: 'strong' | conditional strengthener name | 'at_k' | 'pctl'."""
+    kind: 'strong' | conditional strengthener name | 'at_k' | 'pctl'. Patterns + metric ids are
+    pre-compiled once at import (_STRONG_C etc.) - never rebuilt per call."""
     low = text.lower()
-    for term in STRONG_TERMS:
-        mid = _hint_metric(term)
-        if mid is None:
-            continue
-        for m in re.finditer(r"(?<![a-z0-9])%s(?![a-z0-9])" % re.escape(term), low):
+    for term, pat, mid in _STRONG_C:
+        for m in pat.finditer(low):
             yield term, m.start(), m.end(), mid, "strong"
-    for term, kind in CONDITIONAL_TERMS.items():
-        mid = _hint_metric(term)
-        if mid is None:
-            continue
-        for m in re.finditer(r"(?<![a-z0-9])%s(?![a-z0-9])" % re.escape(term), low):
+    for term, pat, mid, kind in _CONDITIONAL_C:
+        for m in pat.finditer(low):
             # "p95 latency" is the pctl occurrence's claim - the bare "latency" term
             # would mis-bind it to latency_p50
             if term == "latency" and _PCTL_RE.search(low[max(0, m.start() - 8):m.start()]):
                 continue
             yield term, m.start(), m.end(), mid, kind
-    for term, (mid, _canon, kind) in _ALIASES.items():
-        for m in re.finditer(r"(?<![a-z0-9])%s(?![a-z0-9])" % re.escape(term), low):
+    for term, pat, mid, kind in _ALIASES_C:
+        for m in pat.finditer(low):
             yield term, m.start(), m.end(), mid, kind
-    for term, mid in _EXPLICIT_TERMS.items():
-        for m in re.finditer(r"(?<![a-z0-9])%s(?![a-z0-9])" % re.escape(term), low):
+    for term, pat, mid in _EXPLICIT_C:
+        for m in pat.finditer(low):
             yield term, m.start(), m.end(), mid, "num"
-    for term, (mid, kind, _canon) in _ADJECTIVES.items():
-        for m in re.finditer(r"(?<![a-z0-9])%s(?![a-z0-9])" % re.escape(term), low):
+    for term, pat, mid, kind in _ADJECTIVES_C:
+        for m in pat.finditer(low):
             yield term, m.start(), m.end(), mid, kind
     for m in _AT_K_RE.finditer(low):
         yield m.group(0), m.start(), m.end(), _AT_K_METRIC[m.group(1)], "at_k"

@@ -100,9 +100,9 @@ def _trials_from_matrix(contract, base, s):
     rel = s.get("trials_matrix")
     if not rel:
         return None, None
-    path = os.path.realpath(os.path.join(base, rel))
-    rb = os.path.realpath(base)
-    if path != rb and not path.startswith(rb + os.sep):
+    try:
+        path = PS.safe_join(base, rel)  # L1: the one audited containment guard (pathsafe)
+    except ValueError:
         return None, None  # path escape
     if not os.path.isfile(path):
         return None, None

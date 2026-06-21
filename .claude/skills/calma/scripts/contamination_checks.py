@@ -28,6 +28,8 @@ import os
 import re
 import unicodedata
 
+import pathsafe as PS
+
 # near-duplicate minhash configuration (deterministic; stdlib only).
 _MINHASH_K = 32          # number of hash functions in the signature
 _SHINGLE_N = 3           # word-shingle size (falls back to char-shingles for short items)
@@ -60,13 +62,10 @@ _MAX_BAND = 512             # an LSH band with more members than this is degener
 
 def _safe_join(base, rel):
     """Resolve rel under base and refuse anything that escapes it (absolute path, .. traversal, symlink
-    out). Mirrors recompute._safe_join - a detector must never be coerced into reading a file outside the
-    contract base (path-traversal / file-exfiltration via an attacker-authored verify.yaml)."""
-    full = os.path.realpath(os.path.join(base, rel))
-    rb = os.path.realpath(base)
-    if full != rb and not full.startswith(rb + os.sep):
-        raise ValueError("path escapes the contract base: %r" % rel)
-    return full
+    out). Delegates to the shared guard (pathsafe) so there is ONE audited containment implementation
+    (L1) - a detector must never be coerced into reading a file outside the contract base (path-traversal
+    / file-exfiltration via an attacker-authored verify.yaml)."""
+    return PS.safe_join(base, rel)
 
 _HELDOUT_RE = re.compile(
     r"held.?out|zero.?shot|uncontaminat|unseen|out.?of.?distribution|\boos\b|not (in|seen in) (the )?"

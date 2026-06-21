@@ -23,6 +23,7 @@ import os
 import re
 
 import numeric as N
+import pathsafe as PS
 import verdict as V
 
 _KS_ALPHA = 0.01     # KS p below this is a significant shift
@@ -38,11 +39,9 @@ _GENERALIZE_RE = re.compile(
 
 
 def _safe_join(base, rel):
-    full = os.path.realpath(os.path.join(base, rel))
-    rb = os.path.realpath(base)
-    if full != rb and not full.startswith(rb + os.sep):
-        raise ValueError("path escapes the contract base: %r" % rel)
-    return full
+    """Resolve rel under base; refuse escapes (abs path / .. traversal / symlink-out). Delegates to the
+    shared guard (pathsafe) so there is ONE audited containment implementation (L1)."""
+    return PS.safe_join(base, rel)
 
 
 def _read(path):

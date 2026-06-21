@@ -63,27 +63,33 @@ truth(retry.force and retry.restore and retry.cross_engine and retry.check_deter
       and retry.run_only,
       "replace(opts, force, restore) preserves every other flag")
 
-# --- the strict back-compat shim: unknown kwargs raise, opts+legacy together raise ---
+# --- VerifyOptions rejects unknown fields (a typo fails loud at construction) ---
 try:
     C.VerifyOptions(forcce=True)  # typo
     truth(False, "unknown field must raise")
 except TypeError:
-    truth(True, "VerifyOptions(**legacy) rejects unknown keys")
+    truth(True, "VerifyOptions rejects unknown keys (frozen, fixed field set)")
 
-# verify() with both opts and loose kwargs must refuse (no ambiguous two-source config)
+# --- the **legacy shim is GONE: opts= is the ONLY way to pass run-mode flags. A loose run-mode kwarg on
+#     verify() is now an unexpected-keyword TypeError, not a silently-accepted second config path. ---
 try:
     C.verify(HERE, opts=C.VerifyOptions(), force=True)
-    truth(False, "opts + legacy together must raise")
+    truth(False, "a loose run-mode kwarg alongside opts= must raise (the shim is gone)")
 except TypeError:
-    truth(True, "verify() refuses opts= and loose kwargs together")
+    truth(True, "verify() rejects a loose run-mode kwarg alongside opts=")
+try:
+    C.verify(HERE, force=True)  # even on its own, loose run-mode kwargs no longer exist
+    truth(False, "a loose run-mode kwarg on its own must raise (no **legacy)")
+except TypeError:
+    truth(True, "verify() takes no **legacy kwargs at all - opts= is the single path")
 
-# --- verify()'s signature is the canonical 4 positionals + opts (sprawl is contained) ---
+# --- verify()'s signature is EXACTLY the 4 positionals + opts: NO **legacy shim remains ---
 sig = inspect.signature(C.verify)
 params = list(sig.parameters)
-truth(params[:5] == ["target", "claim", "metric", "run_id", "opts"],
-      "verify signature: target, claim, metric, run_id, opts (run-mode flags folded away)")
-truth(any(p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()),
-      "verify keeps a **legacy shim for direct/test callers")
+truth(params == ["target", "claim", "metric", "run_id", "opts"],
+      "verify signature is exactly target, claim, metric, run_id, opts (no **legacy)")
+truth(not any(p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()),
+      "verify has NO **legacy shim - opts= is the single, only run-mode entry")
 
 # --- production callsites in calma.py use opts=, never the old loose run-mode kwargs ---
 # strip the VerifyOptions(...) / replace(...) constructors first - run-mode kwargs are EXPECTED

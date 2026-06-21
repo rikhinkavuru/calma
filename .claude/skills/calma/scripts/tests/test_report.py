@@ -34,7 +34,7 @@ os.environ["CALMA_KEY_DIR"] = tmp_keys
 A.keygen()
 
 # a real REFUTED run on the BTC fixture
-res = C.verify(BTC, run_id="test_report", force=True)
+res = C.verify(BTC, run_id="test_report", opts=C.VerifyOptions(force=True))
 run_dir = res["run_dir"]
 truth(res["repo_verdict"] == "REFUTED", "BTC fixture is REFUTED (the report renders a break)")
 

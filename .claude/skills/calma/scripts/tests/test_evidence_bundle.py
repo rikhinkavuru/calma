@@ -33,7 +33,7 @@ tmp_keys = tempfile.mkdtemp()
 os.environ["CALMA_KEY_DIR"] = tmp_keys
 A.keygen()                                   # so the run is signed (the evidence needs a bundle)
 
-res = C.verify(BTC, "+14,698%", "total_return", run_id="test_evidence", force=True)
+res = C.verify(BTC, "+14,698%", "total_return", run_id="test_evidence", opts=C.VerifyOptions(force=True))
 run_dir = res["run_dir"]
 
 # --- evidence_json: the structured allocator object ---

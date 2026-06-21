@@ -9,11 +9,25 @@ FP_MARK = "<!-- calma:fp=%s -->"          # per-finding idempotency marker (B2 k
 SUMMARY_MARK = "<!-- calma:summary -->"   # the single updatable summary comment
 
 
+def _sanitize(s):
+    """Neutralize control sequences in ENGINE/CONTRACT-derived display strings (reason / citation / a
+    non-numeric claimed-recomputed / target / fix / metric_id) before they're interpolated into a
+    GitHub-markdown comment. A contract-controlled binding column name can otherwise smuggle the
+    idempotency marker `calma:fp=<hex>` - which `_fps_in` scans comment bodies for - to spoof the
+    'already-posted' set and SUPPRESS a genuine inline finding, or inject `<!-- ... -->` / markdown into
+    the bot's authoritative comment. (The merge GATE is a pure function of the verdict enums in
+    check_conclusion, so this can never flip pass/fail; it protects review-UX + the idempotency machinery.)"""
+    s = str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")  # defang HTML comments/markup
+    # break the literal marker tokens so the fp / summary scanners can't read an injected one (&#61; / &#58;
+    # render as = / : but no longer match calma:fp= / calma:summary in the raw comment body)
+    return s.replace("calma:fp=", "calma:fp&#61;").replace("calma:summary", "calma&#58;summary")
+
+
 def _num(x):
     if x is None:
         return "?"
     if isinstance(x, bool) or not isinstance(x, (int, float)):
-        return str(x)
+        return _sanitize(str(x))
     return ("%g" % x)
 
 
@@ -32,7 +46,7 @@ def inline_body(finding, isolation_tier=None):
     """One inline review comment. Verdict label + the CLARIESG citation (verbatim) + claimed→recomputed
     + the engine reason + the isolation stamp + a hidden fingerprint marker for idempotency."""
     v = finding.get("verdict")
-    cite = finding.get("citation") or ""
+    cite = _sanitize(finding.get("citation") or "")
     cr = _claimed_recomputed(finding)
     if v == "INVALIDATED":
         head = "**INVALIDATED** — reproduces, but not a valid result. %s%s" % (cite, cr)
@@ -40,7 +54,7 @@ def inline_body(finding, isolation_tier=None):
         head = "**%s** — %s%s" % (v, cite, cr)
     bits = [head]
     if finding.get("reason"):
-        bits.append("Reason: %s." % str(finding["reason"]).rstrip("."))
+        bits.append("Reason: %s." % _sanitize(str(finding["reason"]).rstrip(".")))
     if isolation_tier:
         bits.append("Verified by re-execution under %s isolation." % isolation_tier)
     return "%s %s" % (" ".join(bits), FP_MARK % (finding.get("fingerprint") or ""))
@@ -74,11 +88,11 @@ def summary_body(bundle):
     fix = None
     for t in bundle.get("targets", []):
         nc = sum(1 for f in t.get("findings", []) if is_catch(f))
-        lines.append("| `%s` | %s | %d |" % (t.get("target"), t.get("repo_verdict"), nc))
+        lines.append("| `%s` | %s | %d |" % (_sanitize(t.get("target")), t.get("repo_verdict"), nc))
         if not fix and t.get("fix"):
             fix = t["fix"]
     if fix:
-        lines += ["", "**Fix:** %s" % fix]
+        lines += ["", "**Fix:** %s" % _sanitize(fix)]
     t0 = (bundle.get("targets") or [{}])[0]
     lines += ["", "_isolation: %s · determinism: %s · every number recomputed from raw outputs by the "
               "deterministic engine_" % (t0.get("isolation_tier"), t0.get("determinism_mode"))]
@@ -107,6 +121,8 @@ def check_output(bundle):
                 continue
             annotations.append({
                 "path": f["file"], "start_line": int(f["line"]), "end_line": int(f["line"]),
-                "annotation_level": "failure", "title": "%s %s" % (f.get("verdict"), f.get("metric_id")),
-                "message": (f.get("citation") or "") + (" — " + f["reason"] if f.get("reason") else "")})
+                "annotation_level": "failure",
+                "title": "%s %s" % (f.get("verdict"), _sanitize(f.get("metric_id") or "")),
+                "message": _sanitize(f.get("citation") or "")
+                + (" — " + _sanitize(f["reason"]) if f.get("reason") else "")})
     return {"title": title, "summary": summary_body(bundle), "annotations": annotations[:50]}

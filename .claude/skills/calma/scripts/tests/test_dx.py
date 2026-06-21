@@ -157,9 +157,9 @@ with open(os.path.join(vf, "main.py"), "w") as fh:
              "w = csv.writer(open('out.csv','w',newline=''))\n"
              "w.writerow(['value'])\n"
              "[w.writerow([float(i)]) for i in range(100)]\n")  # sum=4950, mean=49.5
-res = C.verify(vf, claim="1000000", metric="column_sum", force=True)
+res = C.verify(vf, claim="1000000", metric="column_sum", opts=C.VerifyOptions(force=True))
 truth(res["repo_verdict"] == "REFUTED", "pinned column_sum on a unique column REFUTES a clear lie (got %s)" % res["repo_verdict"])
-res = C.verify(vf, claim="4950", metric="column_sum", force=True)
+res = C.verify(vf, claim="4950", metric="column_sum", opts=C.VerifyOptions(force=True))
 truth(res["repo_verdict"] in ("CONFIRMED", "CONFIRMED-WITH-CAVEATS"), "honest pinned column_sum CONFIRMS (got %s)" % res["repo_verdict"])
 
 # --- ambiguity guard: TWO same-tag numeric columns -> binding is NOT unique -> stays plausibly-bound,
@@ -171,7 +171,7 @@ with open(os.path.join(amb2, "main.py"), "w") as fh:
              "w = csv.writer(open('out.csv','w',newline=''))\n"
              "w.writerow(['value','amount'])\n"               # two generic-numeric columns
              "[w.writerow([float(i), float(i*2)]) for i in range(100)]\n")
-res = C.verify(amb2, claim="1000000", metric="column_sum", force=True)
+res = C.verify(amb2, claim="1000000", metric="column_sum", opts=C.VerifyOptions(force=True))
 truth(res["repo_verdict"] != "REFUTED", "ambiguous (2 value-ish columns) never REFUTES (got %s)" % res["repo_verdict"])
 
 # --- committed multi-metric: a fabricated SECONDARY metric must be caught (-> MIXED), not swallowed,
@@ -195,7 +195,7 @@ with open(os.path.join(mm, "verify.yaml"), "w") as fh:
                            {"metric_id": "recall", "artifact": "runs/preds.csv",
                             "binding": {"label": "y_true", "prediction": "y_pred"},
                             "claimed_value": 0.99, "headline": False}]}, fh)  # recall fabricated
-res = C.verify(mm, force=True)
+res = C.verify(mm, opts=C.VerifyOptions(force=True))
 truth(res["repo_verdict"] == "MIXED",
       "committed multi-metric: fabricated SECONDARY metric -> MIXED (got %s)" % res["repo_verdict"])
 truth("accuracy" in res["report"] and "recall" in res["report"],
@@ -244,7 +244,7 @@ res_c = C.verify(ml, claim="accuracy 0.99")
 truth(res_c.get("cached") is True, "second identical verify is served from cache")
 truth(res_c["repo_verdict"] == "REFUTED" and "cached" in res_c["report"],
       "cached result keeps the verdict and says it is cached")
-res_f = C.verify(ml, claim="accuracy 0.99", force=True)
+res_f = C.verify(ml, claim="accuracy 0.99", opts=C.VerifyOptions(force=True))
 truth(res_f.get("cached") is False, "--force bypasses the cache")
 # changing the claim is a different fingerprint
 res_d = C.verify(ml, claim="accuracy 0.87")
@@ -271,14 +271,14 @@ with open(os.path.join(flaky, "main.py"), "w") as fh:
              "w = csv.writer(open('out.csv', 'w', newline=''))\n"
              "w.writerow(['value'])\n"
              "[w.writerow([random.random()]) for _ in range(50)]\n")
-res = C.verify(flaky, claim="sum 25", metric="column_sum", check_determinism=True)
+res = C.verify(flaky, claim="sum 25", metric="column_sum", opts=C.VerifyOptions(check_determinism=True))
 truth(res["repo_verdict"] == V.INCONCLUSIVE, "FLAKY outputs -> INCONCLUSIVE (got %s)" % res["repo_verdict"])
 truth("does not reproduce run-to-run" in res["report"] and "fix:" in res["report"],
       "FLAKY report names the problem and the fix")
 truth("random.seed" in res["report"], "FLAKY fix names the precise source (random.seed)")
 # WS5: the same flaky repo auto-degrades to CAN'T-CONFIRM even WITHOUT --check-determinism
 # (uncontrolled determinism + a claim -> the recheck fires automatically; never a false-confirm)
-res_auto = C.verify(flaky, claim="sum 25", metric="column_sum", force=True)
+res_auto = C.verify(flaky, claim="sum 25", metric="column_sum", opts=C.VerifyOptions(force=True))
 truth(res_auto["repo_verdict"] == V.INCONCLUSIVE,
       "WS5: flaky repo auto-degrades to CAN'T-CONFIRM without --check-determinism (got %s)"
       % res_auto["repo_verdict"])
@@ -289,12 +289,12 @@ with open(os.path.join(stable, "main.py"), "w") as fh:
              "w = csv.writer(open('out.csv', 'w', newline=''))\n"
              "w.writerow(['value'])\n"
              "[w.writerow([float(i)]) for i in range(10)]\n")
-res = C.verify(stable, claim="sum 45", metric="column_sum", check_determinism=True)
+res = C.verify(stable, claim="sum 45", metric="column_sum", opts=C.VerifyOptions(check_determinism=True))
 truth(res["ledger"]["scope"].get("determinism_recheck") == "stable across 2 re-runs",
       "stable re-runs stamp the recheck evidence")
 truth(res["repo_verdict"] in (V.CONFIRMED, V.CAVEATS), "stable + honest claim stays clean")
 
-j = C._json_result(C.verify(ml, claim="accuracy 0.99", force=True))
+j = C._json_result(C.verify(ml, claim="accuracy 0.99", opts=C.VerifyOptions(force=True)))
 truth(j["verdict"] == "REFUTED" and j["claimed"] == 0.99 and abs(j["recomputed"] - 0.87) < 1e-9,
       "--json carries verdict + numbers")
 truth(isinstance(j["confidence"], float) and j["clean"] is False and j["fix"] is None or True,
@@ -305,7 +305,7 @@ truth(data["total"] >= 2 and data["counts"].get("REFUTED", 0) >= 1, "stats count
 truth("CALMA STATS" in rendered and "catch:" in rendered, "stats renders catches")
 
 import report as REPmod
-svg = REPmod.svg_card(C.verify(ml, claim="accuracy 0.99", force=True)["ledger"])
+svg = REPmod.svg_card(C.verify(ml, claim="accuracy 0.99", opts=C.VerifyOptions(force=True))["ledger"])
 truth(svg and svg.startswith("<svg") and "REFUTED" in svg and "0.87" in svg, "SVG share card renders")
 truth(REPmod.svg_card({"repo_verdict": "CONFIRMED", "claims": []}) is None, "no SVG card for a pass")
 
@@ -362,22 +362,22 @@ res = C.verify(cc, metric="sharpe")
 truth(res["repo_verdict"] == V.INCONCLUSIVE and "--metric sharpe" in res["report"],
       "P0-1b: conflicting --metric blocks with the conflict named (got %s)" % res["repo_verdict"])
 # (a) same metric, same value at the claim's own precision -> proceeds, no note
-res = C.verify(cc, claim="+999% return", force=True)
+res = C.verify(cc, claim="+999% return", opts=C.VerifyOptions(force=True))
 truth(res["repo_verdict"] == "REFUTED", "P0-1a: matching claim verifies normally (got %s)" % res["repo_verdict"])
 truth(res.get("claim_note") is None, "P0-1a: no false 'your claim differs' warning")
 # (c) same metric, DIFFERENT value -> the USER's value is what gets verified
-res = C.verify(cc, claim="+170.5% return", force=True)
+res = C.verify(cc, claim="+170.5% return", opts=C.VerifyOptions(force=True))
 truth(res["repo_verdict"] in (V.CONFIRMED, V.CAVEATS),
       "P0-1c: true user claim CONFIRMS against an inflated committed value (got %s)" % res["repo_verdict"])
 truth(res.get("claim_note") and "YOUR claim" in res["claim_note"],
       "P0-1c: override is announced in a note")
-res = C.verify(cc, claim="+50% return", force=True)
+res = C.verify(cc, claim="+50% return", opts=C.VerifyOptions(force=True))
 truth(res["repo_verdict"] == "REFUTED"
       and abs(res["ledger"]["claims"][0]["claimed_value"] - 0.5) < 1e-9,
       "P0-1c: wrong user claim REFUTES against the USER's value, not the contract's (got %s)"
       % res["repo_verdict"])
 # (d) unparseable claim text -> the committed claim is verified, and the output says so
-res = C.verify(cc, claim="this strategy is awesome", force=True)
+res = C.verify(cc, claim="this strategy is awesome", opts=C.VerifyOptions(force=True))
 truth(res["repo_verdict"] == "REFUTED", "P0-1d: committed claim verified (got %s)" % res["repo_verdict"])
 truth(res.get("claim_note") and "no checkable claim" in res["claim_note"]
       and res["report"].startswith("note:"),
@@ -449,7 +449,7 @@ truth(C._invocation() == "calma", "P2: wrapper invocation echoed as calma")
 sys.argv[0] = _old0
 
 # --- P2: teardown's internal re-verify is counted separately in stats ---
-C.verify(ml, claim="accuracy 0.99", run_id="teardown", force=True)
+C.verify(ml, claim="accuracy 0.99", run_id="teardown", opts=C.VerifyOptions(force=True))
 data, rendered = C.stats(ml)
 truth(data.get("teardowns", 0) >= 1, "P2: teardown re-checks counted separately")
 truth("not counted as verifications" in rendered, "P2: stats render labels teardown re-checks")
@@ -504,7 +504,7 @@ truth(C._cached_result(aba, fp) is None,
 tp = os.path.join(tmp, "trustp")
 os.makedirs(tp)
 shutil.copy(os.path.join(stable, "main.py"), os.path.join(tp, "main.py"))
-res_t = C.verify(tp, claim="sum 45", trust="third-party", isolation="seatbelt")
+res_t = C.verify(tp, claim="sum 45", opts=C.VerifyOptions(trust="third-party", isolation="seatbelt"))
 truth(res_t["repo_verdict"] == V.INCONCLUSIVE and res_t.get("refused") is True,
       "trust: third-party without container/VM is refused (got %s)" % res_t["repo_verdict"])
 truth("third-party" in res_t["report"] and "fix:" in res_t["report"],
@@ -512,7 +512,7 @@ truth("third-party" in res_t["report"] and "fix:" in res_t["report"],
 truth(not os.path.exists(os.path.join(tp, "out.csv")),
       "trust: refused means NOT EXECUTED (no outputs were produced)")
 try:
-    C.verify(tp, trust="bogus")
+    C.verify(tp, opts=C.VerifyOptions(trust="bogus"))
     truth(False, "trust: invalid value raises ValueError")
 except ValueError:
     truth(True, "trust: invalid value raises ValueError")
@@ -532,7 +532,7 @@ with open(os.path.join(slowp, "main.py"), "w") as fh:
     fh.write("import time\ntime.sleep(60)\n")
 with open(os.path.join(slowp, "data.csv"), "w") as fh:
     fh.write("value\n1.0\n2.0\n")
-res_k = C.verify(slowp, claim="sum 3", metric="column_sum", timeout=1)
+res_k = C.verify(slowp, claim="sum 3", metric="column_sum", opts=C.VerifyOptions(timeout=1))
 truth(res_k["repo_verdict"] == V.INCONCLUSIVE and res_k.get("killed") is True,
       "timeout: overrun is killed -> INCONCLUSIVE (got %s)" % res_k["repo_verdict"])
 truth("--timeout" in res_k["report"] and "run.timeout" in res_k["report"],
@@ -551,7 +551,7 @@ with open(os.path.join(slowp, "verify.yaml"), "w") as fh:
                             "claim_confirmed": True}]}, fh)
 import time as _t
 _t0 = _t.time()
-res_ct = C.verify(slowp, claim="sum 3", force=True)
+res_ct = C.verify(slowp, claim="sum 3", opts=C.VerifyOptions(force=True))
 truth(res_ct.get("killed") is True and (_t.time() - _t0) < 30,
       "timeout: run.timeout in verify.yaml is honored (killed in %.1fs)" % (_t.time() - _t0))
 truth(C._resolve_timeout(None, {}) == 120, "timeout: default is 120s")

@@ -39,7 +39,7 @@ info = A.keygen()
 seed = bytes.fromhex(open(info["key_path"]).read().strip())
 
 # a real attested run to derive entries from
-res = C.verify(BTC, run_id="test_registry", force=True)
+res = C.verify(BTC, run_id="test_registry", opts=C.VerifyOptions(force=True))
 bundle = json.load(open(os.path.join(res["run_dir"], A.BUNDLE_NAME)))
 
 # --- derivation + redaction ---

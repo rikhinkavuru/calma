@@ -67,6 +67,30 @@ try:
 except ValueError:
     truth(True, "plausibility_checks._safe_join delegates to the shared guard")
 
+# --- L1 (full consolidation): EVERY migrated detector's _safe_join is now the SAME shared guard, not a
+# private copy. Each must (a) return EXACTLY pathsafe.safe_join for an in-base path and (b) reject a
+# traversal - so a future divergent local re-implementation fails loud right here. ---
+import recompute as RC  # noqa: E402
+import contamination_checks as CN  # noqa: E402
+import regime_checks as RG  # noqa: E402
+import realism_checks as RL  # noqa: E402
+import distribution_shift_checks as DS  # noqa: E402
+import pit_checks as PIT  # noqa: E402
+import cross_engine as CE  # noqa: E402
+
+for _name, _mod in (("recompute", RC), ("contamination", CN), ("regime", RG), ("realism", RL),
+                    ("distribution_shift", DS), ("pit", PIT), ("cross_engine", CE), ("plausibility", PLC)):
+    truth(_mod._safe_join(base, "ok.csv") == PS.safe_join(base, "ok.csv"),
+          "%s._safe_join returns the shared guard's exact result for an in-base path" % _name)
+    try:
+        _mod._safe_join(base, "../../etc/passwd")
+        truth(False, "%s._safe_join must reject a traversal" % _name)
+    except ValueError:
+        truth(True, "%s._safe_join delegates to pathsafe (rejects traversal)" % _name)
+
+# data_snooping joins inline (no _safe_join symbol); its containment routes through the same guard and is
+# covered behaviorally by test_data_snooping_checks.
+
 # --- B1 inferred-split smell can't be coerced into an out-of-base read ---
 # (artifacts named train/test with traversal would still be contained by the same _load_split guard)
 contract_b1 = {"artifacts": [{"path": "../secret.txt", "columns": {}}]}
