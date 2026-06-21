@@ -8677,6 +8677,33 @@ def deflated_sharpe_ratio(sr, n_obs, skew, kurt_excess, n_trials, var_sr):
     return probabilistic_sharpe_ratio_vs(sr, sr0, n_obs, skew, kurt_excess)
 
 
+def expected_max_auc(n_trials, se):
+    """E[max AUC] across n_trials no-skill trials. Under H0 each trial's ROC-AUC ~ Normal(0.5, se^2)
+    (DeLong asymptotics), so E[max] = 0.5 + the Gumbel E[max] of n_trials zero-mean draws of variance se^2
+    = 0.5 + expected_max_sharpe(n_trials, se*se). The Bailey-Lopez de Prado false-strategy theorem applied
+    to AUC instead of the Sharpe ratio. n_trials<2 or se<=0 -> NaN (no search to deflate)."""
+    if se is None or not (se > 0.0):
+        return float("nan")
+    em = expected_max_sharpe(n_trials, se * se)
+    return float("nan") if em != em else 0.5 + em
+
+
+def deflated_auc(auc_value, se, n_trials):
+    """DAUC in [0,1]: the probability the observed AUC reflects skill after deflating for a search of
+    n_trials = Phi((auc - E[maxAUC under H0]) / se), with E[maxAUC] = expected_max_auc(n_trials, se). The
+    ROC-AUC analog of the Deflated Sharpe Ratio; p = 1 - DAUC is the chance the AUC is an artefact of
+    selecting the best of n_trials (the decision rule 1-DAUC>0.05 lives in the caller, never inverted here).
+    `se` is the per-trial DeLong SE (auc_delong_se) or the cross-trial SD (fstd of the N leaderboard AUCs).
+    Guards: se<=0 (a degenerate AUC=1.0 perfect-separation, DeLong SE->0) -> NaN; auc NaN -> NaN; the result
+    is conservative under correlated trials and unreliable for n_trials<10 (the caller surfaces this)."""
+    if auc_value != auc_value or se is None or not (se > 0.0):
+        return float("nan")
+    emax = expected_max_auc(n_trials, se)
+    if emax != emax:
+        return float("nan")
+    return normal_cdf((auc_value - emax) / se)
+
+
 def _col_sharpe(rows, j):
     """Per-period Sharpe (mean/std, ddof=1) of column j over `rows`; NaN if <2 rows or zero vol."""
     col = [r[j] for r in rows]

@@ -30,6 +30,7 @@ import pathsafe as PS
 import verdict as V
 
 _SHARPE_METRICS = {"sharpe"}              # DSR/PBO apply to a per-period Sharpe claim
+_AUC_METRICS = {"auc", "roc_auc"}         # deflated-AUC selection-overfit applies to an ROC-AUC claim
 _PBO_FAIL = 0.5                            # PBO > 0.5  => the IS-winner is typically an OOS also-ran
 _DSR_FAIL_P = 0.05                         # 1 - DSR > 0.05 => the edge doesn't clear the deflated benchmark
 _PBO_SPLITS = 8                            # CSCV partitions (even); needs T >= 8 rows
@@ -37,6 +38,12 @@ _PBO_SPLITS = 8                            # CSCV partitions (even); needs T >= 
 _SELECTION_RE = re.compile(
     r"best (of|sharpe|return|strateg)|top (strateg|config|model|\d)|optimi[sz]ed|robust edge|"
     r"survived|selected from|out.?of.?sample|held.?out|grid.?search", re.I)
+# the AUC selection SIGNAL is stricter than the broad survival assertion: bare OOS / held-out words assert
+# SCOPE, not a multiple-testing search, so they must NOT alone trigger the deflated-AUC haircut (else a
+# clean "auc 0.94 held-out" would be wrongly haircut). A genuine model/threshold search is required.
+_AUC_SELECTION_RE = re.compile(
+    r"best (auc|of|model|config|threshold)|top (\d|model|config)|optimi[sz]ed|tuned|grid.?search|"
+    r"selected from|sweep|hyper.?param|robust edge|leaderboard", re.I)
 _TRIALS_NAME = re.compile(r"^(trials|grid_?search|sweep|configs?|candidates?)\.csv$", re.I)
 
 
@@ -135,14 +142,23 @@ def _trials_stats(contract, base, artifact):
 
 
 def search_signal(contract, base, claim_text):
-    """Describe the multiple-testing signal, or None (NOT-APPLICABLE). Only fires for a Sharpe headline."""
+    """Describe the multiple-testing signal, or None (NOT-APPLICABLE). Fires for a Sharpe headline (DSR/PBO)
+    or an ROC-AUC headline (the deflated-AUC selection-overfit haircut)."""
     m = _headline(contract)
-    if not m or m.get("metric_id") not in _SHARPE_METRICS:
+    if not m or m.get("metric_id") not in (_SHARPE_METRICS | _AUC_METRICS):
         return None
     n_decl = contract.get("trials")
     artifact = contract.get("trials_artifact") or _detect_trials_artifact(base)
-    selection = bool(_SELECTION_RE.search(claim_text or ""))
-    if n_decl is None and not artifact and not selection:
+    # AUC uses the strict selection regex (a real search), Sharpe the broad one; for AUC, a merely
+    # auto-detected returns matrix is not a signal (the AUC rail only consumes an EXPLICIT AUC-values
+    # artifact), so the signal there must come from trials:N, an explicit trials_artifact, or selection.
+    is_auc = m.get("metric_id") in _AUC_METRICS
+    selection = bool((_AUC_SELECTION_RE if is_auc else _SELECTION_RE).search(claim_text or ""))
+    if is_auc:
+        explicit_artifact = bool(contract.get("trials_artifact"))
+        if n_decl is None and not explicit_artifact and not selection:
+            return None
+    elif n_decl is None and not artifact and not selection:
         return None
     return {"n_declared": n_decl, "artifact": artifact, "selection": selection}
 
@@ -175,7 +191,90 @@ def run_checks(contract, base, claim_id="c1", claim_text=None):
         return []
 
 
+def _auc_score_label(contract, base):
+    """(scores, labels) from the headline AUC artifact via its {score,label} binding, or None. Labels
+    coerced to 0/1; needs >=4 rows and both classes present for a meaningful DeLong SE."""
+    m = _headline(contract)
+    if not m:
+        return None
+    bind = m.get("binding") or {}
+    scol, lcol = bind.get("score"), bind.get("label")
+    if not scol or not lcol:
+        return None
+    try:
+        header, rows = _read_matrix(PS.safe_join(base, m.get("artifact", "")))
+    except ValueError:
+        return None
+    if scol not in header or lcol not in header:
+        return None
+    si, li = header.index(scol), header.index(lcol)
+    scores, labels = [], []
+    for r in rows:
+        if si < len(r) and li < len(r) and r[si] == r[si] and r[li] == r[li]:
+            scores.append(r[si])
+            labels.append(1 if r[li] >= 0.5 else 0)
+    npos = sum(labels)
+    if len(scores) < 4 or npos == 0 or npos == len(labels):
+        return None
+    return scores, labels
+
+
+def _auc_trials_vec(base, artifact):
+    """A trials artifact read as a flat vector of per-trial AUC values (the first column's finite cells in
+    [0,1]). Used only for AUC headlines and only when EXPLICITLY declared as trials_artifact (so an
+    auto-detected returns matrix from the Sharpe path is never misread as AUC values)."""
+    try:
+        header, rows = _read_matrix(PS.safe_join(base, artifact))
+    except ValueError:
+        return None
+    vec = [r[0] for r in rows if r and r[0] == r[0] and 0.0 <= r[0] <= 1.0]
+    return vec if len(vec) >= 2 else None
+
+
+def _assess_auc(contract, base, claim_id, sig):
+    """Deflated-AUC selection-overfit (the Sharpe DSR transplanted onto ROC-AUC). N from declared trials /
+    an explicitly-declared AUC-values artifact / selection language (NEVER guessed); SE from the cross-trial
+    SD of the leaderboard AUCs (the truer DSR analog, when observable) or the per-trial DeLong SE of the
+    headline score+label. AUC=1.0 (DeLong SE->0) is guarded as degenerate, never a false pass."""
+    sl = _auc_score_label(contract, base)
+    auc_val = N.auc(*sl) if sl else None
+    se_delong = N.auc_delong_se(*sl) if sl else float("nan")
+    n_decl = sig.get("n_declared")
+    vec = _auc_trials_vec(base, contract["trials_artifact"]) if contract.get("trials_artifact") else None
+    if vec is not None:
+        n_trials, se = len(vec), N.fstd(vec, ddof=1)
+        if auc_val is None or auc_val != auc_val:
+            auc_val = max(vec)  # the selected (best) AUC, when the headline score+label aren't bound
+    elif isinstance(n_decl, int) and n_decl >= 2 and sl is not None:
+        n_trials, se = n_decl, se_delong
+    else:
+        return [_finding(
+            claim_id, "uncountable-auc", "minor", "uncountable",
+            "a model/threshold search is implied (%s) but the trial count N is not countable as given - the "
+            "AUC selection-overfit haircut cannot be assessed"
+            % ("selection language" if sig.get("selection") else "no trials:N and no AUC-values artifact"),
+            "declare trials:N in verify.yaml, or emit the per-trial AUC values (one column), then re-verify")]
+    if auc_val is None or auc_val != auc_val or not (se > 0.0):
+        return []  # AUC=1.0 perfect separation (DeLong SE->0) or unreadable -> degenerate, cannot deflate
+    dauc = N.deflated_auc(auc_val, se, n_trials)
+    if dauc != dauc or (1.0 - dauc) <= _DSR_FAIL_P:
+        return []  # clears the N-trial selection bar (or undefined) -> clean
+    bar = N.expected_max_auc(n_trials, se)
+    note = " (N<10: the deflation is unreliable at this trial count)" if n_trials < 10 else ""
+    return [_finding(
+        claim_id, "auc-selection", "blocker", "authoritative",
+        "the AUC %.4f does not clear the %d-trial selection bar: DAUC=%.3f (1-DAUC=%.3f > %.2f); the expected "
+        "best-of-%d no-skill AUC is %.4f (SE=%.4f)%s - the reported AUC is within reach of selecting the best "
+        "of %d trials by chance." % (auc_val, n_trials, dauc, 1.0 - dauc, _DSR_FAIL_P, n_trials, bar, se, note,
+                                     n_trials),
+        "report the deflated AUC / a permutation p-value alongside the headline, or show the AUC holds on a "
+        "fresh held-out set after correcting for the %d-model search" % n_trials)]
+
+
 def _assess(contract, base, claim_id, sig):
+    m = _headline(contract)
+    if m and m.get("metric_id") in _AUC_METRICS:
+        return _assess_auc(contract, base, claim_id, sig)
     stats = _trials_stats(contract, base, sig["artifact"]) if sig.get("artifact") else None
     n_decl = sig.get("n_declared")
     var_decl = contract.get("var_sr")
