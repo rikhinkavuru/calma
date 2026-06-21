@@ -55,7 +55,7 @@ Calma is built around one act almost no one else does: **recompute the claimed n
    │ run     │   Docker / remote Firecracker microVM), re-emitting the raw output files.
    └────┬────┘   A planted secret-read AND a network-connect must FAIL, proven by an in-sandbox self-test.
         ▼
-   ┌─────────┐   recompute the headline metric from those raw files with one of 625 SOTA recipes
+   ┌─────────┐   recompute the headline metric from those raw files with one of 628 SOTA recipes
    │recompute│   (Python / R / Julia / C++ / Rust, run as a black box) — never the reported number.
    └────┬────┘
         ▼
@@ -112,7 +112,7 @@ A number can clear every check you already run — dbt tests, Pandera schemas, s
 
 ### Breadth
 
-`calma recipes` → **625 metrics across 16 families**, each validated against byte-reproducible reference vectors: trading (Sharpe/Sortino/Calmar/VaR/CVaR), classification (accuracy/AUC/F1/log-loss/ECE/Brier), regression (RMSE/MAE/R²), analytics (sum/mean/percentile/groupby/join-loss), engineering ("2.3× faster"/p50–p99/throughput/coverage), retrieval & LLM evals (recall@k/NDCG/MRR/pass@k/exact-match), statistics (p-value/CI/effect-size), derivatives (Black-Scholes + Greeks/IV), credit, rates, fund & LP (TVPI/DPI/KS-PME), forecasting (MAPE/sMAPE/MASE/pinball), and more. Black-box over **Python, R, Julia, C++, Rust**.
+`calma recipes` → **628 metrics across 16 families**, each validated against byte-reproducible reference vectors: trading (Sharpe/Sortino/Calmar/VaR/CVaR), classification (accuracy/AUC/F1/log-loss/ECE/Brier), regression (RMSE/MAE/R²), analytics (sum/mean/percentile/groupby/join-loss), engineering ("2.3× faster"/p50–p99/throughput/coverage), retrieval & LLM evals (recall@k/NDCG/MRR/pass@k/exact-match), statistics (p-value/CI/effect-size), derivatives (Black-Scholes + Greeks/IV), credit, rates, fund & LP (TVPI/DPI/KS-PME), forecasting (MAPE/sMAPE/MASE/pinball), and more. Black-box over **Python, R, Julia, C++, Rust**.
 
 ### Cross-engine correctness
 
@@ -196,7 +196,7 @@ benchmark/                      the 129-case corpus + the 4-arm comparison + sco
 - **The verdict is one function**, re-derived byte-for-byte at the gate — non-gameable.
 - **Pure stdlib; offline by default — your code and data never leave your machine.** The honest answer to "where is our data processed?" is *"on your machine, network-off."* (Optional tiers you turn on explicitly — a remote microVM for untrusted code, an RFC-3161 timestamp, a Rekor log — make a network call, and the ledger records exactly which.)
 - **Every transport is firewalled** — `mcp/`, `pr/`, `app/` import no verdict core; the validity detectors import no model.
-- **Tested:** 67 core suites / 0 failed (pure stdlib) + 39 transport tests (10 mcp + 29 pr); one command runs all three — `make test-all`; 625 recipes against reference vectors.
+- **Tested:** 67 core suites / 0 failed (pure stdlib) + 39 transport tests (10 mcp + 29 pr); one command runs all three — `make test-all`; 628 recipes against reference vectors.
 
 ## Limitations
 

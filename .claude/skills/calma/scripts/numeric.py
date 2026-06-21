@@ -1033,6 +1033,119 @@ def numerai_corr_series(pred, tgt):
         return float("nan")
 
 
+# ============ Numerai MMC / FNC / max-feature-exposure kernels (match numerai-tools/scoring.py) =========
+# All validated Tier-1 against the official numerai_tools.scoring to <=1e-9 (tests/test_numerai_mmc_fnc.py).
+
+def _gaussianize_ranks(xs):
+    """gaussian(tie_kept_rank(xs)) per numerai-tools: average-rank -> percentile (rank-0.5)/n -> norm.ppf.
+    Centered ~0, std ~1. NO ^1.5 here (that tail-weighting is numerai_corr's, applied separately)."""
+    n = len(xs)
+    ranks = _avg_ranks(xs)
+    return [inv_norm_cdf(min(max((r - 0.5) / n, 1e-12), 1 - 1e-12)) for r in ranks]
+
+
+def orthogonalize_vec(v, u):
+    """Orthogonalize v wrt u (numerai-tools orthogonalize): v - u * (dot(v,u) / dot(u,u))."""
+    du = math.fsum(a * a for a in u)
+    if not (du > 0):
+        return list(v)
+    k = math.fsum(a * b for a, b in zip(v, u)) / du
+    return [a - k * b for a, b in zip(v, u)]
+
+
+def variance_normalize_vec(xs):
+    """xs / std(xs, ddof=0) (numerai-tools variance_normalize). std 0 -> unchanged."""
+    sd = fstd(xs, 0)
+    return [x / sd for x in xs] if sd > 0 else list(xs)
+
+
+def _solve_linear(A, b):
+    """Solve a square system A x = b by Gaussian elimination with partial pivoting (pure stdlib). A is a
+    list of n rows of length n; b length n. Returns x, or None if singular - the stdlib stand-in for the
+    lstsq inside neutralize (full-rank -> identical to numpy lstsq to float noise)."""
+    n = len(b)
+    M = [list(A[i]) + [b[i]] for i in range(n)]
+    for col in range(n):
+        piv = max(range(col, n), key=lambda r: abs(M[r][col]))
+        if abs(M[piv][col]) < 1e-300:
+            return None
+        M[col], M[piv] = M[piv], M[col]
+        pv = M[col][col]
+        for r in range(n):
+            if r != col:
+                f = M[r][col] / pv
+                if f != 0.0:
+                    for c in range(col, n + 1):
+                        M[r][c] -= f * M[col][c]
+    return [M[i][n] / M[i][i] for i in range(n)]
+
+
+def neutralize_residual(s, features):
+    """OLS residual of s on [features, 1] (numerai-tools neutralize, proportion=1): s minus its
+    least-squares projection onto the feature columns + an intercept. `features` = a list of equal-length
+    columns. Solves the normal equations (X'X)b = X'y by Gaussian elimination (no numpy)."""
+    n = len(s)
+    X = [list(col) for col in features] + [[1.0] * n]   # k feature cols + an intercept column
+    k = len(X)
+    A = [[math.fsum(X[i][t] * X[j][t] for t in range(n)) for j in range(k)] for i in range(k)]
+    rhs = [math.fsum(X[i][t] * s[t] for t in range(n)) for i in range(k)]
+    beta = _solve_linear(A, rhs)
+    if beta is None:
+        return list(s)  # singular neutralizer -> no neutralization (degenerate; the caller's recipe guards)
+    return [s[t] - math.fsum(beta[i] * X[i][t] for i in range(k)) for t in range(n)]
+
+
+def mmc_series(pred, target, meta_model):
+    """Numerai MMC for one era (numerai-tools correlation_contribution, top_bottom=None): gaussianize the
+    ranks of pred and meta_model, orthogonalize pred wrt meta_model, bucket the target to *4 when it is in
+    [0,1] and center it, then dot(target, orthogonalized_pred)/n."""
+    n = len(pred)
+    if (n != len(target) or n != len(meta_model) or n < 2
+            or _has_nan(pred) or _has_nan(target) or _has_nan(meta_model)):
+        return float("nan")
+    try:
+        neutral = orthogonalize_vec(_gaussianize_ranks(pred), _gaussianize_ranks(meta_model))
+        t = list(target)
+        if all(0.0 <= x <= 1.0 for x in t):
+            t = [x * 4.0 for x in t]
+        mt = fmean(t)
+        t = [x - mt for x in t]
+        return math.fsum(a * b for a, b in zip(t, neutral)) / n
+    except (OverflowError, ArithmeticError):
+        return float("nan")
+
+
+def feature_neutral_corr_series(pred, target, features):
+    """Numerai FNC for one era (numerai-tools feature_neutral_corr): variance_normalize(neutralize(
+    gaussian(tie_kept_rank(pred)), features)), then numerai_corr(that, target). `features` = a list of
+    equal-length columns. (numerai_corr re-ranks+re-gaussianizes+^1.5 its input - the double-gaussianize.)"""
+    n = len(pred)
+    if (n != len(target) or n < 2 or _has_nan(pred) or _has_nan(target)
+            or not features or any(len(f) != n or _has_nan(f) for f in features)):
+        return float("nan")
+    try:
+        vn = variance_normalize_vec(neutralize_residual(_gaussianize_ranks(pred), features))
+        return numerai_corr_series(vn, target)
+    except (OverflowError, ArithmeticError):
+        return float("nan")
+
+
+def max_feature_exposure(pred, features):
+    """Numerai max feature exposure (numerai-tools max_feature_correlation): max over features of
+    |pearson(pred, feature)|. PLAIN Pearson - NOT re-ranked. `features` = a list of equal-length columns."""
+    n = len(pred)
+    if n < 2 or _has_nan(pred) or not features:
+        return float("nan")
+    best = float("nan")
+    for f in features:
+        if len(f) != n or _has_nan(f):
+            continue
+        r = abs(pearson_r(pred, f))
+        if best != best or r > best:
+            best = r
+    return best
+
+
 def cohen_d(a, b, mode="cohen_d"):
     """Standardized mean difference (a - b). 'cohen_d': pooled SD. 'hedges_g': exact small-sample
     correction J = Gamma(df/2) / (sqrt(df/2) * Gamma((df-1)/2)). 'glass_delta': control(=b) SD."""

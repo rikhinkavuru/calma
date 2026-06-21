@@ -5,7 +5,7 @@ description: >-
   headline number from raw outputs - then prove or break the claim. Use to check what an AI agent just
   produced (a metric, a backtest, a cleaned dataset, a "tests pass"), or as an inline guardrail an agent
   calls while it works. Recompute-and-diff against the claim + trivial-baseline edge, across domains and languages:
-  625 SOTA-validated recipes - trading (Sharpe/return/drawdown), classification (accuracy/AUC/F1/macro-micro-F1/
+  628 SOTA-validated recipes - trading (Sharpe/return/drawdown), classification (accuracy/AUC/F1/macro-micro-F1/
   PR-AUC/log-loss/MCC/ECE/Brier), regression (RMSE/MAE/R2), analytics (sum/mean/median/percentile/groupby/
   distinct/nulls/duplicates/growth/share/join-loss), engineering ("2.3x faster"/latency p50-p99/throughput/
   peak-memory/coverage/error-rate), retrieval+LLM evals (recall@k/NDCG/MRR/top-k/exact-match/pass@k),
@@ -75,7 +75,7 @@ calma draft <target>                # point at a messy repo -> a runnable verify
                                     # entrypoint/metric/split/trials + a coverage map). --ai adds the LLM
                                     # drafter + repair loop (falls back to heuristic with no key); --force
 calma batch <dir>... | --manifest m.tsv   # verify MANY results in one run -> one summary table + roll-up exit
-calma recipes                       # all 625 metric ids, grouped by family (for --metric)
+calma recipes                       # all 628 metric ids, grouped by family (for --metric)
 calma suggest "<free-text ask>"     # unclear what to verify? rank the likely recipes (suggestion only)
 calma teardown <target> "<claim>" [--svg card.svg]    # shareable "claimed X -> really Y" card on a break
 calma replay <run_dir>              # re-run a saved verification; exit 0 iff the verdict reproduces
@@ -250,7 +250,7 @@ simulation_assumptions:                          # DeFi risk-sim invariants (Cha
    `assets/compiled_recipes.json` with `set_maturity: compiled-validated`; the loader re-validates the
    hash so a tampered asset fails closed. Verify-time NEVER consults a model: compiled, validated,
    frozen - never improvised.
-   **Adding recipes (this compiler path OR hand-registering a pack in `recipes.py`, how the 625
+   **Adding recipes (this compiler path OR hand-registering a pack in `recipes.py`, how the 628
    shipped): follow the "Definition of done for a NEW recipe" checklist at the top of
    `references/recipes.md`** - it is not done at "computes the right number." Every recipe also
    needs a `assets/recipe_descriptions.json` entry (a description + >=2 aliases, INCLUDING plain
@@ -280,5 +280,5 @@ simulation_assumptions:                          # DeFi risk-sim invariants (Cha
 
 Script I/O contract:
 `references/script-interfaces.md`. The recipe-catalog reference (binding tags, conventions, data
-layouts, reference implementations - representative families; `calma recipes` lists all 625 ids):
+layouts, reference implementations - representative families; `calma recipes` lists all 628 ids):
 `references/recipes.md`.

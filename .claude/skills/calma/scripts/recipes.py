@@ -584,6 +584,72 @@ def numerai_sharpe(cols, binding, convention=None):
                    {"eras": len(vals), "corr_mean": mean, "corr_std": sd})
 
 
+def _per_era_values(era, n, fn_idx):
+    """Per-era (or one global group when `era` is None) apply fn_idx(row_indices) to each group with >=2
+    rows; return the finite per-era values a Numerai DS averages. Multi-input version of _per_group."""
+    if era is None:
+        groups = {"_all": list(range(n))}
+    else:
+        groups = {}
+        for i, e in enumerate(era):
+            groups.setdefault(e, []).append(i)
+    out = []
+    for k in sorted(groups):
+        idx = groups[k]
+        if len(idx) >= 2:
+            v = fn_idx(idx)
+            if v == v:
+                out.append(v)
+    return out
+
+
+@register("mmc", family="stats", required_tags=["prediction", "target", "meta_model", "era"],
+          string_tags=["era"], set_maturity="reviewed")
+def mmc(cols, binding, convention=None):
+    """Numerai MMC (meta-model contribution): per-era, gaussianize the ranks of the prediction and the
+    published meta_model, orthogonalize the prediction wrt the meta_model, then dot with the bucketed,
+    centered target / n; averaged across eras (global if no `era` is bound). REQUIRES the per-round
+    published meta_model column (declare it, e.g. meta_model.csv::value - never synthesized). Matches
+    numerai-tools scoring.correlation_contribution to <=1e-9."""
+    pred, tgt, mm = cols[binding["prediction"]], cols[binding["target"]], cols[binding["meta_model"]]
+    era = cols[binding["era"]] if binding.get("era") else None
+    vals = _per_era_values(era, len(pred),
+                           lambda idx: N.mmc_series([pred[i] for i in idx], [tgt[i] for i in idx],
+                                                    [mm[i] for i in idx]))
+    return _result(N.fmean(vals) if vals else float("nan"), {"eras": len(vals)})
+
+
+@register("feature_neutral_corr", family="stats",
+          required_tags=["prediction", "target", "features", "era"],
+          string_tags=["era"], set_maturity="reviewed")
+def feature_neutral_corr(cols, binding, convention=None):
+    """Numerai FNC (feature-neutral CORR): per-era, neutralize the gaussianized-ranked prediction against
+    the DECLARED feature set (OLS residual + intercept), variance-normalize, then numerai_corr against the
+    target; averaged across eras (global if no `era`). REQUIRES the named feature set (`features` = a list
+    of feature columns - FNC is only defined relative to a declared neutralizer set, never guessed). Matches
+    numerai-tools scoring.feature_neutral_corr to <=1e-9."""
+    pred, tgt = cols[binding["prediction"]], cols[binding["target"]]
+    feats = [cols[c] for c in binding["features"]]
+    era = cols[binding["era"]] if binding.get("era") else None
+    vals = _per_era_values(era, len(pred),
+                           lambda idx: N.feature_neutral_corr_series(
+                               [pred[i] for i in idx], [tgt[i] for i in idx],
+                               [[f[i] for i in idx] for f in feats]))
+    return _result(N.fmean(vals) if vals else float("nan"), {"eras": len(vals)})
+
+
+@register("max_feature_exposure", family="stats", required_tags=["prediction", "features"],
+          set_maturity="reviewed")
+def max_feature_exposure(cols, binding, convention=None):
+    """Numerai max feature exposure: max over the DECLARED features of |pearson(prediction, feature)| - the
+    single most-correlated feature, a crowding/risk measure (PLAIN Pearson, not re-ranked). `features` = a
+    list of feature columns. Global over the prediction set. Matches numerai-tools
+    scoring.max_feature_correlation to <=1e-9."""
+    pred = cols[binding["prediction"]]
+    feats = [cols[c] for c in binding["features"]]
+    return _result(N.max_feature_exposure(pred, feats), {"n_features": len(feats)})
+
+
 @register("effect_size", family="stats", required_tags=["sample_a", "sample_b"], set_maturity="reviewed",
           accepted_conventions=["cohen_d", "hedges_g", "glass_delta"])
 def effect_size(cols, binding, convention=None):

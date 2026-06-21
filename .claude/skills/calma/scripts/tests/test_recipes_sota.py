@@ -770,6 +770,8 @@ EXPECTED = {
     "p_value", "confidence_interval", "lift", "chi_square", "correlation", "effect_size",
     # tournament ICP - per-era/per-group correlation (Numerai/CrunchDAO; the metric a DS stakes on) (2)
     "numerai_corr", "numerai_sharpe",
+    # tournament ICP - MMC / FNC / max-feature-exposure (validated Tier-1 vs numerai-tools to <=1e-9) (3)
+    "mmc", "feature_neutral_corr", "max_feature_exposure",
     # pack 5
     "cagr", "npv", "irr", "churn_rate", "margin_pct", "reconciliation_total",
     # pack 6
@@ -1039,7 +1041,7 @@ EXPECTED = {
 }
 _reviewed = {m for m in R.ids() if R.get(m).manifest.get("set_maturity") != "compiled-validated"}
 _compiled = set(R.ids()) - _reviewed
-truth(_reviewed == EXPECTED, "registry holds exactly the 623 reviewed recipes (got %d)" % len(_reviewed))
+truth(_reviewed == EXPECTED, "registry holds exactly the 626 reviewed recipes (got %d)" % len(_reviewed))
 # compiled recipes are admitted-by-gate only: maturity tag + frozen program hash re-validates
 import dsl as _dsl  # noqa: E402
 import json as _json  # noqa: E402

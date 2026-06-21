@@ -106,7 +106,8 @@ def _numeric_cols(contract, artifact_path, binding, base, metric_id=None):
     na_cache = {}
     # the bound column NAMES (the bare cname, dropping any 'other.csv::col' sibling-artifact ref) - passed
     # as the projection set so a .parquet artifact materializes ONLY these columns, not the full width.
-    needed = sorted({str(cn).partition("::")[2] or str(cn) for cn in binding.values()})
+    needed = sorted({str(cn).partition("::")[2] or str(cn)
+                     for v in binding.values() for cn in (v if isinstance(v, list) else [v])})
 
     def load(path):
         if path not in cache:
@@ -120,15 +121,19 @@ def _numeric_cols(contract, artifact_path, binding, base, metric_id=None):
 
     cols = {}
     for tag, col_name in binding.items():
-        if "::" in str(col_name):
-            art, _, cname = str(col_name).partition("::")
-        else:
-            art, cname = artifact_path, col_name
-        raw = load(art)[cname]
-        if tag in string_tags:
-            cols[col_name] = [str(v).strip() for v in raw]
-        else:
-            cols[col_name] = _to_numeric(raw, na_policies(art).get(cname, "error"))
+        # a binding value may be a LIST of columns (a feature SET, e.g. FNC / max-feature-exposure
+        # neutralizers); each is read into cols keyed by its own name, so the recipe does
+        # [cols[c] for c in binding["features"]]. A scalar value behaves exactly as before.
+        for cn in (col_name if isinstance(col_name, list) else [col_name]):
+            if "::" in str(cn):
+                art, _, cname = str(cn).partition("::")
+            else:
+                art, cname = artifact_path, cn
+            raw = load(art)[cname]
+            if tag in string_tags:
+                cols[cn] = [str(v).strip() for v in raw]
+            else:
+                cols[cn] = _to_numeric(raw, na_policies(art).get(cname, "error"))
     return cols
 
 

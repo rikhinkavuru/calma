@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { GITHUB_URL } from "../contact";
 
 const WORDS = ["number", "backtest", "eval", "metric", "result"];
-const TARGET = 240625; // 625 recipes × 385 reference vectors, re-derived each release
+const TARGET = 241780; // 628 recipes × 385 reference vectors, re-derived each release
 
 export function BpCounter({ onRequest }: { onRequest?: () => void }) {
   const [word, setWord] = useState(0);
