@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Nav, Reveal } from "./chrome";
+import { Reveal } from "./chrome";
+import { SiteNav } from "./SiteNav";
 import { CONTACT_EMAIL } from "./contact";
 import { RequestDialog } from "./RequestDialog";
 
@@ -92,7 +93,7 @@ export default function LabClient() {
   return (
     <>
       <div className="grain" aria-hidden="true"></div>
-      <Nav />
+      <SiteNav />
 
       <main className="rpage texture">
         <section className="sec rpage__head">

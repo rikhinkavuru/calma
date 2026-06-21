@@ -1,11 +1,55 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { Atmo, Reveal } from "./chrome";
+import { ErrorBoundary } from "./site/ErrorBoundary";
+
+/* WebGL / window-touching decorations — client-only, and guarded so a machine
+   without WebGL degrades to the existing atmosphere instead of blanking. */
+const GradientBlinds = dynamic(() => import("./GradientBlinds"), { ssr: false });
 
 export function Hero() {
+  const heroRef = useRef<HTMLElement>(null);
+  const [blindsPaused, setBlindsPaused] = useState(false);
+
+  /* pause the WebGL loop once the hero scrolls out of view — no GPU cost while
+     reading the rest of the page. */
+  useEffect(() => {
+    const el = heroRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => setBlindsPaused(!e.isIntersecting), {
+      threshold: 0,
+    });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
   return (
-    <section className="hero" id="top">
+    <section className="hero" id="top" ref={heroRef}>
       <Atmo />
+
+      {/* added: gradient blinds behind the hero, with a grain overlay on top */}
+      <div className="hero__blinds" aria-hidden="true">
+        <ErrorBoundary fallback={null}>
+          <GradientBlinds
+            gradientColors={["#2e4f6d", "#7fb89e", "#e89a5d", "#ffb36b"]}
+            angle={20}
+            blindCount={16}
+            blindMinWidth={55}
+            noise={0.25}
+            spotlightRadius={0.95}
+            spotlightSoftness={0.8}
+            spotlightOpacity={0.75}
+            mouseDampening={0.15}
+            dpr={1}
+            paused={blindsPaused}
+            mixBlendMode="lighten"
+          />
+        </ErrorBoundary>
+        <div className="hero__grain" />
+      </div>
+
       <div className="wrap hero__inner hero__inner--center">
         <Reveal>
           <h1 className="h1">AI did the work. Calma checks it.</h1>
@@ -13,9 +57,9 @@ export function Hero() {
 
         <Reveal delay={200}>
           <p className="lead hero__lead">
-            Your agent reports a number and calls the work done. Calma re-runs the work, rebuilds
-            that number from the raw outputs, and <b>blocks the wrong one before it ships</b> — in
-            the agent loop, in CI, before anyone has to trust it.
+            Everyone else reads the diff or trusts the score. <b>Calma re-runs the work and
+            recomputes the number</b> — from the raw outputs, never the one your agent reported —
+            and blocks the wrong one before it ships.
           </p>
         </Reveal>
 

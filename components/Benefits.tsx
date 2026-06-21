@@ -1,79 +1,57 @@
 "use client";
 
-import { CardArt } from "./CardArt";
+import dynamic from "next/dynamic";
 import { Reveal } from "./chrome";
 
-export function Benefits({ onRequest }: { onRequest: () => void }) {
+/* FlowingMenu (gsap + window) — client-only. */
+const FlowingMenu = dynamic(() => import("./FlowingMenu"), { ssr: false });
+
+const WHO = [
+  {
+    link: "https://github.com/rikhinkavuru/calma",
+    text: "Builders",
+    description: "Your agent checks its own work — the wrong number dies in the loop, not in production.",
+    image: "/img/who-builders.svg",
+  },
+  {
+    link: "https://github.com/rikhinkavuru/calma/blob/main/README.md",
+    text: "Teams",
+    description: "Run Calma in CI as a gate — the proof travels with the work, and anyone can replay it.",
+    image: "/img/who-teams.svg",
+  },
+  {
+    link: "/lab",
+    text: "Investors & funds",
+    description: "The lab independently re-executes the research before the money moves.",
+    image: "/img/who-fund.svg",
+  },
+];
+
+export function Benefits(_props: { onRequest: () => void }) {
   return (
     <section className="sec" id="benefits">
       <div className="wrap">
-        <Reveal className="lightbox">
-        <div className="sec__head">
-          <span className="kicker">Who it&apos;s for</span>
-          <h2 className="h2">Three ways people use Calma.</h2>
-        </div>
-        <div className="benefits">
-          <Reveal>
-            <div className="benefit">
-              <div className="benefit__art"><CardArt kind="builder" /></div>
-              <span className="who">Builders</span>
-              <h3>Catch the mistake before your users do</h3>
-              <p>
-                Your agent checks its own work as it goes — so the wrong backtest, eval, or metric
-                dies in the loop, not in production.
-              </p>
-              <div className="cta">
-                <a
-                  className="pbtn"
-                  href="https://github.com/rikhinkavuru/calma"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Get the free skill
-                </a>
-              </div>
-            </div>
-          </Reveal>
+        <Reveal>
+          <div className="sec__head">
+            <span className="kicker">Who it&apos;s for</span>
+            <h2 className="h2">Three ways people use Calma.</h2>
+            <p className="lead whoflow__lead">
+              Builders catch the mistake in the agent loop. Teams gate it in CI. Funds get proof
+              before the money moves.
+            </p>
+          </div>
 
-          <Reveal delay={130}>
-            <div className="benefit">
-              <div className="benefit__art"><CardArt kind="team" /></div>
-              <span className="who">Teams</span>
-              <h3>A result that doesn&apos;t reproduce never ships</h3>
-              <p>
-                Run Calma in CI as a gate. The proof travels with the work, and anyone can replay
-                it later.
-              </p>
-              <div className="cta">
-                <a
-                  className="pbtn"
-                  href="https://github.com/rikhinkavuru/calma/blob/main/README.md"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Read the docs
-                </a>
-              </div>
-            </div>
-          </Reveal>
-
-          <Reveal delay={260}>
-            <div className="benefit">
-              <div className="benefit__art"><CardArt kind="fund" /></div>
-              <span className="who">Investors &amp; funds</span>
-              <h3>Proof before the money moves</h3>
-              <p>
-                Before you act on a number, the lab independently re-executes the research and
-                reports — with a reproduction your own side can run.
-              </p>
-              <div className="cta">
-                <a className="pbtn pbtn--amber" href="/lab">
-                  How the lab works
-                </a>
-              </div>
-            </div>
-          </Reveal>
-        </div>
+          <div className="whoflow">
+            <FlowingMenu
+              items={WHO}
+              speed={18}
+              textColor="#e9ddc4"
+              bgColor="transparent"
+              marqueeBgColor="#e89a5d"
+              marqueeTextColor="#0d0b08"
+              borderColor="rgba(233,221,196,0.16)"
+            />
+          </div>
         </Reveal>
       </div>
     </section>

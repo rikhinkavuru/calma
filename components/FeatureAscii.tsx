@@ -33,7 +33,7 @@ function drawIcon(g: CanvasRenderingContext2D, variant: AsciiVariant, w: number,
   g.lineJoin = "round";
   const cx = w * 0.5;
   const cy = h * 0.5;
-  const R = Math.min(w, h) * 0.42;
+  const R = Math.min(w, h) * 0.52;
   const lw = Math.max(1.4, Math.min(w, h) * 0.038);
   g.lineWidth = lw;
 

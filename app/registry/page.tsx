@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import fs from "node:fs";
 import path from "node:path";
-import { Nav } from "../../components/chrome";
+import { SiteNav } from "../../components/SiteNav";
 import { GITHUB_URL } from "../../components/contact";
 
 export const metadata: Metadata = {
@@ -106,7 +106,7 @@ export default function RegistryPage() {
   return (
     <>
       <div className="grain" aria-hidden="true"></div>
-      <Nav />
+      <SiteNav />
 
       <main className="rpage texture">
         <section className="sec rpage__head">

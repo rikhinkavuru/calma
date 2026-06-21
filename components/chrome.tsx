@@ -60,8 +60,6 @@ export function Atmo() {
       <i className="glow-blue" />
       <i className="glow-teal" />
       <i className="glow-amber" />
-      <i className="limb" />
-      <i className="sun" />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Nav } from "../../components/chrome";
+import { SiteNav } from "../../components/SiteNav";
 import { GITHUB_URL } from "../../components/contact";
 import { RECIPE_COUNT } from "../recipes/data";
 
@@ -74,7 +74,7 @@ export default function InstallPage() {
   return (
     <>
       <div className="grain" aria-hidden="true"></div>
-      <Nav />
+      <SiteNav />
 
       <main className="rpage texture">
         <section className="sec rpage__head">

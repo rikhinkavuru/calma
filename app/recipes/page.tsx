@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Nav } from "../../components/chrome";
+import { SiteNav } from "../../components/SiteNav";
 import { FAMILIES, RECIPE_COUNT } from "./data";
 
 export const metadata: Metadata = {
@@ -14,7 +14,7 @@ export default function RecipesPage() {
   return (
     <>
       <div className="grain" aria-hidden="true"></div>
-      <Nav />
+      <SiteNav />
 
       <main className="rpage texture">
         <section className="sec rpage__head">
