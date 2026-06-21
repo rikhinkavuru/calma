@@ -1,4 +1,4 @@
-.PHONY: install uninstall test test-all demo benchmark
+.PHONY: install uninstall test test-all eval demo benchmark
 
 SKILL := .claude/skills/calma
 
@@ -17,6 +17,9 @@ test:           ## run the core suite (pure stdlib, no venv needed)
 
 test-all:       ## run EVERY layer: core + mcp + pr (bootstraps ~/.calma venvs if missing)
 	@bash scripts/test_all.sh
+
+eval:           ## the standing eval net: core suite + framework golden vectors + recompute baseline + determinism
+	@bash scripts/eval.sh
 
 demo:           ## watch a real inflated backtest get caught
 	@python3 $(SKILL)/scripts/calma.py demo
