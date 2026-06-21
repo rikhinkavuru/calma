@@ -805,9 +805,10 @@ def validate_contract(contract):
             errs.append("embargo must be a mapping (e.g. {horizon_days, era_col, train, val})")
         else:
             for k in _EMB_NUM:
-                if emb.get(k) is not None and not (isinstance(emb[k], (int, float))
-                                                   and not isinstance(emb[k], bool) and emb[k] >= 0):
-                    errs.append("embargo.%s must be a non-negative number" % k)
+                v = emb.get(k)
+                if v is not None and not (isinstance(v, (int, float)) and not isinstance(v, bool)
+                                          and math.isfinite(v) and v >= 0):
+                    errs.append("embargo.%s must be a finite non-negative number" % k)
             for k in _EMB_STR:
                 if emb.get(k) is not None and not isinstance(emb[k], str):
                     errs.append("embargo.%s must be a string" % k)
@@ -827,8 +828,9 @@ def validate_contract(contract):
                 if sa.get(k) is not None and not isinstance(sa[k], str):
                     errs.append("simulation_assumptions.%s must be a string" % k)
             cfm = sa.get("close_factor_max")
-            if cfm is not None and not (isinstance(cfm, (int, float)) and not isinstance(cfm, bool) and cfm > 0):
-                errs.append("simulation_assumptions.close_factor_max must be a positive number")
+            if cfm is not None and not (isinstance(cfm, (int, float)) and not isinstance(cfm, bool)
+                                        and math.isfinite(cfm) and cfm > 0):
+                errs.append("simulation_assumptions.close_factor_max must be a finite positive number")
             var = sa.get("var")
             if var is not None:
                 if not isinstance(var, dict):
@@ -840,9 +842,10 @@ def validate_contract(contract):
                     for k in ("loss_log", "loss_col"):
                         if var.get(k) is not None and not isinstance(var[k], str):
                             errs.append("simulation_assumptions.var.%s must be a string" % k)
-                    if var.get("reported") is not None and not (isinstance(var["reported"], (int, float))
-                                                                and not isinstance(var["reported"], bool)):
-                        errs.append("simulation_assumptions.var.reported must be a number")
+                    rep = var.get("reported")
+                    if rep is not None and not (isinstance(rep, (int, float)) and not isinstance(rep, bool)
+                                                and math.isfinite(rep)):
+                        errs.append("simulation_assumptions.var.reported must be a finite number")
             cal = sa.get("calibration")
             if cal is not None:
                 if not isinstance(cal, dict):
@@ -886,7 +889,11 @@ def _sample_numeric(path, col_idx, limit=500):
 
 # string-keyed tags (grouping/ID columns): the independent sanity check is non-null density,
 # not numeric plausibility
-STRING_KEY_TAGS = {"query", "problem", "group", "outcome", "left_key", "joined_key"}
+STRING_KEY_TAGS = {"query", "problem", "group", "outcome", "left_key", "joined_key", "era"}
+# `era` is the tournament group key (Numerai per-era / Crunch per-moon). The numerai_corr/sharpe recipes
+# already declare string_tags=["era"] (kept as a raw string at recompute); it MUST also be graded as a
+# string KEY here, else "era0001" fails numeric grading -> author-asserted -> the min-grade rule pins the
+# whole headline to author-asserted -> REFUTED/CONFIRMED is blocked forever (the marquee Numerai dead-end).
 
 
 def _sample_strings(path, col_idx, limit=500):

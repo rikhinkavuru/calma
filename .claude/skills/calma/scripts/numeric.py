@@ -1021,11 +1021,16 @@ def numerai_corr_series(pred, tgt):
     n = len(pred)
     if n != len(tgt) or n < 2 or _has_nan(pred) or _has_nan(tgt):
         return float("nan")
-    ranks = _avg_ranks(pred)
-    gp = [_signed_pow(inv_norm_cdf(min(max((r - 0.5) / n, 1e-6), 1 - 1e-6)), 1.5) for r in ranks]
-    mt = fmean(tgt)
-    pt = [_signed_pow(t - mt, 1.5) for t in tgt]
-    return pearson_r(gp, pt)
+    try:
+        ranks = _avg_ranks(pred)
+        gp = [_signed_pow(inv_norm_cdf(min(max((r - 0.5) / n, 1e-6), 1 - 1e-6)), 1.5) for r in ranks]
+        mt = fmean(tgt)
+        pt = [_signed_pow(t - mt, 1.5) for t in tgt]
+        return pearson_r(gp, pt)
+    except (OverflowError, ArithmeticError):
+        # a corrupt-huge-but-finite target cell (e.g. 1e250) overflows the signed ^1.5 tail-weighting;
+        # that is degenerate data, so return NaN (the recompute degenerates -> INCONCLUSIVE), never a crash.
+        return float("nan")
 
 
 def cohen_d(a, b, mode="cohen_d"):

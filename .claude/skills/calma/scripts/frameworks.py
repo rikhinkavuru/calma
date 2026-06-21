@@ -97,12 +97,15 @@ FRAMEWORKS = {
         "split": dict(_ML_SPLIT),
     },
     "numerai": {
-        "_note": ("Numerai starter. Write your VALIDATION predictions to predictions.csv with three "
-                  "columns: era, prediction, target. The headline numerai_corr is the per-era mean of "
-                  "Numerai's rank->norm.ppf->^1.5 correlation (the number you stake NMR on - NOT a plain "
-                  "Pearson), and numerai_sharpe is mean/std(ddof=0) of per-era CORR. IMPORTANT: drop the "
-                  "first 4 validation eras after your last train era BEFORE writing the file (the 20-day "
-                  "target overlaps them - the embargo). Then: calma verify . \"validation corr 0.026\"."),
+        "_note": ("Numerai starter. (1) Point run.entrypoint at the script that WRITES predictions.csv "
+                  "(or set it to a no-op like `python -c pass` if the file already exists). (2) predictions.csv "
+                  "has three columns: era, prediction, target. The headline numerai_corr is the per-era mean "
+                  "of Numerai's rank->norm.ppf->^1.5 correlation (the number you stake NMR on - NOT a plain "
+                  "Pearson); numerai_sharpe is mean/std(ddof=0) of per-era CORR. (3) For the HARD era-embargo "
+                  "leakage GATE, add an `embargo` block to verify.yaml: {horizon_days: 20, era_col: era, "
+                  "train: train.csv, val: predictions.csv} - calma flags an un-purged split (min_val_era - "
+                  "max_train_era <= the required purge, 8 eras for the 20-day target) as INVALIDATED, and "
+                  "reports the leading-era CORR inflation. Then: calma verify . \"validation corr 0.026\"."),
         "run": {"entrypoint": "predict.py", "network": "off"},
         "env": _ML_ENV,
         "artifacts": [{"path": "predictions.csv", "columns": {
@@ -116,9 +119,10 @@ FRAMEWORKS = {
              "claimed_precision": 0.05}],
     },
     "crunchdao": {
-        "_note": ("CrunchDAO starter (ADIA-Lab structural-break). Write predictions.csv with two columns: "
-                  "structural_breakpoint (the 0/1 label) and score (your break-probability in [0,1]). The "
-                  "headline is ROC-AUC, exactly sklearn.metrics.roc_auc_score(y_true, score). Then: "
+        "_note": ("CrunchDAO starter (ADIA-Lab structural-break). (1) Point run.entrypoint (infer.py) at the "
+                  "script that WRITES predictions.csv (or a no-op if it already exists). (2) predictions.csv "
+                  "has two columns: structural_breakpoint (the 0/1 label) and score (your break-probability in "
+                  "[0,1]). The headline is ROC-AUC, exactly sklearn.metrics.roc_auc_score(y_true, score). Then: "
                   "calma verify . \"ROC-AUC 0.62\". For the per-moon DataCrunch crunch instead, use "
                   "moon,prediction,target and metric numerai_corr (per-group Spearman-like correlation)."),
         "run": {"entrypoint": "infer.py", "network": "off"},

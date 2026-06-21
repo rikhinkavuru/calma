@@ -115,15 +115,18 @@ def _floats(raw):
 def _required_purge(emb):
     """The purge required between the last train era and the first val era. `purge_eras` wins; otherwise
     ceil(horizon_days/5) forward eras + an embargo buffer (default 4 eras = Numerai's published 8/16)."""
+    _MAX = 100000  # a sane ceiling: no tournament purges 100k eras. Clamps a hostile/huge declared value
+    # so int(ceil(...)) can't OverflowError and a 1e300 can't produce an astronomically large purge.
     pe = emb.get("purge_eras")
-    if isinstance(pe, (int, float)) and not isinstance(pe, bool) and pe >= 0:
-        return int(math.ceil(pe))
+    if isinstance(pe, (int, float)) and not isinstance(pe, bool) and math.isfinite(pe) and pe >= 0:
+        return min(int(math.ceil(pe)), _MAX)
     hd = emb.get("horizon_days")
-    if not (isinstance(hd, (int, float)) and not isinstance(hd, bool) and hd > 0):
-        hd = 20  # the Numerai default target horizon
+    if not (isinstance(hd, (int, float)) and not isinstance(hd, bool) and math.isfinite(hd) and hd > 0):
+        hd = 20  # the Numerai default target horizon (also the non-finite / unparseable fallback)
     buf = emb.get("embargo_buffer_eras")
-    buf = int(buf) if isinstance(buf, (int, float)) and not isinstance(buf, bool) and buf >= 0 else 4
-    return int(math.ceil(float(hd) / 5.0)) + buf
+    buf = int(buf) if (isinstance(buf, (int, float)) and not isinstance(buf, bool)
+                       and math.isfinite(buf) and 0 <= buf <= _MAX) else 4
+    return min(int(math.ceil(float(hd) / 5.0)) + buf, _MAX)
 
 
 def _headline_metric(contract):
@@ -284,7 +287,10 @@ def run_checks(contract, base, claim_id="c1", claim_text=None):
     for fn in (check_era_gap, check_inflation_standalone):
         try:
             f = fn(contract, base, claim_id)
-        except (OSError, ValueError, KeyError, TypeError, ZeroDivisionError, IndexError):
+        # ArithmeticError covers Overflow/ZeroDivision/FloatingPoint (corrupt-huge cells overflow the ^1.5
+        # tail-weighting); AttributeError covers a wrong-typed declared block. The rail NEVER crashes the
+        # verify - any error -> skip the check (no finding), exactly as the fail-soft contract promises.
+        except (OSError, ValueError, KeyError, TypeError, ArithmeticError, IndexError, AttributeError):
             f = None
         if f:
             out.append(f)
@@ -311,7 +317,7 @@ def apply_validity(claims, findings, contract, claim_text, base=None):
     number is promoted, and only DOWN. An authoritative purge-gap finding under a validation/OOS/leaderboard
     claim -> INVALIDATED("era-embargo"); the same finding next to a bare reproduced number, or a soft
     leading-inflation finding -> CAVEAT."""
-    fam = [f for f in findings if f.get("dimension") == "era-embargo" and f.get("embargo_kind")]
+    fam = [f for f in (findings or []) if f.get("dimension") == "era-embargo" and f.get("embargo_kind")]
     if not fam or not claims:
         return
     head = next((c for c in claims if c.get("headline")), claims[0])

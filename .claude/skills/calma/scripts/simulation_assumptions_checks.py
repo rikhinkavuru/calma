@@ -149,7 +149,10 @@ def check_liquidation_per_block(contract, base, claim_id="c1"):
     viol = [(a, b, c) for (a, b), c in counts.items() if c > 1]
     if not viol:
         return None
-    viol.sort(key=lambda x: -x[2])
+    # TOTAL-ORDER sort (count desc, then account, then block): the named example must NOT depend on row /
+    # dict-insertion order, else the locator string - and therefore ledger_sha256 - would differ for
+    # byte-identical input, breaking the byte-re-derivable-verdict invariant.
+    viol.sort(key=lambda x: (-x[2], str(x[0]), str(x[1])))
     a, b, c = viol[0]
     return _finding(
         claim_id, "liquidation-per-block", "blocker", "authoritative",
@@ -162,7 +165,8 @@ def check_liquidation_per_block(contract, base, claim_id="c1"):
 
 
 def _reported_var(contract, sa):
-    var = sa.get("var") or {}
+    var = sa.get("var")
+    var = var if isinstance(var, dict) else {}
     r = var.get("reported")
     if isinstance(r, (int, float)) and not isinstance(r, bool):
         return float(r)
@@ -178,7 +182,9 @@ def check_var_percentile(contract, base, claim_id="c1"):
     sa = _sa(contract)
     if not sa:
         return None
-    var = sa.get("var") or {}
+    var = sa.get("var")
+    if not isinstance(var, dict):  # a wrong-typed var (e.g. a list) -> not auditable, never an AttributeError
+        return None
     loss_src = var.get("loss_log")
     if not loss_src:
         return None
@@ -305,7 +311,9 @@ def run_checks(contract, base, claim_id="c1", claim_text=None):
                check_close_factor):
         try:
             f = fn(contract, base, claim_id)
-        except (OSError, ValueError, KeyError, TypeError, ZeroDivisionError, IndexError):
+        # ArithmeticError = Overflow/ZeroDivision (huge/zero cells); AttributeError = a wrong-typed sub-block
+        # (e.g. var: [list]). The rail NEVER crashes the verify - any error -> skip the check (no finding).
+        except (OSError, ValueError, KeyError, TypeError, ArithmeticError, IndexError, AttributeError):
             f = None
         if f:
             out.append(f)
@@ -332,7 +340,8 @@ def apply_validity(claims, findings, contract, claim_text, base=None):
     REPRODUCED number is promoted, and only DOWN. An authoritative invariant violation under a VaR / risk /
     methodology claim -> INVALIDATED('simulation-assumptions'); the same finding next to a bare number, or a
     soft 'not auditable' finding -> CAVEAT."""
-    fam = [f for f in findings if f.get("dimension") == "simulation-assumptions" and f.get("simassume_kind")]
+    fam = [f for f in (findings or []) if f.get("dimension") == "simulation-assumptions"
+           and f.get("simassume_kind")]
     if not fam or not claims:
         return
     head = next((c for c in claims if c.get("headline")), claims[0])
