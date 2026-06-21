@@ -7,6 +7,26 @@ Usage:  path = safe_join(base, contract["split"]["train"])   # raises ValueError
 """
 import os
 
+# The artifact byte-cap (also the recompute reference cap). An artifact is emitted by the UNTRUSTED
+# entrypoint and then read by the HOST verifier OUTSIDE the sandbox; a hostile multi-GB CSV must not OOM
+# the verifier, and a FIFO/socket/device must never be open()'d (it would block forever). Generous vs any
+# real artifact (Numerai/Gauntlet datasets are a few MB); override with CALMA_MAX_ARTIFACT_MB.
+MAX_ARTIFACT_BYTES = int(float(os.environ.get("CALMA_MAX_ARTIFACT_MB", "256")) * 1024 * 1024)
+
+
+def within_cap(path, max_bytes=None):
+    """True iff `path` is a REGULAR file within the artifact byte-cap. The one shared guard every detector
+    reader uses to fail-soft (abstain / return empty) instead of OOMing the host verifier on a hostile
+    multi-GB CSV or blocking forever on a planted FIFO/device. Missing/non-regular/over-cap -> False (the
+    reader's existing fail-soft path). max_bytes defaults to MAX_ARTIFACT_BYTES."""
+    try:
+        if not os.path.isfile(path):  # follows symlinks; False for missing/dir/FIFO/socket/device
+            return False
+        cap = MAX_ARTIFACT_BYTES if max_bytes is None else max_bytes
+        return os.path.getsize(path) <= cap
+    except OSError:
+        return False
+
 
 def safe_join(base, rel):
     """Join `rel` onto `base` and confirm the result stays inside `base` (after resolving symlinks).

@@ -45,7 +45,7 @@ def _safe_join(base, rel):
 
 
 def _read(path):
-    if not os.path.isfile(path):
+    if not PS.within_cap(path):
         return [], []
     try:
         with open(path, newline="", encoding="utf-8", errors="replace") as fh:

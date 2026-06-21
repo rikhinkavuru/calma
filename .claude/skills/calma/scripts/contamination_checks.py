@@ -79,7 +79,7 @@ _ALLOWED_RE = re.compile(
 # ---- io ----------------------------------------------------------------------
 
 def _read(path):
-    if not os.path.isfile(path):
+    if not PS.within_cap(path):
         return [], []  # FIFO/socket/device: never open() (would block); treated as unreadable
     try:
         with open(path, newline="", encoding="utf-8", errors="replace") as fh:
@@ -121,7 +121,7 @@ def _load_corpus(contract, base):
         return None, None
     try:
         path = _safe_join(base, cp["manifest"])
-        if not os.path.isfile(path):  # FIFO/device: never open() (would block) -> declared-but-unreadable
+        if not PS.within_cap(path):  # FIFO/device: never open() (would block) -> declared-but-unreadable
             raise ValueError("corpus manifest is not a regular file")
         hashes, texts, n = set(), [], 0
         with open(path, encoding="utf-8", errors="replace") as fh:

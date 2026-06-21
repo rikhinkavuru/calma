@@ -62,7 +62,7 @@ def _embargo(contract):
 
 def _read_csv(path):
     """Load a CSV into {header: [raw_str, ...]}. Unreadable / non-regular-file -> {} (fail-soft)."""
-    if not os.path.isfile(path):
+    if not PS.within_cap(path):
         return {}
     try:
         with open(path, newline="", encoding="utf-8", errors="replace") as fh:

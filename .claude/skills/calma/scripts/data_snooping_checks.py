@@ -42,6 +42,7 @@ import os
 import re
 
 import numeric as N
+import pathsafe as PS
 import verdict as V
 
 T_CRIT = 3.0          # HLZ: a new factor needs t > 3.0 after the multiple-testing haircut
@@ -104,7 +105,7 @@ def _trials_from_matrix(contract, base, s):
         path = PS.safe_join(base, rel)  # L1: the one audited containment guard (pathsafe)
     except ValueError:
         return None, None  # path escape
-    if not os.path.isfile(path):
+    if not PS.within_cap(path):
         return None, None
     try:
         with open(path, newline="") as fh:

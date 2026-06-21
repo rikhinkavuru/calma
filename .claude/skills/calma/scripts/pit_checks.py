@@ -67,7 +67,7 @@ def _safe_join(base, rel):
 
 
 def _read_csv(path):
-    if not os.path.isfile(path):
+    if not PS.within_cap(path):
         return [], []  # FIFO/socket/device: never open() (would block); treated as unreadable
     try:
         with open(path, newline="", encoding="utf-8", errors="replace") as fh:

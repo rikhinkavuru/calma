@@ -50,7 +50,7 @@ _TRIALS_NAME = re.compile(r"^(trials|grid_?search|sweep|configs?|candidates?)\.c
 def _read_matrix(path):
     """A CSV of per-period performance: rows = periods, columns = candidate strategies. Returns
     (header, rows-of-floats); non-numeric cells -> NaN."""
-    if not os.path.isfile(path):
+    if not PS.within_cap(path):
         return [], []  # FIFO/socket/device: never open() (would block); treated as unreadable
     try:
         with open(path, newline="") as fh:

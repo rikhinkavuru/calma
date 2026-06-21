@@ -61,7 +61,7 @@ def _sa(contract):
 
 
 def _read_csv(path):
-    if not os.path.isfile(path):
+    if not PS.within_cap(path):
         return {}
     try:
         with open(path, newline="", encoding="utf-8", errors="replace") as fh:

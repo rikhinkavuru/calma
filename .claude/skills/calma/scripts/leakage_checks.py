@@ -43,7 +43,7 @@ _TRAIN_TOKEN = re.compile(r"^(train|training|fit|in-?sample|is)$", re.I)
 # ---- io ----------------------------------------------------------------------
 
 def _read(path):
-    if not os.path.isfile(path):
+    if not PS.within_cap(path):
         return [], []  # FIFO/socket/device: never open() (would block); treated as unreadable
     try:
         with open(path, newline="") as fh:

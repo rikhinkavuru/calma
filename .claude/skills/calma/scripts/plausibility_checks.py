@@ -97,7 +97,7 @@ def _returns(contract, base):
         path = _safe_join(base, m.get("artifact", ""))
     except ValueError:
         return None
-    if not os.path.isfile(path):
+    if not PS.within_cap(path):
         return None
     try:
         with open(path, newline="") as fh:
@@ -309,7 +309,7 @@ def check_train_test_loss_gap(contract, base, claim_id="c1"):
             path = _safe_join(base, a.get("path", ""))
         except ValueError:
             continue
-        if not os.path.isfile(path):
+        if not PS.within_cap(path):
             continue
         try:
             with open(path, newline="") as fh:

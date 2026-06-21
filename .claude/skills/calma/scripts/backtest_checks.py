@@ -71,7 +71,7 @@ _COST_MATERIAL = 0.05
 
 
 def _read_csv(path):
-    if not os.path.isfile(path):
+    if not PS.within_cap(path):
         return {}  # FIFO/socket/device: never open() (would block); treated as unreadable
     try:
         with open(path, newline="") as fh:
