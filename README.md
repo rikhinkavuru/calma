@@ -1,6 +1,6 @@
 # Calma
 
-[calma1.vercel.app](https://calma1.vercel.app/) · `v0.10.0` · MIT · pure Python stdlib
+[calma1.vercel.app](https://calma1.vercel.app/) · `v0.11.0` · MIT · pure Python stdlib
 
 **An automatic guardrail for AI-generated results: Calma re-runs your agent's work, recomputes the numbers it reported, and blocks the wrong ones before they ship.**
 
@@ -209,7 +209,7 @@ Read these before you rely on a verdict.
 
 ## Status & docs
 
-`v0.10.0`. Real and tested. See [`CHANGELOG.md`](CHANGELOG.md), the [PR-bot adopter guide](docs/pr-bot.md), and the [GitHub App guide](app/README.md).
+`v0.11.0`. Real and tested. See [`CHANGELOG.md`](CHANGELOG.md), the [PR-bot adopter guide](docs/pr-bot.md), and the [GitHub App guide](app/README.md).
 
 ## License
 

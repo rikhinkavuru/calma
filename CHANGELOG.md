@@ -2,10 +2,44 @@
 
 All notable changes to the calma skill/CLI. Dates are UTC.
 
-## Unreleased — producer-side guardrail: V6 plausibility, structured `needs`, and `calma draft`
+## 0.11.0 — engineering roadmap: tournament ICP · distribution · transparency log
+
+The research-backed engineering roadmap, executed end-to-end (22 commits), plus a full adversarial
+stress-test loop. `make eval` is now a **5-gate** standing net (core suite + framework golden-vectors +
+the recompute-only validity-gap baseline + a byte-identical determinism check + a recipe-coverage
+no-regression gate); **71 core suites / 0 failed**; the verdict stays one byte-re-derivable deterministic
+function.
+
+- **Two new validity families (now 13).** **Era-embargo / purged-CV** (`embargo_checks.py`) — the Numerai
+  8-era/20-day · 16-era/60-day purge gate (the López de Prado purge+embargo form) + the leading-era CORR
+  inflation premium; INVALIDATES an un-purged tournament split whose metric still reproduces. **Risk-sim
+  `simulation_assumptions`** (`simulation_assumptions_checks.py`) — Chaos/Gauntlet per-block invariants:
+  ≤1 liquidation/account/block, a VaR labeled p99 that is really the p95, calibration-window look-ahead,
+  the close-factor bound.
+- **New tournament recipes (625 → 628).** `mmc`, `feature_neutral_corr`, `max_feature_exposure` —
+  Tier-1-validated against the official **numerai-tools** to ≤1e-9 (a pure-stdlib Gaussian-elimination
+  neutralize/lstsq + a feature-SET binding); plus a **deflated-AUC** selection-overfit haircut beside the
+  Deflated-Sharpe rail.
+- **Distribution + ingestion.** `pip install calma` (library-first: `from calma import verify`) + a
+  non-root multi-stage Dockerfile + a packaging CI that smoke-tests the installed wheel + the firewall;
+  **optional parquet** (`pip install calma[parquet]`, lazy/firewalled pyarrow) for tournament data, with
+  a CI test asserting the pure-stdlib core import graph stays third-party-free.
+- **The proof model upgraded — calma is now its own RFC 6962 transparency log.** `calma registry
+  proof|verify-proof` emits self-contained **`.proof` bundles** (inclusion proof + a signed checkpoint +
+  external-witness cosignatures) that re-verify **offline**, with no calma server, years later.
+- **Coverage, made legible.** `benchmark/coverage_report.py`: **597/628 = 95.1% of recipes are
+  independently verified (Tier-1)** — live framework / numerai-tools / a frozen numpy·scipy·sklearn vector
+  — with a `make eval` gate that won't let the ratio regress.
+- **Adversarial stress-test loop (clean).** A path-traversal in `regrade_committed` (out-of-base read)
+  closed + the artifact byte-cap unified across all 13 detector readers (DoS defense-in-depth); the
+  flagship `calma init numerai` permanent-CAN'T-CONFIRM dead-end fixed (`era` → `STRING_KEY_TAGS`); crash
+  + a `ledger_sha256` determinism bug in the new families fixed; 3 HIGH false-advertising lines corrected
+  with a new README `## Limitations` (reproducible ≠ right; not investment advice).
+
+### Also in 0.11.0 — the earlier producer-side guardrail work
 
 Repositioned as **an automatic guardrail for AI-generated results** (catch your own wrong number
-before it ships); the engine, verdict, and proof model are unchanged. New user-facing capabilities:
+before it ships):
 
 - **V6 — statistical plausibility (`plausibility_checks.py`)**, the first **thin-input** validity
   family: flags an implausibly-high Sharpe and a too-smooth (lag-1 serial-correlation) equity curve
