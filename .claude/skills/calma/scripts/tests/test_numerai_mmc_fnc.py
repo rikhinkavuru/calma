@@ -98,5 +98,33 @@ truth(abs(N.max_feature_exposure([1.0, 2.0, 3.0, 4.0], [[5.0, 5.0, 5.0, 5.0], [1
 # ---- mmc global (no era bound) is also valid (one group) ----------------------------------------------
 truth(N.mmc_series(PRED, TGT, META) == N.mmc_series(PRED, TGT, META), "mmc_series global (16 rows) is finite")
 
+# ---- live drift-gate: when numerai-tools is importable (the eval venv), the FROZEN goldens must STILL
+#      equal the live library - catches a future numerai-tools algorithm change. Skips out loud under the
+#      pure-stdlib core suite (calma == frozen golden is asserted there regardless).
+try:
+    import numerai_tools.scoring as _S
+    import pandas as _pd
+    import numpy as _np
+    _HAVE = True
+except ImportError:
+    _HAVE = False
+if _HAVE:
+    _df = _pd.DataFrame({"era": ERA, "pred": PRED, "target": TGT, "meta": META, "f0": F0, "f1": F1, "f2": F2})
+
+    def _per_era(fn):
+        return float(_np.mean([fn(g.reset_index(drop=True)) for _, g in _df.groupby("era")]))
+
+    _lm = _per_era(lambda g: _S.correlation_contribution(g["pred"].to_frame(), g["meta"].rename("meta"),
+                                                         g["target"]).iloc[0])
+    _lf = _per_era(lambda g: _S.feature_neutral_corr(g["pred"].to_frame(), g[["f0", "f1", "f2"]],
+                                                     g["target"]).iloc[0])
+    _lx = float(_S.max_feature_correlation(_df["pred"], _df[["f0", "f1", "f2"]])[1])
+    truth(abs(_lm - GOLD_MMC) <= TOL, "drift-gate: frozen GOLD_MMC == the live numerai-tools")
+    truth(abs(_lf - GOLD_FNC) <= TOL, "drift-gate: frozen GOLD_FNC == the live numerai-tools")
+    truth(abs(_lx - GOLD_MAX) <= TOL, "drift-gate: frozen GOLD_MAX == the live numerai-tools")
+    print("  (numerai-tools present - frozen goldens re-validated against the live library)")
+else:
+    print("  (numerai-tools absent - live drift-gate skipped; calma == frozen golden still asserted)")
+
 print("numerai_mmc_fnc: %d checks, %d failures" % (_n, _fail))
 sys.exit(1 if _fail else 0)

@@ -196,7 +196,7 @@ benchmark/                      the 129-case corpus + the 4-arm comparison + sco
 - **The verdict is one function**, re-derived byte-for-byte at the gate — non-gameable.
 - **Pure stdlib; offline by default — your code and data never leave your machine.** The honest answer to "where is our data processed?" is *"on your machine, network-off."* (Optional tiers you turn on explicitly — a remote microVM for untrusted code, an RFC-3161 timestamp, a Rekor log — make a network call, and the ledger records exactly which.)
 - **Every transport is firewalled** — `mcp/`, `pr/`, `app/` import no verdict core; the validity detectors import no model.
-- **Tested:** 67 core suites / 0 failed (pure stdlib) + 39 transport tests (10 mcp + 29 pr); one command runs all three — `make test-all`; 628 recipes against reference vectors.
+- **Tested:** 70 core suites / 0 failed (pure stdlib) + 39 transport tests (10 mcp + 29 pr); one command runs all three — `make test-all`; 628 recipes against reference vectors.
 
 ## Limitations
 
