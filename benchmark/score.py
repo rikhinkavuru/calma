@@ -70,11 +70,16 @@ def main():
     _agent_path = os.path.join(HERE, "results", "agent.json")
     agent_rows = json.load(open(_agent_path)) if os.path.exists(_agent_path) else []
     agent = {r["id"]: r["prediction"] for r in agent_rows}
-    methods = {
-        "trust-the-number": lambda mid: "honest",
-        "LLM-as-judge (no exec)": lambda mid: judge.get(mid, "abstain"),
-        "Calma": lambda mid: calma.get(mid, "abstain"),
-    }
+    # recompute-only (no validity): the deterministic, offline, $0 baseline (benchmark/recompute_only.py) -
+    # a verifier that recomputes the headline but skips the validity layer. It false-confirms the validity
+    # cut (the number reproduces), which is exactly the gap Calma closes; present once that's been run.
+    _ro_path = os.path.join(HERE, "results", "recompute_only.json")
+    ro = {r["id"]: r["prediction"] for r in (json.load(open(_ro_path)) if os.path.exists(_ro_path) else [])}
+    methods = {"trust-the-number": lambda mid: "honest"}
+    if ro:
+        methods["recompute-only (no validity)"] = lambda mid: ro.get(mid, "abstain")
+    methods["LLM-as-judge (no exec)"] = lambda mid: judge.get(mid, "abstain")
+    methods["Calma"] = lambda mid: calma.get(mid, "abstain")
     if agent:  # code-running-agent arm (benchmark/run_agent.py); only present once that's been run
         methods["agent-with-exec"] = lambda mid: agent.get(mid, "abstain")
 

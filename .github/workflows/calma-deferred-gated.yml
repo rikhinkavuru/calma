@@ -1,7 +1,10 @@
 name: calma-deferred-gated
 # T2: the deferred arms that need secrets / heavy deps. MANUAL trigger only (workflow_dispatch) so
-# they're documented + runnable on demand, never silently skipped. The OFFLINE halves (mock agent
-# plumbing, contract validation, draft --ai fallback) run every push via calma-test-all.
+# they're documented + runnable on demand, never silently skipped. The OFFLINE halves now carry real
+# EVIDENCE every push via calma-test-all (test_deferred_arms.py): the recompute-only baseline MEASURES
+# the agent arm's validity-blindness gap, and gen_framework_vectors.py asserts Calma reproduces each
+# framework's frozen golden number to <=1e-9. These gated jobs ADD the live confirmations: the real LLM
+# agent run, and golden==live-framework (--check-live).
 on:
   workflow_dispatch:
     inputs:
@@ -35,19 +38,20 @@ jobs:
   framework-vectors:
     if: ${{ inputs.run_framework_vectors }}
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        framework: [sklearn, xgboost]   # extend as generators land (backtrader/vectorbt/zipline/pytorch)
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4 (SHA-pinned)
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5 (SHA-pinned)
         with: { python-version: "3.12" }
-      - name: install ${{ matrix.framework }} + numpy
-        run: python3 -m pip install --quiet numpy ${{ matrix.framework }}
-      - name: C4 framework-generated reference vectors (assert recompute matches to <=1e-9)
+      - name: install the reference frameworks
+        # scikit-learn covers the classification/regression goldens (the canonical scorer xgboost/pytorch
+        # users call); numpy gives an independent reduction order for the quant total_return golden. The
+        # backtrader/vectorbt/zipline headline (compounded return) reduces to that same closed form.
+        run: python3 -m pip install --quiet numpy scikit-learn
+      - name: C4 framework reference vectors - confirm the frozen goldens equal the LIVE frameworks
         run: |
-          echo "Generator for ${{ matrix.framework }} goes here: produce the artifact with the"
-          echo "framework, freeze it, and assert Calma's recompute matches the framework's own number"
-          echo "to <=1e-9 (see docs/frameworks.md 'Reference vectors')."
-          # python3 benchmark/gen_framework_vectors.py --framework ${{ matrix.framework }}
+          # Offline, every push already asserts Calma == the frozen golden (<=1e-9). With the frameworks
+          # installed, --check-live additionally asserts golden == the REAL framework number (<=1e-9),
+          # closing the loop: Calma == frozen golden == live framework. Non-zero exit on any mismatch.
+          python3 benchmark/gen_framework_vectors.py --check-live
+      - uses: actions/upload-artifact@v4
+        with: { name: framework-vectors, path: benchmark/results/framework_vectors.json }
