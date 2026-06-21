@@ -784,6 +784,26 @@ def validate_contract(contract):
             for k in cp:
                 if k not in ("manifest", "eval", "eval_col"):
                     errs.append("corpus.%s is not a recognized key (known: manifest, eval, eval_col)" % k)
+    # WS-era-embargo (WS-C i): optional purged-CV / era-embargo declaration. All absent -> era-embargo is
+    # NOT-APPLICABLE; only the SHAPE is checked (the purge requirement and era range are never guessed).
+    _EMB_NUM = ("horizon_days", "purge_eras", "embargo_buffer_eras")
+    _EMB_STR = ("era_col", "train", "val")
+    emb = contract.get("embargo")
+    if emb is not None:
+        if not isinstance(emb, dict):
+            errs.append("embargo must be a mapping (e.g. {horizon_days, era_col, train, val})")
+        else:
+            for k in _EMB_NUM:
+                if emb.get(k) is not None and not (isinstance(emb[k], (int, float))
+                                                   and not isinstance(emb[k], bool) and emb[k] >= 0):
+                    errs.append("embargo.%s must be a non-negative number" % k)
+            for k in _EMB_STR:
+                if emb.get(k) is not None and not isinstance(emb[k], str):
+                    errs.append("embargo.%s must be a string" % k)
+            for k in emb:
+                if k not in _EMB_NUM and k not in _EMB_STR:
+                    errs.append("embargo.%s is not a recognized key (known: %s)"
+                                % (k, ", ".join(_EMB_NUM + _EMB_STR)))
     return errs
 
 
