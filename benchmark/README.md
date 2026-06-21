@@ -125,6 +125,14 @@ stochastic and validity-blind. Calma is neither.
   *claimed metric* recomputes — they would catch ~0 of these by construction (not run here).
 - Calma's recipes are themselves validated against 385 byte-reproducible reference vectors from
   published implementations (`assets/reference_vectors.json`) — independent of this benchmark.
+- **Validity-cut extension (opt-in):** `python3 benchmark/gen_validity_cases.py` adds two cases for the
+  families shipped this cycle — **era-embargo** (an un-purged Numerai split) and **risk-sim
+  simulation_assumptions** (a double-liquidation-per-block invariant violation), in `cases/emb_a` and
+  `cases/sim_a`. Each is constructed so the headline **number reproduces** (recompute-only and the LLM
+  judge call it *honest*) while **Calma INVALIDATES** it. With them the validity cut becomes **14 cases
+  across 10 families**; Calma catches **14/14**, recompute-only and the judge **0/14**. The committed
+  published results above stay at the established run; re-run the arms + `score.py` after generating to
+  fold the two cases in.
 
 ## Reproduce
 
