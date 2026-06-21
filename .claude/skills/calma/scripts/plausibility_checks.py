@@ -41,6 +41,7 @@ import re
 
 import leakage_checks as LC   # reuse the EXACT row-hashing for the undeclared-split overlap smell
 import numeric as N
+import pathsafe as PS
 import verdict as V
 
 _MIN_OBS = 24          # enough points for a meaningful per-period Sharpe + a lag-1 autocorrelation
@@ -81,11 +82,8 @@ def _binds_return(contract):
 
 
 def _safe_join(base, rel):
-    full = os.path.realpath(os.path.join(base, rel))
-    rb = os.path.realpath(base)
-    if full != rb and not full.startswith(rb + os.sep):
-        raise ValueError("path escapes the contract base: %r" % rel)
-    return full
+    # delegates to the shared guard (pathsafe) so there is ONE containment implementation (L1)
+    return PS.safe_join(base, rel)
 
 
 def _returns(contract, base):

@@ -56,8 +56,21 @@ different one.
 ## Reference vectors (status)
 
 Calma's recipes are validated against byte-reproducible reference vectors (`assets/reference_vectors.json`)
-and the benchmark's external scikit-learn track. Adding **framework-generated** vectors — a Backtrader /
-VectorBT / zipline Sharpe, a PyTorch / XGBoost accuracy/AUC — is a host-with-those-frameworks task:
-generate the artifact with the framework, freeze it, and assert Calma's recompute matches the framework's
-own number to ≤1e-9. The `calma init` templates here are the contract half; the per-framework generators
-are the remaining piece (they need the frameworks installed, like the benchmark's sklearn track).
+and the benchmark's external scikit-learn track.
+
+**Measured (in CI, every run):**
+- The **contract half** of every `calma init` template validates against the schema and binds its
+  headline metric (`tests/test_frameworks.py`, `tests/test_deferred_arms.py` → T2/C4).
+- The benchmark **agent arm's** plumbing + scoring runs offline via the `--mock` backend
+  (`tests/test_deferred_arms.py` → T2/D2). Mock numbers are flagged `MOCK` and never reported as real.
+
+**Gated (manual / secret-gated CI job, documented not silently skipped):**
+- **Framework-GENERATED vectors** — a Backtrader / VectorBT / zipline Sharpe, a PyTorch / XGBoost
+  accuracy/AUC. A host-with-those-frameworks task: generate the artifact with the framework, freeze it,
+  and assert Calma's recompute matches the framework's own number to ≤1e-9. Needs the frameworks
+  installed (like the benchmark's sklearn track). The `calma init` templates are the contract half; the
+  per-framework generators are the remaining piece.
+- **The REAL benchmark agent arm** (`benchmark/run_agent.py` without `--mock`) — needs
+  `ANTHROPIC_API_KEY`; measures verdict-instability across reruns, cost, latency.
+- **`draft --ai` on real repos** — needs the edges deps + an API key; the heuristic fallback (no key)
+  is exercised in CI (`tests/test_deferred_arms.py`).

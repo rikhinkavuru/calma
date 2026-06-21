@@ -1,0 +1,23 @@
+# The PR-bot transport package. Like mcp/, it is FIREWALLED from the verdict core: it shells out
+# to `calma verify --json` as a subprocess and imports no engine module (test-enforced). This file
+# exists so `make test-all` / CI can bootstrap ~/.calma/ref-venv reproducibly.
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "calma-pr"
+version = "0.1.0"
+description = "GitHub PR-comment bot for Calma: one verified inline catch per refuted number, firewalled from the engine."
+requires-python = ">=3.10"
+license = { text = "MIT" }
+
+[project.optional-dependencies]
+test = [
+  "pytest>=7",
+  "numpy>=1.24",
+]
+
+[tool.setuptools]
+packages = ["pr"]
+package-dir = { "pr" = "." }

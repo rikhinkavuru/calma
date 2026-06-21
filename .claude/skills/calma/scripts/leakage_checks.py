@@ -26,6 +26,7 @@ import os
 import re
 
 import numeric as N
+import pathsafe as PS
 import verdict as V
 
 _HEUR_CORR = 0.999  # |pearson_r| at/above which a feature is flagged as ~perfectly target-correlated
@@ -99,14 +100,23 @@ def _load_split(contract, base):
     """Return {train_h, train, test_h, test, split_col} or None. Two-file form (split.train/test) or
     single-file form (split.file + split.column, partitioned by test_value or a test-looking token)."""
     sp = contract.get("split") or {}
-    if sp.get("train") and sp.get("test"):
-        th, tr = _read(os.path.join(base, sp["train"]))
-        eh, er = _read(os.path.join(base, sp["test"]))
-        if th and eh:
-            return {"train_h": th, "train": tr, "test_h": eh, "test": er, "split_col": None}
-        return None
+    # L1: split paths come from a (possibly counterparty) verify.yaml - contain them to `base` so a
+    # `split.train: ../../etc/passwd` can't be read. Mirrors plausibility_checks' returns reader.
+    try:
+        if sp.get("train") and sp.get("test"):
+            th, tr = _read(PS.safe_join(base, sp["train"]))
+            eh, er = _read(PS.safe_join(base, sp["test"]))
+            if th and eh:
+                return {"train_h": th, "train": tr, "test_h": eh, "test": er, "split_col": None}
+            return None
+        if sp.get("file") and sp.get("column"):
+            h, rows = _read(PS.safe_join(base, sp["file"]))
+        else:
+            return None
+    except ValueError:
+        return None  # path escaped the base -> not a usable split, never a read outside `base`
+    # single-file form (reached only when split.file + split.column are set; h/rows are loaded above)
     if sp.get("file") and sp.get("column"):
-        h, rows = _read(os.path.join(base, sp["file"]))
         if not h or sp["column"] not in h:
             return None
         ci = h.index(sp["column"])
@@ -245,7 +255,10 @@ def _target_table(d, contract, base):
     for a in contract.get("artifacts") or []:
         cols = a.get("columns") or {}
         if tgt in cols:
-            return _read(os.path.join(base, a.get("path", "")))
+            try:  # L1: contain the artifact path - never read outside `base` (counterparty input)
+                return _read(PS.safe_join(base, a.get("path", "")))
+            except ValueError:
+                return [], []
     return [], []
 
 
@@ -321,7 +334,8 @@ def _split_unreadable(contract, base):
     if not rels:
         return False
     for rel in rels:
-        if not os.path.isfile(os.path.join(base or ".", rel)):
+        # L1: a split path that escapes base is treated as unreadable (-> CAN'T-CONFIRM), never probed
+        if not PS.is_contained(base or ".", rel) or not os.path.isfile(os.path.join(base or ".", rel)):
             return True
     return False
 

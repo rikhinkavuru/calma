@@ -22,6 +22,7 @@ import json
 import os
 import shutil
 
+import pathsafe as PS
 import registry as REG
 
 _CSS = """
@@ -179,9 +180,8 @@ def build_site(reg_dir, out_dir=None):
     reg_dir = os.path.realpath(reg_dir)
     if not os.path.isfile(REG._head_path(reg_dir)):
         raise ValueError("not a registry (no HEAD.json): %s" % reg_dir)
-    out_dir = os.path.realpath(out_dir or os.path.join(reg_dir, "site"))
-    if os.path.realpath(out_dir) == reg_dir:
-        raise ValueError("--out must differ from the registry dir itself")
+    # L2: contain --out (no parent/traversal escape), not just out != source
+    out_dir = PS.guard_out_dir(out_dir or os.path.join(reg_dir, "site"), reg_dir)
     os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, "index.html"), "w") as fh:
         fh.write(render_index(reg_dir))

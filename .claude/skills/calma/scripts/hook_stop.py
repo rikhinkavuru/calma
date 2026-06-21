@@ -59,6 +59,10 @@ if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
 
 MAX_TRANSCRIPT_TAIL = 256 * 1024     # bytes of transcript read (the final turn lives here)
+SNIFF_MAX_CHARS = 8 * 1024           # chars actually fed to the sniffer (a headline claim is short
+                                     # and lives at the END; the sniffer also caps term-occurrences
+                                     # internally + we bound wall-clock below - defense in depth)
+SNIFF_BUDGET_S = 2                   # hard ceiling on the inline sniff so it never stalls a turn-end
 DEFAULT_TIMEOUT_S = 120              # re-execution budget when nothing is configured. Real ML evals
                                      # and medium backtests finish well inside this; a long run raises
                                      # it via env CALMA_TIMEOUT or .calma/config.json {"hook":{"timeout_s"}}.
@@ -186,10 +190,12 @@ _COVERAGE_WORDS = {
 }
 
 
-def _coverage_line(tally, budget):
+def _coverage_line(tally, budget, detected=None, max_claims=None):
     """One human line summarizing what calma checked this turn - the visible heartbeat that tells a
     team the guardrail is alive (vs. having silently no-op'd). Suppressed already-reported breaks are
-    not counted here (never-nag). Never raises."""
+    not counted here (never-nag). CR2: when more checkable numbers were DETECTED than the per-turn
+    budget verified, say so explicitly ("the headline (1 of 4)") and point at CALMA_VERIFY=all, so a
+    client is never misled into thinking every number was checked. Never raises."""
     bits = []
     for v, c in sorted(tally.get("verdicts", {}).items()):
         bits.append("%d %s" % (c, _COVERAGE_WORDS.get(v, str(v).lower())))
@@ -199,12 +205,31 @@ def _coverage_line(tally, budget):
         bits.append("%d couldn't run" % tally["error"])
     n = (sum(tally.get("verdicts", {}).values()) + tally.get("timeout", 0)
          + tally.get("error", 0))
-    msg = "calma checked %d number%s this turn: %s." % (
-        n, "" if n == 1 else "s", ", ".join(bits) if bits else "nothing conclusive")
+    body = ", ".join(bits) if bits else "nothing conclusive"
+    if detected and max_claims and detected > max_claims:
+        # the per-turn budget left some detected numbers unverified - be honest about coverage
+        head = ("calma checked the headline (1 of %d numbers this turn)" % detected
+                if max_claims == 1 else
+                "calma checked %d of %d numbers this turn" % (n, detected))
+        msg = "%s: %s. Set CALMA_VERIFY=all to verify the rest." % (head, body)
+    else:
+        msg = "calma checked %d number%s this turn: %s." % (
+            n, "" if n == 1 else "s", body)
     if tally.get("timeout"):
         msg += (" The slow one hit the %ds budget - raise it with CALMA_TIMEOUT "
                 "(or .calma/config.json {\"hook\":{\"timeout_s\"}}) to verify it." % budget)
     return msg
+
+
+def _near_miss_line(near):
+    """CR1: a one-line, non-blocking 'I saw a number I couldn't auto-verify' note. Fires only when
+    NO claim bound but a result-shaped number sat next to a metric word in a verifiable repo - so a
+    recall miss is visible (the client knows to run `calma verify`) instead of silently shipping."""
+    n0 = near[0]
+    extra = " (+%d more)" % (len(near) - 1) if len(near) > 1 else ""
+    return ("calma saw a number it couldn't auto-verify - \"%s\" near \"%s\"%s. "
+            "Run `calma verify` (or rephrase the claim) to check it."
+            % (n0.get("value"), n0.get("term"), extra))
 
 
 def _opted_out(cwd):
@@ -476,6 +501,33 @@ def _block_payload(cand, res):
     }
 
 
+def _sniff_bounded(text):
+    """Run the sniffer with a hard wall-clock ceiling. The sniffer is ~O(n^2) on degenerate
+    all-metric input; the turn-end hook must never stall on a long/adversarial final message.
+    Fail-open: a timeout or any error -> no claims, no near-misses (the user can still run calma)."""
+    import sniff_claims as SN
+    if len(text) > SNIFF_MAX_CHARS:
+        text = text[-SNIFF_MAX_CHARS:]
+    if not hasattr(signal, "SIGALRM"):
+        try:
+            return SN.sniff(text, with_near=True)
+        except Exception:
+            return [], []
+
+    def _timed_out(signum, frame):
+        raise TimeoutError("sniff budget exceeded")
+
+    old = signal.signal(signal.SIGALRM, _timed_out)
+    try:
+        signal.setitimer(signal.ITIMER_REAL, SNIFF_BUDGET_S)
+        return SN.sniff(text, with_near=True)
+    except Exception:
+        return [], []
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, old)
+
+
 def main():
     if _killed_off_by_env():
         return 0
@@ -513,9 +565,26 @@ def main():
     # the same tail budget the transcript reader uses.
     if len(text) > MAX_TRANSCRIPT_TAIL:
         text = text[-MAX_TRANSCRIPT_TAIL:]
-    import sniff_claims as SN
-    claims = SN.sniff(text)
+    # bounded: tighter char cap + a hard wall-clock ceiling (the sniffer is ~O(n^2) on degenerate
+    # all-metric input; a turn-end must never stall). Fail-open to no-claims.
+    claims, near = _sniff_bounded(text)
     if not claims:
+        # CR1: nothing bound. If a result-shaped number sat next to a metric word in a VERIFIABLE
+        # repo, surface a one-line "saw a number I couldn't auto-verify" (non-blocking) so a recall
+        # miss is VISIBLE - the client knows to run `calma verify` instead of silently shipping it.
+        # Gated on verifiable-target (no .calma litter elsewhere), on coverage being on, and de-duped
+        # in state so an unchanged near-miss doesn't nag every turn.
+        if near and _coverage_on(cfg) and _verifiable_target(cwd):
+            st = _load_state(cwd)
+            seen = st.get("near_informed", {})
+            nkey = "%s=%s" % (near[0].get("metric"), near[0].get("value"))
+            if nkey not in seen:
+                seen[nkey] = _now_iso()
+                while len(seen) > 64:  # bound the dedupe map
+                    del seen[next(iter(seen))]
+                st["near_informed"] = seen
+                _save_state(cwd, st)
+                print(json.dumps({"systemMessage": _near_miss_line(near)}))
         return 0
     # the verifiable-target gate comes FIRST and is breadcrumb-free: a mere metric mention in
     # an unrelated repo must never create a .calma dir there (breadcrumbs only after this gate)
@@ -581,7 +650,8 @@ def main():
     # guardrail ran this turn - the heartbeat that keeps it switched on. Engaged turns only; a lone
     # suppressed re-break leaves the tally empty and stays silent.
     if _coverage_on(cfg) and (tally["verdicts"] or tally["timeout"] or tally["error"]):
-        print(json.dumps({"systemMessage": _coverage_line(tally, timeout_s)}))
+        print(json.dumps({"systemMessage": _coverage_line(
+            tally, timeout_s, detected=len(claims), max_claims=max_claims)}))
     return 0
 
 

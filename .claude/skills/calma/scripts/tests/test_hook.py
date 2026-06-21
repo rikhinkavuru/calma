@@ -264,6 +264,34 @@ truth(any(e["event"] == "verified" and e.get("verdict") not in ("REFUTED", "MIXE
 out_q, rc_q, _ = run_hook(honest, tp_honest, env_extra={"CALMA_HOOK_COVERAGE": "0"})
 truth(rc_q == 0 and out_q == "", "coverage: CALMA_HOOK_COVERAGE=0 -> silent on a clean turn")
 
+# --- 5b. CR1 near-miss: a result-shaped number next to a metric word that does NOT bind, in a
+# verifiable repo, surfaces a visible (non-blocking) "saw a number I couldn't auto-verify" line ---
+nearproj = os.path.join(tmp_root, "nearmiss")
+shutil.copytree(honest, nearproj, ignore=shutil.ignore_patterns(".calma"))
+tp_near = write_transcript(tdir, "After cleanup, the function return is 0.5 in this module.")
+out_n, rc_n, _ = run_hook(nearproj, tp_near)
+nm = {}
+try:
+    nm = json.loads(out_n)
+except ValueError:
+    pass
+truth(rc_n == 0 and nm.get("decision") != "block", "near-miss: never blocks, exit 0")
+truth("couldn't auto-verify" in nm.get("systemMessage", ""),
+      "near-miss: emits the visible 'saw a number I couldn't auto-verify' line")
+# de-dup: the SAME unchanged near-miss must not nag again
+out_n2, rc_n2, _ = run_hook(nearproj, tp_near)
+nm2 = {}
+try:
+    nm2 = json.loads(out_n2)
+except ValueError:
+    pass
+truth("couldn't auto-verify" not in nm2.get("systemMessage", ""),
+      "near-miss: de-duped via state (doesn't nag the same near-miss twice)")
+# coverage off -> no near-miss chatter either
+out_n3, _, _ = run_hook(nearproj, tp_near, env_extra={"CALMA_HOOK_COVERAGE": "0"})
+truth(out_n3 == "" or "couldn't auto-verify" not in (json.loads(out_n3).get("systemMessage", "")
+      if out_n3.strip() else ""), "near-miss: respects CALMA_HOOK_COVERAGE=0")
+
 # ---------------------------------------------------------------------------
 # 6. fail-open hardening
 # ---------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-.PHONY: install uninstall test demo benchmark
+.PHONY: install uninstall test test-all demo benchmark
 
 SKILL := .claude/skills/calma
 
@@ -12,8 +12,11 @@ uninstall:      ## remove the `calma` symlink from common bin dirs
 	  fi; \
 	done
 
-test:           ## run the full test suite (pure stdlib)
+test:           ## run the core suite (pure stdlib, no venv needed)
 	@python3 $(SKILL)/scripts/tests/run_all.py
+
+test-all:       ## run EVERY layer: core + mcp + pr (bootstraps ~/.calma venvs if missing)
+	@bash scripts/test_all.sh
 
 demo:           ## watch a real inflated backtest get caught
 	@python3 $(SKILL)/scripts/calma.py demo

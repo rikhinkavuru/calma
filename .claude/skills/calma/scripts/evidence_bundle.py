@@ -25,9 +25,20 @@ import json
 import os
 import shutil
 
+import pathsafe as PS
 import report as REP
 
 SPEC_VERSION = "calma-allocator-evidence@1"
+
+# L3: an evidence bundle is a PRIVATE allocator/ODD handoff - by design it carries input_lineage
+# (artifact paths) + the target name, which a PUBLIC registry entry deliberately redacts away
+# (registry.ALLOWED_FIELDS is a hard whitelist; this is not). Surface the distinction so nobody
+# ships an evidence pack assuming registry-grade redaction. See docs/internal/EVIDENCE-VS-REGISTRY.md.
+REDACTION_NOTICE = ("This evidence bundle is a PRIVATE allocator/ODD handoff: it intentionally "
+                    "carries input lineage (artifact paths) and the target name. It is NOT a "
+                    "redacted public registry entry (a public entry passes an internal field "
+                    "allowlist that strips paths). Share it under the same NDA as the manager's "
+                    "data - not as a public attestation.")
 
 
 def _load(run_dir, name):
@@ -167,7 +178,8 @@ def cover_sheet(ev):
           "## Standards mapping", ""]
     for k, v in ev["standards_mapping"].items():
         L.append("- **%s** — %s" % (k, v))
-    L += ["", "---", "*Verify it yourself: `calma attest verify attestation.bundle.json --replay` "
+    L += ["", "## Redaction boundary (read before sharing)", "", "> " + REDACTION_NOTICE, "",
+          "---", "*Verify it yourself: `calma attest verify attestation.bundle.json --replay` "
           "re-checks the signature and re-derives the verdict offline. Nothing here is computed by a "
           "model.*"]
     return "\n".join(L)
@@ -184,9 +196,8 @@ def build_evidence(run_dir, out_dir=None):
     proof artifacts + the offline replay bundle (copied if present). Returns out_dir. Idempotent."""
     run_dir = os.path.realpath(run_dir)
     ev = evidence_json(run_dir)              # raises if not verified
-    out_dir = os.path.realpath(out_dir or os.path.join(run_dir, "evidence"))
-    if out_dir == run_dir:
-        raise ValueError("--out must differ from the run dir itself")
+    # L2: contain --out (no parent/traversal escape), not just out != source
+    out_dir = PS.guard_out_dir(out_dir or os.path.join(run_dir, "evidence"), run_dir)
     os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, "evidence.json"), "w") as fh:
         json.dump(ev, fh, indent=2)

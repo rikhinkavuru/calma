@@ -26,6 +26,7 @@ import os
 import re
 
 import numeric as N
+import pathsafe as PS
 import verdict as V
 
 _SHARPE_METRICS = {"sharpe"}              # DSR/PBO apply to a per-period Sharpe claim
@@ -101,7 +102,10 @@ def _returns(contract, base):
     rcol = (m.get("binding") or {}).get("return")
     if not rcol:
         return None
-    header, rows = _read_matrix(os.path.realpath(os.path.join(base, m.get("artifact", ""))))
+    try:  # L1: contain the artifact path
+        header, rows = _read_matrix(PS.safe_join(base, m.get("artifact", "")))
+    except ValueError:
+        return None
     if rcol not in header:
         return None
     j = header.index(rcol)
@@ -111,7 +115,10 @@ def _returns(contract, base):
 def _trials_stats(contract, base, artifact):
     """From a trials matrix: N (column count), var_sr (sample variance of the per-strategy per-period
     Sharpes), and the matrix (for PBO). Returns None if not countable (<2 strategies / unreadable)."""
-    header, M = _read_matrix(os.path.join(base, artifact))
+    try:  # L1: contain the artifact path
+        header, M = _read_matrix(PS.safe_join(base, artifact))
+    except ValueError:
+        return None
     M = [r for r in M if r]
     if not M or len(M[0]) < 2:
         return None

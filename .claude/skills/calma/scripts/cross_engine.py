@@ -137,6 +137,11 @@ _KERNELS = {
                                            _by_tag(c, b, "label")),
 }
 
+# the DISTINCT metric families a second independent kernel covers (column_sum/sum and
+# column_mean/mean are the same kernel) - shown to the user when a metric has NO kernel, so an
+# empty cross-engine pass is never silently misread as agreement (M3).
+COVERED = ["total_return", "sum", "mean", "sharpe", "rmse", "mae", "accuracy"]
+
 # convention multipliers the second engine understands; an UNKNOWN convention -> skip (don't pretend to
 # match a transformed value). Keeps the cross-check honest: it only diffs where it computes the SAME
 # quantity numeric.py did.
@@ -224,11 +229,16 @@ def cross_check_contract(contract, base, rec):
         r = cross_check_metric(mid, cols, binding, cm.get("convention"), rm.get("value"))
         if r:
             results.append(r)
+    requested = [rm.get("metric_id") for rm in (rec.get("metrics") or []) if rm.get("metric_id")]
+    checked_ids = {r["metric"] for r in results}
+    # metrics that were recomputed but have no independent second kernel - named in the empty case
+    uncovered = [m for m in dict.fromkeys(requested) if m not in checked_ids and m not in _KERNELS]
     return {
         "engine": SECOND_ENGINE, "tolerance": {"abs": ABS_FLOOR, "rel": REL_FLOOR},
         "external_available": available_external_engines(),
         "metrics": results, "n_checked": len(results),
         "any_divergence": any(not r["agree"] for r in results),
+        "covered": COVERED, "requested": requested, "uncovered": uncovered,
     }
 
 

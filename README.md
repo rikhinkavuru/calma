@@ -194,7 +194,7 @@ benchmark/                      the 129-case corpus + the 4-arm comparison + sco
 - **The verdict is one function**, re-derived byte-for-byte at the gate — non-gameable.
 - **Pure stdlib, fully offline, code never leaves your machine.** The honest answer to "where is our data processed?" is *"on your machine, network-off."*
 - **Every transport is firewalled** — `mcp/`, `pr/`, `app/` import no verdict core; the validity detectors import no model.
-- **Tested:** 39 core suites / 0 failed (pure stdlib) + 147 transport tests; 623 recipes against reference vectors.
+- **Tested:** 60 core suites / 0 failed (pure stdlib) + 39 transport tests (10 mcp + 29 pr); one command runs all three — `make test-all`; 623 recipes against reference vectors.
 
 ## Status & docs
 

@@ -38,6 +38,10 @@ if _HERE not in sys.path:
 import draft_contract as DC  # noqa: E402  (CLAIM_METRIC_HINTS, _CLAIM_NUM)
 
 MAX_CLAIMS = 5
+# Bound the ~O(n^2) work (each term occurrence runs ~12 regex scans over its sentence). A real
+# claim-bearing message has few metric words; an adversarial/degenerate one (a 32KB wall of
+# "sharpe 1.5 ...") must not stall. Keep the LAST N occurrences - a headline lives near the end.
+MAX_TERM_OCCURRENCES = 300
 
 # ---------------------------------------------------------------------------
 # vocabulary - every term must exist in CLAIM_METRIC_HINTS (the engine's table)
@@ -108,6 +112,26 @@ _FINANCE_GATED_NOUN = {"return"}
 _FINANCE_SUBJECT = re.compile(
     r"\b(strateg\w+|portfolio\w*|backtest\w*|funds?|trad\w+|positions?|stocks?|equit\w+|"
     r"etfs?|assets?|investments?|holdings?|btc|eth|crypto\w*|bonds?|index|sp500|s&p)\b",
+    re.IGNORECASE)
+# CR1 recall: explicit, unambiguous metric PHRASES. The phrase itself is finance-specific, so these
+# bind WITHOUT the finance-subject guard that bare "return" needs, and accept a bare decimal (not
+# only %): "total return 0.35", and - after the snake_case->prose pass below - the literal
+# "total_return 0.35" an agent prints. Strengthener "num" (a % or a decimal, never a bare count).
+_EXPLICIT_TERMS = {
+    "total return": "total_return", "cumulative return": "total_return",
+    "net return": "total_return", "annualized return": "total_return",
+    "annual return": "total_return", "log return": "total_return",
+}
+# CR1 recall: adjective forms of metric nouns ("the model is 94% accurate"). adj -> (metric,
+# strengthener, canonical claim noun). The CONDITIONAL strengthener (pct_or_01) keeps a bare
+# "be accurate" with no number silent - only a number-bearing claim fires.
+_ADJECTIVES = {"accurate": ("accuracy", "pct_or_01", "accuracy")}
+# "accurate" is colloquial ("the summary is 100% accurate") far more often than bare "return" is.
+# Gate the adjective on an ML/eval subject in the sentence - the SAME pattern the finance nouns use.
+# "the model is 94% accurate" fires; "the summary is 100% accurate" stays silent.
+_ML_SUBJECT = re.compile(
+    r"\b(models?|classifiers?|clf|networks?|predict\w+|inference|estimators?|regressors?|"
+    r"detectors?|recogni[sz]ers?|forecasts?|algorithms?|labels?|eval\w*|out-of-sample)\b",
     re.IGNORECASE)
 # retrieval/eval @k families: "recall@10", "pass@5", "top-5 accuracy", "ndcg@20"
 _AT_K_METRIC = {"recall": "recall_at_k", "precision": "precision_at_k", "pass": "pass_at_k",
@@ -376,6 +400,10 @@ def _plausible(metric, value, suffix):
 def _strengthener_ok(kind, text, nm):
     """Check a CONDITIONAL term's strengthener against the matched number."""
     after = text[nm.num_end:nm.num_end + 14]
+    if kind == "num":
+        # explicit return phrases: a % or a decimal is a result; a bare integer ("2") is too
+        # ambiguous (2x? 2 trades?) to fire zero-touch.
+        return nm.suffix == "%" or "." in nm.raw
     if kind == "pct":
         return nm.suffix == "%"
     if kind == "pct_or_01":
@@ -416,25 +444,58 @@ def _term_occurrences(text):
     for term, (mid, _canon, kind) in _ALIASES.items():
         for m in re.finditer(r"(?<![a-z0-9])%s(?![a-z0-9])" % re.escape(term), low):
             yield term, m.start(), m.end(), mid, kind
+    for term, mid in _EXPLICIT_TERMS.items():
+        for m in re.finditer(r"(?<![a-z0-9])%s(?![a-z0-9])" % re.escape(term), low):
+            yield term, m.start(), m.end(), mid, "num"
+    for term, (mid, kind, _canon) in _ADJECTIVES.items():
+        for m in re.finditer(r"(?<![a-z0-9])%s(?![a-z0-9])" % re.escape(term), low):
+            yield term, m.start(), m.end(), mid, kind
     for m in _AT_K_RE.finditer(low):
         yield m.group(0), m.start(), m.end(), _AT_K_METRIC[m.group(1)], "at_k"
     for m in _PCTL_RE.finditer(low):
         yield m.group(0), m.start(), m.end(), _PCTL_METRIC[m.group(1)], "pctl"
 
 
-def sniff(text, debug=False):
+_NEAR_MISS_REASONS = ("strengthener-missing", "no-finance-subject", "percent-ambiguous",
+                      "out-of-range", "percent-out-of-range", "percent-on-log-loss")
+
+
+def sniff(text, debug=False, with_near=False):
     """Detect checkable claims in an agent message. Returns a list of candidate dicts,
     best first (score desc, then later position): {claim, metric, value, confidence,
-    score, span, source}. With debug=True returns (candidates, rejected)."""
+    score, span, source}.
+    With debug=True returns (candidates, rejected). With with_near=True returns
+    (candidates, near_misses): result-shaped numbers that sat next to a metric word but
+    failed only a strengthener/plausibility gate - CR1's "saw a number I couldn't bind"
+    signal, so a recall miss becomes VISIBLE instead of silent."""
     rejected = []
+    near = []
 
     def reject(term, reason, pos):
         if debug:
             rejected.append({"term": term, "reason": reason, "pos": pos})
 
+    def note_near(term, mid, nm, reason, snippet):
+        # a number WAS present and lived next to a metric word - it just missed a soft gate.
+        # (Hard non-claims - versions, dates, counts, hypotheticals - are NOT recorded: those
+        # are deliberately-not-a-result, not "a result I couldn't verify".)
+        try:
+            vk = round(nm.value(), 12)
+        except (TypeError, ValueError):
+            vk = None
+        near.append({"term": term, "metric": mid, "value": nm.text(), "value_key": vk,
+                     "reason": reason, "source": (snippet or "").strip()[:160]})
+
     if not text or not text.strip():
-        return ([], rejected) if debug else []
+        if debug:
+            return [], rejected
+        return ([], near) if with_near else []
     clean = _strip_nonprose(text)
+    # snake_case -> prose so a literal "total_return 0.35" / "log_loss 0.4" an agent prints binds
+    # like the spoken form. Single-char swap => length-preserving => every offset below stays valid.
+    # BUT do NOT normalize an identifier that is an ASSIGNMENT target ("net_return = 0.12") - that's
+    # code/config, not a measured result; leaving the underscores keeps it finance-gated -> silent.
+    clean = re.sub(r"(?<=\w)_(?=\w)(?![\w]*\s*=)", " ", clean)
     sents = list(_sentences(clean))
 
     def sentence_of(pos):
@@ -463,7 +524,11 @@ def sniff(text, debug=False):
         if deny and deny.search(stext):
             return reject(term, "domain-context", t0)
         if (term in _ALIASES or term in _FINANCE_GATED_NOUN) and not _FINANCE_SUBJECT.search(stext):
+            note_near(term, mid, nm, "no-finance-subject", stext)
             return reject(term, "no-finance-subject", t0)
+        if term in _ADJECTIVES and not _ML_SUBJECT.search(stext):
+            # colloquial "accurate" with no model/eval subject -> stay fully silent (no breadcrumb)
+            return reject(term, "no-model-subject", t0)
         if _FABRICATED_BEFORE.search(clean[max(0, t0 - 24):t0]):
             return reject(term, "fabricated-value", t0)
         if (not num_first and _GAP_TO.search(clean[t1:nm.start])
@@ -473,10 +538,13 @@ def sniff(text, debug=False):
         if why:
             return reject(term, why, t0)
         if kind not in ("strong", "at_k") and not _strengthener_ok(kind, clean, nm):
+            note_near(term, mid, nm, "strengthener-missing", stext)
             return reject(term, "strengthener-missing:%s" % kind, t0)
         value = nm.value()
         why = _plausible(mid, value, nm.suffix)
         if why:
+            if why in _NEAR_MISS_REASONS:
+                note_near(term, mid, nm, why, stext)
             return reject(term, why, t0)
         key = (mid, round(value, 12))
         if key in seen:
@@ -486,7 +554,12 @@ def sniff(text, debug=False):
         # led, e.g. "+19,971% backtest") so parse_claim recovers the same value+metric;
         # verb aliases canonicalize to their noun ("returned" -> "return")
         numtext = nm.text()
-        cterm = _ALIASES[term][1] if term in _ALIASES else term
+        if term in _ALIASES:
+            cterm = _ALIASES[term][1]
+        elif term in _ADJECTIVES:
+            cterm = _ADJECTIVES[term][2]
+        else:
+            cterm = term
         claim = ("%s %s" % (numtext, cterm)) if num_first else ("%s %s" % (cterm, numtext))
         if kind == "pctl":  # "p95 120ms" alone is ambiguous; name the family
             claim = "%s latency %s" % (term.split()[0], numtext)
@@ -502,7 +575,10 @@ def sniff(text, debug=False):
                     "score": round(score, 4), "span": [min(t0, nm.start), max(t1, nm.end)],
                     "source": snippet[:160]})
 
-    for term, t0, t1, mid, kind in _term_occurrences(clean):
+    occ = list(_term_occurrences(clean))
+    if len(occ) > MAX_TERM_OCCURRENCES:    # bound the worst case; headlines live near the end
+        occ = occ[-MAX_TERM_OCCURRENCES:]
+    for term, t0, t1, mid, kind in occ:
         nm = _number_after(clean, t1)
         if nm is not None:
             consider(term, t0, t1, mid, kind, nm, num_first=False)
@@ -536,7 +612,21 @@ def sniff(text, debug=False):
 
     out.sort(key=lambda c: (-c["score"], -c["span"][0]))
     out = out[:MAX_CLAIMS]
-    return (out, rejected) if debug else out
+    if debug:
+        return out, rejected
+    if with_near:
+        # drop near-misses already covered by a confirmed binding (e.g. a bare "return" near-miss
+        # when the explicit "total return" phrase bound the same value); dedupe what's left.
+        bound = {(c["metric"], round(c["value"], 12)) for c in out}
+        seen_near, near_out = set(), []
+        for nmiss in near:
+            ident = (nmiss["metric"], nmiss["value_key"])
+            if ident in bound or ident in seen_near:
+                continue
+            seen_near.add(ident)
+            near_out.append(nmiss)
+        return out, near_out
+    return out
 
 
 def main(argv):

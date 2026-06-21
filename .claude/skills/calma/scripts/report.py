@@ -172,6 +172,36 @@ def _det(mode):
     return ("%s (%s)" % (mode, g)) if g else (mode or "?")
 
 
+def _cross_engine_line(ce):
+    """M3: the cross-engine line shown right under the verdict. Agreement, divergence, OR - the case
+    that used to print NOTHING (read as a pass) - an explicit 'no independent kernel' note."""
+    n = ce.get("n_checked") or 0
+    ext = ce.get("external_available") or []
+    ext_note = (" (host can also cross-check via %s)" % ", ".join(ext)) if ext else ""
+    if n:
+        if ce.get("any_divergence"):
+            d = next((m for m in ce.get("metrics", []) if not m.get("agree")), {})
+            return ("cross-engine: DIVERGENCE on %s - primary %s vs independent kernel %s "
+                    "(implementation-dependent; reconcile the definition)%s"
+                    % (d.get("metric"), fmt_value(d.get("primary"), d.get("metric")),
+                       fmt_value(d.get("second"), d.get("metric")), ext_note))
+        verb = "agrees" if n == 1 else "agree"
+        unit = "metric" if n == 1 else "metrics"
+        return ("cross-engine: %d %s %s with a second independent kernel%s" % (n, unit, verb, ext_note))
+    # n_checked == 0: never read as a pass. Distinguish two cases so the line can't contradict itself:
+    unc = ce.get("uncovered") or []
+    if unc:
+        # genuinely no second kernel for this metric family
+        return ("cross-engine: no independent kernel for %s (covered: %s) - the single-engine result "
+                "stands" % (", ".join(unc[:3]), ", ".join(ce.get("covered", []))))
+    # the metric HAS a kernel but it didn't apply here (unsupported convention / binding) - say THAT,
+    # not "no kernel for X" while X is in the covered list (the old self-contradiction).
+    req = ce.get("requested") or []
+    who = ", ".join(req[:3]) if req else "the recomputed metric"
+    return ("cross-engine: the second kernel did not apply to %s (unsupported convention or binding) "
+            "- the single-engine result stands" % who)
+
+
 def render(led, diff=None, color=False):
     rv = led.get("repo_verdict", V.INCONCLUSIVE)
     word, gloss = _TOPLINE.get(rv, _TOPLINE[V.INCONCLUSIVE])
@@ -209,6 +239,10 @@ def render(led, diff=None, color=False):
             else:
                 num = "recomputed %s" % fmt_value(rvv, mid)
             lines.append("  %s %-*s  %s  [%s]" % (sym, w, mid, num, display(c.get("verdict"))))
+    # M3: cross-engine agreement/divergence/empty, surfaced HERE (right under the verdict) instead of
+    # appended after the whole report + the exit line, where a REFUTED's detail buried it.
+    if led.get("cross_engine") is not None:
+        lines.append("  " + _cross_engine_line(led["cross_engine"]))
     # line 2: the single most-limiting thing. On a REFUTED the numeric-collapse line below already
     # carries the metric-mismatch, so prefer a DIFFERENT blocker (e.g. baseline) over repeating it.
     limiter = None

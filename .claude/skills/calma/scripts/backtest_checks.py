@@ -29,6 +29,7 @@ import csv
 import os
 import re
 
+import pathsafe as PS
 import verdict as V
 
 _RETURN_TAGS = {"return"}
@@ -116,7 +117,10 @@ def _headline_metric(contract):
 
 
 def _artifact_path(base, m):
-    return os.path.realpath(os.path.join(base, m.get("artifact", "")))
+    try:  # L1: contain the artifact path - an escape reads as missing (unreadable), never out of base
+        return PS.safe_join(base, m.get("artifact", ""))
+    except ValueError:
+        return ""
 
 
 def _return_col(m, cols):

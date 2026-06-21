@@ -17,6 +17,7 @@ import json
 import os
 import stat
 import sys
+from dataclasses import dataclass, fields, replace
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import attest
@@ -209,10 +210,14 @@ def _reconcile_claim(contract, claim, metric):
             m["claimed_value"] = None
             m["claimed_precision"] = None
             m["headline"] = False
-    return ("checking YOUR claim (%s %s) - verify.yaml pins the bindings, but its committed "
-            "claim value (%s) is not what is being verified"
-            % (target_m.get("metric_id"), "%g" % cv,
-               "%g" % committed_v if isinstance(committed_v, (int, float)) else committed_v)), None
+    mid = target_m.get("metric_id")
+    if committed_v is None:
+        # M6a: a drafted/binding-only contract commits no claim value of its own - say that plainly
+        # instead of the clunky "committed claim value (None) is not what is being verified".
+        return ("checking YOUR claim (%s %g) - the contract pins the bindings but commits no claim "
+                "value of its own (expected for a drafted contract)" % (mid, cv)), None
+    return ("checking YOUR claim (%s %g) - it differs from the contract's committed value (%g); "
+            "YOUR claim is the one being verified" % (mid, cv, committed_v)), None
 
 
 def _not_verified(metric_ids, leakage_status=None, overfitting_status=None,
@@ -799,9 +804,53 @@ def _resolve_timeout(cli_timeout, contract):
     return max(1, min(t, 86400))
 
 
-def verify(target, claim=None, metric=None, run_id="run", force=False, check_determinism=False,
-           trust="own-code", timeout=None, isolation=None, restore=False, run_only=False,
-           cross_engine=False):
+@dataclass(frozen=True)
+class VerifyOptions:
+    """The single carrier for verify()'s run-MODE flags (H2). Verdict inputs (target/claim/metric/
+    run_id) stay positional on verify(); everything that governs HOW the run executes lives here so a
+    new feature adds one field instead of re-bumping the signature + two dispatch sites (the root
+    cause of the dropped-flag bug: the old --run-only dispatch silently omitted cross_engine /
+    check_determinism). Frozen + a fixed field set => a typo or a dropped flag fails loud."""
+    force: bool = False
+    check_determinism: bool = False
+    run_only: bool = False
+    cross_engine: bool = False
+    trust: str = "own-code"
+    isolation: "str | None" = None
+    timeout: "int | None" = None
+    restore: bool = False
+
+    @classmethod
+    def from_args(cls, a):
+        """Build one options object from a parsed argparse namespace, in ONE place (so the dispatch
+        can't drop a flag). To vary one field for a follow-on call, use dataclasses.replace(opts, ...)
+        (the auto-retry does: replace(opts, force=True, restore=True))."""
+        return cls(force=getattr(a, "force", False),
+                   check_determinism=getattr(a, "check_determinism", False),
+                   run_only=getattr(a, "run_only", False),
+                   cross_engine=getattr(a, "cross_engine", False),
+                   trust=getattr(a, "trust", "own-code"),
+                   isolation=getattr(a, "isolation", None),
+                   timeout=getattr(a, "timeout", None),
+                   restore=getattr(a, "restore", False))
+
+
+_OPT_FIELDS = frozenset(f.name for f in fields(VerifyOptions))
+
+
+def verify(target, claim=None, metric=None, run_id="run", opts=None, **legacy):
+    # H2: run-mode flags travel in ONE VerifyOptions object. `opts=` is the canonical path (every
+    # production callsite uses it); the **legacy kwargs are a thin, STRICT back-compat shim for
+    # direct callers/tests - unknown keys raise (VerifyOptions(**legacy)), and you cannot pass both.
+    if opts is None:
+        opts = VerifyOptions(**legacy) if legacy else VerifyOptions()
+    elif legacy:
+        raise TypeError("pass run-mode flags via opts=VerifyOptions(...), not as loose kwargs: %s"
+                        % ", ".join(sorted(legacy)))
+    # unpack into locals so the (large) body below reads unchanged - opts is the source of truth.
+    force, check_determinism = opts.force, opts.check_determinism
+    run_only, cross_engine = opts.run_only, opts.cross_engine
+    trust, isolation, timeout, restore = opts.trust, opts.isolation, opts.timeout, opts.restore
     target = os.path.realpath(target)
     if trust not in ("own-code", "third-party"):
         raise ValueError("--trust must be own-code or third-party (got %r)" % trust)
@@ -851,6 +900,24 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
         # of silently substituting the contract's claim (see _reconcile_claim). The note lands
         # at the top of the rendered report (and in --json as "note").
         claim_note, block_finding = _reconcile_claim(contract, claim, metric)
+        if block_finding is not None and run_only and metric:
+            # M2: --run-only is a no-verdict / no-gate DEBUG view ("let me just see my Sharpe"),
+            # so there is no verdict integrity to protect. Let --metric explore a metric the
+            # committed contract does not pin: re-bind the requested metric over the same repo,
+            # KEEPING the committed run block (entrypoint/network/cwd). Artifacts may only exist
+            # post-run, so binding is finished by the existing post-run re-draft below - we just
+            # clear the block and move off the committed contract. No verdict is ever emitted.
+            drafted = DC.draft(target, claim=claim, metric=metric)
+            drafted["run"] = contract.get("run", drafted.get("run"))
+            # carry the committed env (the drafter always creates one, so setdefault was a no-op);
+            # committed keys win so PYTHONHASHSEED / ecosystem overrides survive the run-only re-draft
+            drafted["env"] = {**(drafted.get("env") or {}), **(contract.get("env") or {})}
+            contract = drafted
+            contract_path = os.path.join(run_dir, "verify.yaml")
+            json.dump(contract, open(contract_path, "w"), indent=2)
+            claim_note = ("run-only debug: exploring %s (the committed contract pins a different "
+                          "metric; no verdict, no gate)" % metric)
+            block_finding = None
     else:
         contract = DC.draft(target, claim=claim, metric=metric)
         contract_path = os.path.join(run_dir, "verify.yaml")
@@ -889,6 +956,15 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
     cross = None        # B2: the cross-engine correctness block (only when --cross-engine is set)
     refused = killed = False
     entry = contract.get("run", {}).get("entrypoint")
+    if run_only and (block_finding is not None or entry == "MANUAL"):
+        # run-only NEVER emits a verdict (its invariant). When there's nothing to execute/recompute -
+        # a metric the committed contract doesn't pin and couldn't be re-bound, or no entrypoint -
+        # return an empty no-verdict debug view, not an INCONCLUSIVE verdict ledger.
+        why = ("the committed contract pins a different metric and it couldn't be re-bound here"
+               if block_finding is not None else
+               "no entrypoint detected (name your script main.py/run.py, or set run.entrypoint)")
+        return {"run_only": True, "target": os.path.basename(target), "run_dir": run_dir,
+                "isolation_tier": "n/a", "determinism_mode": "n/a", "metrics": [], "note": why}
     if block_finding is not None:
         # P0 gate: the user's claim names a metric the committed contract does not pin. Never
         # substitute the contract's claim - degrade to INCONCLUSIVE with the exact unblock.
@@ -939,6 +1015,15 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
                % (run_res.get("exit_code"), _time.time() - _t0,
                   run_res.get("isolation_tier"), run_res.get("determinism_mode")))
         first_run_notice = _first_run_notice(target, run_res.get("isolation_tier"))
+        if run_res.get("exit_code") in (3, 4) and run_only:
+            # COR-1: run-only NEVER emits a verdict. A refused (3) / killed (4) run has nothing to
+            # recompute, so return a no-verdict debug view instead of an INCONCLUSIVE verdict ledger.
+            why = ("the run timed out after %ds (raise --timeout)" % eff_timeout
+                   if run_res.get("exit_code") == 4 else
+                   "execution was refused (no verified sandbox for this trust posture)")
+            return {"run_only": True, "target": os.path.basename(target), "run_dir": run_dir,
+                    "isolation_tier": run_res.get("isolation_tier"), "determinism_mode": "n/a",
+                    "metrics": [], "note": why}
         if run_res.get("exit_code") in (3, 4):
             # refused (no isolation for untrusted) or killed -> INCONCLUSIVE, never a verdict
             refused = run_res.get("exit_code") == 3
@@ -1027,8 +1112,10 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
                     cross = CE.cross_check_contract(contract, target, rec)
                     json.dump(cross, open(os.path.join(run_dir, "cross_engine.json"), "w"), indent=2)
                     if cross.get("n_checked"):
-                        _trace("cross-engine", "%d metric(s) recomputed on a 2nd independent kernel: %s"
-                               % (cross["n_checked"], "DIVERGENCE" if cross.get("any_divergence")
+                        _trace("cross-engine", "%d %s recomputed on a 2nd independent kernel: %s"
+                               % (cross["n_checked"],
+                                  "metric" if cross["n_checked"] == 1 else "metrics",
+                                  "DIVERGENCE" if cross.get("any_divergence")
                                   else "agree to %g" % CE.ABS_FLOOR))
                 except (OSError, ValueError, KeyError, TypeError):
                     cross = None
@@ -1076,8 +1163,13 @@ def verify(target, claim=None, metric=None, run_id="run", force=False, check_det
                                 "gap": (abs(cl - rcv) if num else None), "reason": dm.get("reason")})
                 return {"run_only": True, "target": os.path.basename(target), "run_dir": run_dir,
                         "isolation_tier": run_res.get("isolation_tier"),
-                        "determinism_mode": run_res.get("determinism_mode"), "metrics": dbg}
+                        "determinism_mode": run_res.get("determinism_mode"), "metrics": dbg,
+                        "cross_engine": cross}  # COR-5: surface --cross-engine in run-only too
             led = _assemble_ledger(contract, diff, run_res, claim_text=claim)
+            # M3: carry the cross-engine result INTO the ledger so the report renders it right under
+            # the verdict (not buried below a not-verified dump + the exit line). Additive only.
+            if cross is not None:
+                led["cross_engine"] = cross
             # calma AUTO-PICKED the metric (producer didn't pin it) and it didn't confirm -> the
             # ask was unclear. Offer ranked alternatives from the claim + data columns and let the
             # user pick, instead of silently standing on a guessed metric. Only here: a confirmed
@@ -1193,7 +1285,7 @@ def replay(run_dir):
         mets = pc_obj.get("metrics") or [{}]
         claim, metric = mets[0].get("claimed_value"), mets[0].get("metric_id")
     res = verify(target, claim=claim, metric=metric,
-                 run_id=os.path.basename(run_dir) + "-replay", force=True)
+                 run_id=os.path.basename(run_dir) + "-replay", opts=VerifyOptions(force=True))
     same_verdict = res["repo_verdict"] == prior.get("repo_verdict")
     pc = (prior.get("claims") or [{}])[0]
     nc = (res["ledger"].get("claims") or [{}])[0]
@@ -1401,15 +1493,29 @@ def _ai_draft_subprocess(target, *, budget=3, model=None, timeout=600):
         return {"ok": False, "error": "the AI drafter produced no JSON"}
 
 
-def init_cmd(framework, target=".", *, force=False):
+def init_cmd(framework, target=".", *, force=False, list_fw=False):
     """Scaffold a framework-tuned starter verify.yaml so a quant/ML team adopts on its own stack without
     learning the contract format. Emits a runnable SKELETON (the right entrypoint hint, artifact layout,
-    headline metric + binding, and validity-block hints) the user fills in, then runs `calma verify`."""
+    headline metric + binding, and validity-block hints) the user fills in, then runs `calma verify`.
+    M1: `--list` shows the frameworks; on an EXISTING repo whose artifacts don't match the template,
+    init refuses and steers to `calma draft` (which binds what's actually on disk) instead of writing
+    a contract that points at paths that don't exist."""
     import textwrap
     import frameworks as FW
+    if list_fw:
+        print("frameworks: %s" % ", ".join(FW.list_frameworks()))
+        print("aliases:    %s" % ", ".join("%s -> %s" % (a, t)
+                                            for a, t in sorted(FW.ALIASES.items())))
+        print("usage: calma init <framework> [dir]   (then `calma verify`, or `calma draft` for an "
+              "existing repo)")
+        return 0
+    if not framework:
+        print("name a framework (or `calma init --list`). Available: %s"
+              % ", ".join(FW.list_frameworks()), file=sys.stderr)
+        return 2
     contract = FW.starter_contract(framework)
     if contract is None:
-        print("unknown framework %r. Available: %s (aliases: torch, xgb, scikit-learn, ...)"
+        print("unknown framework %r. Available: %s (or `calma init --list` for aliases)"
               % (framework, ", ".join(FW.list_frameworks())), file=sys.stderr)
         return 2
     target = os.path.abspath(target)
@@ -1420,6 +1526,24 @@ def init_cmd(framework, target=".", *, force=False):
     if os.path.exists(dest) and not force:
         print("%s already exists - pass --force to overwrite, or edit it directly" % dest, file=sys.stderr)
         return 2
+    # M1: detect a template/repo mismatch BEFORE writing a trap. If the template's declared artifacts
+    # don't exist but the repo DOES carry data files, the contract would just fail on missing paths.
+    declared = [a.get("path") for a in (contract.get("artifacts") or []) if a.get("path")]
+    missing = [p for p in declared if not os.path.exists(os.path.join(target, p))]
+    if declared and missing and not force:
+        try:
+            found = DC._scan_csvs(target)
+        except (OSError, ValueError):
+            found = []
+        if found:
+            present = ", ".join("%s (%s)" % (a["path"], ", ".join(
+                c for c, s in a["columns"].items() if s.get("tag")) or "?") for a in found[:3])
+            print("the %s template expects %s, which this repo doesn't have."
+                  % (framework, ", ".join(missing)), file=sys.stderr)
+            print("  but it DOES have: %s" % present, file=sys.stderr)
+            print("  -> run `calma draft` to bind what's actually here, or "
+                  "`calma init %s --force` to write the skeleton anyway." % framework, file=sys.stderr)
+            return 2
     note = contract.pop("_note", None)   # printed for the human; not written into the contract file
     json.dump(contract, open(dest, "w"), indent=2)
     m = (contract.get("metrics") or [{}])[0]
@@ -1534,7 +1658,8 @@ def run_batch(targets, manifest=None, fail_on="not-clean", timeout=None, force=F
     rows = []
     for path, claim, met in _batch_jobs(targets, manifest):
         try:
-            res = verify(path, claim=claim, metric=met, run_id="batch", force=force, timeout=timeout)
+            res = verify(path, claim=claim, metric=met, run_id="batch",
+                         opts=VerifyOptions(force=force, timeout=timeout))
         except Exception as e:
             rows.append({"target": os.path.basename(os.path.normpath(path)), "verdict": "ERROR",
                          "metric": None, "claimed": None, "recomputed": None,
@@ -1576,17 +1701,40 @@ def _render_batch(rows, color=False):
         sym = REP._SYMBOL.get(r["verdict"], "·")
         if color and r["verdict"] in REP._ANSI:
             sym = "\x1b[%sm%s\x1b[0m" % (REP._ANSI[r["verdict"]], sym)
+        # M6b: a clean verdict with NO claimed number is a REPRODUCTION check, not a claim-confirm -
+        # label it so the two don't read identically (mirrors the single-run report's scope=reproduction)
+        word = REP.display(r["verdict"]) if r["verdict"] != "ERROR" else "ERROR"
+        if (r["verdict"] in ("CONFIRMED", "CONFIRMED-WITH-CAVEATS")
+                and r.get("claimed") is None and r.get("recomputed") is not None):
+            word += " (reproduction)"
         out.append("  %-*s  %-*s  %*s  %*s  %s %s"
                    % (tw, r["target"], mw, (r["metric"] or "-"), cw, r["_c"], rw, r["_r"],
-                      sym, REP.display(r["verdict"]) if r["verdict"] != "ERROR" else "ERROR"))
+                      sym, word))
     out.append("-" * max(len(head), 60))
     return "\n".join(out)
 
 
-def _autonomy_followup(res, mode, base, quiet=False):
+def _offline_enabled(cli_offline, base):
+    """M4: whether auto-mode should skip the ONE network step (the RFC 3161 timestamp). --offline >
+    env CALMA_OFFLINE > .calma/config.json {"autonomy":{"offline":true}} > default off."""
+    if cli_offline:
+        return True
+    env = str(os.environ.get("CALMA_OFFLINE", "")).strip().lower()
+    if env in ("1", "on", "true", "yes"):
+        return True
+    if env in ("0", "off", "false", "no"):
+        return False
+    cfg = AUT._config(base)
+    au = cfg.get("autonomy") if isinstance(cfg.get("autonomy"), dict) else {}
+    return bool(au.get("offline", False))
+
+
+def _autonomy_followup(res, mode, base, quiet=False, offline=False):
     """The post-verdict ACTION for the active mode on a catch verdict. The verdict is already final
-    and deterministic; this only governs what Calma DOES next. auto -> add an RFC 3161 timestamp to
-    the already-signed bundle; suggest -> print the `seal` command; ask -> nothing. Fail-open."""
+    and deterministic; this only governs what Calma DOES next. auto -> append to the LOCAL
+    catch-record AND add an RFC 3161 timestamp to the already-signed bundle; suggest -> print the
+    `seal` command; ask -> nothing. Fail-open. M4: --offline skips the timestamp (the only network
+    step); the local catch-record still accrues."""
     run_dir = res.get("run_dir")
     if not run_dir or res.get("repo_verdict") not in V.CATCH_VERDICTS:
         return
@@ -1600,6 +1748,12 @@ def _autonomy_followup(res, mode, base, quiet=False):
                   % (_invocation(), disp))
         AUT.log(base, mode, "seal", "suggest")
         return
+    # D1 credibility flywheel: append the REDACTED verdict to the operator's LOCAL catch-record FIRST,
+    # so the local history accrues INDEPENDENT of the network timestamp below (M4). LOCAL-ONLY (a dir
+    # on this machine) - NOT the gated outward push to a SHARED/public registry or Rekor, which still
+    # needs the explicit `auto_publish` opt-in. Opt out: .calma/config.json
+    # {"autonomy": {"local_catch_record": false}}.
+    _auto_local_publish(res, mode, base, quiet=quiet)
     # execute (auto): verify already signed the bundle when a key exists; add the trusted timestamp.
     bpath = os.path.join(run_dir, attest.BUNDLE_NAME)
     if not os.path.exists(bpath):
@@ -1607,6 +1761,12 @@ def _autonomy_followup(res, mode, base, quiet=False):
             print("  auto: no signing key yet - run `%s attest keygen` once to enable signed proofs"
                   % _invocation())
         AUT.log(base, mode, "seal", "skip", "no-key")
+        return
+    if offline:
+        # M4: the signed bundle + the local catch-record stand; skip the ONE network step (the TSA).
+        if not quiet:
+            print("  auto: signed the verdict (offline - RFC 3161 timestamp skipped) -> %s" % disp)
+        AUT.log(base, mode, "seal", "execute", "offline-no-timestamp")
         return
     try:
         import rfc3161
@@ -1620,12 +1780,6 @@ def _autonomy_followup(res, mode, base, quiet=False):
         if not quiet:
             print("  auto: signed the verdict (timestamp skipped, %s) -> %s" % (type(e).__name__, disp))
         AUT.log(base, mode, "seal", "execute", "timestamp-failed")
-    # D1 credibility flywheel: in auto mode, append the REDACTED verdict to the operator's LOCAL
-    # catch-record by default, so a trusted catch-history accumulates with zero ceremony. This is
-    # LOCAL-ONLY (a dir on this machine) - NOT the gated outward push to a SHARED/public registry or
-    # Rekor, which still needs the explicit `auto_publish` opt-in. Default on in auto; opt out with
-    # .calma/config.json {"autonomy": {"local_catch_record": false}}.
-    _auto_local_publish(res, mode, base, quiet=quiet)
 
 
 def _local_catch_record_enabled(base):
@@ -1764,6 +1918,10 @@ def main():
                         "the mode governs only follow-on ACTIONS. Also CALMA_MODE / .calma/config.json")
     v.add_argument("--json", action="store_true", dest="as_json",
                    help="print a machine-readable verdict object instead of the report")
+    v.add_argument("--offline", action="store_true",
+                   help="auto mode only: skip the ONE network step (the RFC 3161 timestamp) so a catch "
+                        "is signed + appended to the LOCAL catch-record with zero network. Also "
+                        "CALMA_OFFLINE / .calma/config.json {\"autonomy\":{\"offline\":true}}")
     v.add_argument("--run-only", action="store_true",
                    help="DEBUG/iterate: re-run + recompute + show the binding, recomputed value, and gap "
                         "vs the claim, with NO verdict and NO gate (always exits 0) - for an agent to see "
@@ -1825,10 +1983,15 @@ def main():
                     help="print {family: [metric ids]} as JSON")
     ini = sub.add_parser("init", help="scaffold a starter verify.yaml for an ML/quant framework "
                                       "(backtrader/vectorbt/zipline/pytorch/xgboost/sklearn)")
-    ini.add_argument("framework", help="backtrader | vectorbt | zipline | pytorch | xgboost | sklearn "
-                                       "(aliases: torch, xgb, scikit-learn)")
+    ini.add_argument("framework", nargs="?", default=None,
+                     help="backtrader | vectorbt | zipline | pytorch | xgboost | sklearn "
+                          "(aliases: torch, xgb, scikit-learn). Omit with --list to see them all")
     ini.add_argument("target", nargs="?", default=".", help="dir to write verify.yaml into (default: .)")
-    ini.add_argument("--force", action="store_true", help="overwrite an existing verify.yaml")
+    ini.add_argument("--list", action="store_true", dest="list_fw",
+                     help="list the available frameworks + aliases and exit")
+    ini.add_argument("--force", action="store_true",
+                     help="overwrite an existing verify.yaml, or write the skeleton even when the "
+                          "repo's artifacts don't match the template (init normally steers to draft)")
     dr = sub.add_parser("draft", help="generate a verify.yaml for a repo (point it at a messy repo); "
                                       "heuristic by default, --ai adds the LLM drafter + repair loop")
     dr.add_argument("target", help="the repo/dir to draft a verify.yaml for")
@@ -1934,11 +2097,13 @@ def main():
     a = ap.parse_args()
     try:
         if a.cmd == "verify":
-            if a.run_only:
+            # H2: ONE options object for every dispatch below - run-only, normal, and the auto retry
+            # all run through the same VerifyOptions, so no path can silently drop a flag (the bug
+            # that left --run-only without cross_engine / check_determinism).
+            opts = VerifyOptions.from_args(a)
+            if opts.run_only:
                 # DEBUG path: re-run + recompute + gap, NO verdict / NO gate. Always exit 0.
-                res = verify(a.target, a.claim_text or a.claim, a.metric, a.run_id,
-                             force=a.force, trust=a.trust, timeout=a.timeout,
-                             isolation=a.isolation, restore=a.restore, run_only=True)
+                res = verify(a.target, a.claim_text or a.claim, a.metric, a.run_id, opts=opts)
                 if not res.get("run_only"):
                     # the run could not complete (refused / killed / no entrypoint / no metric): nothing
                     # to recompute, so surface the engine's reason - still exit 0 (debug, never a gate).
@@ -1956,12 +2121,16 @@ def main():
                                   % (REP.fmt_value(cl, m.get("metric")), REP.fmt_value(m.get("gap"), m.get("metric"))))
                                  if cl is not None else "")
                         print("  %-16s recomputed %s%s" % (m.get("metric"), REP.fmt_value(rcv, m.get("metric")), extra))
+                    if not res.get("metrics"):
+                        print("  nothing to recompute: %s" % (res.get("note")
+                              or "the run produced no output for the requested metric "
+                                 "(check the metric / binding)"))
+                    _ce = res.get("cross_engine")  # COR-5: surface cross-engine in run-only too
+                    if _ce and _ce.get("n_checked"):
+                        print("  " + REP._cross_engine_line(_ce))
                     print("  proof + raw outputs: %s" % res.get("run_dir"))
                 return 0
-            res = verify(a.target, a.claim_text or a.claim, a.metric, a.run_id,
-                         force=a.force, check_determinism=a.check_determinism,
-                         trust=a.trust, timeout=a.timeout, isolation=a.isolation, restore=a.restore,
-                         cross_engine=a.cross_engine)
+            res = verify(a.target, a.claim_text or a.claim, a.metric, a.run_id, opts=opts)
             _base = os.path.realpath(a.target)
             mode = AUT.resolve_mode(a.mode, _base)
             # autonomy (auto): transparently retry a missing-dependency failure under --restore
@@ -1971,9 +2140,7 @@ def main():
                 if not a.as_json:
                     print("  auto: a dependency was missing - retrying once with --restore ...")
                 res = verify(a.target, a.claim_text or a.claim, a.metric, a.run_id,
-                             force=True, check_determinism=a.check_determinism,
-                             trust=a.trust, timeout=a.timeout, isolation=a.isolation, restore=True,
-                             cross_engine=a.cross_engine)
+                             opts=replace(opts, force=True, restore=True))
             if a.fail_on == "refuted":
                 exit_code = 1 if res["repo_verdict"] in V.CATCH_VERDICTS else 0
             else:
@@ -1987,20 +2154,11 @@ def main():
             if a.as_json:
                 print(json.dumps(_json_finite(_json_result(res)), indent=2))
             else:
+                # M3: the cross-engine line is now rendered INSIDE the report, right under the verdict
+                # (see report._cross_engine_line) - no longer appended here below the not-verified dump.
                 print(res.get("display") or res["report"])
-                _ce = res.get("cross_engine")
-                if _ce and _ce.get("n_checked"):
-                    ext = (" (host can also cross-check via %s)" % ", ".join(_ce["external_available"])) \
-                          if _ce.get("external_available") else ""
-                    if _ce.get("any_divergence"):
-                        d = next(m for m in _ce["metrics"] if not m["agree"])
-                        print("  cross-engine: DIVERGENCE on %s - primary %s vs independent kernel %s "
-                              "(implementation-dependent; reconcile the definition)%s"
-                              % (d["metric"], REP.fmt_value(d["primary"], d["metric"]),
-                                 REP.fmt_value(d["second"], d["metric"]), ext))
-                    else:
-                        print("  cross-engine: %d metric(s) agree to %g on a second independent kernel%s"
-                              % (_ce["n_checked"], CE.ABS_FLOOR, ext))
+                # (the cross-engine line + the host-availability hint now render INSIDE the report,
+                # under the verdict - see report._cross_engine_line; no orphan line down here)
                 # the trust footnote prints AFTER the verdict (dimmed on a tty), never above it
                 note = res.get("first_run_notice")
                 if note:
@@ -2023,7 +2181,8 @@ def main():
                         label += ", with caveat findings"
                     tail = " - see --fail-on for the exit policy"
                 print("\n[exit %d (%s)%s]" % (exit_code, label, tail))
-            _autonomy_followup(res, mode, _base, quiet=a.as_json)
+            _autonomy_followup(res, mode, _base, quiet=a.as_json,
+                               offline=_offline_enabled(a.offline, _base))
             return exit_code
         if a.cmd == "batch":
             if not a.targets and not a.manifest:
@@ -2100,12 +2259,13 @@ def main():
                     print("    " + ln)
             return 0
         if a.cmd == "init":
-            return init_cmd(a.framework, a.target, force=a.force)
+            return init_cmd(a.framework, a.target, force=a.force, list_fw=a.list_fw)
         if a.cmd == "draft":
             return draft_cmd(a.target, ai=a.ai, budget=a.budget, model=a.model,
                              force=a.force, as_json=a.as_json)
         if a.cmd == "teardown":
-            res = verify(a.target, a.claim_text or a.claim, a.metric, "teardown", force=a.force)
+            res = verify(a.target, a.claim_text or a.claim, a.metric, "teardown",
+                         opts=VerifyOptions(force=a.force))
             print(res.get("teardown") or "(no teardown: the result is clean or inconclusive, not broken)")
             if a.svg and res.get("teardown"):
                 svg = REP.svg_card(res["ledger"])
@@ -2304,6 +2464,9 @@ def main():
                     print("evidence    %s/EVIDENCE.md  (+ evidence.json + carried proof)" % out)
                     print("            allocator/ODD pack: verified result + input lineage + runtime "
                           "digests + replay, mapped to GIPS-2026 / ODD")
+                    # L3: it is NOT a redacted public registry entry - say so at the point of creation
+                    print("            note: carries input lineage + target name (private handoff, "
+                          "NOT registry-grade redaction - share under NDA)")
                 except (OSError, ValueError) as e:
                     print("evidence    SKIPPED (%s)" % e)
             print("sealed      %s" % run_dir)

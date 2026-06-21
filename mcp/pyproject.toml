@@ -25,6 +25,11 @@ http = [
   "starlette>=0.37,<1",
   "uvicorn>=0.29,<1",
 ]
+# T1: declared test deps so `make test-all` / CI bootstrap the mcp-venv reproducibly
+test = [
+  "pytest>=7",
+  "numpy>=1.24",
+]
 
 [project.scripts]
 calma-mcp = "calma_mcp.server:main"

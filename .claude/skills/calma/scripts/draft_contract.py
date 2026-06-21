@@ -40,7 +40,12 @@ def _normalize_claim_text(s):
 # name-regex -> semantic tag (first match wins)
 TAG_PATTERNS = [
     (r"benchmark|bench_ret|market_ret|spy_ret|buy_?hold|buy_?and_?hold", "benchmark"),
-    (r"(strat|portfolio|daily).*(ret|return)|^ret(urn)?s?$|pnl", "return"),
+    # a return COLUMN: a finance prefix + a delimited return token at the end (`total_return`,
+    # `net_return`, `daily_ret`, `monthly_pnl`), or a bare return token alone. The token must be a
+    # whole snake/space SEGMENT at the END - so `excess_caret`/`net_secret`/`asset_retirement`/
+    # `return_code` do NOT match (the old `.*ret` matched `ret` mid-word).
+    (r"(strat|portfolio|daily|monthly|weekly|cum|cumulative|net|total|excess|log|asset|fund|trade)"
+     r"[_ ](returns?|rets?|pnl)$|^(returns?|rets?|pnl|p&l)$", "return"),
     (r"log_?prob|loglik", "value"),
     (r"price|close|open|high|low|adj", "price"),
     (r"prob(?!lem)|p_hat|phat|score|logit", "score"),
