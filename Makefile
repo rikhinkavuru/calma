@@ -1,4 +1,4 @@
-.PHONY: install uninstall test test-all eval demo benchmark
+.PHONY: install uninstall test test-all eval validity-catalog demo benchmark
 
 SKILL := .claude/skills/calma
 
@@ -20,6 +20,9 @@ test-all:       ## run EVERY layer: core + mcp + pr (bootstraps ~/.calma venvs i
 
 eval:           ## the standing eval net: core suite + framework golden vectors + recompute baseline + determinism
 	@bash scripts/eval.sh
+
+validity-catalog: ## regenerate + verify the hardened validity cut (>=8 INVALIDATED cases/family, live engine)
+	@python3 benchmark/validity_catalog.py --check
 
 demo:           ## watch a real inflated backtest get caught
 	@python3 $(SKILL)/scripts/calma.py demo

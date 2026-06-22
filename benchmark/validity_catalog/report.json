@@ -1,0 +1,528 @@
+{
+  "families": {
+    "omitted-costs": {
+      "citation": "Novy-Marx & Velikov (2016), 'A Taxonomy of Anomalies and Their Trading Costs,' Review of Financial Studies 29(1):104-147.",
+      "n": 8,
+      "invalidated": 8,
+      "cases": [
+        {
+          "case": "omitted-costs_0",
+          "verdict": "INVALIDATED",
+          "claim": "net-of-fees total return 0.3386",
+          "value": 0.338616,
+          "invalidated": true
+        },
+        {
+          "case": "omitted-costs_1",
+          "verdict": "INVALIDATED",
+          "claim": "net-of-fees total return 0.2022",
+          "value": 0.202151,
+          "invalidated": true
+        },
+        {
+          "case": "omitted-costs_2",
+          "verdict": "INVALIDATED",
+          "claim": "net-of-fees total return 0.1236",
+          "value": 0.123584,
+          "invalidated": true
+        },
+        {
+          "case": "omitted-costs_3",
+          "verdict": "INVALIDATED",
+          "claim": "net-of-fees total return 0.2827",
+          "value": 0.282729,
+          "invalidated": true
+        },
+        {
+          "case": "omitted-costs_4",
+          "verdict": "INVALIDATED",
+          "claim": "net-of-fees total return 0.0422",
+          "value": 0.042226,
+          "invalidated": true
+        },
+        {
+          "case": "omitted-costs_5",
+          "verdict": "INVALIDATED",
+          "claim": "net-of-fees total return 0.1898",
+          "value": 0.189816,
+          "invalidated": true
+        },
+        {
+          "case": "omitted-costs_6",
+          "verdict": "INVALIDATED",
+          "claim": "net-of-fees total return 0.1811",
+          "value": 0.181067,
+          "invalidated": true
+        },
+        {
+          "case": "omitted-costs_7",
+          "verdict": "INVALIDATED",
+          "claim": "net-of-fees total return 0.3748",
+          "value": 0.374846,
+          "invalidated": true
+        }
+      ]
+    },
+    "survivorship": {
+      "citation": "Brown, Goetzmann, Ibbotson & Ross (1992), 'Survivorship Bias in Performance Studies,' Review of Financial Studies 5(4):553-580.",
+      "n": 8,
+      "invalidated": 8,
+      "cases": [
+        {
+          "case": "survivorship_0",
+          "verdict": "INVALIDATED",
+          "claim": "point-in-time survivorship-free total return 0.2020",
+          "value": 0.202037,
+          "invalidated": true
+        },
+        {
+          "case": "survivorship_1",
+          "verdict": "INVALIDATED",
+          "claim": "point-in-time survivorship-free total return -0.0293",
+          "value": -0.029296,
+          "invalidated": true
+        },
+        {
+          "case": "survivorship_2",
+          "verdict": "INVALIDATED",
+          "claim": "point-in-time survivorship-free total return 0.0247",
+          "value": 0.024706,
+          "invalidated": true
+        },
+        {
+          "case": "survivorship_3",
+          "verdict": "INVALIDATED",
+          "claim": "point-in-time survivorship-free total return 0.1016",
+          "value": 0.101609,
+          "invalidated": true
+        },
+        {
+          "case": "survivorship_4",
+          "verdict": "INVALIDATED",
+          "claim": "point-in-time survivorship-free total return 0.1381",
+          "value": 0.138067,
+          "invalidated": true
+        },
+        {
+          "case": "survivorship_5",
+          "verdict": "INVALIDATED",
+          "claim": "point-in-time survivorship-free total return 0.0337",
+          "value": 0.03367,
+          "invalidated": true
+        },
+        {
+          "case": "survivorship_6",
+          "verdict": "INVALIDATED",
+          "claim": "point-in-time survivorship-free total return 0.1676",
+          "value": 0.167618,
+          "invalidated": true
+        },
+        {
+          "case": "survivorship_7",
+          "verdict": "INVALIDATED",
+          "claim": "point-in-time survivorship-free total return 0.2682",
+          "value": 0.268229,
+          "invalidated": true
+        }
+      ]
+    },
+    "window": {
+      "citation": "Bailey, Borwein, Lopez de Prado & Zhu (2014), 'Pseudo-Mathematics and Financial Charlatanism,' Notices of the AMS 61(5):458-471.",
+      "n": 8,
+      "invalidated": 8,
+      "cases": [
+        {
+          "case": "window_0",
+          "verdict": "INVALIDATED",
+          "claim": "representative total return 0.0467 over the full period",
+          "value": 0.046683,
+          "invalidated": true
+        },
+        {
+          "case": "window_1",
+          "verdict": "INVALIDATED",
+          "claim": "representative total return 0.0510 over the full period",
+          "value": 0.051034,
+          "invalidated": true
+        },
+        {
+          "case": "window_2",
+          "verdict": "INVALIDATED",
+          "claim": "representative total return 0.0631 over the full period",
+          "value": 0.063132,
+          "invalidated": true
+        },
+        {
+          "case": "window_3",
+          "verdict": "INVALIDATED",
+          "claim": "representative total return 0.0392 over the full period",
+          "value": 0.039174,
+          "invalidated": true
+        },
+        {
+          "case": "window_4",
+          "verdict": "INVALIDATED",
+          "claim": "representative total return 0.0273 over the full period",
+          "value": 0.027287,
+          "invalidated": true
+        },
+        {
+          "case": "window_5",
+          "verdict": "INVALIDATED",
+          "claim": "representative total return 0.0944 over the full period",
+          "value": 0.094392,
+          "invalidated": true
+        },
+        {
+          "case": "window_6",
+          "verdict": "INVALIDATED",
+          "claim": "representative total return 0.0347 over the full period",
+          "value": 0.034699,
+          "invalidated": true
+        },
+        {
+          "case": "window_7",
+          "verdict": "INVALIDATED",
+          "claim": "representative total return 0.0780 over the full period",
+          "value": 0.077998,
+          "invalidated": true
+        }
+      ]
+    },
+    "data-snooping": {
+      "citation": "Harvey & Liu (2014), 'Backtesting' (SSRN 2345489); Bailey & Lopez de Prado (2014), 'The Deflated Sharpe Ratio,' Journal of Portfolio Management 40(5):94-107.",
+      "n": 8,
+      "invalidated": 8,
+      "cases": [
+        {
+          "case": "data-snooping_0",
+          "verdict": "INVALIDATED",
+          "claim": "a statistically significant factor, Sharpe of 2.7917",
+          "value": 2.791706,
+          "invalidated": true
+        },
+        {
+          "case": "data-snooping_1",
+          "verdict": "INVALIDATED",
+          "claim": "a statistically significant factor, Sharpe of 2.9818",
+          "value": 2.981786,
+          "invalidated": true
+        },
+        {
+          "case": "data-snooping_2",
+          "verdict": "INVALIDATED",
+          "claim": "a statistically significant factor, Sharpe of 1.6491",
+          "value": 1.64914,
+          "invalidated": true
+        },
+        {
+          "case": "data-snooping_3",
+          "verdict": "INVALIDATED",
+          "claim": "a statistically significant factor, Sharpe of 1.6616",
+          "value": 1.661568,
+          "invalidated": true
+        },
+        {
+          "case": "data-snooping_4",
+          "verdict": "INVALIDATED",
+          "claim": "a statistically significant factor, Sharpe of 1.8202",
+          "value": 1.820158,
+          "invalidated": true
+        },
+        {
+          "case": "data-snooping_5",
+          "verdict": "INVALIDATED",
+          "claim": "a statistically significant factor, Sharpe of 4.4200",
+          "value": 4.419986,
+          "invalidated": true
+        },
+        {
+          "case": "data-snooping_6",
+          "verdict": "INVALIDATED",
+          "claim": "a statistically significant factor, Sharpe of 2.8880",
+          "value": 2.888023,
+          "invalidated": true
+        },
+        {
+          "case": "data-snooping_7",
+          "verdict": "INVALIDATED",
+          "claim": "a statistically significant factor, Sharpe of 1.8480",
+          "value": 1.848003,
+          "invalidated": true
+        }
+      ]
+    },
+    "model-leakage": {
+      "citation": "Kaufman, Rosset, Perlich & Stitelman (2012), 'Leakage in Data Mining: Formulation, Detection, and Avoidance,' ACM TKDD 6(4), Article 15.",
+      "n": 8,
+      "invalidated": 8,
+      "cases": [
+        {
+          "case": "model-leakage_0",
+          "verdict": "INVALIDATED",
+          "claim": "no data leakage, properly held-out accuracy 0.8800",
+          "value": 0.88,
+          "invalidated": true
+        },
+        {
+          "case": "model-leakage_1",
+          "verdict": "INVALIDATED",
+          "claim": "no data leakage, properly held-out accuracy 0.9000",
+          "value": 0.9,
+          "invalidated": true
+        },
+        {
+          "case": "model-leakage_2",
+          "verdict": "INVALIDATED",
+          "claim": "no data leakage, properly held-out accuracy 0.9200",
+          "value": 0.92,
+          "invalidated": true
+        },
+        {
+          "case": "model-leakage_3",
+          "verdict": "INVALIDATED",
+          "claim": "no data leakage, properly held-out accuracy 0.8500",
+          "value": 0.85,
+          "invalidated": true
+        },
+        {
+          "case": "model-leakage_4",
+          "verdict": "INVALIDATED",
+          "claim": "no data leakage, properly held-out accuracy 0.9500",
+          "value": 0.95,
+          "invalidated": true
+        },
+        {
+          "case": "model-leakage_5",
+          "verdict": "INVALIDATED",
+          "claim": "no data leakage, properly held-out accuracy 0.8700",
+          "value": 0.87,
+          "invalidated": true
+        },
+        {
+          "case": "model-leakage_6",
+          "verdict": "INVALIDATED",
+          "claim": "no data leakage, properly held-out accuracy 0.9100",
+          "value": 0.91,
+          "invalidated": true
+        },
+        {
+          "case": "model-leakage_7",
+          "verdict": "INVALIDATED",
+          "claim": "no data leakage, properly held-out accuracy 0.9300",
+          "value": 0.93,
+          "invalidated": true
+        }
+      ]
+    },
+    "regime": {
+      "citation": "McLean & Pontiff (2016), 'Does Academic Research Destroy Stock Return Predictability?,' Journal of Finance 71(1):5-32.",
+      "n": 8,
+      "invalidated": 8,
+      "cases": [
+        {
+          "case": "regime_0",
+          "verdict": "INVALIDATED",
+          "claim": "a robust edge across every regime, walk-forward validated total return 0.2799",
+          "value": 0.27988,
+          "invalidated": true
+        },
+        {
+          "case": "regime_1",
+          "verdict": "INVALIDATED",
+          "claim": "a robust edge across every regime, walk-forward validated total return 0.6528",
+          "value": 0.652816,
+          "invalidated": true
+        },
+        {
+          "case": "regime_2",
+          "verdict": "INVALIDATED",
+          "claim": "a robust edge across every regime, walk-forward validated total return 0.2623",
+          "value": 0.262339,
+          "invalidated": true
+        },
+        {
+          "case": "regime_3",
+          "verdict": "INVALIDATED",
+          "claim": "a robust edge across every regime, walk-forward validated total return 1.0183",
+          "value": 1.018276,
+          "invalidated": true
+        },
+        {
+          "case": "regime_4",
+          "verdict": "INVALIDATED",
+          "claim": "a robust edge across every regime, walk-forward validated total return 0.3763",
+          "value": 0.376282,
+          "invalidated": true
+        },
+        {
+          "case": "regime_5",
+          "verdict": "INVALIDATED",
+          "claim": "a robust edge across every regime, walk-forward validated total return 0.3705",
+          "value": 0.370473,
+          "invalidated": true
+        },
+        {
+          "case": "regime_6",
+          "verdict": "INVALIDATED",
+          "claim": "a robust edge across every regime, walk-forward validated total return 0.6339",
+          "value": 0.633908,
+          "invalidated": true
+        },
+        {
+          "case": "regime_7",
+          "verdict": "INVALIDATED",
+          "claim": "a robust edge across every regime, walk-forward validated total return 0.4187",
+          "value": 0.418705,
+          "invalidated": true
+        }
+      ]
+    },
+    "distribution-shift": {
+      "citation": "Quinonero-Candela, Sugiyama, Schwaighofer & Lawrence, eds. (2009), 'Dataset Shift in Machine Learning,' MIT Press.",
+      "n": 8,
+      "invalidated": 8,
+      "cases": [
+        {
+          "case": "distribution-shift_0",
+          "verdict": "INVALIDATED",
+          "claim": "the model generalizes in-distribution, accuracy 0.8375",
+          "value": 0.8375,
+          "invalidated": true
+        },
+        {
+          "case": "distribution-shift_1",
+          "verdict": "INVALIDATED",
+          "claim": "the model generalizes in-distribution, accuracy 0.8750",
+          "value": 0.875,
+          "invalidated": true
+        },
+        {
+          "case": "distribution-shift_2",
+          "verdict": "INVALIDATED",
+          "claim": "the model generalizes in-distribution, accuracy 0.8500",
+          "value": 0.85,
+          "invalidated": true
+        },
+        {
+          "case": "distribution-shift_3",
+          "verdict": "INVALIDATED",
+          "claim": "the model generalizes in-distribution, accuracy 0.9125",
+          "value": 0.9125,
+          "invalidated": true
+        },
+        {
+          "case": "distribution-shift_4",
+          "verdict": "INVALIDATED",
+          "claim": "the model generalizes in-distribution, accuracy 0.8500",
+          "value": 0.85,
+          "invalidated": true
+        },
+        {
+          "case": "distribution-shift_5",
+          "verdict": "INVALIDATED",
+          "claim": "the model generalizes in-distribution, accuracy 0.8625",
+          "value": 0.8625,
+          "invalidated": true
+        },
+        {
+          "case": "distribution-shift_6",
+          "verdict": "INVALIDATED",
+          "claim": "the model generalizes in-distribution, accuracy 0.8625",
+          "value": 0.8625,
+          "invalidated": true
+        },
+        {
+          "case": "distribution-shift_7",
+          "verdict": "INVALIDATED",
+          "claim": "the model generalizes in-distribution, accuracy 0.9250",
+          "value": 0.925,
+          "invalidated": true
+        }
+      ]
+    },
+    "look-ahead": {
+      "citation": "Luo, Alvarez, Wang, Jussa, Wang & Rohal (2014), 'Seven Sins of Quantitative Investing,' Deutsche Bank Markets Research.",
+      "n": 8,
+      "invalidated": 8,
+      "cases": [
+        {
+          "case": "look-ahead_0",
+          "verdict": "INVALIDATED",
+          "claim": "out-of-sample tradeable total return 0.3296",
+          "value": 0.329585,
+          "invalidated": true
+        },
+        {
+          "case": "look-ahead_1",
+          "verdict": "INVALIDATED",
+          "claim": "out-of-sample tradeable total return 0.5781",
+          "value": 0.578146,
+          "invalidated": true
+        },
+        {
+          "case": "look-ahead_2",
+          "verdict": "INVALIDATED",
+          "claim": "out-of-sample tradeable total return 0.8395",
+          "value": 0.839453,
+          "invalidated": true
+        },
+        {
+          "case": "look-ahead_3",
+          "verdict": "INVALIDATED",
+          "claim": "out-of-sample tradeable total return 0.5052",
+          "value": 0.505199,
+          "invalidated": true
+        },
+        {
+          "case": "look-ahead_4",
+          "verdict": "INVALIDATED",
+          "claim": "out-of-sample tradeable total return 0.6765",
+          "value": 0.676529,
+          "invalidated": true
+        },
+        {
+          "case": "look-ahead_5",
+          "verdict": "INVALIDATED",
+          "claim": "out-of-sample tradeable total return 0.4724",
+          "value": 0.472404,
+          "invalidated": true
+        },
+        {
+          "case": "look-ahead_6",
+          "verdict": "INVALIDATED",
+          "claim": "out-of-sample tradeable total return 0.6441",
+          "value": 0.644131,
+          "invalidated": true
+        },
+        {
+          "case": "look-ahead_7",
+          "verdict": "INVALIDATED",
+          "claim": "out-of-sample tradeable total return 0.3657",
+          "value": 0.36568,
+          "invalidated": true
+        }
+      ]
+    }
+  },
+  "misses": [
+    {
+      "case": "miss_undeclared-haircut",
+      "verdict": "CONFIRMED",
+      "claim": "Sharpe of 3.8529",
+      "value": 3.852908,
+      "missed": true,
+      "why": "The multiple-testing haircut only runs when a `study` block is declared. A producer who omits it -- or never knew to -- escapes the check. calma verifies what the contract declares; it does not infer an undeclared flaw. (Mitigation: calma draft/onboard proposes the blocks; the producer must adopt them.)"
+    },
+    {
+      "case": "miss_corrupted-labels",
+      "verdict": "CONFIRMED",
+      "claim": "accuracy 0.9500",
+      "value": 0.95,
+      "missed": true,
+      "why": "calma recomputes the metric from the produced outputs; it cannot know the ground-truth labels are themselves wrong. Verifying that a number is correctly computed is not validating the truth of its inputs -- a different problem (data provenance), out of scope by design."
+    }
+  ],
+  "n_caught": 64,
+  "n_total": 64
+}

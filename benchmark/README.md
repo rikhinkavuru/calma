@@ -153,6 +153,16 @@ stochastic and validity-blind. Calma is neither.
   across 10 families**; Calma catches **14/14**, recompute-only and the judge **0/14**. The committed
   published results above stay at the established run; re-run the arms + `score.py` after generating to
   fold the two cases in.
+- **Hardened validity catalog (the statistical N).** The 3-arm table's validity cut is small per family
+  (indicative). `benchmark/validity_catalog.py` builds a standalone, deeper catalog — **≥8 cases per
+  family across 8 families (64 cases)**, each constructed so the number reproduces yet **Calma
+  INVALIDATES** it, each verified against the live engine and tagged with **citable third-party
+  provenance** (López de Prado, Harvey & Liu, Brown-Goetzmann-Ibbotson-Ross, Novy-Marx-Velikov,
+  McLean-Pontiff, Kaufman et al., Quiñonero-Candela et al., Luo et al.). Calma INVALIDATES **64/64**.
+  It also documents **Calma's own misses** — flaws Calma CONFIRMS (an undeclared `study` block escapes
+  the haircut; corrupted ground-truth labels recompute fine) — to mark the honest ceiling: Calma
+  verifies the number + the *declared* validity families, not the truth of the inputs. See
+  `benchmark/validity_catalog/REPORT.md`; `make validity-catalog` is the regression gate.
 
 ## Reproduce
 

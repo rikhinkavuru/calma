@@ -58,6 +58,9 @@ benchmark/results/agent.json
 benchmark/results/agent_cross.json
 benchmark/results/agent_excluded.json
 benchmark/results/agent_transcripts/
+# validity catalog: the case dirs are deterministically (re)generated + verified by validity_catalog.py;
+# commit the script + REPORT.md + report.json, not the 60+ generated case dirs
+benchmark/validity_catalog/cases/
 
 # Python packaging build artifacts (WS-B)
 /dist
