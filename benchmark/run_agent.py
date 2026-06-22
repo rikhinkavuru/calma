@@ -90,13 +90,35 @@ def _detect_tier():
     return _TIER
 
 
+# A REPL/Jupyter-style runner. A real code-running agent's tool (a Jupyter kernel / code interpreter)
+# ECHOES the value of a cell's trailing bare expression - so an agent that ends a cell with `accuracy`
+# (no print) sees the number. Under plain `python -c` that trailing expression prints nothing, the
+# agent sees empty output, loops to max-turns and abstains - a STRAWMAN, not the steelman the arm needs.
+# This bootstrap reads the agent's cell from a file and prints the last expression's repr (skipping
+# None, like a REPL), making the code-running arm a fair comparison.
+_BOOTSTRAP = (
+    "import ast,sys\n"
+    "t=ast.parse(open(sys.argv[1]).read())\n"
+    "if t.body and isinstance(t.body[-1],ast.Expr):\n"
+    "    a=ast.parse('__echo=None').body[0]; a.value=t.body[-1].value\n"
+    "    p=ast.parse('if __echo is not None: sys.stdout.write(repr(__echo)+chr(10))').body\n"
+    "    t.body[-1]=a; t.body+=p\n"
+    "ast.fix_missing_locations(t)\n"
+    "exec(compile(t,'<cell>','exec'),{'__name__':'__main__','sys':sys})\n"
+)
+
+
 def _sandboxed_run(code, work, timeout=30):
     """Run agent-written `code` network-off, confined to `work`, in the detected verified tier. Returns
     (output_str_or_None, tier). output is None ONLY when the host can't isolate (the caller refuses to
-    run the code and excludes the run)."""
+    run the code and excludes the run). The cell runs through _BOOTSTRAP so a trailing bare expression
+    is echoed REPL-style (a fair steelman of a real code-interpreter tool)."""
     tier = _detect_tier()
-    argv = [sys.executable, "-c", code]
     work = os.path.realpath(work)
+    cell = os.path.join(work, ".agent_cell.py")
+    with open(cell, "w") as f:
+        f.write(code or "")
+    argv = [sys.executable, "-c", _BOOTSTRAP, cell]
     if tier == "seatbelt-verified":
         rc, out, err, killed = H._run_sandboxed(H._profile(work), argv, cwd=work, timeout=timeout)
         return (("[timeout]" if killed else "") + (out or "") + (err or ""))[-4000:], tier

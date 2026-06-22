@@ -93,17 +93,34 @@ The point isn't raw catch-rate — a strong agent recomputes most simple numbers
 gaps a deterministic checker doesn't have, which `score.py` folds in automatically once `results/agent.json`
 exists:
 
-| metric | what it exposes | Calma |
-|---|---|---|
-| **verdict-instability** | % of cases whose verdict flips across the K reruns | **0** (by construction) |
-| **pass^k curve** | P(k i.i.d. runs all land on the right verdict); the pass^1 → pass^k drop is the consistency cliff | **1.0, flat** |
-| **validity-blindness** | on the leakage / overfit / realism / contamination cut the number *reproduces*, so a recompute-only agent says "honest" and misses the invalidity | **INVALIDATES it** |
-| **agreement-with-Calma · cost · latency** | how often it matches the deterministic verdict, at what $ and wall-clock | **~0.2 s · $0 · offline** |
+| metric | what it exposes | agent-with-exec (measured) | Calma |
+|---|---|---|---|
+| **verdict-instability** | % of cases whose verdict flips across the K reruns | **10%** (Haiku) · **52%** (GPT-4o-mini) | **0** (by construction) |
+| **pass^k curve** | P(k i.i.d. runs all land on the right verdict); the pass^1 → pass^k drop is the consistency cliff | **0.88 → 0.84 → 0.82** (k=1→3, Haiku) | **1.0, flat** |
+| **validity-blindness** | on the leakage / overfit / realism / contamination cut the number *reproduces*, so a recompute-only agent says "honest" and misses the invalidity | **catches 17%** (Haiku) · **50%** (GPT-4o-mini) of the 12-case cut | **INVALIDATES it (100%)** |
+| **agreement-with-Calma · cost · latency** | how often it matches the deterministic verdict, at what $ and wall-clock | **89% agree · $5.13 · ~38 s p50** (Haiku) | **~0.21 s · $0 · offline** |
 
 A second model from a **different family** (a GPT/o-series model alongside Claude) runs as a cross-arm
 (`agent_cross.json`) to kill the single-model artifact + self-preference bias. Every counted run is
 network-off-isolated; every transcript (system prompt → tool calls → tool output → final answer) is written
 to `results/agent_transcripts/`, so nothing is hand-picked.
+
+**Measured** (steelmanned, k=3, two model families — Claude Haiku 4.5 + GPT-4o-mini — over the live
+129-case manifest, 774 runs, $5.75 total). On raw accuracy the code-running agent is strong: **84% catch,
+0 false alarms, 95% on the reproducibility cut** (Haiku), genuinely approaching Calma's recompute — so the
+edge is **not** "more accurate than an agent." It is the three axes a stochastic judge cannot close:
+
+- **Determinism.** The agent's verdict *flips across identical reruns* on **10%** of cases (Haiku) and
+  **52%** (GPT-4o-mini); pass^k slides **0.88 → 0.82** by k=3. Calma is **0% / 1.0-flat by construction.**
+  *You can't put a coin-flip in a merge gate.*
+- **Validity-blindness.** On the 12-case validity cut the number *reproduces*, so the agent recomputes it,
+  says "honest," and catches only **17%** (Haiku) / **50%** (GPT-4o-mini) — vs Calma's **100%** (it
+  INVALIDATES them by construction).
+- **Cost + latency.** **$5.13** and a **~38 s** p50 per verdict (Haiku), vs Calma's **$0** incremental and
+  **~213 ms** — and Calma emits a signed, offline-replayable proof the agent can't.
+
+Agreement-with-Calma is **89%** (Haiku) / **74%** (GPT-4o-mini): where they disagree, it is the agent that
+is stochastic or validity-blind, not Calma.
 
 > **Recorded vs reproducible.** The 117-case three-arm table above is a committed, recorded result. The agent
 > arm is the **reproducible methodology** — run the command in *Reproduce* below on your own API keys to
@@ -118,9 +135,12 @@ stochastic and validity-blind. Calma is neither.
 
 ## Honest caveats
 
-- The LLM-judge is the realistic *eval* condition (no execution). A judge allowed to write and run
-  code would approach Calma's accuracy — but that is re-execution without Calma's determinism,
-  zero-false-verdict guarantees, sandbox isolation, and signed/replayable proof.
+- The LLM-judge is the realistic *eval* condition (no execution). A code-running agent (the fourth arm,
+  **measured** above) **does** approach Calma on raw accuracy — 84% catch, 95% on the reproducibility cut —
+  but not on the axes a gate needs: it is stochastic (verdict-instability **10%** Haiku / **52%**
+  GPT-4o-mini vs Calma's 0%), validity-blind (catches **17–50%** of the validity cut vs Calma's 100%), and
+  costs **$5.13** at a **~38 s** p50 vs Calma's **$0 / ~213 ms** — with no signed, offline-replayable proof.
+  The win is determinism + $0 + sub-second + a replayable proof, not a higher catch-rate.
 - Data-validation tools (Great Expectations / pandera) check schemas and ranges, not whether a
   *claimed metric* recomputes — they would catch ~0 of these by construction (not run here).
 - Calma's recipes are themselves validated against 385 byte-reproducible reference vectors from
