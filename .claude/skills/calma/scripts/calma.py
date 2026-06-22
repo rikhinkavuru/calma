@@ -1645,6 +1645,68 @@ def draft_cmd(target, *, ai=False, budget=3, model=None, force=False, as_json=Fa
     return 0
 
 
+def _onboard_subprocess(args, *, timeout=900):
+    """Run the edges onboarding proposer as a SUBPROCESS - the core never imports edges (firewall),
+    exactly like draft --ai shells out to `python -m edges.contract`. `python -m edges.synth.onboard`
+    is launched from the repo root so the `edges` package resolves. Returns the parsed --json result
+    (or {"ok": False, "error": ...} when the edges deps / API key are unavailable)."""
+    import subprocess
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
+    argv = [sys.executable, "-m", "edges.synth.onboard"] + args + ["--json"]
+    try:
+        p = subprocess.run(argv, cwd=repo_root, capture_output=True, text=True, timeout=timeout)
+    except (OSError, subprocess.SubprocessError) as e:
+        return {"ok": False, "error": str(e)}
+    try:
+        return {"ok": True, **json.loads(p.stdout)}
+    except ValueError:
+        tail = (p.stderr or p.stdout or "").strip().splitlines()
+        return {"ok": False, "error": tail[-1] if tail else "edges.synth.onboard produced no JSON"}
+
+
+def onboard_cmd(metric_id, family, methodology, vectors, *, hints=None, budget=6, model=None,
+                compiled_path=None, as_json=False):
+    """Onboard a firm's BESPOKE metric (one with no published oracle) from a methodology + the firm's
+    own reference numbers: an LLM proposes the pure-stdlib recipe, and the deterministic gate admits it
+    ONLY when it reproduces every reference vector + holds the declared metamorphic relations + degrades
+    on edge cases + is bit-stable -- the SAME gate the built-in recipes clear. AI proposes; determinism
+    disposes. Needs the edges deps + an API key (the gate itself is offline)."""
+    args = ["--metric-id", metric_id, "--family", family, "--methodology", methodology,
+            "--vectors", vectors, "--budget", str(budget)]
+    for h in (hints or []):
+        args += ["--metamorphic-hint", h]
+    if model:
+        args += ["--model", model]
+    if compiled_path:
+        args += ["--compiled-path", compiled_path]
+    out = _onboard_subprocess(args)
+    if not out.get("ok"):
+        print("onboarding unavailable (%s) - it needs the edges deps + an API key (ANTHROPIC_API_KEY); "
+              "the gate itself is offline." % out.get("error"))
+        return 2
+    if as_json:
+        print(json.dumps({k: out[k] for k in ("admitted", "metric_id", "iterations",
+                                              "program_sha256", "last_stage", "trace") if k in out}))
+        return 0 if out.get("admitted") else 1
+    print("onboarding %r (%s) - AI proposes, the deterministic gate disposes:" % (metric_id, family))
+    for t in out.get("trace", []):
+        if t.get("ok"):
+            print("  attempt %d: ADMITTED" % t["attempt"])
+        else:
+            print("  attempt %d: rejected at the %-11s stage -> counterexample fed back"
+                  % (t["attempt"], t.get("stage")))
+    if out.get("admitted"):
+        print("\nADMITTED %r in %d attempt(s)  (program_sha256 %s)"
+              % (metric_id, out.get("iterations"), (out.get("program_sha256") or "")[:16]))
+        print("  frozen + gated by the SAME admission as the built-in recipes; it re-validates on load.")
+        print("  next:  calma verify <your repo> \"<%s claim>\" --metric %s" % (metric_id, metric_id))
+        return 0
+    print("\nNOT admitted within budget (last failing stage: %s) - the gate rejected every draft, so "
+          "NOTHING was frozen. A bespoke metric the gate can't admit never emits a verdict."
+          % out.get("last_stage"))
+    return 1
+
+
 def _batch_jobs(targets, manifest):
     """Resolve (path, claim, metric) jobs from dir/glob targets (committed contracts) + a TSV manifest
     of 'path<TAB>claim<TAB>[metric]' rows."""
@@ -2038,6 +2100,24 @@ def main():
     dr.add_argument("--model", default=None, help="advisory model tier for --ai")
     dr.add_argument("--force", action="store_true", help="overwrite an existing verify.yaml")
     dr.add_argument("--json", action="store_true", dest="as_json", help="print the drafted contract as JSON")
+    ob = sub.add_parser("onboard", help="onboard a BESPOKE metric (no published oracle) from a "
+                                        "methodology + reference vectors: an LLM proposes the recipe, the "
+                                        "deterministic gate admits it (needs edges deps + an API key)")
+    ob.add_argument("--metric-id", required=True, dest="metric_id", help="^[a-z][a-z0-9_]*$")
+    ob.add_argument("--family", required=True,
+                    help="quant|classification|regression|analytics|engineering|retrieval|llm-eval|"
+                         "stats|finance|forecasting")
+    ob.add_argument("--methodology", required=True, help="the metric definition (text, or @path-to-file)")
+    ob.add_argument("--vectors", required=True,
+                    help="reference vectors: a JSON file path or inline JSON "
+                         "[{\"inputs\":{tag:[..]},\"expected\":<n>}, ...]")
+    ob.add_argument("--metamorphic-hint", action="append", default=[], dest="hints",
+                    help="a plain-language invariant the metric obeys (repeatable)")
+    ob.add_argument("--budget", type=int, default=6, help="max CEGIS attempts (default 6)")
+    ob.add_argument("--model", default=None, help="proposer model (use a cheap one)")
+    ob.add_argument("--compiled-path", default=None, dest="compiled_path",
+                    help="freeze target registry (default: the production compiled_recipes.json)")
+    ob.add_argument("--json", action="store_true", dest="as_json", help="machine-readable result")
     mo = sub.add_parser("modes", help="show or set Calma's autonomy: the verify scope "
                         "(off/headline/all) + the action mode (ask/suggest/auto)")
     mo.add_argument("--verify", choices=AUT.VERIFY_SCOPES, default=None,
@@ -2312,6 +2392,10 @@ def main():
         if a.cmd == "draft":
             return draft_cmd(a.target, ai=a.ai, budget=a.budget, model=a.model,
                              force=a.force, as_json=a.as_json)
+        if a.cmd == "onboard":
+            return onboard_cmd(a.metric_id, a.family, a.methodology, a.vectors, hints=a.hints,
+                               budget=a.budget, model=a.model, compiled_path=a.compiled_path,
+                               as_json=a.as_json)
         if a.cmd == "teardown":
             res = verify(a.target, a.claim_text or a.claim, a.metric, "teardown",
                          opts=VerifyOptions(force=a.force))

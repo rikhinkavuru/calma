@@ -19,6 +19,7 @@ firm's numbers are the oracle. The proposer is the only LLM call; everything tha
 Firewall: like the rest of synth, this imports exactly `compiler` and `dsl` from the core (the gate) and
 nothing from verdict/ledger/compare/recompute (test_firewall allowlist).
 """
+import argparse
 import json
 import os
 import re
@@ -247,3 +248,72 @@ METAMORPHIC counterexample means your program has the wrong shape (e.g. an addit
 invariance). Re-emit a corrected full draft.
 
 Output ONLY the recipe-draft@1 object (no oracle) via the tool."""
+
+
+def _read_methodology(s):
+    """`@path` reads a file; anything else is the methodology text verbatim."""
+    if s.startswith("@"):
+        return open(s[1:]).read()
+    return s
+
+
+def _load_vectors(s):
+    """A path to a JSON file, or inline JSON: [{"inputs": {tag: [..]}, "expected": <number>}, ...]."""
+    if os.path.exists(s):
+        return json.load(open(s))
+    return json.loads(s)
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(
+        prog="python -m edges.synth.onboard",
+        description="Onboard a firm's bespoke metric from a methodology + reference vectors. The LLM "
+                    "proposes the DSL program; the deterministic gate admits it only when it reproduces "
+                    "every firm reference vector + holds the declared metamorphic relations + degrades on "
+                    "edge cases + is bit-stable. AI proposes, determinism disposes.")
+    ap.add_argument("--metric-id", required=True, help="^[a-z][a-z0-9_]*$")
+    ap.add_argument("--family", required=True,
+                    help="quant|classification|regression|analytics|engineering|retrieval|llm-eval|"
+                         "stats|finance|forecasting")
+    ap.add_argument("--methodology", required=True, help="the metric's definition (text, or @path-to-file)")
+    ap.add_argument("--vectors", required=True,
+                    help="reference vectors: a path to a JSON file, or inline JSON "
+                         "[{\"inputs\": {tag: [..]}, \"expected\": <number>}, ...]")
+    ap.add_argument("--metamorphic-hint", action="append", default=[], dest="hints",
+                    help="a plain-language invariant the metric obeys (repeatable)")
+    ap.add_argument("--model", default=llm.HAIKU, help="proposer model (use a cheap one)")
+    ap.add_argument("--budget", type=int, default=6, help="max CEGIS attempts")
+    ap.add_argument("--compiled-path", default=None,
+                    help="freeze target registry (default: the production compiled_recipes.json)")
+    ap.add_argument("--json", action="store_true", dest="as_json", help="machine-readable result")
+    a = ap.parse_args(argv)
+
+    res = onboard(a.metric_id, a.family, _read_methodology(a.methodology), _load_vectors(a.vectors),
+                  metamorphic_hints=a.hints, budget=a.budget, model=a.model,
+                  compiled_path=a.compiled_path)
+
+    if a.as_json:
+        print(json.dumps({"admitted": res.admitted, "metric_id": res.metric_id,
+                          "iterations": res.iterations, "program_sha256": res.program_sha256,
+                          "last_stage": res.last_stage, "trace": res.trace}))
+        return 0 if res.admitted else 1
+    print("onboarding %r (%s) -- AI proposes, the deterministic gate disposes:" % (a.metric_id, a.family))
+    for t in res.trace:
+        if t["ok"]:
+            print("  attempt %d: ADMITTED (program sha256 %s)" % (t["attempt"], (t["draft_sha"] or "")[:16]))
+        else:
+            print("  attempt %d: rejected at the %-11s stage -> counterexample fed back"
+                  % (t["attempt"], t["stage"]))
+    if res.admitted:
+        print("\nADMITTED in %d attempt(s). program_sha256=%s" % (res.iterations, res.program_sha256))
+        print("%d reference vectors pinned; the recipe is frozen and will re-validate on load."
+              % len(res.vectors))
+    else:
+        print("\nNOT admitted within budget (last failing stage: %s)." % res.last_stage)
+        if res.last_feedback:
+            print(res.last_feedback)
+    return 0 if res.admitted else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

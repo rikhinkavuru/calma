@@ -115,6 +115,22 @@ def test_onboard_requires_reference_vectors():
         onboard.onboard("acme_load_factor", "analytics", METHODOLOGY, [])
 
 
+def test_cli_main_onboards_from_a_vectors_file(tmp_path, monkeypatch):
+    # exercises the `python -m edges.synth.onboard` entry: methodology text + a vectors FILE -> admitted,
+    # frozen to a tmp registry (the CLI path the `calma onboard` subcommand shells out to).
+    monkeypatch.setattr(onboard.llm, "structured", _Proposer(_model_draft("col_max")))
+    vpath = tmp_path / "vectors.json"
+    vpath.write_text(json.dumps(REF_VECTORS))
+    cp = str(tmp_path / "compiled.json")
+    rc = onboard.main(["--metric-id", "acme_load_factor", "--family", "analytics",
+                       "--methodology", METHODOLOGY, "--vectors", str(vpath),
+                       "--metamorphic-hint", "scale-invariant", "--compiled-path", cp,
+                       "--budget", "3", "--json"])
+    assert rc == 0
+    book = json.load(open(cp))
+    assert any(r["metric_id"] == "acme_load_factor" for r in book["recipes"])
+
+
 def test_reference_counterexample_localizes_the_fix():
     # a mean/min program vs the firm's mean/max vectors -> a reference counterexample with a hypothesis
     bad = {"schema": "calma/recipe-draft@1", "metric_id": "x", "family": "analytics",
