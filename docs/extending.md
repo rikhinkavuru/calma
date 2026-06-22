@@ -41,6 +41,44 @@ def my_metric(cols, binding, convention=None):
   RMSE/MAE, fee-monotonicity + cash-invariance for backtests, permutation-invariance for aggregations. One
   MR validates a recipe with no golden value at all.
 
+## Onboard a *bespoke* metric (no published oracle) -- the CEGIS engine (M4)
+
+When a firm has a proprietary metric with **no published callable** (a custom tournament score, a house
+VaR convention), you don't hand-write the recipe -- you point the onboarding engine at the methodology and
+a handful of the firm's own reference numbers, and **the LLM proposes the DSL program while the
+deterministic core decides**:
+
+```python
+from edges.synth import onboard      # firewalled proposer; the core imports here are only compiler + dsl
+res = onboard.onboard(
+    "acme_load_factor", family="analytics",
+    methodology="average exposure / peak exposure; positive inputs; in [0,1]; unit- and order-invariant",
+    reference_vectors=[{"inputs": {"value": [10, 20, 30, 40]}, "expected": 0.625}, ...],  # firm ground truth
+    metamorphic_hints=["scale-invariant", "order-independent", "bounded in [0,1]"],
+    model="claude-haiku-4-5")
+```
+
+The loop is **AI proposes, determinism disposes** (`compiler.admit`): a draft becomes a frozen,
+verdict-emitting recipe **only** when it (1) reproduces every firm reference vector to 1e-9, (2) satisfies
+the declared metamorphic relations -- an *independent* gate that catches a program which merely overfits
+the few reference points, (3) degrades on empty/single/constant/NaN inputs, and (4) is bit-stable. On any
+failure the concrete counterexample (which vector, expected vs got, on the firm's exact inputs) is fed
+back and the model re-proposes, up to a bound. The firm's `reference_vectors` are **injected by the
+harness** -- the model proposes only the program, never its own ground truth, and never sees the gate
+after it runs. A bespoke metric has no published oracle, so this whole path needs **no reference venv** --
+the firm's numbers are the oracle.
+
+This is the same gate the hand-built recipes clear; an onboarded recipe carries the same correctness
+guarantee. Run the end-to-end demo (one cheap LLM call, frozen to a throwaway registry):
+
+```
+PYTHONPATH=. ~/.cache/calma-edges-venv/bin/python edges/synth/demo_onboard.py --model claude-haiku-4-5
+```
+
+The deterministic gate extension lives in `compiler.py` (`stage_reference` + the `reference_vectors`
+ground-truth path), is covered by `scripts/tests/test_compiler.py` under `make eval`, and the onboarding
+loop is covered (LLM mocked, no key needed) by `edges/tests/test_onboard.py`.
+
 ## Add a validity family (the 3-function protocol)
 
 A validity family **degrades** a reproduced verdict (it never inflates one): the number recomputes, but the

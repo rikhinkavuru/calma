@@ -261,5 +261,68 @@ truth(out2.get("verdict") in ("REFUTED", "MIXED", "INCONCLUSIVE"),
       "an inflated sem claim does NOT confirm (got %s)" % out2.get("verdict"))
 shutil.rmtree(proj, ignore_errors=True)
 
+# --- M4: admission via FIRM-SUPPLIED reference vectors (a bespoke metric, no named oracle, no venv) ---
+# the firm's metric: a 'load factor' = average exposure / peak exposure (avg/max). The firm's own
+# (inputs -> expected) numbers ARE the oracle, so this whole path is venv-free + pure-stdlib.
+def _lf_draft(denom="col_max", mm=None, rv=True):
+    d = {"schema": "calma/recipe-draft@1", "metric_id": "t_load_factor", "family": "analytics",
+         "description": "average exposure divided by peak exposure",
+         "program": {"schema": "calma/recipe-dsl@1", "inputs": {"value": "list"},
+                     "expr": {"op": "/", "args": [{"call": "fmean", "args": [{"col": "value"}]},
+                                                 {"call": denom, "args": [{"col": "value"}]}]}},
+         "generators": {"value": {"kind": "positive", "scale": 100.0}},
+         "metamorphic": mm or [{"relation": "permutation", "expect": "equal"},
+                               {"relation": "scale", "factor": 3.0, "expect": "equal"},
+                               {"relation": "bounds", "min": 0.0, "max": 1.0}],
+         "edge_cases": {"empty": "nan", "single": 1.0, "constant": 1.0, "nan": "nan"}}
+    if rv:
+        d["reference_vectors"] = [
+            {"inputs": {"value": [10, 20, 30, 40]}, "expected": 0.625},
+            {"inputs": {"value": [1, 3, 5, 7, 9]}, "expected": 5 / 9},
+            {"inputs": {"value": [100, 50, 25, 25]}, "expected": 0.5},
+            {"inputs": {"value": [7, 7, 7]}, "expected": 1.0},
+            {"inputs": {"value": [3, 1, 4, 1, 5, 9, 2, 6]}, "expected": (31 / 8) / 9}]
+    return d
+
+_lf_tmp = tempfile.mkdtemp()
+_lf_cp = os.path.join(_lf_tmp, "compiled.json")
+ok, res = CMP.admit(_lf_draft(), venv_python=None, compiled_path=_lf_cp, write=True)
+truth(ok, "a bespoke reference-vector recipe admits venv-free: %s"
+      % json.dumps(res.get("counterexamples", []))[:200])
+if ok:
+    c = res["compiled"]
+    truth(c["admitted"]["ground_truth"] == "reference-vectors",
+          "admission records ground_truth=reference-vectors")
+    truth(len(c["vectors"]) == 5, "all 5 firm reference vectors are pinned")
+    truth(c.get("oracle") is None and c.get("reference_vectors"),
+          "the frozen entry carries the firm vectors and no named oracle")
+    book = json.load(open(_lf_cp))
+    fr = next((r for r in book["recipes"] if r["metric_id"] == "t_load_factor"), None)
+    truth(fr is not None and dsl.program_hash(fr["program"]) == fr["program_sha256"]
+          and dsl.validate(fr["program"]) == [],
+          "the frozen bespoke recipe re-validates (hash + dsl.validate) exactly as the loader would")
+    # the program reproduces each firm vector byte-for-byte (what was pinned at admission)
+    truth(all(repr(dsl.execute(fr["program"], v["inputs"])) == p["value_repr"]
+              for v, p in zip(fr["reference_vectors"], fr["vectors"])),
+          "the frozen program re-derives every firm reference vector byte-for-byte")
+# a wrong program (mean/MIN, not mean/max) is caught by the reference stage on the firm's exact inputs
+ok, res = CMP.admit(_lf_draft(denom="col_min"), venv_python=None,
+                    compiled_path=os.path.join(_lf_tmp, "c2.json"), write=False)
+truth(not ok and res["counterexamples"][0]["stage"] == "reference",
+      "a wrong program fails the reference stage (not metamorphic) -- the firm's numbers catch it")
+# the metamorphic stage is an INDEPENDENT overfit guard: a program that fits the 5 points but declares a
+# relation it violates (shift-invariance, which avg/peak does NOT have) is still rejected
+ok, res = CMP.admit(_lf_draft(mm=[{"relation": "permutation", "expect": "equal"},
+                                  {"relation": "shift", "delta": 5.0, "expect": "equal"}]),
+                    venv_python=None, compiled_path=os.path.join(_lf_tmp, "c3.json"), write=False)
+truth(not ok and any(c.get("stage") == "metamorphic" for c in res["counterexamples"]),
+      "a false metamorphic claim is rejected even when the reference vectors pass (overfit guard)")
+# a draft with NEITHER a named oracle NOR reference vectors cannot be admitted
+ok, res = CMP.admit(_lf_draft(rv=False), venv_python=None, skip_differential=True, write=False)
+truth(not ok and any("ground-truth source" in e
+                     for cx in res["counterexamples"] for e in cx.get("errors", [])),
+      "a draft with no ground-truth source (no oracle, no reference vectors) is rejected")
+shutil.rmtree(_lf_tmp, ignore_errors=True)
+
 print("compiler: %d checks, %d failures" % (_n, _fail))
 sys.exit(1 if _fail else 0)

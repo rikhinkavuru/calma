@@ -126,6 +126,44 @@ def validate_draft(draft):
         args = orc.get("args", []) if isinstance(orc, dict) else []
         if not isinstance(args, list) or not all(isinstance(a, str) and a in inputs for a in args):
             e.append("oracle.args must name program input tags")
+    # firm-supplied reference vectors: an alternative ground truth to a named oracle, for BESPOKE
+    # metrics that have NO published callable (M4 onboarding). Each {inputs: {tag: [..]}, expected: num}
+    # is a concrete (inputs -> expected) the program must reproduce - the firm's own numbers ARE the
+    # oracle, so admission via this path needs no reference venv.
+    rv = draft.get("reference_vectors")
+    if rv is not None:
+        if not isinstance(rv, list) or not rv:
+            e.append("reference_vectors must be a non-empty list when present")
+        else:
+            for i, vec in enumerate(rv):
+                if not isinstance(vec, dict) or "inputs" not in vec or "expected" not in vec:
+                    e.append("reference_vectors[%d] needs 'inputs' and 'expected'" % i)
+                    continue
+                vin = vec.get("inputs")
+                if not isinstance(vin, dict) or set(vin) != set(inputs):
+                    e.append("reference_vectors[%d].inputs must cover exactly the program inputs (%s)"
+                             % (i, ", ".join(sorted(inputs))))
+                else:
+                    lens = set()
+                    for t, col in vin.items():
+                        if not isinstance(col, list):
+                            e.append("reference_vectors[%d].inputs[%r] must be a list" % (i, t))
+                            continue
+                        lens.add(len(col))
+                        if inputs[t] == "rawlist":
+                            if not all(isinstance(x, str) for x in col):
+                                e.append("reference_vectors[%d].inputs[%r] is a rawlist (strings)" % (i, t))
+                        elif not all(isinstance(x, (int, float)) and not isinstance(x, bool) for x in col):
+                            e.append("reference_vectors[%d].inputs[%r] must be numbers" % (i, t))
+                    if len(lens) > 1:
+                        e.append("reference_vectors[%d].inputs columns must share one length" % i)
+                exp = vec.get("expected")
+                if not isinstance(exp, (int, float)) or isinstance(exp, bool):
+                    e.append("reference_vectors[%d].expected must be a number" % i)
+    # admission needs at least one ground-truth source: a named oracle or firm reference vectors.
+    if draft.get("oracle") is None and not draft.get("reference_vectors"):
+        e.append("a ground-truth source is required: either a named `oracle` (a published callable) or "
+                 "firm-supplied `reference_vectors` (concrete inputs->expected for a bespoke metric)")
     rels = draft.get("metamorphic", [])
     if not isinstance(rels, list) or not rels:
         e.append("at least one metamorphic relation is required")
@@ -236,6 +274,31 @@ def stage_differential(draft, venv_python):
         else:
             vectors.append({"seed": seed, "n": n, "value_repr": repr(got),
                             "oracle_repr": repr(want)})
+    return failures, vectors
+
+
+# ---- stage 1b: differential vs FIRM-SUPPLIED reference vectors (venv-free) --------
+
+def stage_reference(draft):
+    """The program must reproduce every firm-supplied reference vector (a concrete inputs->expected) to
+    REL_TOL. The firm's own numbers ARE the oracle, so this stage needs NO reference venv - it is how a
+    BESPOKE metric with no published callable is admitted (M4). A mismatch is a `reference`-stage
+    counterexample carrying the EXACT firm inputs that failed (sharper than an LCG sample), reusing the
+    same diff-localization the named-oracle path uses."""
+    failures, vectors = [], []
+    for i, vec in enumerate(draft.get("reference_vectors", [])):
+        data = {t: list(v) for t, v in (vec.get("inputs") or {}).items()}
+        n = len(next(iter(data.values()), [])) if data else 0
+        got = dsl.execute(draft["program"], data)
+        want = float(vec["expected"])
+        if not _close(got, want):
+            failures.append({"stage": "reference", "index": i, "n": n,
+                             "oracle": "firm reference vector #%d" % i,
+                             "expected": repr(want), "got": repr(got),
+                             "inputs": {t: v[:8] for t, v in data.items()}})
+        else:
+            vectors.append({"reference_index": i, "n": n, "value_repr": repr(got),
+                            "expected_repr": repr(want)})
     return failures, vectors
 
 
@@ -396,10 +459,16 @@ def admit(draft, venv_python=None, compiled_path=COMPILED_PATH, skip_differentia
     if errs:
         return False, {"counterexamples": [{"stage": "structural", "errors": errs}]}
     failures, vectors = [], []
-    if not skip_differential:
-        if draft.get("oracle") is None:
-            return False, {"counterexamples": [{"stage": "structural",
-                                                "errors": ["a named oracle is required for admission"]}]}
+    ran_ground_truth = False
+    # ground truth A: firm-supplied reference vectors. The firm's own inputs->expected numbers ARE the
+    # oracle, so this needs NO reference venv - the path that onboards a BESPOKE metric (M4).
+    if draft.get("reference_vectors"):
+        f, rv = stage_reference(draft)
+        failures += f
+        vectors += rv
+        ran_ground_truth = True
+    # ground truth B: a NAMED published oracle, executed in the reference venv (the original path).
+    if not skip_differential and draft.get("oracle") is not None:
         venv = venv_python or DEFAULT_VENV
         if not os.path.exists(venv):
             return False, {"counterexamples": [{"stage": "differential",
@@ -410,8 +479,10 @@ def admit(draft, venv_python=None, compiled_path=COMPILED_PATH, skip_differentia
             print("warning: reference venv lives under world-writable /tmp - on a multi-user "
                   "machine another user could replace it; set $CALMA_REF_VENV to a private "
                   "path (e.g. ~/.calma/ref-venv/bin/python)", file=sys.stderr)
-        f, vectors = stage_differential(draft, venv)
+        f, ov = stage_differential(draft, venv)
         failures += f
+        vectors += ov
+        ran_ground_truth = True
     failures += stage_metamorphic(draft)
     failures += stage_degenerate(draft)
     failures += stage_bitstable(draft)
@@ -431,6 +502,7 @@ def admit(draft, venv_python=None, compiled_path=COMPILED_PATH, skip_differentia
         "program_sha256": dsl.program_hash(draft["program"]),
         "generators": draft["generators"],
         "oracle": draft.get("oracle"),
+        "reference_vectors": draft.get("reference_vectors"),
         "metamorphic": draft.get("metamorphic"),
         "edge_cases": draft.get("edge_cases", {}),
         "vectors": vectors,
@@ -438,6 +510,8 @@ def admit(draft, venv_python=None, compiled_path=COMPILED_PATH, skip_differentia
         "set_maturity": "compiled-validated",
         "admitted": {"date": datetime.date.today().isoformat(),
                      "differential_vectors": len(vectors),
+                     "ground_truth": "reference-vectors" if draft.get("reference_vectors")
+                     else "named-oracle",
                      "skip_differential": bool(skip_differential)},
     }
     # the recipe itself is attested: SSHSIG over the canonical compiled entry, lab key
@@ -452,7 +526,7 @@ def admit(draft, venv_python=None, compiled_path=COMPILED_PATH, skip_differentia
     except Exception:  # noqa: BLE001 - signing is evidence, never load-bearing for admission
         pass
 
-    if write and not skip_differential:
+    if write and ran_ground_truth:
         book = {"schema": "calma/compiled-recipes@1", "recipes": []}
         if os.path.exists(compiled_path):
             book = json.load(open(compiled_path))
@@ -482,8 +556,10 @@ def main():
                           "counterexamples": result["counterexamples"]}, indent=2))
         return 1
     if a.cmd == "check":
-        print(json.dumps({"admitted": False, "note": "check passed (stages 0,2,3,4); "
-                          "run `admit` with the reference venv to finish"}, indent=2))
+        note = ("check passed (stages 0,1b,2,3,4 incl. firm reference vectors); run `admit` to freeze "
+                "(no reference venv needed for a reference-vector recipe)" if draft.get("reference_vectors")
+                else "check passed (stages 0,2,3,4); run `admit` with the reference venv to finish")
+        print(json.dumps({"admitted": False, "note": note}, indent=2))
         return 0
     c = result["compiled"]
     print(json.dumps({"admitted": True, "metric_id": c["metric_id"],

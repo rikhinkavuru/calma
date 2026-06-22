@@ -12,6 +12,8 @@ def format_counterexample(ce: dict) -> str:
         return _fmt_structural(ce)
     if stage == "differential":
         return _fmt_differential(ce)
+    if stage == "reference":
+        return _fmt_reference(ce)
     if stage == "metamorphic":
         return _fmt_metamorphic(ce)
     if stage == "degenerate":
@@ -79,6 +81,18 @@ def _diff_hint(exp, got):
         return "got == sqrt(expected) -- you applied an EXTRA sqrt()."
     return ("the discrepancy is not a simple factor/sign/degree -- re-derive the oracle's exact formula "
             "(check its kwargs and definition) and compare operation-by-operation to your expr.")
+
+
+def _fmt_reference(ce):
+    """A firm reference vector the program failed to reproduce. The firm's EXACT inputs are the failing
+    case, so the diff hint here is on real data, not an LCG sample."""
+    exp, got = _f(ce.get("expected")), _f(ce.get("got"))
+    lines = ["REFERENCE-VECTOR mismatch on %s (n=%s):" % (ce.get("oracle"), ce.get("n")),
+             "  firm expected    = %s" % ce.get("expected"),
+             "  your program got = %s" % ce.get("got"),
+             "  the firm's exact inputs (first 8 per tag): %s" % ce.get("inputs"),
+             "  HYPOTHESIS: " + _diff_hint(exp, got)]
+    return "\n".join(lines)
 
 
 def _fmt_metamorphic(ce):
