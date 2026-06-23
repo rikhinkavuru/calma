@@ -1,4 +1,4 @@
-"""app.auth - GitHub App authentication (stdlib + openssl): mint a short-lived RS256 JWT signed with
+"""github_app.auth - GitHub App authentication (stdlib + openssl): mint a short-lived RS256 JWT signed with
 the app private key, exchange it for a 1-hour installation token. No third-party crypto dependency -
 RS256 is delegated to `openssl dgst -sha256 -sign` (the same shell-out the README documents). No engine
 import.

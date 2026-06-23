@@ -1,6 +1,6 @@
 # Calma
 
-[calma1.vercel.app](https://calma1.vercel.app/) · `v0.11.0` · MIT · pure Python stdlib
+[calma1.vercel.app](https://calma1.vercel.app/) · `v0.12.0` · MIT · pure Python stdlib
 
 **An automatic guardrail for AI-generated results: Calma re-runs your agent's work, recomputes the numbers it reported, and blocks the wrong ones before they ship.**
 
@@ -151,7 +151,7 @@ LLMs are used only where they can't fake a verdict: **extracting** claims from m
 
 ## The benchmark
 
-`benchmark/` ships a 129-case corpus (synthetic + external UCI/sklearn + real-world) scored on two axes (NASEM 2019):
+`benchmark/` ships a 117-case corpus (synthetic + external UCI/sklearn + real-world) scored on two axes (NASEM 2019):
 
 - **Reproducibility** — does the headline number recompute? Calma **100%** catch / 0 false-confirm / 0 false-alarm vs an LLM-as-judge ~82% and trust-the-number 0%.
 - **Validity** — the cell where the number *reproduces* but the result is invalid: Calma **100%** (it INVALIDATES the 12 tagged leaked / overfit / survivorship / shift cases) vs a recompute-only method's **0%**.
@@ -190,7 +190,7 @@ A `verify.yaml` pins *how* to verify (entrypoint, column bindings, conventions, 
 edges/                          the AI edges (extract / draft / synth / repair) — firewalled from core
 mcp/                            the host-agnostic MCP server (transport)
 pr/  ·  app/                    the PR-review bot (CI) + the hosted GitHub App (transport)
-benchmark/                      the 129-case corpus + the 4-arm comparison + scoring
+benchmark/                      the 117-case corpus + the 4-arm comparison + scoring
 ```
 
 - **The verdict is one function**, re-derived byte-for-byte at the gate — non-gameable.
@@ -209,7 +209,7 @@ Read these before you rely on a verdict.
 
 ## Status & docs
 
-`v0.11.0`. Real and tested. See [`CHANGELOG.md`](CHANGELOG.md), the [PR-bot adopter guide](docs/pr-bot.md), and the [GitHub App guide](app/README.md).
+`v0.12.0`. Real and tested. See [`CHANGELOG.md`](CHANGELOG.md), the [PR-bot adopter guide](docs/pr-bot.md), and the [GitHub App guide](github_github_app/README.md).
 
 ## License
 

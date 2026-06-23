@@ -15,7 +15,7 @@ import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.normpath(os.path.join(HERE, "..", "..")))
-from app import server as S  # noqa: E402
+from github_app import server as S  # noqa: E402
 
 SECRET = "shh-webhook-secret"
 
@@ -132,7 +132,7 @@ def test_mint_jwt_with_openssl_if_available():
     (skipped otherwise - openssl isn't guaranteed in every CI image)."""
     import shutil
     import subprocess
-    from app import auth
+    from github_app import auth
     if not shutil.which("openssl"):
         print("  (openssl not present - mint_jwt test skipped)")
         return

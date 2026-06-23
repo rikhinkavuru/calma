@@ -1,4 +1,4 @@
-"""app.server - the stdlib webhook receiver: verify the HMAC signature, route the event, and (on a real
+"""github_app.server - the stdlib webhook receiver: verify the HMAC signature, route the event, and (on a real
 deployment) enqueue the verify+comment job on Calma's infra. REJECTS a bad/absent signature before ANY
 work. Transport only - verdicts come from the engine (via the pr/ transport); no verdict-core import.
 
@@ -75,7 +75,7 @@ def enqueue(job):
     NOTE: the fetch + re-execute touch the network/disk, so this is exercised on a real deployment, not
     in the unit tests (which cover the signature + routing). Kept thin + dependency-injected."""
     from pr import run_pr, comment_pr, github
-    from app import auth
+    from github_app import auth
     app_id = os.environ["CALMA_APP_ID"]
     pkey = os.environ["CALMA_APP_PRIVATE_KEY"]
     workdir = os.environ.get("CALMA_WORKDIR", ".")

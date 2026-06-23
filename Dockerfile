@@ -1,6 +1,6 @@
 # calma — multi-stage, NON-ROOT container (roadmap WS-B distribution).
-#   build:  docker build -t calma:0.10.0 .
-#   run:    docker run --rm --network=none -v "$PWD:/work" -w /work calma:0.10.0 verify . "Sharpe 1.8"
+#   build:  docker build -t calma:0.12.0 .
+#   run:    docker run --rm --network=none -v "$PWD:/work" -w /work calma:0.12.0 verify . "Sharpe 1.8"
 # The core is pure-stdlib (dependencies = []), so the runtime carries no third-party line unless you build
 # the parquet variant (--build-arg EXTRAS=parquet). In a release pipeline: pin the base image by DIGEST,
 # install from a hashed lock (--require-hashes), and add cosign-keyless signing + a CycloneDX/SPDX SBOM +

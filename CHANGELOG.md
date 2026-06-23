@@ -2,6 +2,88 @@
 
 All notable changes to the calma skill/CLI. Dates are UTC.
 
+## 0.12.0 — M4 bespoke-metric onboarding · live agent-arm benchmark · transparency-log + e2b
+
+- **M4 — CEGIS bespoke-metric onboarding** (`calma onboard`): point calma at a one-paragraph
+  methodology + a handful of your own reference numbers for a metric it doesn't already cover; an AI
+  drafts a checker and the deterministic gate (`compiler.admit`) proves it against those reference
+  vectors (+ metamorphic + degeneracy + bit-stability) before it is ever allowed to run. Front door
+  `calma onboard` + a worked example (coefficient-of-range).
+- **Live agent-arm benchmark, measured**: a code-running agent (Claude Haiku 4.5 + GPT-4o-mini) that
+  re-runs the math and judges the number ties calma on raw accuracy (~84% catch) but flips its verdict
+  on 10–52% of identical reruns, misses half-to-four-fifths of the reproduces-but-invalid cases, and
+  costs ~$5 / ~38s a check — vs calma's deterministic ~0.2s, $0, with a signed replayable proof.
+- **Benchmark hardening**: a cited validity catalog (≥8 INVALIDATED per family with cited provenance,
+  honest misses written down).
+- Also folded in from the prior `Unreleased` blocks (full notes below):
+  - Optional **Sigstore Rekor** transparency-log backing for the catch-history registry.
+  - The **`e2b` remote-microVM isolation tier** (Docker-less untrusted-code verification).
+
+### optional Sigstore Rekor transparency-log backing for the catch-history registry
+
+Additive, belt-and-suspenders **on top of** the registry's custom hash-chain — never a replacement.
+When a Rekor endpoint is configured (default: **none**), each published registry entry is also logged
+to a [Sigstore Rekor](https://github.com/sigstore/rekor) transparency log (Apache-2.0, self-hostable),
+and the returned inclusion proof is stored alongside the entry so third parties can verify the
+append-only property **offline** with `rekor-cli` or `calma registry verify`. Full suite green,
+incl. the new `tests/test_rekor.py` (32 checks: unit + a stub-Rekor-over-HTTP integration arm).
+
+- **New `scripts/rekor.py`** (pure stdlib): RFC 6962 Merkle inclusion-proof verification, `hashedrekord`
+  + `dsse` entry construction, the networked `log_entry` (the only egress), and the offline verifier.
+  The RFC 6962 math is cross-checked against a reference Merkle tree over tree sizes 1..129.
+- **Rekor v2 entry-type constraint enforced.** v2 (GA Oct 2025) supports only `hashedrekord` + `dsse`;
+  it dropped `intoto`/`rfc3161`. Calma logs registry entries as `hashedrekord` over the entry's content
+  address and **hard-rejects** the dropped types (`assert_v2_entry_type`). v2 is the default; a pinned
+  self-hosted v1 is opt-in via `--rekor-v1`.
+- **Offline, log-independent verification.** The stored proof re-verifies with pure local Merkle math,
+  cross-checked against the registry entry's content address — tamper the entry, the proof, the root, or
+  the witnessed digest and it fails. Two honesty tiers (mirroring the RFC 3161 discipline): `merkle`
+  (proof folds, root self-asserted) and `anchored` (a pinned `--rekor-log-key` verifies the checkpoint
+  signature). `calma registry verify` re-checks every stored proof offline and fails the audit on a
+  present-but-broken one.
+- **Hermetic ordering is explicit and load-bearing.** Logging happens strictly **after** the verdict is
+  finalized and the entry is signed; `registry.append_entry` builds the wrapper in memory, logs to Rekor,
+  and only **then** commits the files — so under the **fail-closed default** a Rekor failure writes nothing
+  (no silently un-logged entry). `--rekor-optional` opts into fail-open. The Rekor block is wrapper-level,
+  so the entry's content address and SSHSIG bytes are byte-identical with or without it (redaction
+  whitelist untouched). Rekor can never alter a verdict, recompute, or determinism stamp.
+- **CLI.** `calma publish … --rekor <URL> [--rekor-optional] [--rekor-log-key HEX|FILE] [--rekor-v1]`
+  (also `seal --publish` and `$CALMA_REKOR_URL`); `calma registry verify … --rekor-log-key HEX|FILE`.
+- **Docs.** New `docs/rekor.md` (self-hosting via docker-compose, the v2 constraint, offline verification,
+  the `rekor-cli` equivalent for third parties); README + SKILL + `references/script-interfaces.md` updated.
+
+### `e2b` remote-microVM isolation tier (Docker-less untrusted-code verification)
+
+Purely additive. A host **without Docker** can now run `--trust third-party` workloads under
+hardware-grade isolation instead of the exit-3 refusal, by selecting a remote Firecracker microVM.
+
+- **New tier `--isolation e2b`** (`scripts/run_hermetic.py`): a remote Firecracker microVM behind the
+  SAME `(config, doctor, exec)` protocol as the Docker tier (`_run_e2b_backend` mirrors
+  `_run_docker_backend`). The verdict layer treats it as a verified VM tier with no special-casing.
+- **Two deployments, one code path, zero vendor lock-in.** E2B **cloud** OR a **self-hosted** E2B / raw
+  Firecracker cluster, selected by config — **no hard-coded vendor endpoint**. Required config (env or a
+  JSON file at `CALMA_E2B_CONFIG`): `CALMA_E2B_ENDPOINT`, `CALMA_E2B_API_KEY`/`_TOKEN`,
+  `CALMA_E2B_TEMPLATE`; optional `CALMA_E2B_SELF_HOSTED=1`.
+- **Stamp values:** `e2b-firecracker` (cloud) and `e2b-firecracker (self-hosted)` — registered in all
+  five verified-tier sites (run_hermetic, calma, hook_stop, compare, verdict). The self-hosted stamp
+  records provenance **without ever leaking the endpoint URL**.
+- **Network DENIED in-guest, fail-closed.** The tier is stamped verified ONLY after the in-VM `_PROBE`
+  egress battery (raw IP, DNS, curl) all fail; if the SDK can't even express network-deny at construct
+  time, it **refuses (exit 3)** rather than boot with the network up. Missing/invalid config → exit 3
+  naming exactly what's absent. No secrets in logs, stamps, or the replay bundle.
+- **Determinism path untouched.** The microVM only *produces* raw outputs (retrieved to the host run
+  subtree); recompute/compare run host-side over those bytes — the VM never participates, so the tier
+  adds no nondeterminism.
+- **Optional dependency.** The E2B SDK is lazily imported only when `e2b` is selected (`pip install
+  e2b`); core installs without it keep working and simply can't pick the tier. E2B is Apache-2.0 and
+  Terraform-self-hostable.
+- **Tests** (`tests/test_e2b.py`, 40 checks): interface completeness, the network-deny assertion
+  (verified + both fail-closed paths), missing-config → exit 3, a **no-Docker smoke path** (Docker
+  absent → `--trust third-party --isolation e2b` reaches a verdict, not exit 3), recompute-over-
+  retrieved-outputs == `e2b-firecracker` end-to-end with secret-hygiene scan, and the anti-drift
+  lockstep across all five tier sites. A live spawn/exec/recompute pass is gated behind `CALMA_E2B_LIVE`
+  so credential-less CI skips it. Full suite green (34 suites, 0 failed).
+
 ## 0.11.0 — engineering roadmap: tournament ICP · distribution · transparency log
 
 The research-backed engineering roadmap, executed end-to-end (22 commits), plus a full adversarial
@@ -58,71 +140,6 @@ before it ships):
 
 Tests: `test_plausibility_checks` 14, `test_needs_demand` 12, `test_draft_cmd` 9, `test_draft` 43;
 full core suite **43/0**.
-
-## Unreleased — optional Sigstore Rekor transparency-log backing for the catch-history registry
-
-Additive, belt-and-suspenders **on top of** the registry's custom hash-chain — never a replacement.
-When a Rekor endpoint is configured (default: **none**), each published registry entry is also logged
-to a [Sigstore Rekor](https://github.com/sigstore/rekor) transparency log (Apache-2.0, self-hostable),
-and the returned inclusion proof is stored alongside the entry so third parties can verify the
-append-only property **offline** with `rekor-cli` or `calma registry verify`. Full suite green,
-incl. the new `tests/test_rekor.py` (32 checks: unit + a stub-Rekor-over-HTTP integration arm).
-
-- **New `scripts/rekor.py`** (pure stdlib): RFC 6962 Merkle inclusion-proof verification, `hashedrekord`
-  + `dsse` entry construction, the networked `log_entry` (the only egress), and the offline verifier.
-  The RFC 6962 math is cross-checked against a reference Merkle tree over tree sizes 1..129.
-- **Rekor v2 entry-type constraint enforced.** v2 (GA Oct 2025) supports only `hashedrekord` + `dsse`;
-  it dropped `intoto`/`rfc3161`. Calma logs registry entries as `hashedrekord` over the entry's content
-  address and **hard-rejects** the dropped types (`assert_v2_entry_type`). v2 is the default; a pinned
-  self-hosted v1 is opt-in via `--rekor-v1`.
-- **Offline, log-independent verification.** The stored proof re-verifies with pure local Merkle math,
-  cross-checked against the registry entry's content address — tamper the entry, the proof, the root, or
-  the witnessed digest and it fails. Two honesty tiers (mirroring the RFC 3161 discipline): `merkle`
-  (proof folds, root self-asserted) and `anchored` (a pinned `--rekor-log-key` verifies the checkpoint
-  signature). `calma registry verify` re-checks every stored proof offline and fails the audit on a
-  present-but-broken one.
-- **Hermetic ordering is explicit and load-bearing.** Logging happens strictly **after** the verdict is
-  finalized and the entry is signed; `registry.append_entry` builds the wrapper in memory, logs to Rekor,
-  and only **then** commits the files — so under the **fail-closed default** a Rekor failure writes nothing
-  (no silently un-logged entry). `--rekor-optional` opts into fail-open. The Rekor block is wrapper-level,
-  so the entry's content address and SSHSIG bytes are byte-identical with or without it (redaction
-  whitelist untouched). Rekor can never alter a verdict, recompute, or determinism stamp.
-- **CLI.** `calma publish … --rekor <URL> [--rekor-optional] [--rekor-log-key HEX|FILE] [--rekor-v1]`
-  (also `seal --publish` and `$CALMA_REKOR_URL`); `calma registry verify … --rekor-log-key HEX|FILE`.
-- **Docs.** New `docs/rekor.md` (self-hosting via docker-compose, the v2 constraint, offline verification,
-  the `rekor-cli` equivalent for third parties); README + SKILL + `references/script-interfaces.md` updated.
-
-## Unreleased — `e2b` remote-microVM isolation tier (Docker-less untrusted-code verification)
-
-Purely additive. A host **without Docker** can now run `--trust third-party` workloads under
-hardware-grade isolation instead of the exit-3 refusal, by selecting a remote Firecracker microVM.
-
-- **New tier `--isolation e2b`** (`scripts/run_hermetic.py`): a remote Firecracker microVM behind the
-  SAME `(config, doctor, exec)` protocol as the Docker tier (`_run_e2b_backend` mirrors
-  `_run_docker_backend`). The verdict layer treats it as a verified VM tier with no special-casing.
-- **Two deployments, one code path, zero vendor lock-in.** E2B **cloud** OR a **self-hosted** E2B / raw
-  Firecracker cluster, selected by config — **no hard-coded vendor endpoint**. Required config (env or a
-  JSON file at `CALMA_E2B_CONFIG`): `CALMA_E2B_ENDPOINT`, `CALMA_E2B_API_KEY`/`_TOKEN`,
-  `CALMA_E2B_TEMPLATE`; optional `CALMA_E2B_SELF_HOSTED=1`.
-- **Stamp values:** `e2b-firecracker` (cloud) and `e2b-firecracker (self-hosted)` — registered in all
-  five verified-tier sites (run_hermetic, calma, hook_stop, compare, verdict). The self-hosted stamp
-  records provenance **without ever leaking the endpoint URL**.
-- **Network DENIED in-guest, fail-closed.** The tier is stamped verified ONLY after the in-VM `_PROBE`
-  egress battery (raw IP, DNS, curl) all fail; if the SDK can't even express network-deny at construct
-  time, it **refuses (exit 3)** rather than boot with the network up. Missing/invalid config → exit 3
-  naming exactly what's absent. No secrets in logs, stamps, or the replay bundle.
-- **Determinism path untouched.** The microVM only *produces* raw outputs (retrieved to the host run
-  subtree); recompute/compare run host-side over those bytes — the VM never participates, so the tier
-  adds no nondeterminism.
-- **Optional dependency.** The E2B SDK is lazily imported only when `e2b` is selected (`pip install
-  e2b`); core installs without it keep working and simply can't pick the tier. E2B is Apache-2.0 and
-  Terraform-self-hostable.
-- **Tests** (`tests/test_e2b.py`, 40 checks): interface completeness, the network-deny assertion
-  (verified + both fail-closed paths), missing-config → exit 3, a **no-Docker smoke path** (Docker
-  absent → `--trust third-party --isolation e2b` reaches a verdict, not exit 3), recompute-over-
-  retrieved-outputs == `e2b-firecracker` end-to-end with secret-hygiene scan, and the anti-drift
-  lockstep across all five tier sites. A live spawn/exec/recompute pass is gated behind `CALMA_E2B_LIVE`
-  so credential-less CI skips it. Full suite green (34 suites, 0 failed).
 
 ## 0.10.0 — pilot-readiness: autonomy modes, agent-arm benchmark, hardening
 
