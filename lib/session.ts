@@ -21,8 +21,9 @@ export const getSession = cache(async (): Promise<Session | null> => {
       const prov = await provision({ workos_user_id: user.id, email: user.email, org_name: orgName });
       return { user: { email: user.email, name, mode: "workos" }, tenantId: prov.tenant_id };
     }
-  } catch {
+  } catch (e) {
     // WorkOS not configured, or no active session — fall through to the dev tenant.
+    console.error("[calma] getSession withAuth error:", e instanceof Error ? e.message : e);
   }
   const dev = process.env.DASHBOARD_DEV_TENANT_ID;
   if (dev) return { user: { email: "dev@local", name: "Dev User", mode: "dev" }, tenantId: dev };
@@ -33,7 +34,8 @@ export async function getSignInUrl(): Promise<string | null> {
   try {
     const mod = await import("@workos-inc/authkit-nextjs");
     return await mod.getSignInUrl();
-  } catch {
+  } catch (e) {
+    console.error("[calma] getSignInUrl error:", e instanceof Error ? e.message : e);
     return null;
   }
 }
