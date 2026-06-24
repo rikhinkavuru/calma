@@ -2,7 +2,19 @@
 
 All notable changes to the calma skill/CLI. Dates are UTC.
 
-## Unreleased — `FLAG_FOR_DECLARATION` · OTel-eval wedge · streaming recompute · IDD/ODD report · input lineage
+## Unreleased — `FLAG_FOR_DECLARATION` · OTel-eval wedge · streaming recompute · IDD/ODD report · input lineage · egress control
+
+- **Auditable egress control — the "data never leaves" boundary made into evidence** (`egress_audit.py`,
+  master roadmap §1.2 / the P2-M1 acceptance / the K1 sandbox-escape kill-risk). Runs a probe entrypoint
+  UNDER the local isolation tier (Seatbelt / bubblewrap) that attempts every egress vector the SOC 2 / SIG-
+  CAIQ network-security domain names — DNS resolution, an arbitrary external IP, the **`169.254.169.254`
+  cloud-metadata endpoint** (the classic SSRF / credential-theft target), and an **IPv6** destination — and
+  asserts ALL are denied, emitting a dated, signable JSON evidence record. With no verified tier it SKIPS
+  honestly (no boundary to attest — never a false pass); a vector reaching the network under a verified tier
+  is a `LEAK` (exit 1). `python3 egress_audit.py [--out evidence.json]` is the scheduled, logged control the
+  roadmap calls for; `tests/test_egress_audit.py` (11 checks) runs it every CI push (on macOS it attests
+  `seatbelt-verified` → all four vectors denied). This is the "data never leaves" claim made *testable and
+  attestable*, the architectural cheat-code for the questionnaire's network-security/egress domains.
 
 - **Input-lineage / content-hash provenance attestation** (`lineage.py`, W8(d)) — the operational form of the
   L2 "input-data authenticity" ceiling. A three-tier in-toto Statement v1 (`predicateType
