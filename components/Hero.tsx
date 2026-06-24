@@ -38,7 +38,7 @@ export function Hero() {
             blindCount={16}
             blindMinWidth={55}
             noise={0.25}
-            spotlightRadius={0.95}
+            spotlightRadius={2.5}
             spotlightSoftness={0.8}
             spotlightOpacity={0.75}
             mouseDampening={0.15}
