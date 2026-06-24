@@ -24,6 +24,7 @@ export function Nav({ user }: { user: { name: string; email: string; mode: "work
         ))}
       </div>
       <div className={styles.navright}>
+        <Link href="/" className={styles.navlink}>← Back to site</Link>
         {user.mode === "dev" && <span className={styles.devpill}>DEV SESSION</span>}
         <span>{user.name}</span>
         {user.mode === "workos" && (

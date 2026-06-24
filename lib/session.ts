@@ -11,15 +11,25 @@ export type Session = {
   tenantId: string;
 };
 
+// A WorkOS user's Calma tenant is stable, but provision() is a DB upsert + registry seed — too expensive to
+// run on EVERY page render. Cache workos_user_id -> tenantId in memory (per warm serverless instance, which
+// Fluid Compute reuses across requests), so only the FIRST render on a cold instance pays the round-trip.
+const tenantCache = new Map<string, string>();
+
 export const getSession = cache(async (): Promise<Session | null> => {
   try {
     const mod = await import("@workos-inc/authkit-nextjs");
     const { user } = await mod.withAuth();
     if (user) {
       const name = [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email;
-      const orgName = (user.email?.split("@")[1] || "personal") + " workspace";
-      const prov = await provision({ workos_user_id: user.id, email: user.email, org_name: orgName });
-      return { user: { email: user.email, name, mode: "workos" }, tenantId: prov.tenant_id };
+      let tenantId = tenantCache.get(user.id);
+      if (!tenantId) {
+        const orgName = (user.email?.split("@")[1] || "personal") + " workspace";
+        const prov = await provision({ workos_user_id: user.id, email: user.email, org_name: orgName });
+        tenantId = prov.tenant_id;
+        tenantCache.set(user.id, tenantId);
+      }
+      return { user: { email: user.email, name, mode: "workos" }, tenantId };
     }
   } catch (e) {
     // WorkOS not configured, or no active session — fall through to the dev tenant.
