@@ -31,13 +31,41 @@ $ calma verify ./my-backtest "Sharpe 2.6"
 
 ---
 
+## Contents
+
+- [What's in this repo](#whats-in-this-repo)
+- [Why recompute](#why)
+- [How it works](#how-it-works) — verdict · validity layer · breadth · cross-engine · isolation
+- [Surfaces — the engine, everywhere](#surfaces--the-engine-everywhere)
+- [Hosted API & dashboard](#hosted-api--dashboard)
+- [The benchmark](#the-benchmark)
+- [Quickstart](#quickstart)
+- [Architecture & design properties](#architecture--design-properties)
+- [Limitations](#limitations)
+- [Develop](#develop)
+- [Status & docs](#status--docs) · [License](#license)
+
+---
+
+## What's in this repo
+
+One deterministic engine and the surfaces that wrap it:
+
+- **The engine + the `calma` CLI/skill** — `.claude/skills/calma/` (pure stdlib) and the pip-installable `src/calma` facade.
+- **The website + hosted console** — a Next.js app (`app/`, `components/`) serving the marketing site and a logged-in `/dashboard` product UI, deployed at [calma1.vercel.app](https://calma1.vercel.app/).
+- **The control-plane API** — `control_plane/` (FastAPI) + `api/` (the Vercel Python entry) backing the console's verifications, tenants, and API keys.
+- **The transports** — the MCP server (`mcp/`), the PR-review bot (`pr/`), and the hosted GitHub App (`github_app/`).
+- **The benchmark** — `benchmark/`, the reproducible 117-case head-to-head corpus.
+
+---
+
 ## Why
 
 Every dashboard, paper, and pitch deck reports a number. Almost none of them can be independently checked without trusting whoever produced it. AI agents make this worse: they now generate the backtests, the evals, and the "tests pass" — and they are confidently wrong at scale. The expensive failures (a team ships a model that leaked its test set; a fund allocates on an inflated Sharpe) come from a number that was **technically reproducible but not valid**.
 
 Calma is built around one act almost no one else does: **recompute the claimed number from the raw outputs, and separately check that the result is sound.** Those are two different questions, and Calma answers both.
 
-**Why recompute, instead of reading the diff or trusting the score?** Because a score is the thing that gets gamed. In 2026 a UC Berkeley team built an agent that scored **~100% on six major agentic benchmarks** — SWE-bench, WebArena, GAIA — *without solving a single task*: on SWE-bench it dropped a `conftest.py` that makes the grader report every test as passing; on WebArena it read the gold answer straight off a `file://` URL ([Wang et al., 2026](https://www.rdworldonline.com/how-a-berkeley-team-broke-8-major-ai-benchmarks-six-of-them-hit-100-without-solving-a-single-task/)). The score was perfect; the work was never done. Reading the diff doesn't catch that, and neither does asking a model whether the result *looks* right — on [Calma's own head-to-head benchmark](benchmark/), an LLM-as-judge **silently confirmed 14 wrong numbers** and caught only half the real-world cases, while trusting the reported number caught **0 of 77**. Calma re-executes the work and recomputes the number from the raw output files, so there is no score left to game.
+**Why recompute, instead of reading the diff or trusting the score?** Because a score is the thing that gets gamed. In 2026 a UC Berkeley team built an agent that scored **~100% on six major agentic benchmarks** — SWE-bench, WebArena, GAIA — *without solving a single task*: on SWE-bench it dropped a `conftest.py` that makes the grader report every test as passing; on WebArena it read the gold answer straight off a `file://` URL ([Wang et al., 2026](https://www.rdworldonline.com/how-a-berkeley-team-broke-8-major-ai-benchmarks-six-of-them-hit-100-without-solving-a-single-task/)). The score was perfect; the work was never done. Reading the diff doesn't catch that, and neither does asking a model whether the result *looks* right — on [Calma's own head-to-head benchmark](benchmark/), an LLM-as-judge **silently confirmed 14 wrong numbers** and caught only ~82% of cases, while trusting the reported number caught **0 of 77**. Calma re-executes the work and recomputes the number from the raw output files, so there is no score left to game.
 
 ---
 
@@ -126,13 +154,14 @@ Verified network-off own-code tiers — **Seatbelt** (macOS) and **bubblewrap** 
 
 ## Surfaces — the engine, everywhere
 
-Calma is one deterministic engine behind five surfaces. *AI proposes, determinism disposes.* Each surface is a thin transport that calls the engine as a black-box subprocess and never re-implements a verdict (enforced by firewall tests).
+Calma is one deterministic engine behind a handful of surfaces. *AI proposes, determinism disposes.* Each surface is a thin transport that calls the engine as a black-box subprocess and never re-implements a verdict (enforced by firewall tests).
 
 - **Claude Code skill / inline agent guardrail** — a Stop hook catches numeric claims before an agent reports them; the agent's own work gets verified mid-loop.
 - **CLI** — `calma verify`, `draft` (point it at a messy repo → a runnable `verify.yaml`), `recipes`, `suggest`, `modes`, `replay`, `doctor`, `seal`, `registry verify`.
 - **MCP server** (`python -m calma_mcp`) — the deterministic verifier callable from *any* MCP host (Cursor, Codex CLI, Windsurf, Claude Desktop, CI bots).
 - **A1 artifact pipeline** (`python -m edges.extract`) — point it at a notebook / PDF / CSV and it verifies *every* number, each catch tied to its source span ("cell 14 says 0.94 → recomputes to 0.71").
-- **The merge gate — *block the merge on a wrong number*** (`pr/` + a hosted GitHub App in `app/`) — re-runs `calma verify` on a PR's changed result-dirs in the engine's network-off sandbox and posts the verdicts inline. But the SKU is the **gating check-run**: a pure function of the engine's verdicts (`failure` on any REFUTED / INVALIDATED / MIXED, `neutral` on CAN'T-CONFIRM, `success` otherwise) that you mark **required** in branch protection. A comment-bot posts an LLM opinion you can dismiss; this is a **blocking correctness gate** — *prove your own numbers before you ship.* Built on the pwn-request-proof two-workflow pattern.
+- **The merge gate — *block the merge on a wrong number*** (`pr/` + a hosted GitHub App in `github_app/`) — re-runs `calma verify` on a PR's changed result-dirs in the engine's network-off sandbox and posts the verdicts inline. But the SKU is the **gating check-run**: a pure function of the engine's verdicts (`failure` on any REFUTED / INVALIDATED / MIXED, `neutral` on CAN'T-CONFIRM, `success` otherwise) that you mark **required** in branch protection. A comment-bot posts an LLM opinion you can dismiss; this is a **blocking correctness gate** — *prove your own numbers before you ship.* Built on the pwn-request-proof two-workflow pattern.
+- **The hosted console** (`/dashboard`) — a logged-in product UI on the Next.js site (WorkOS AuthKit), backed by the control-plane API (`control_plane/` + `api/`): submit a bundle, list / inspect verifications, and manage API keys. See [`DASHBOARD.md`](DASHBOARD.md).
 
 ### Autonomy — two axes you control (a mode changes what Calma *does*, never what it *decides*)
 
@@ -149,14 +178,24 @@ LLMs are used only where they can't fake a verdict: **extracting** claims from m
 
 ---
 
+## Hosted API & dashboard
+
+Beyond the OSS engine, this repo contains the **hosted product** — verification-as-a-service for teams whose output is numbers. The engine stays the same; this wraps it in a multi-tenant API and a logged-in UI.
+
+- **Control-plane API** — `control_plane/` (FastAPI), deployed as a Vercel Python / Fluid-Compute function (`api/index.py` + `api.vercel.json`), backed by **Postgres** (Supabase, per-tenant row-level security) and **Cloudflare R2** object storage. Endpoints: `POST /v1/verifications` (submit a bundle), `GET /v1/verifications/{id}[/result|/proof]`, `GET /v1/verifications` (list), `POST /v1/uploads` (presigned R2 PUT), `POST|GET|DELETE /v1/keys` (API-key admin), `POST /internal/provision` (first-party tenant provisioning). Bearer **API-key** auth (`calma_sk_<env>_…`, SHA-256-hashed, constant-time verify), idempotency keys, and an immutable hash-chained `audit_log`.
+- **Execution** — on submit, the API stages the bundle + data from R2 into a workdir and runs the **same engine** as a subprocess (`calma verify --json`), then persists the run + verdict + artifacts. Set `CALMA_EXEC_ISOLATION=e2b` to execute untrusted code in a network-denied **E2B Firecracker microVM** (the host self-proves egress is denied before stamping the tier). Recompute always happens host-side, outside the sandbox.
+- **Dashboard** (`app/dashboard/`, `lib/`) — a logged-in console behind **WorkOS AuthKit**: submit a verification, list and inspect verdicts (claimed vs recomputed, the validity results, the execution tier, the evidence bundle), and create / revoke API keys. The dashboard talks to the API first-party with a service token that never reaches the browser (`lib/calma.ts` is `server-only`). See [`DASHBOARD.md`](DASHBOARD.md) and [`control_plane/README.md`](control_plane/README.md).
+
+The end-to-end path is real and tested (sign-up → key → upload → submit → execute → verdict → proof). **Not yet wired:** a worker queue (execution is currently synchronous/inline), usage **billing/metering** (Stripe — the schema columns exist, the logic doesn't), hosted **verdict signing** (the local CLI `calma seal` signs; the hosted path stores the evidence JSON unsigned for now), and SSO/SCIM.
+
 ## The benchmark
 
 `benchmark/` ships a 117-case corpus (synthetic + external UCI/sklearn + real-world) scored on two axes (NASEM 2019):
 
-- **Reproducibility** — does the headline number recompute? Calma **100%** catch / 0 false-confirm / 0 false-alarm vs an LLM-as-judge ~82% and trust-the-number 0%.
-- **Validity** — the cell where the number *reproduces* but the result is invalid: Calma **100%** (it INVALIDATES the 12 tagged leaked / overfit / survivorship / shift cases) vs a recompute-only method's **0%**.
+- **Reproducibility** — does the headline number recompute? Calma **100%** catch (77/77) / 0 false-confirm / 0 false-alarm vs an LLM-as-judge **~82%** (63/77, with 14 silent false-confirms and 12 false alarms) and trust-the-number **0%** (0/77).
+- **Validity** — the cell where the number *reproduces* but the result is invalid: Calma **100%** (it INVALIDATES the tagged leaked / overfit / survivorship / shift cases) vs a recompute-only method's **0%**.
 
-A fourth `agent-with-exec` arm (a frontier agent with a `run_python` tool, sandboxed identically) measures the *honest* differences once an agent can execute: verdict-instability (Calma 0 by construction), a pass^k consistency curve, agreement-with-Calma, cost, and the validity blind spot — across ≥2 model families, every counted run network-off-isolated, every transcript published.
+A fourth `agent-with-exec` arm (a frontier agent with a `run_python` tool, sandboxed identically) measures the *honest* differences once an agent can execute: verdict-instability (Calma 0 by construction), a pass^k consistency curve, agreement-with-Calma, cost, and the validity blind spot — across ≥2 model families, every counted run network-off-isolated, every transcript published. See [`benchmark/README.md`](benchmark/README.md).
 
 ---
 
@@ -176,9 +215,21 @@ calma replay ./result/.calma/run
 
 # prove the sandbox actually isolates on this host
 python3 .claude/skills/calma/scripts/run_hermetic.py doctor
+
+# watch a real inflated backtest get caught, zero setup
+make demo
 ```
 
 A `verify.yaml` pins *how* to verify (entrypoint, column bindings, conventions, and any validity blocks — `split` / `trials` / `frictions` / `corpus` / `universe` / `study` / `windows` / `pipeline`). Most validity checks activate only when their block is declared — Calma never guesses a scope that could flip a verdict; the exception is the thin-input plausibility family, which flags from the series alone. Don't write it by hand: `calma draft <repo>` points Calma at a messy repo and writes a runnable `verify.yaml`, auto-detecting the safe blocks (split, trials) and *suggesting* the rest.
+
+### Running the website locally
+
+```bash
+npm install
+npm run dev          # http://localhost:3000  (marketing site + /dashboard console)
+```
+
+The console additionally needs the control-plane API and WorkOS env — see [`DASHBOARD.md`](DASHBOARD.md) and [`control_plane/README.md`](control_plane/README.md).
 
 ---
 
@@ -186,17 +237,21 @@ A `verify.yaml` pins *how* to verify (entrypoint, column bindings, conventions, 
 
 ```
 .claude/skills/calma/scripts/   the deterministic engine (pure stdlib): verdict · ledger · compare ·
-                                recompute · numeric · 13 *_checks.py validity families · run_hermetic
+                                recompute · numeric · validity families · run_hermetic
+src/calma/                      the thin pip-installable facade (a client of the one engine, not a fork)
 edges/                          the AI edges (extract / draft / synth / repair) — firewalled from core
 mcp/                            the host-agnostic MCP server (transport)
-pr/  ·  app/                    the PR-review bot (CI) + the hosted GitHub App (transport)
+pr/  ·  github_app/             the PR-review bot (CI) + the hosted GitHub App (transport)
+app/  ·  components/  ·  lib/    the Next.js website (marketing) + the logged-in /dashboard console
+control_plane/  ·  api/         the FastAPI control plane + its Vercel Python entry (verifications/tenants/keys)
+registry/                       the hash-chained public catch registry served by the site
 benchmark/                      the 117-case corpus + the 4-arm comparison + scoring
 ```
 
 - **The verdict is one function**, re-derived byte-for-byte at the gate — non-gameable.
 - **Pure stdlib; offline by default — your code and data never leave your machine.** The honest answer to "where is our data processed?" is *"on your machine, network-off."* (Optional tiers you turn on explicitly — a remote microVM for untrusted code, an RFC-3161 timestamp, a Rekor log — make a network call, and the ledger records exactly which.)
-- **Every transport is firewalled** — `mcp/`, `pr/`, `app/` import no verdict core; the validity detectors import no model.
-- **Tested:** 70 core suites / 0 failed (pure stdlib) + 39 transport tests (10 mcp + 29 pr); one command runs all three — `make test-all`; 628 recipes against reference vectors.
+- **Every transport is firewalled** — `mcp/`, `pr/`, `github_app/` import no verdict core; the validity detectors import no model.
+- **Tested:** 71 core suites / 0 failed (pure stdlib) + the MCP + PR transport suites; one command runs all three — `make test-all`; 628 recipes against reference vectors.
 
 ## Limitations
 
@@ -207,9 +262,23 @@ Read these before you rely on a verdict.
 - **Coverage is honest, not total.** Some assumptions are not checkable from one output log (e.g. a risk sim's one-of-n non-collusion); calma reports those as out-of-scope rather than asserting them. The per-verdict ledger lists exactly what was and was not checked. On the recipe side, **597 of 628 recipes (95.1%) are independently verified (Tier-1)** — against the live framework number, the official numerai-tools, or a frozen vector generated from numpy/scipy/sklearn — with a `make eval` gate that won't let that ratio regress (`benchmark/coverage_report.py`); the remaining 31 are honestly listed, not hidden.
 - **Isolation varies by host.** A verified sandbox is used where available; on other hosts re-execution runs with reduced isolation and **the ledger records the tier it actually achieved**. Treat third-party code accordingly.
 
+## Develop
+
+The core is pure Python stdlib — no virtualenv needed to run or test it.
+
+```bash
+make test         # the core suite (pure stdlib): 71 suites, 0 failures
+make test-all     # every layer: core + MCP + PR transports (bootstraps ~/.calma venvs if missing)
+make eval         # the standing eval net: core suite + framework golden vectors + recompute baseline + determinism
+make demo         # watch a real inflated backtest get caught (offline, zero setup)
+make benchmark    # synthetic-only quick track (the full 117-case run is in benchmark/README.md → "Reproduce")
+```
+
+The engine lives in `.claude/skills/calma/scripts/` and imports nothing outside the standard library. The intelligence layers (`edges/`) and the transports (`mcp/`, `pr/`, `github_app/`) are **firewalled** from it — a test fails if any of them imports the verdict core, and the validity detectors import no model. Run the core suite under the **system** `python3` (running it inside an edges venv produces false failures). See [`docs/extending.md`](docs/extending.md) to add a recipe or a validity family.
+
 ## Status & docs
 
-`v0.12.0`. Real and tested. See [`CHANGELOG.md`](CHANGELOG.md), the [PR-bot adopter guide](docs/pr-bot.md), and the [GitHub App guide](github_github_app/README.md).
+`v0.12.0`. Real and tested. See [`CHANGELOG.md`](CHANGELOG.md), the [install guide](docs/install.md), the [extending guide](docs/extending.md), the [supported frameworks](docs/frameworks.md), the [PR-bot adopter guide](docs/pr-bot.md), the [GitHub App guide](github_app/README.md), the [console/auth guide](DASHBOARD.md), and the [security policy](SECURITY.md).
 
 ## License
 

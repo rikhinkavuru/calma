@@ -1,6 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <!-- Calma mark: cream "C" (an open seal) with an amber point on the void. -->
-  <rect width="32" height="32" rx="7" fill="#0d0b08"/>
-  <path d="M21.3 9.9 A8.2 8.2 0 1 0 21.3 22.1" fill="none" stroke="#e9ddc4" stroke-width="3.6" stroke-linecap="round"/>
-  <circle cx="22.6" cy="16" r="2.7" fill="#e89a5d"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- Calma mark: a monoline lotus (amber) on the void tile. -->
+  <defs>
+    <path id="p" d="M0 0 C -10.5 -18 -10.5 -29 0 -39 C 10.5 -29 10.5 -18 0 0 Z"/>
+  </defs>
+  <rect width="100" height="100" rx="22" fill="#0d0b08"/>
+  <g fill="none" stroke="#e89a5d" stroke-width="4.4" stroke-linecap="round" stroke-linejoin="round">
+    <use href="#p" transform="translate(50 60)"/>
+    <use href="#p" transform="translate(50 60) rotate(-46)"/>
+    <use href="#p" transform="translate(50 60) rotate(46)"/>
+    <use href="#p" transform="translate(53.5 58.5) rotate(-96)"/>
+    <use href="#p" transform="translate(46.5 58.5) rotate(96)"/>
+  </g>
 </svg>

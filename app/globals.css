@@ -1123,7 +1123,7 @@ img, svg, canvas { display: block; max-width: 100%; }
 /* gradient blinds sit behind the hero content, above the atmosphere */
 .hero__blinds {
   position: absolute; inset: 0; z-index: 0; pointer-events: none;
-  opacity: 0.55;
+  opacity: 0.3;
 }
 .hero__blinds .gradient-blinds-container,
 .hero__blinds canvas { width: 100% !important; height: 100% !important; display: block; }
@@ -1145,13 +1145,13 @@ img, svg, canvas { display: block; max-width: 100%; }
 }
 .card-nav-cta-button {
   text-decoration: none; display: inline-flex; align-items: center;
-  font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em;
+  font-family: var(--disp); font-weight: 600; font-size: 13px; letter-spacing: 0.04em;
   text-transform: uppercase; border-radius: 8px;
 }
 .card-nav-cta-button:hover { background-color: var(--sun) !important; }
 .nav-card { border: 1px solid var(--hairline); }
 .nav-card-label { font-family: var(--disp); font-weight: 600; }
-.nav-card-link { font-family: var(--mono); font-size: 13px; letter-spacing: 0.02em; color: var(--cream-70); }
+.nav-card-link { font-family: var(--disp); font-size: 14px; letter-spacing: 0.01em; color: var(--cream-70); }
 .nav-card-link:hover { color: var(--cream); opacity: 1; }
 
 /* ============================================================================
@@ -1387,10 +1387,10 @@ img, svg, canvas { display: block; max-width: 100%; }
 .bp-cta__h .am { color: var(--amber); }
 .bp-cta__row { display: grid; grid-template-columns: 2.4fr 1fr; gap: 16px; margin-top: 36px; text-align: left; }
 .bp-cta__panel { background: radial-gradient(150% 200% at 0% 0%, var(--sun), var(--amber) 46%, rgba(46,79,109,0.7) 100%); color: #1c1206; border-radius: 16px; padding: clamp(26px, 3vw, 40px); position: relative; overflow: hidden; }
-.bp-cta__panel .lab { font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(28,18,6,0.65); }
+.bp-cta__panel .lab { font-family: var(--disp); font-weight: 600; font-size: 11.5px; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(28,18,6,0.65); }
 .bp-cta__num { font-family: var(--disp); font-weight: 700; font-size: clamp(34px, 5.6vw, 64px); letter-spacing: -0.03em; margin-top: 12px; font-variant-numeric: tabular-nums; }
 .bp-cta__side { border: 1px solid var(--hairline); border-radius: 16px; padding: 26px; background: rgba(233,221,196,0.03); display: flex; flex-direction: column; justify-content: space-between; }
-.bp-cta__side .gh { display: flex; align-items: center; justify-content: space-between; color: var(--amber); font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
+.bp-cta__side .gh { display: flex; align-items: center; justify-content: space-between; color: var(--amber); font-family: var(--disp); font-weight: 600; font-size: 13px; letter-spacing: 0.04em; text-transform: uppercase; }
 .bp-cta__side b { font-family: var(--disp); font-weight: 600; font-size: 22px; color: var(--cream); margin-top: 22px; }
 .bp-cta__side span { font-size: 13px; color: var(--cream-55); }
 
@@ -1399,13 +1399,13 @@ img, svg, canvas { display: block; max-width: 100%; }
 .bp-footer__in { max-width: var(--maxw); margin: 0 auto; padding: clamp(48px, 6vw, 72px) clamp(18px, 3vw, 42px) 0; display: grid; grid-template-columns: 1.5fr 0.8fr 0.8fr 0.8fr 0.9fr; gap: 28px; position: relative; z-index: 2; }
 .bp-footer__lead { font-family: var(--disp); font-weight: 600; font-size: clamp(22px, 2.4vw, 30px); color: var(--cream); letter-spacing: -0.02em; line-height: 1.18; }
 .bp-footer__sub { margin-top: 12px; font-size: 14px; color: var(--cream-55); max-width: 32ch; line-height: 1.5; }
-.bp-fcol h5 { font-family: var(--mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--cream-35); }
+.bp-fcol h5 { font-family: var(--disp); font-weight: 600; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--cream-35); }
 .bp-fcol a { display: block; margin-top: 13px; font-size: 14px; color: var(--cream-70); transition: color 0.15s; }
 .bp-fcol a:hover { color: var(--amber); }
-.bp-footer__copy { max-width: var(--maxw); margin: 0 auto; padding: 34px clamp(18px, 3vw, 42px) 0; font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--cream-35); text-align: center; position: relative; z-index: 2; }
+.bp-footer__copy { max-width: var(--maxw); margin: 0 auto; padding: 34px clamp(18px, 3vw, 42px) 0; font-family: var(--disp); font-size: 12.5px; letter-spacing: 0.02em; color: var(--cream-35); text-align: center; position: relative; z-index: 2; }
 .bp-footer__mark { display: grid; place-items: center; padding: 26px 0 0; position: relative; z-index: 2; }
-.bp-footer__mark > div { width: 60px; height: 60px; background: var(--amber); border-radius: 15px; display: grid; place-items: center; box-shadow: 0 16px 40px rgba(0,0,0,0.4); }
-.bp-footer__mark img { width: 36px; height: 36px; }
+.bp-footer__mark > div { display: grid; place-items: center; }
+.bp-footer__mark img { width: 56px; height: auto; }
 .bp-footer__wm { font-family: var(--disp); font-weight: 700; font-stretch: 122%; font-size: clamp(70px, 21vw, 300px); text-align: center; color: rgba(233,221,196,0.06); line-height: 0.78; padding-bottom: 6px; user-select: none; letter-spacing: -0.045em; position: relative; z-index: 1; }
 
 @media (max-width: 900px) {
@@ -1479,3 +1479,168 @@ img, svg, canvas { display: block; max-width: 100%; }
 .bench__berkeley code { font-family: var(--mono); font-size: 12.5px; color: var(--cream); background: rgba(233,221,196,0.07); padding: 1px 5px; border-radius: 4px; }
 .bench__berkeley a { color: var(--amber); white-space: nowrap; }
 .bench__berkeley a:hover { text-decoration: underline; }
+
+/* ============================================================================
+   FLOW — the convergence section under the hero. A LIGHT band inside the dark
+   site: source cards → wires with traveling pulses → the engine (lotus) →
+   one verdict. Light theme is scoped to .flowsec; type matches the hero (Archivo).
+   ========================================================================== */
+.flowsec {
+  /* local light theme — tokens flipped just for this band */
+  --void: #f6f2e9;
+  --cream: #1f1a13;
+  --cream-70: rgba(31, 26, 19, 0.72);
+  --cream-55: rgba(31, 26, 19, 0.56);
+  --cream-35: rgba(31, 26, 19, 0.30);
+  --hairline: rgba(31, 26, 19, 0.10);
+  --amber: #b8631f;
+  --sun: #cf7e2f;
+  --teal: #2f8f6c;
+  --sky: #2f83a8;
+  background: var(--void);
+  color: var(--cream);
+}
+.flow { text-align: center; }
+.flow .bp-head { margin-bottom: clamp(30px, 4vw, 48px); }
+/* headline matches the hero exactly: same Archivo weight/width, not the heavier
+   stretched bp-h2 default */
+.flow .bp-h2 { font-weight: 500; font-stretch: 100%; letter-spacing: -0.015em; }
+
+/* --- source cards: white, soft, gently floating, alternating tilt --- */
+.flow__cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: clamp(26px, 3vw, 46px); align-items: start; }
+.flowcard {
+  position: relative; text-align: left; padding: 18px 20px 17px; border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid rgba(31, 26, 19, 0.07);
+  box-shadow: 0 14px 30px -16px rgba(60, 42, 18, 0.26), 0 2px 6px rgba(60, 42, 18, 0.05);
+  transform: rotate(var(--tilt, 0deg));
+  transition: border-color 0.4s var(--ease), box-shadow 0.4s var(--ease);
+}
+/* subtle alternating tilt so the row feels hand-laid, not stamped */
+.flow__cards > .rv:nth-child(odd) .flowcard { --tilt: -1.4deg; }
+.flow__cards > .rv:nth-child(even) .flowcard { --tilt: 1.4deg; }
+/* hover changes only color/shadow — NOT geometry — so the hit area never moves
+   (that was the violent shake/flicker at the card edges) */
+.flowcard:hover {
+  border-color: color-mix(in srgb, var(--tone) 45%, transparent);
+  box-shadow: 0 22px 44px -18px rgba(60, 42, 18, 0.34), 0 2px 6px rgba(60, 42, 18, 0.06);
+}
+.flowcard__h { padding-bottom: 12px; margin-bottom: 13px; border-bottom: 1px solid var(--hairline); }
+.flowcard__name { font-family: var(--disp); font-weight: 600; font-size: 13px; letter-spacing: 0.01em; color: var(--cream); }
+.flowcard__rows { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.flowcard__row { display: flex; align-items: center; gap: 11px; }
+.flowcard__ic { display: grid; place-items: center; width: 18px; height: 18px; color: var(--tone); flex: none; }
+.flowcard__ic svg { display: block; }
+.flowcard__claim { font-family: var(--disp); font-size: 14.5px; color: var(--cream-70); }
+
+/* --- wires + traveling data pulses --- */
+.flow__wires { display: block; width: 100%; height: clamp(72px, 8vw, 110px); margin-top: 4px; overflow: visible; }
+.flow__wires--out { width: 100%; max-width: 600px; margin: clamp(4px, 0.8vw, 10px) auto 0; height: clamp(52px, 6vw, 82px); }
+.flow__wire { stroke: var(--cream-35); stroke-width: 1.2; stroke-dasharray: 1.6 7; stroke-linecap: round; animation: flowDash 1.6s linear infinite; }
+@keyframes flowDash { to { stroke-dashoffset: -17.2; } }
+.flow__pulse { fill: var(--amber); }
+@media (prefers-reduced-motion: reduce) {
+  .flow__wire { animation: none; }
+  .flow__pulse { display: none; }
+}
+
+/* mobile-only vertical connector (hidden on desktop) */
+.flow__drop { display: none; }
+
+/* --- the engine: the lotus as the convergence point (no glow), nudged down --- */
+.flow__node { display: inline-grid; justify-items: center; margin: clamp(4px, 0.8vw, 10px) 0 0; }
+.flow__logo { display: grid; place-items: center; }
+.flow__logo img { width: clamp(108px, 12vw, 148px); height: auto; }
+
+/* --- output: verdict columns connected to the diverging wires (no gap) --- */
+.flow__verdicts { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(8px, 1vw, 14px); max-width: 600px; margin: 0 auto; }
+.flow__verdict {
+  justify-self: center; position: relative; overflow: hidden; isolation: isolate;
+  font-family: var(--disp); font-weight: 600; font-size: 11.5px; letter-spacing: 0.12em; text-transform: uppercase;
+  padding: 8px 16px; border: 1px solid color-mix(in srgb, var(--cream) 16%, transparent); border-radius: 9px;
+  color: var(--vc, var(--cream-55)); border-color: color-mix(in srgb, var(--vc, var(--cream)) 50%, transparent);
+  transition: color 0.35s var(--ease), border-color 0.35s var(--ease);
+}
+/* fill sweeps up from the bottom on hover */
+.flow__verdict::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; background: var(--vc, var(--amber));
+  transform: scaleX(0); transform-origin: left; transition: transform 0.35s var(--ease);
+}
+.flow__verdict:hover { color: #fff; border-color: var(--vc); }
+.flow__verdict:hover::before { transform: scaleX(1); }
+.flow__verdict--ok { --vc: var(--teal); }
+.flow__verdict--no { --vc: var(--amber); }
+.flow__verdict--inv { --vc: var(--sky); }
+
+@media (max-width: 760px) {
+  .flow__cards { grid-template-columns: 1fr 1fr; gap: 16px; }
+  .flow__wires { display: none; }
+  .flow__drop { display: block; width: 1px; height: 44px; margin: 16px auto; background: repeating-linear-gradient(var(--cream-35) 0 2px, transparent 2px 7px); }
+  .flow__verdicts { margin-top: 22px; }
+}
+@media (max-width: 440px) {
+  .flow__cards { grid-template-columns: 1fr; }
+  .flow__verdicts { grid-template-columns: 1fr; max-width: 240px; gap: 8px; }
+}
+
+/* ============================================================================
+   FEATURES — three pillars on the same light band, beneath the flow.
+   Inherits the .flowsec light theme; type is Archivo throughout.
+   ========================================================================== */
+.feat { padding-top: clamp(24px, 3vw, 48px); }
+.feat .bp-head { margin-bottom: clamp(38px, 4.5vw, 60px); }
+.feat__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(22px, 2.6vw, 40px); text-align: left; }
+.featcol { display: flex; flex-direction: column; }
+
+/* the visual card */
+.featviz {
+  background: #fff; border: 1px solid rgba(31, 26, 19, 0.07); border-radius: 16px;
+  box-shadow: 0 14px 30px -16px rgba(60, 42, 18, 0.22), 0 2px 6px rgba(60, 42, 18, 0.04);
+  padding: clamp(22px, 2.2vw, 30px); min-height: 178px; display: grid; place-items: center;
+  margin-bottom: clamp(18px, 2vw, 24px);
+}
+.featcol__h { font-family: var(--disp); font-weight: 600; font-size: clamp(18px, 1.5vw, 21px); letter-spacing: -0.01em; color: var(--cream); margin-bottom: 9px; }
+.featcol__p { font-family: var(--disp); font-size: 14.5px; line-height: 1.62; color: var(--cream-70); }
+
+/* inline chips inside the descriptions */
+.chip {
+  display: inline-flex; align-items: center; gap: 5px; vertical-align: middle;
+  padding: 1px 8px; margin: 1px 0; border-radius: 7px; white-space: nowrap;
+  background: rgba(31, 26, 19, 0.045); border: 1px solid rgba(31, 26, 19, 0.10);
+  font-size: 12.5px; font-weight: 500; color: var(--cream); line-height: 1.7;
+}
+.chip svg { font-size: 13px; flex: none; }
+.chip--p i { width: 6px; height: 6px; border-radius: 50%; display: inline-block; flex: none; }
+
+/* badges shared by the viz cards */
+.fbadge { font-family: var(--disp); font-weight: 700; font-size: 10.5px; letter-spacing: 0.14em; padding: 5px 12px; border-radius: 7px; }
+.fbadge--no { background: color-mix(in srgb, var(--amber) 15%, transparent); color: var(--amber); }
+.fbadge--inv { background: color-mix(in srgb, var(--sky) 15%, transparent); color: var(--sky); }
+.fbadge--ok { background: color-mix(in srgb, var(--teal) 15%, transparent); color: var(--teal); }
+
+/* viz 1 — recompute diff */
+.vrec { display: grid; justify-items: center; gap: 9px; width: 100%; }
+.vrec__row { display: flex; align-items: baseline; justify-content: space-between; width: 100%; max-width: 200px; }
+.vrec__k { font-size: 12px; color: var(--cream-55); }
+.vrec__claim { font-family: var(--disp); font-weight: 600; font-size: 21px; color: var(--amber); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--amber) 55%, transparent); font-variant-numeric: tabular-nums; }
+.vrec__real { font-family: var(--disp); font-weight: 700; font-size: 26px; color: var(--cream); font-variant-numeric: tabular-nums; }
+.vrec__arrow { color: var(--cream-35); transform: rotate(90deg); display: inline-flex; font-size: 13px; }
+.vrec .fbadge { margin-top: 4px; }
+
+/* viz 2 — validity */
+.vval { display: grid; gap: 11px; width: 100%; justify-items: center; text-align: center; }
+.vval__row { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--cream); }
+.vval__ok { color: var(--teal); font-size: 15px; flex: none; }
+.vval__flag { font-size: 13px; line-height: 1.45; color: var(--cream-55); max-width: 210px; padding: 9px 12px; border-radius: 10px; background: color-mix(in srgb, var(--sky) 8%, transparent); border: 1px solid color-mix(in srgb, var(--sky) 18%, transparent); }
+
+/* viz 3 — proof */
+.vproof { display: grid; gap: 12px; width: 100%; justify-items: center; }
+.vproof__row { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--cream); }
+.vproof__row--ok { color: var(--teal); }
+.vproof__ico { color: var(--amber); font-size: 13px; flex: none; }
+.vproof__chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 7px; }
+.vproof__chips span { font-family: var(--disp); font-weight: 600; font-size: 11px; letter-spacing: 0.04em; padding: 5px 10px; border-radius: 7px; background: rgba(31, 26, 19, 0.05); border: 1px solid rgba(31, 26, 19, 0.10); color: var(--cream-70); }
+
+@media (max-width: 860px) {
+  .feat__grid { grid-template-columns: 1fr; max-width: 460px; margin-inline: auto; gap: 30px; }
+}

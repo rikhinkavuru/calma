@@ -38,7 +38,7 @@ export function BpFooter() {
       <div className="bp-footer__copy">© 2026 Calma · run by {FOUNDER} · catch your own wrong number first</div>
 
       <div className="bp-footer__mark">
-        <div><img src="/img/sm-mark.svg" alt="Calma" /></div>
+        <div><img src="/img/calma-lotus.png" alt="Calma" /></div>
       </div>
       <div className="bp-footer__wm" aria-hidden="true">calma.</div>
     </footer>

@@ -44,7 +44,7 @@ const NAV_ITEMS: CardNavItem[] = [
 export function SiteNav() {
   return (
     <CardNav
-      logo="/img/calma-mark.svg"
+      logo="/img/calma-lotus.png"
       logoAlt="Calma"
       items={NAV_ITEMS}
       baseColor="rgba(13,11,8,0.9)"
