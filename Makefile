@@ -1,4 +1,4 @@
-.PHONY: install uninstall test test-all eval validity-catalog demo benchmark
+.PHONY: install uninstall test test-all eval controls validity-catalog demo benchmark
 
 SKILL := .claude/skills/calma
 
@@ -20,6 +20,9 @@ test-all:       ## run EVERY layer: core + mcp + pr (bootstraps ~/.calma venvs i
 
 eval:           ## the standing eval net: core suite + framework golden vectors + recompute baseline + determinism
 	@bash scripts/eval.sh
+
+controls:       ## run the 4 SOC 2 controls (§1.2) -> a dated evidence pack (isolation/egress/no-raw/integrity)
+	@python3 $(SKILL)/scripts/soc2_controls.py --out soc2-evidence.json && echo "  wrote soc2-evidence.json"
 
 validity-catalog: ## regenerate + verify the hardened validity cut (>=8 INVALIDATED cases/family, live engine)
 	@python3 benchmark/validity_catalog.py --check

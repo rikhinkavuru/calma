@@ -15,6 +15,16 @@ All notable changes to the calma skill/CLI. Dates are UTC.
   roadmap calls for; `tests/test_egress_audit.py` (11 checks) runs it every CI push (on macOS it attests
   `seatbelt-verified` → all four vectors denied). This is the "data never leaves" claim made *testable and
   attestable*, the architectural cheat-code for the questionnaire's network-security/egress domains.
+- **All four Calma-specific SOC 2 controls (§1.2) as one auditable evidence pack** (`soc2_controls.py`,
+  `make controls`). The egress test above is one of four — the consolidated runner also attests:
+  **sandbox-isolation** (a sandbox-per-run under a verified tier denies egress + secret-reads — wraps the
+  doctor self-test), **no-raw-data-retention** (published records are a metadata-only whitelist; the registry
+  chain fails closed on any non-whitelisted key — raw inputs structurally can't be retained), and
+  **verdict-integrity** (every stored verdict re-derives byte-for-byte from its `verdict_inputs`, so a label
+  can't be forged or model-set). Each result is `verified` / honestly `skipped` (no local sandbox — never a
+  false pass) / `FAILED`. One dated, signable JSON evidence pack — the W9 "run the controls, get the evidence"
+  deliverable, no creds. `tests/test_soc2_controls.py` (13 checks, incl. an adversarial proof that
+  verdict-integrity FAILS on a tampered ledger — the control actually bites).
 
 - **Input-lineage / content-hash provenance attestation** (`lineage.py`, W8(d)) — the operational form of the
   L2 "input-data authenticity" ceiling. A three-tier in-toto Statement v1 (`predicateType
