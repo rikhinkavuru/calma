@@ -24,6 +24,7 @@ const NAV_ITEMS: CardNavItem[] = [
     bgColor: "#1a1610",
     textColor: "#e9ddc4",
     links: [
+      { label: "Dashboard", href: "/dashboard", ariaLabel: "Dashboard — verifications console" },
       { label: "Recipes", href: "/recipes", ariaLabel: "Recipes" },
       { label: "Registry", href: "/registry", ariaLabel: "Registry" },
       { label: "The lab", href: "/lab", ariaLabel: "The lab" },

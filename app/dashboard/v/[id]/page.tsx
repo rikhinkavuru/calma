@@ -8,7 +8,8 @@ export const dynamic = "force-dynamic";
 
 export default async function Detail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const s = (await getSession())!;
+  const s = await getSession();
+  if (!s) return null; // unauthenticated: the layout renders the sign-in gate
   let v: Verification | null = null;
   let proof: Record<string, unknown> | null = null;
   let error: string | null = null;

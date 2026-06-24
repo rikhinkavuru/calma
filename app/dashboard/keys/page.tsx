@@ -6,7 +6,8 @@ import { KeysManager } from "./KeysManager";
 export const dynamic = "force-dynamic";
 
 export default async function KeysPage() {
-  const s = (await getSession())!;
+  const s = await getSession();
+  if (!s) return null; // unauthenticated: the layout renders the sign-in gate
   let keys: ApiKey[] = [];
   let error: string | null = null;
   try {

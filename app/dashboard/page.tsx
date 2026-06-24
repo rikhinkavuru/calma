@@ -7,7 +7,8 @@ import styles from "./dashboard.module.css";
 export const dynamic = "force-dynamic";
 
 export default async function DashboardHome() {
-  const session = (await getSession())!;
+  const session = await getSession();
+  if (!session) return null; // unauthenticated: the layout renders the sign-in gate
   let items: Verification[] = [];
   let error: string | null = null;
   try {
