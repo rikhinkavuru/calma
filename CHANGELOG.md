@@ -2,7 +2,21 @@
 
 All notable changes to the calma skill/CLI. Dates are UTC.
 
-## Unreleased — `FLAG_FOR_DECLARATION` · OTel-eval wedge · streaming recompute · IDD/ODD report · input lineage · egress control
+## Unreleased — `FLAG_FOR_DECLARATION` · OTel-eval wedge · streaming recompute · IDD/ODD report · input lineage · egress control · sign-off state machine
+
+- **Reviewer/IC sign-off state machine + a hash-chained replayable audit trail** (`signoff.py`, W7 / M-7.5 —
+  the first allocator-workflow piece). A Verification flows `SUBMITTED → UNDER_REVIEW → REVIEWER_SIGNED →
+  IC_APPROVED | IC_REJECTED | RETURNED_TO_MANAGER`. **The gate (the point):** a non-clean verdict — `FLAG_FOR_
+  DECLARATION`, `REFUTED`, `INVALIDATED`, `MIXED`, or `CAN'T-CONFIRM` — **blocks IC auto-approval**; the IC must
+  explicitly **waive with a recorded reason** or `return_to_manager`, so a flagged/wrong/unverified number is
+  never silently approved (this is where the M-8b.2 `FLAG_FOR_DECLARATION` verdict lands in the allocator
+  decision). Every action is an append-only, hash-chained event (`prev_hash` sha256 chain, RFC-6962-style);
+  `replay()` re-walks the chain, verifies every hash + linkage, re-derives the final state, and rejects an
+  IC-approval of a non-clean verdict that carries no recorded waiver — so an IC decision is **provable after
+  the fact** (made on this verdict over these untampered events). Pure code, no creds: the DSSE/SSHSIG
+  signature keyed to WorkOS identity + the Rekor anchoring are the deferred W3/W2 binding (the signer is
+  modelled as `{id, role}` with an optional `signature` field). `tests/test_signoff.py` (24 checks, incl.
+  the gate, the role/state guards, and that replay catches a tampered/de-waivered event).
 
 - **Auditable egress control — the "data never leaves" boundary made into evidence** (`egress_audit.py`,
   master roadmap §1.2 / the P2-M1 acceptance / the K1 sandbox-escape kill-risk). Runs a probe entrypoint
