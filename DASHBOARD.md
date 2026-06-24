@@ -55,6 +55,31 @@ vercel deploy --local-config api.vercel.json --yes  # preview; add --prod to pro
 Then on the dashboard (`calma`) project set `CALMA_API_URL=https://<calma-api-domain>` + `CALMA_SERVICE_TOKEN`
 and redeploy. Set every secret with `vercel env` (never the committed repo) — DB / R2 / WorkOS / service token.
 
+### Dashboard (the `calma` project = calma1.vercel.app)
+The Next.js site (marketing + `/dashboard`) deploys to the existing **`calma`** project. Live now via a
+CLI deploy from this branch's working tree (the dashboard code isn't on `main` yet — a future push to `main`
+that lacks it would revert calma1 to marketing-only, so **merge this branch to `main` to make it durable**).
+
+Production env on `calma`: `WORKOS_CLIENT_ID` · `WORKOS_API_KEY` · `WORKOS_COOKIE_PASSWORD` ·
+`NEXT_PUBLIC_WORKOS_REDIRECT_URI=https://calma1.vercel.app/callback` · `CALMA_API_URL` (the calma-api URL) ·
+`CALMA_SERVICE_TOKEN`. Do **not** set `DASHBOARD_DEV_TENANT_ID` in production (it bypasses login).
+
+Auth: `middleware.ts` (authkitMiddleware, scoped to `/dashboard` + `/callback`) + `app/callback/route.ts`
+(`handleAuth`) + the layout's Server-Action sign-in. WorkOS redirect URIs must be registered (done):
+`https://calma1.vercel.app/callback` (prod) + `http://localhost:3000/callback` (dev).
+
+To redeploy the dashboard via CLI you need a **`.vercelignore`** (NOT committed — it would break the
+calma-api deploy, which needs `api/`). It must exclude `.env` (a `.vercelignore` REPLACES `.gitignore`, so
+Next would otherwise load the local `.env` into prod) plus the Python/engine dirs so `api/*.py` isn't built
+as a function:
+```
+.env
+.env.*
+api/  requirements.txt  api.vercel.json  control_plane/  .claude/  benchmark/  edges/  mcp/  pr/
+*.py  pyproject.toml  Dockerfile  Makefile  .next/  node_modules/
+```
+Then: `vercel link --project calma --yes` · `vercel deploy --prod`.
+
 ### Hosted execution (E2B)
 Untrusted-code submissions need a verified isolation tier. On the dev Mac that's seatbelt; on Vercel (no local
 sandbox) set **`CALMA_EXEC_ISOLATION=e2b`** so the API runs the engine with `--isolation e2b`, booting a
