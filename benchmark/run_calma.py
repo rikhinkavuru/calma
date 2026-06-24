@@ -18,7 +18,9 @@ CALMA = os.path.join(HERE, "..", ".claude", "skills", "calma", "scripts", "calma
 def _predict(verdict):
     # INVALIDATED is a catch (the number reproduces but the result is invalid - leaked/overfit/
     # survivorship-biased/gross-sold-as-net) - a "flawed" prediction, like REFUTED/MIXED.
-    if verdict in ("REFUTED", "MIXED", "INVALIDATED"):
+    # FLAG_FOR_DECLARATION is also a catch (undeclared structure that would invalidate the headline; it
+    # blocks the gate / IC auto-approval) - a "flawed" prediction, even though it is resolvable.
+    if verdict in ("REFUTED", "MIXED", "INVALIDATED", "FLAG_FOR_DECLARATION"):
         return "flawed"
     if verdict in ("CONFIRMED", "CONFIRMED-WITH-CAVEATS"):
         return "honest"

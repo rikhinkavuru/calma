@@ -25,9 +25,19 @@ All notable changes to the calma skill/CLI. Dates are UTC.
   louder-than-caveat, weaker-than-`INVALIDATED`, IC-visible **demand to declare the block** — resolvable in
   one move, never a guessed verdict-flip (`INVALIDATED` stays declaration-gated). Rank
   `REFUTED ≥ INVALIDATED > FLAG_FOR_DECLARATION > MIXED > CAVEATS`; it blocks the gate / Stop hook and
-  renders with an amber-red `⚑`. The enum + rank + render ship now; the artifact-inference detectors that
-  *produce* it are a follow-up. Threaded through `verdict.py`, `ledger.py`, `report.py`, `calma.py`,
+  renders with an amber-red `⚑`. Threaded through `verdict.py`, `ledger.py`, `report.py`, `calma.py`,
   `hook_stop.py`. +9 verdict + +9 ledger unit-checks.
+- **The inference detectors that PRODUCE `FLAG_FOR_DECLARATION`** (`infer_validity.py`, M-8b.2) — the
+  declare-nothing kill-shot closer. Runs in `_assemble_ledger` after plausibility (so a soft CAVEAT is in
+  place first; the flag overrides it). Three governed detectors, each reusing existing machinery and each
+  suppressed when the authoritative family was declared: (1) an undeclared train/test split with real
+  row-overlap on an OOS claim → flag the split; (2) a strong regime break (two-sample KS p≪α + a variance
+  shift) on a forward/robust claim → flag a `windows:` block; (3) an undeclared trials matrix alongside an
+  implausibly-high Sharpe → flag the trials. Each names the exact block to declare; `apply_validity` sets
+  `flag_for_declaration` but **never** `validity_invalidated` (the verdict-flip stays declaration-gated),
+  and only ever promotes a reproduced (CONFIRMED/CAVEATS) headline. `tests/test_infer_validity.py` (21
+  checks). Zero false-flags on the benchmark corpus (no honest case asserts the OOS/forward scope the
+  detectors require); benchmark `_predict` maps FLAG→flawed.
 - **OTel-eval distribution wedge** (`calma verify --emit-otel [URL]`, `from calma.otel import emit_verdict`).
   Emit each verdict as a standard **OpenTelemetry GenAI evaluation result** (`gen_ai.evaluation.name=`
   `calma.<metric>`, `.score.value`=the recomputed number, `.score.label`/`.outcome` from the verdict, plus

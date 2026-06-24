@@ -33,6 +33,7 @@ import overfitting_checks as OC
 import realism_checks as RLC
 import contamination_checks as CNC
 import plausibility_checks as PLC
+import infer_validity as INF
 import embargo_checks as EMB
 import simulation_assumptions_checks as SAC
 import cross_engine as CE
@@ -441,7 +442,7 @@ def _assemble_ledger(contract, diff, run_res, claim_text=None):
     # Each family promotes the (reproduced) headline DOWN only (INVALIDATED / CAN'T-CONFIRM / CAVEAT),
     # scope-guarded; none can inflate a verdict.
     leak_fam = over_fam = real_fam = cont_fam = bt_fam = pit_fam = ds_fam = reg_fam = ml_fam = None
-    shift_fam = plaus_fam = emb_fam = sim_fam = None
+    shift_fam = plaus_fam = emb_fam = sim_fam = infer_fam = None
     if claims and run_res.get("exit_code", 0) == 0:
         _base = run_res.get("base") or (
             os.path.dirname(os.path.dirname(run_res["run_dir"])) if run_res.get("run_dir") else None)
@@ -533,6 +534,16 @@ def _assemble_ledger(contract, diff, run_res, claim_text=None):
                                            findings=findings))
             PLC.apply_validity(claims, findings, contract, claim_text, base=_base)
             plaus_fam = PLC.family_status(contract, findings)
+            # M-8b.2: PROMOTE an inferred smell to FLAG_FOR_DECLARATION when the evidence is strong + multi-
+            # signal AND nothing was declared (the kill-shot hole: declaring nothing while the data screams
+            # train/test leak / a strong regime break / an undeclared trials matrix). Runs AFTER plausibility
+            # so a soft CAVEAT is in place first; the flag overrides it (FLAG > CAVEAT). NEVER manufactures
+            # INVALIDATED — it is a demand to declare, not a verdict flip. `findings` is passed so a detector
+            # defers to its authoritative family when that one already fired.
+            findings.extend(INF.run_checks(contract, _base, claims[0]["id"], claim_text=claim_text,
+                                           findings=findings))
+            INF.apply_validity(claims, findings, contract, claim_text, base=_base)
+            infer_fam = INF.family_status(contract, findings)
     # reconcile a claim's human reason with its FINAL verdict_inputs after any family promotion
     # (leakage/realism/overfitting/contamination): the promotion changes the verdict but not the
     # compare-time reason, which would otherwise read a stale "matches within budget" under a
@@ -593,7 +604,8 @@ def _assemble_ledger(contract, diff, run_res, claim_text=None):
                          **({"distribution-shift": shift_fam} if shift_fam else {}),
                          **({"era-embargo": emb_fam} if emb_fam else {}),
                          **({"simulation-assumptions": sim_fam} if sim_fam else {}),
-                         **({"plausibility": plaus_fam} if plaus_fam else {})},
+                         **({"plausibility": plaus_fam} if plaus_fam else {}),
+                         **({"inferred-flags": infer_fam} if infer_fam else {})},
             "not_verified": _not_verified(metric_ids, leak_fam, over_fam, real_fam, cont_fam,
                                           bt_fam, pit_fam, ds_fam, reg_fam, ml_fam, shift_fam, emb_fam,
                                           sim_fam),
