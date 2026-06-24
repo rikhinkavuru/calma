@@ -2,7 +2,21 @@
 
 All notable changes to the calma skill/CLI. Dates are UTC.
 
-## Unreleased — `FLAG_FOR_DECLARATION` verdict tier · OTel-eval wedge · streaming recompute · IDD/ODD report
+## Unreleased — `FLAG_FOR_DECLARATION` · OTel-eval wedge · streaming recompute · IDD/ODD report · input lineage
+
+- **Input-lineage / content-hash provenance attestation** (`lineage.py`, W8(d)) — the operational form of the
+  L2 "input-data authenticity" ceiling. A three-tier in-toto Statement v1 (`predicateType
+  https://calma.dev/InputLineage/v1`): tier-1 content hash (what we have), tier-2 a declared source manifest
+  (uri / retrieved-at·by / the transport digest hashed AT FETCH TIME / provider immutability handles), tier-3
+  an optional fund-admin-NAV corroboration (`corroborate_nav` recomputes the period return implied by an
+  administrator's NAV and diffs it against the headline under the recompute tolerance → matched / mismatch /
+  unavailable — the only tier touching external reality). Every statement carries a FIXED, always-present
+  `proves` / `does_not_prove` honesty block so the deliverable can never over-claim provenance (hashing ≠
+  truth). `transport_integrity` chains tier-1↔tier-2 to flag tamper. `evidence_json` gains a `provenance`
+  field (the W7 connector's `lineage.json`, else the honest tier-1-only default that says exactly that no
+  source manifest was recorded), surfaced in IDD-REPORT §6. The W7 BYOC connector that *populates* tier-2/3 at
+  fetch time + the attest/Rekor signing of the predicate land with W7; this ships the layer + the math.
+  `tests/test_lineage.py` (18 checks); `test_evidence_bundle.py` → 46.
 
 - **Evidence bundle → the IC-acceptable IDD/ODD deliverable** (`evidence_bundle.py`, M-8c.1). The bundle
   graduates from a one-page cover sheet into a multi-section IDD/ODD report — still a **pure re-projection**

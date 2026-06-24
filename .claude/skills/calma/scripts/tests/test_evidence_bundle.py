@@ -104,6 +104,15 @@ html = EV.idd_report_html(ev)
 truth(html.startswith("<!doctype html") and "<table>" in html and "IDD/ODD" in html,
       "idd_report_html is a self-contained styled page")
 
+# --- W8(d): the input-lineage provenance layer (tier-1-only default when no lineage.json was recorded) ---
+prov = ev.get("provenance") or {}
+truth(prov.get("tier") == "content-hash-only" and bool(prov.get("does_not_prove")),
+      "evidence_json carries provenance (the honest tier-1-only default — content hashes only)")
+truth(prov.get("transport_integrity") == "not-declared" and "no source manifest" in (prov.get("note") or ""),
+      "the tier-1-only provenance default says exactly that no source manifest was recorded")
+truth("Provenance (input lineage)" in idd and "fund-admin-NAV" in idd,
+      "IDD §6 surfaces the provenance line (tier · transport-integrity · NAV-corroboration)")
+
 # the checklist surfaces ✅ checked / 🚩 flag-for-declaration / ⛔ not-assessed from families + inferred-flags
 syn_scope = {"families": {"reproducibility": "checked", "leakage": "flagged", "inferred-flags": "flagged"},
              "not_verified": ["data-snooping (no trials block)"]}

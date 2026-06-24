@@ -25,6 +25,7 @@ import json
 import os
 import shutil
 
+import lineage as LIN
 import pathsafe as PS
 import report as REP
 
@@ -187,6 +188,10 @@ def evidence_json(run_dir):
     contract = _load_contract(run_dir)
     did_not_assess = scope.get("not_verified") or []
     treatment = _input_data_treatment(lineage, contract)
+    # W8(d): provenance — the tier-2 source manifest + tier-3 corroboration when a run recorded them
+    # (lineage.json from the W7 connector), else the honest tier-1-only default (content hashes only). The
+    # always-present proves/does_not_prove block is the L2 ceiling made operational.
+    provenance = LIN.provenance_section(_load(run_dir, "lineage.json"))
     rec = REP.fmt_value(head.get("recomputed_value"), head.get("metric")) \
         if head.get("recomputed_value") is not None else "—"
     clm = REP.fmt_value(head.get("claimed_value"), head.get("metric")) \
@@ -255,6 +260,8 @@ def evidence_json(run_dir):
         "odd_analyst_checklist": _odd_analyst_checklist(scope, led.get("findings")),
         # the three fixed, always-present, never-editable limitation clauses (the structural ceilings).
         "limitations": [dict(c) for c in LIMITATIONS],
+        # W8(d): the input-lineage provenance layer (source manifest + corroboration, honest about its limits).
+        "provenance": provenance,
     }
 
 
@@ -362,6 +369,12 @@ def idd_report(ev):
           "- **Verified:** %s" % (", ".join(sc["verified"]) or "the headline recompute")]
     if sc.get("did_not_assess"):
         L.append("- **Did NOT assess:** %s" % "; ".join(sc["did_not_assess"]))
+    prov = ev.get("provenance") or {}
+    L.append("- **Provenance (input lineage):** tier `%s` · transport-integrity `%s` · fund-admin-NAV "
+             "corroboration `%s`%s"
+             % (prov.get("tier", "—"), prov.get("transport_integrity", "—"),
+                prov.get("nav_corroboration", "unavailable"),
+                (" — %s" % prov["note"]) if prov.get("note") else ""))
     L += ["", "**Limitations (always apply — this is what makes the report signable):**"]
     L += ["- **%s — %s.** %s" % (c["id"], c["title"], c["text"]) for c in ev["limitations"]]
     L += ["", "## §7 Assurance & integrity", "",
