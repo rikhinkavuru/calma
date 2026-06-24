@@ -15,6 +15,7 @@ import db as _db  # noqa: E402  (control_plane/db.py)
 
 _db.load_env()
 connect = _db.connect          # re-export: a psycopg connection from DATABASE_URL
+pool = _db.pool                # re-export: the process-wide connection pool (reused across warm requests)
 
 # the pure-stdlib engine, invoked as a subprocess (the API is a thin host; it never reimplements verify).
 # Resolve the engine interpreter: explicit override wins, then the system python3 (the dev-Mac default,

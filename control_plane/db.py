@@ -44,3 +44,33 @@ def connect(autocommit=True):
     except ImportError:
         raise SystemExit("psycopg not installed. Run: control_plane/setup-venv.sh  (or pip install 'psycopg[binary]')")
     return psycopg.connect(dsn(), autocommit=autocommit, connect_timeout=15)
+
+
+_pool = None
+
+
+def _reset(conn):
+    # Clear the per-request tenant GUC before a connection goes back to the pool. Isolation is the explicit
+    # `WHERE tenant_id=%s` in every query (the owner role bypasses RLS), so this is defense-in-depth.
+    conn.execute("SELECT set_config('app.tenant_id', '', false)")
+
+
+def pool():
+    """A lazily-built, process-wide connection POOL. Establishing a fresh psycopg connection to Supabase
+    costs ~0.5s (TLS + auth + pooler routing) — paid on EVERY request when we connect-per-request. On
+    serverless (Vercel Fluid Compute) this module persists across warm invocations, so the pool REUSES
+    connections instead. Safe with our tenant model: isolation is the explicit WHERE tenant_id, not
+    connection state, and app.tenant_id is re-set per authenticated request (and cleared on return)."""
+    global _pool
+    if _pool is None:
+        try:
+            from psycopg_pool import ConnectionPool
+        except ImportError:
+            raise SystemExit("psycopg_pool not installed. Run: pip install 'psycopg[binary,pool]'")
+        _pool = ConnectionPool(
+            dsn(), min_size=1, max_size=8, open=True, timeout=15, max_idle=300,
+            kwargs={"autocommit": True, "prepare_threshold": None},
+            check=ConnectionPool.check_connection,   # ping on checkout: never hand out a dead connection
+            reset=_reset,
+        )
+    return _pool

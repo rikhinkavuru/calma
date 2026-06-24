@@ -59,22 +59,17 @@ def _authenticate(conn, authorization, service_token, service_tenant):
 def request_ctx(authorization: Optional[str] = Header(None),
                 x_calma_service_token: Optional[str] = Header(None),
                 x_calma_tenant_id: Optional[str] = Header(None)):
-    conn = repo.connect()
-    try:
+    # Pooled connection (reused across warm requests) instead of a ~0.5s per-request reconnect.
+    with config.pool().connection() as conn:
         tenant, api_key_id = _authenticate(conn, authorization, x_calma_service_token, x_calma_tenant_id)
         yield {"conn": conn, "tenant": tenant, "api_key_id": api_key_id}
-    finally:
-        conn.close()
 
 
 def service_ctx(x_calma_service_token: Optional[str] = Header(None)):
     if not _is_service(x_calma_service_token):
         raise errors.unauthorized("invalid service token")
-    conn = repo.connect()
-    try:
+    with config.pool().connection() as conn:
         yield {"conn": conn}
-    finally:
-        conn.close()
 
 
 def _key_info(r):
@@ -102,9 +97,8 @@ def _dec_cursor(c):
 @app.get("/healthz")
 def healthz():
     try:
-        c = repo.connect()
-        c.execute("SELECT 1")
-        c.close()
+        with config.pool().connection() as c:
+            c.execute("SELECT 1")
         return {"ok": True}
     except Exception as e:
         raise errors.internal("db unreachable: %s" % e)
