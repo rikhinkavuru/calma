@@ -2,6 +2,30 @@
 
 All notable changes to the calma skill/CLI. Dates are UTC.
 
+## Unreleased — `FLAG_FOR_DECLARATION` verdict tier · OTel-eval distribution wedge
+
+- **New verdict: `FLAG_FOR_DECLARATION`** (closes the "declare-nothing → only soft smells fire" hole).
+  When the headline number reproduces but the artifacts carry positive, multi-signal structure that would
+  invalidate it if it is what it looks like (an inferred train/test split with real row-overlap; a strong
+  regime break; an undeclared trials matrix) and the producer declared **nothing**, the verdict is a
+  louder-than-caveat, weaker-than-`INVALIDATED`, IC-visible **demand to declare the block** — resolvable in
+  one move, never a guessed verdict-flip (`INVALIDATED` stays declaration-gated). Rank
+  `REFUTED ≥ INVALIDATED > FLAG_FOR_DECLARATION > MIXED > CAVEATS`; it blocks the gate / Stop hook and
+  renders with an amber-red `⚑`. The enum + rank + render ship now; the artifact-inference detectors that
+  *produce* it are a follow-up. Threaded through `verdict.py`, `ledger.py`, `report.py`, `calma.py`,
+  `hook_stop.py`. +9 verdict + +9 ledger unit-checks.
+- **OTel-eval distribution wedge** (`calma verify --emit-otel [URL]`, `from calma.otel import emit_verdict`).
+  Emit each verdict as a standard **OpenTelemetry GenAI evaluation result** (`gen_ai.evaluation.name=`
+  `calma.<metric>`, `.score.value`=the recomputed number, `.score.label`/`.outcome` from the verdict, plus
+  `calma.*` differentiators) over OTLP/HTTP — **pure stdlib, zero dependency on the OTel SDK** — so any
+  agent-observability backend (Braintrust / LangSmith / Langfuse / Phoenix) ingests Calma as a **drop-in
+  deterministic eval source**. Redaction-by-construction (no raw data leaves), idempotent (keyed by run id),
+  optional native-namespace dual-emit, honors `OTEL_EXPORTER_OTLP_ENDPOINT/HEADERS`. New
+  `scripts/otel_eval.py` + `src/calma/otel.py` facade (adds the optional OTel-SDK span-event mode);
+  `tests/test_otel_eval.py` (44 checks, incl. a hermetic `http.server` OTLP-capture ingest test).
+- Firewall preserved: both are engine-pure and only ever *consume* a finished verdict — no model in any
+  verdict path. `make eval` green.
+
 ## 0.12.0 — M4 bespoke-metric onboarding · live agent-arm benchmark · transparency-log + e2b
 
 - **M4 — CEGIS bespoke-metric onboarding** (`calma onboard`): point calma at a one-paragraph

@@ -136,5 +136,63 @@ _bad_d = copy.deepcopy(INVAL)
 _bad_d["repo_verdict"] = "CONFIRMED-WITH-CAVEATS"
 expect(bool(L.semantic_validate(_bad_d)), "non-waivable INVALIDATED cannot be clean")
 
+# --- FLAG_FOR_DECLARATION (M-8b.1): the number reproduces, but undeclared invalidating structure ---
+# Distinct from INVALIDATED: NOT an assertion of wrongdoing, resolvable by declaring the block. Gated by
+# the flag_for_declaration input + a linked blocker that names the block; must NOT co-assert INVALIDATED.
+_flg_vi = {
+    "gap": 0.0, "effective_budget": 1e-9, "binding_status": "independently-bound",
+    "determinism_mode": "controlled-to-bit", "container_present": True, "band_coverage_ok": True,
+    "sufficient_k": True, "exit_codes": [0], "claim_outside_ci": False, "claim_confirmed_target": True,
+    "flag_for_declaration": True, "inferred_structure": "train/test split",
+}
+FLAG = {
+    "repo_verdict": "FLAG_FOR_DECLARATION",
+    "scope": {"isolation_tier": "tier0", "determinism_mode": "controlled-to-bit"},
+    "claims": [{
+        "id": "c1", "headline": True, "verdict": "FLAG_FOR_DECLARATION",
+        "input_binding_status": "independently-bound", "verdict_inputs": _flg_vi,
+        "driving_dimension": "leakage", "waivable": False,
+        "metric": "auc", "claimed_value": 0.94, "recomputed_value": 0.94,
+    }],
+    "findings": [{
+        "id": "f-c1-flag", "claim_id": "c1", "dimension": "leakage", "severity": "blocker",
+        "status": "open", "confidence": "deterministic", "fixable_by": "author",
+        "locator": "inferred train/test split with 28% row overlap; no split declared",
+        "unblock": "declare the train/test split block, then re-verify",
+        "reverify": {"kind": "artifact-recheck", "source": "rows", "expected": "declared split, zero overlap"},
+    }],
+}
+expect(not L.structural_validate(FLAG), "FLAG ledger structural ok")
+expect(not L.semantic_validate(FLAG), "FLAG ledger semantic ok")
+expect(L.validate_obj(FLAG)[0] == 1, "FLAG ledger valid but not clean -> exit 1")
+expect(L.gate(FLAG)[1]["open_blocking"] == 1, "FLAG carries an open blocker (the block to declare)")
+expect(L.compute_repo_verdict(FLAG) == "FLAG_FOR_DECLARATION", "headline FLAG -> repo FLAG_FOR_DECLARATION")
+expect(V.verdict(FLAG["claims"][0]["verdict_inputs"]) == "FLAG_FOR_DECLARATION", "claim re-derives FLAG")
+
+# non-headline FLAG rolls up to MIXED (the headline determines the loud per-mandate state)
+_nhf = copy.deepcopy(FLAG)
+_nhf["claims"][0]["headline"] = False
+expect(L.compute_repo_verdict(_nhf) == "MIXED", "non-headline FLAG -> MIXED")
+
+# FLAG needs a linked blocking finding of the driving dimension (names the block to declare)
+_bad_e = copy.deepcopy(FLAG)
+_bad_e["findings"] = []
+expect(bool(L.semantic_validate(_bad_e)), "FLAG without a linked blocker -> error")
+
+# FLAG requires the flag_for_declaration input (scope-guard; label can't be hand-set -> re-derives to CONFIRMED)
+_bad_f = copy.deepcopy(FLAG)
+_bad_f["claims"][0]["verdict_inputs"] = dict(_flg_vi, flag_for_declaration=False)
+expect(bool(L.semantic_validate(_bad_f)), "FLAG without the flag_for_declaration input -> error")
+
+# FLAG must NOT co-assert validity_invalidated (that verdict flip stays declaration-gated -> re-derives INVALIDATED)
+_bad_g = copy.deepcopy(FLAG)
+_bad_g["claims"][0]["verdict_inputs"] = dict(_flg_vi, validity_invalidated=True, oos_claim_asserted=True)
+expect(bool(L.semantic_validate(_bad_g)), "FLAG that co-asserts validity_invalidated -> error")
+
+# a non-waivable FLAG cannot coexist with a clean repo_verdict
+_bad_h = copy.deepcopy(FLAG)
+_bad_h["repo_verdict"] = "CONFIRMED-WITH-CAVEATS"
+expect(bool(L.semantic_validate(_bad_h)), "non-waivable FLAG cannot be clean")
+
 print("ledger.py: %d checks, %d failures" % (_n, _fail))
 sys.exit(1 if _fail else 0)

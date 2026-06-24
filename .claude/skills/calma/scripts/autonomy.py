@@ -13,8 +13,9 @@ Calma's autonomy has TWO independent axes, so the operator controls BOTH "what g
        off       never auto-verify (the hook stays silent; explicit kill switch).
        headline  (default) verify the ONE headline numeric claim in the agent's turn.
        all       verify EVERY checkable numeric claim in the turn (up to a safety cap).
-     A break (REFUTED / MIXED / INVALIDATED) at any scope still blocks the stop, so a wrong number is
-     never reported. (For exhaustive "every number in a notebook/report" coverage, use the A1 pipeline
+     A break (REFUTED / MIXED / INVALIDATED / FLAG_FOR_DECLARATION) at any scope still blocks the stop,
+     so a wrong number is never reported. (For exhaustive "every number in a notebook/report" coverage,
+     use the A1 pipeline
      `python -m edges.extract`.)
 
   2. ACTION MODE  (what Calma DOES around a verification - escalation, sealing, publishing, retrying)

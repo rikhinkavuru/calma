@@ -5,7 +5,7 @@ verdict() is a TOTAL pure function over the full verdict_inputs vector. It is im
 compare.py (to EMIT the label) and ledger.py (to RE-DERIVE and byte-check it). There is exactly
 one implementation of the labelling logic in the whole codebase: this one.
 
-Enum:  CONFIRMED | CONFIRMED-WITH-CAVEATS | REFUTED | INCONCLUSIVE
+Enum:  CONFIRMED | CONFIRMED-WITH-CAVEATS | REFUTED | INVALIDATED | FLAG_FOR_DECLARATION | INCONCLUSIVE
 
 Design rule: defaults are CONSERVATIVE. Missing/unknown information degrades toward INCONCLUSIVE,
 never toward an accidental REFUTED or CONFIRMED. A REFUTED is only ever reached when every guard
@@ -17,8 +17,15 @@ CONFIRMED = "CONFIRMED"
 CAVEATS = "CONFIRMED-WITH-CAVEATS"
 REFUTED = "REFUTED"
 INVALIDATED = "INVALIDATED"   # the number reproduces, but the result is invalid (gap-free; see _decide)
+# the number reproduces and nothing in the declared scope refutes it, but the ARTIFACTS carry positive,
+# multi-signal structure that would make the headline invalid if it is what it looks like (an inferred
+# train/test split with real row-overlap; a strong regime break; an undeclared trials matrix) and the
+# producer declared nothing that lets us confirm or rule it out. Louder than a caveat, weaker than
+# INVALIDATED, and RESOLVABLE in one move (declare the block). NOT an assertion of wrongdoing - it is a
+# demand for declaration. It never flips to INVALIDATED on its own (that stays declaration-gated).
+FLAG_FOR_DECLARATION = "FLAG_FOR_DECLARATION"
 INCONCLUSIVE = "INCONCLUSIVE"
-VERDICTS = (CONFIRMED, CAVEATS, REFUTED, INVALIDATED, INCONCLUSIVE)
+VERDICTS = (CONFIRMED, CAVEATS, REFUTED, INVALIDATED, FLAG_FOR_DECLARATION, INCONCLUSIVE)
 
 # the verified-isolation gate, defined ONCE in calma.tiers (CANONICAL-DECISIONS §3 names this symbol).
 import tiers as _tiers  # noqa: E402 - sibling leaf module (imports nothing)
@@ -29,8 +36,10 @@ VERIFIED_TIERS = _tiers.VERIFIED_TIERS
 # to handle a new verdict degrades to over-cautious (exit 1, no clean badge), never to a false-confirm.
 CLEAN_VERDICTS = (CONFIRMED, CAVEATS)
 # The authoritative "the catch worked" outcomes. MIXED is a repo-level rollup string (not a claim enum),
-# so it is listed as a literal here.
-CATCH_VERDICTS = (REFUTED, "MIXED", INVALIDATED)
+# so it is listed as a literal here. FLAG_FOR_DECLARATION is a catch (it blocks the gate / IC auto-
+# approval and carries a replay command) even though it is resolvable, not an assertion of wrongdoing.
+# Catch-loudness rank (CANONICAL §3): REFUTED >= INVALIDATED > FLAG_FOR_DECLARATION > MIXED > CAVEATS.
+CATCH_VERDICTS = (REFUTED, "MIXED", INVALIDATED, FLAG_FOR_DECLARATION)
 
 
 def is_clean(repo_verdict):
@@ -81,6 +90,14 @@ DEFAULTS = {
     "oos_claim_asserted": False,     # the claim asserts held-out / out-of-sample (gates INVALIDATED)
     "validity_unresolved": False,    # a validity concern whose adjudication needs an undeclared scope
     "soft_validity_caveat": False,   # a heuristic / soft validity concern -> CAVEAT (never blocks)
+    "flag_for_declaration": False,   # inferred invalidating structure (real overlap/regime/trials shape)
+                                     # on an UNDECLARED scope -> FLAG_FOR_DECLARATION. Set by the M-8b.2
+                                     # infer_validity detectors on strong multi-signal evidence; NEVER
+                                     # co-set with validity_invalidated (the verdict-flip stays
+                                     # declaration-gated). Conservative: only ever degrades a would-be
+                                     # CONFIRMED/CAVEAT - reached solely on the within-budget paths.
+    "inferred_structure": None,      # which block to declare (e.g. "train/test split", "windows",
+                                     # "trials") - carried into the FLAG explanation string.
 }
 
 
@@ -158,6 +175,18 @@ def _validity_override(vi):
     if vi["validity_invalidated"] and vi["oos_claim_asserted"]:
         return INVALIDATED, ("the number reproduces, but the held-out result is invalid - "
                              "authoritative contamination on an out-of-sample claim")
+    # FLAG_FOR_DECLARATION ranks BELOW INVALIDATED, ABOVE the neutral validity_unresolved (CANONICAL §3).
+    # Reached only when the M-8b.2 detectors found positive, multi-signal invalidating structure on an
+    # undeclared scope. It is a louder, resolvable cousin of validity_unresolved: a DEMAND to declare the
+    # block (then the authoritative family runs), never a guessed verdict flip. Defense-in-depth: it can
+    # only DEGRADE here (consulted on the reproduces / ambiguous paths), so a producer who declares
+    # nothing while the data screams "leak" gets an IC-visible flag instead of sailing through on a caveat.
+    if vi["flag_for_declaration"]:
+        which = vi.get("inferred_structure") or "the undeclared"
+        return FLAG_FOR_DECLARATION, (
+            "the number reproduces, but the artifacts carry %s structure that would invalidate the "
+            "headline if it is what it looks like, and nothing was declared - declare the %s block to "
+            "resolve" % (which, which))
     if vi["validity_unresolved"]:
         return INCONCLUSIVE, ("the number reproduces, but a validity concern cannot be adjudicated as "
                               "claimed (declare the scope - see fix)")

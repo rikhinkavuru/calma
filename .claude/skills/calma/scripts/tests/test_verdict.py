@@ -106,14 +106,45 @@ check(R(killed=True, validity_invalidated=True, oos_claim_asserted=True), V.INCO
 check(R(recompute_degenerate=True, validity_invalidated=True, oos_claim_asserted=True), V.INCONCLUSIVE,
       "degenerate recompute + contamination -> INCONCLUSIVE (no valid number to call invalid)")
 
+# ---- FLAG_FOR_DECLARATION (M-8b.1): inferred invalidating structure on an UNDECLARED scope ----
+# The number reproduces and the declared scope doesn't refute it, but the artifacts carry positive,
+# multi-signal structure (real overlap / strong regime break / an undeclared trials matrix). Louder than
+# a caveat, weaker than INVALIDATED, resolvable by declaring the block. Conservative-only (only degrades).
+check(R(flag_for_declaration=True, inferred_structure="train/test split"), V.FLAG_FOR_DECLARATION,
+      "reproduces + inferred invalidating structure, nothing declared -> FLAG_FOR_DECLARATION")
+check(R(gap=0.02, flag_for_declaration=True), V.FLAG_FOR_DECLARATION,
+      "ambiguous zone (budget<gap<=budget*margin) + inferred structure -> FLAG_FOR_DECLARATION")
+# rank: an authoritative, declared-OOS INVALIDATED outranks a mere flag
+check(R(flag_for_declaration=True, validity_invalidated=True, oos_claim_asserted=True), V.INVALIDATED,
+      "INVALIDATED outranks FLAG_FOR_DECLARATION (authoritative > demand-for-declaration)")
+# rank: the flag is LOUDER than the neutral validity_unresolved (which displays as CAN'T-CONFIRM)
+check(R(flag_for_declaration=True, validity_unresolved=True), V.FLAG_FOR_DECLARATION,
+      "FLAG_FOR_DECLARATION outranks validity_unresolved (a catch > a neutral can't-confirm)")
+# conservative: a real over-budget gap stays the gap-gated REFUTED; the flag never overrides a gap
+check(R(gap=147.0, flag_for_declaration=True), V.REFUTED,
+      "huge gap + flag -> REFUTED (numeric path wins; the flag is consulted on reproduces-paths only)")
+# FLAG implies the number reproduced: a killed / degenerate run still degrades to INCONCLUSIVE
+check(R(killed=True, flag_for_declaration=True), V.INCONCLUSIVE,
+      "killed run + flag -> INCONCLUSIVE (FLAG_FOR_DECLARATION requires reproduction)")
+check(R(recompute_degenerate=True, flag_for_declaration=True), V.INCONCLUSIVE,
+      "degenerate recompute + flag -> INCONCLUSIVE")
+# the explanation names the EXACT block to declare (the resolvable-in-one-move contract, CANONICAL §3)
+_lbl, _why = V.verdict_with_reason(R(flag_for_declaration=True, inferred_structure="windows"))
+_n += 1
+if not (_lbl == V.FLAG_FOR_DECLARATION and "declare the windows block to resolve" in _why):
+    _fail += 1
+    print("  FAIL [flag reason] %s :: %s" % (_lbl, _why))
+
 # ---- fail-closed allowlist: only CONFIRMED/CAVEATS are clean; anything else (incl. unknown) is not ----
 for v, want in ((V.CONFIRMED, True), (V.CAVEATS, True), (V.INVALIDATED, False),
-                (V.REFUTED, False), (V.INCONCLUSIVE, False), ("ZZZ_UNKNOWN_VERDICT", False)):
+                (V.REFUTED, False), (V.FLAG_FOR_DECLARATION, False), (V.INCONCLUSIVE, False),
+                ("ZZZ_UNKNOWN_VERDICT", False)):
     _n += 1
     if V.is_clean(v) != want:
         _fail += 1
         print("  FAIL [is_clean] %r expected %s" % (v, want))
 assert V.INVALIDATED in V.CATCH_VERDICTS and V.REFUTED in V.CATCH_VERDICTS
+assert V.FLAG_FOR_DECLARATION in V.CATCH_VERDICTS and not V.is_clean(V.FLAG_FOR_DECLARATION)
 
 # ---- totality: verdict() never raises and always returns a valid enum on garbage ----
 for bad in [None, {}, {"gap": float("nan")}, {"exit_codes": None}, {"margin": -5}]:

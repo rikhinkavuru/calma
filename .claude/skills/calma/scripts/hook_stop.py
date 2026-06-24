@@ -186,6 +186,7 @@ def _coverage_on(cfg):
 _COVERAGE_WORDS = {
     "CONFIRMED": "confirmed", "CONFIRMED-WITH-CAVEATS": "confirmed (caveats)",
     "REFUTED": "refuted", "INVALIDATED": "invalidated", "MIXED": "mixed",
+    "FLAG_FOR_DECLARATION": "flag-for-declaration",
     "CAN'T-CONFIRM": "can't-confirm", "INCONCLUSIVE": "can't-confirm",
 }
 
@@ -627,7 +628,7 @@ def main():
                     verdict=verdict, claimed=res.get("claimed"),
                     recomputed=res.get("recomputed"), cached=bool(res.get("cached")),
                     ms=ms, run_dir=res.get("run_dir"))
-        if verdict not in ("REFUTED", "MIXED", "INVALIDATED"):
+        if verdict not in ("REFUTED", "MIXED", "INVALIDATED", "FLAG_FOR_DECLARATION"):
             tally["verdicts"][verdict] = tally["verdicts"].get(verdict, 0) + 1
             continue
         key = _claim_key(cand)

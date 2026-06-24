@@ -702,7 +702,7 @@ def _cached_result(target, fingerprint):
     if led.get("repo_verdict") != ent.get("repo_verdict"):
         return None  # cached verdict and stored ledger disagree - never serve it
     code, summary = LED.validate_obj(led)
-    if led.get("repo_verdict") not in ("CONFIRMED", "CONFIRMED-WITH-CAVEATS", "REFUTED", "MIXED", "INVALIDATED"):
+    if led.get("repo_verdict") not in ("CONFIRMED", "CONFIRMED-WITH-CAVEATS", "REFUTED", "MIXED", "INVALIDATED", "FLAG_FOR_DECLARATION"):
         return None
     rendered = ("(cached - code, data, and claim unchanged since the last run; "
                 "--force re-executes)\n") + REP.render(led)
@@ -712,7 +712,7 @@ def _cached_result(target, fingerprint):
 
 
 def _store_cache(target, fingerprint, run_id, repo_verdict):
-    if repo_verdict not in ("CONFIRMED", "CONFIRMED-WITH-CAVEATS", "REFUTED", "MIXED", "INVALIDATED"):
+    if repo_verdict not in ("CONFIRMED", "CONFIRMED-WITH-CAVEATS", "REFUTED", "MIXED", "INVALIDATED", "FLAG_FOR_DECLARATION"):
         return
     led_sha = _ledger_sha256(os.path.join(target, ".calma", run_id, "ledger.json"))
     if led_sha is None:
@@ -1414,7 +1414,8 @@ def stats(target):
              "  verifications: %d" % len(verifs)]
     if teardowns:
         lines.append("  teardown re-checks: %d (not counted as verifications)" % teardowns)
-    for v in ("CONFIRMED", "CONFIRMED-WITH-CAVEATS", "REFUTED", "MIXED", "INVALIDATED", "INCONCLUSIVE"):
+    for v in ("CONFIRMED", "CONFIRMED-WITH-CAVEATS", "REFUTED", "MIXED", "INVALIDATED",
+              "FLAG_FOR_DECLARATION", "INCONCLUSIVE"):
         if counts.get(v):
             lines.append("  %-24s %d" % (v, counts[v]))
     catches = [r for r in verifs if r.get("verdict") in V.CATCH_VERDICTS]
@@ -1827,6 +1828,32 @@ def _offline_enabled(cli_offline, base):
     return bool(au.get("offline", False))
 
 
+def _emit_otel_result(a, res):
+    """Emit the finished verdict as an OTel GenAI evaluation result (the P2-M7a distribution wedge). Best-
+    effort: an OTLP failure NEVER changes the verdict or the exit code (the engine already decided). Reads
+    the endpoint from --emit-otel's value or $OTEL_EXPORTER_OTLP_ENDPOINT; --otel-dual selects native mirrors."""
+    led = res.get("ledger")
+    if not led:
+        return
+    endpoint = (a.emit_otel or os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT") or "").strip() or None
+    dual = [b for b in (getattr(a, "otel_dual", "") or "").split(",") if b.strip()]
+    try:
+        import otel_eval as OE
+        out = OE.emit_verdict(led, endpoint=endpoint, dual_emit=dual, engine_version=__version__,
+                              run_url=res.get("run_url"), dry_run=not endpoint)
+    except Exception as e:                                   # noqa: BLE001 - the wedge must never break verify
+        if not a.as_json:
+            print("  otel: emit skipped (%s)" % e)
+        return
+    if a.as_json:
+        return
+    if out["emitted"]:
+        print("  otel: emitted gen_ai.evaluation.result -> %s (status %s)" % (endpoint, out["status"][0]))
+    else:
+        print("  otel: built gen_ai.evaluation.result (dry-run) - set --emit-otel URL or "
+              "$OTEL_EXPORTER_OTLP_ENDPOINT to POST it")
+
+
 def _autonomy_followup(res, mode, base, quiet=False, offline=False):
     """The post-verdict ACTION for the active mode on a catch verdict. The verdict is already final
     and deterministic; this only governs what Calma DOES next. auto -> append to the LOCAL
@@ -2028,6 +2055,15 @@ def main():
                    help="CROSS-ENGINE correctness: recompute each metric through an INDEPENDENT second "
                         "kernel and diff (quantifies the implementation uncertainty single-engine results "
                         "leave unmeasured). Additive - reports agreement, never changes the verdict")
+    v.add_argument("--emit-otel", nargs="?", const="", metavar="OTLP_ENDPOINT", dest="emit_otel",
+                   help="emit the verdict as a standard OpenTelemetry GenAI evaluation result (the "
+                        "distribution wedge): POST a gen_ai.evaluation.result span to OTLP_ENDPOINT or "
+                        "$OTEL_EXPORTER_OTLP_ENDPOINT, so any agent-obs backend (Braintrust/LangSmith/"
+                        "Langfuse/Phoenix) ingests Calma as a drop-in deterministic eval source. Self-emit "
+                        "from your own CI is free; redaction-by-construction (no raw data leaves)")
+    v.add_argument("--otel-dual", default="", metavar="BACKENDS", dest="otel_dual",
+                   help="with --emit-otel: comma-separated backends to also emit native attrs for "
+                        "(braintrust,langsmith) - for backends that don't yet read gen_ai.* natively")
     b = sub.add_parser("batch", help="verify MANY targets at once + a summary table (CI/sprint use)")
     b.add_argument("targets", nargs="*",
                    help="dirs (each with a committed verify.yaml) or globs, e.g. 'runs/*'")
@@ -2270,6 +2306,11 @@ def main():
                     print("  auto: a dependency was missing - retrying once with --restore ...")
                 res = verify(a.target, a.claim_text or a.claim, a.metric, a.run_id,
                              opts=replace(opts, force=True, restore=True))
+            # OTel-eval distribution wedge (P2-M7a): on request, emit the verdict as a standard
+            # gen_ai.evaluation.result span so any agent-obs backend ingests Calma as a deterministic eval
+            # source. Best-effort + firewalled (consumes the finished verdict; never changes it / the exit).
+            if getattr(a, "emit_otel", None) is not None:
+                _emit_otel_result(a, res)
             if a.fail_on == "refuted":
                 exit_code = 1 if res["repo_verdict"] in V.CATCH_VERDICTS else 0
             else:
@@ -2303,6 +2344,10 @@ def main():
                 elif rv == "INVALIDATED":
                     # the catch working in a different shape: the number reproduces, but it isn't valid
                     tail = " - result invalidated (reproduces, but not a valid result; --fail-on sets exit)"
+                elif rv == "FLAG_FOR_DECLARATION":
+                    # the catch working as a demand: undeclared structure could invalidate the headline -
+                    # resolvable by declaring the named block (then the authoritative family runs)
+                    tail = " - flagged for declaration (reproduces, but undeclared structure could invalidate it; declare the block; --fail-on sets exit)"
                 elif exit_code == 0:
                     tail = ""
                 else:

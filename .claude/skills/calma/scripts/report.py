@@ -41,6 +41,8 @@ _TOPLINE = {
     V.CAVEATS: ("CONFIRMED-WITH-CAVEATS", "holds, but narrower than claimed"),
     V.REFUTED: ("REFUTED", "the result does not hold"),
     V.INVALIDATED: ("INVALIDATED", "the number reproduces, but the result is invalid"),
+    V.FLAG_FOR_DECLARATION: ("FLAG_FOR_DECLARATION",
+                             "reproduces, but undeclared structure could invalidate it - declare to resolve"),
     V.INCONCLUSIVE: ("CAN'T-CONFIRM", "not verifiable yet"),
     "MIXED": ("MIXED", "some claims hold, at least one is broken"),
 }
@@ -162,10 +164,13 @@ def _fix_line(led, diff=None):
     return None
 
 
+# FLAG_FOR_DECLARATION gets the ⚑ glyph (distinct from REFUTED/INVALIDATED's ✗ "wrong" and INCONCLUSIVE's
+# ▲ "can't tell") and a 256-color amber-red (38;5;208) - a catch that reads as action-required, NOT the
+# neutral yellow of CAN'T-CONFIRM. The web UI carries the matching amber-red badge.
 _SYMBOL = {V.CONFIRMED: "✓", V.CAVEATS: "✓", V.REFUTED: "✗",
-           V.INVALIDATED: "✗", V.INCONCLUSIVE: "▲", "MIXED": "✗"}
+           V.INVALIDATED: "✗", V.FLAG_FOR_DECLARATION: "⚑", V.INCONCLUSIVE: "▲", "MIXED": "✗"}
 _ANSI = {V.CONFIRMED: "32", V.CAVEATS: "33", V.REFUTED: "31",
-         V.INVALIDATED: "31", V.INCONCLUSIVE: "33", "MIXED": "31"}
+         V.INVALIDATED: "31", V.FLAG_FOR_DECLARATION: "38;5;208", V.INCONCLUSIVE: "33", "MIXED": "31"}
 _DET_GLOSS = {"controlled-to-bit": "bit-exact", "measured-band": "stable within tolerance",
               "uncontrolled": "not bit-reproducible"}
 
@@ -252,10 +257,11 @@ def render(led, diff=None, color=False):
     blockers = [f for f in led.get("findings", []) if f.get("severity") == "blocker"]
     majors = [f for f in led.get("findings", []) if f.get("severity") == "major"]
     minors = [f for f in led.get("findings", []) if f.get("severity") == "minor"]
-    if rv in ("REFUTED", "MIXED", V.INVALIDATED):
+    if rv in ("REFUTED", "MIXED", V.INVALIDATED, V.FLAG_FOR_DECLARATION):
         others = [f for f in blockers + majors if f.get("dimension") != "metric-mismatch"]
         if others:
-            limiter = ("also: " if rv != V.INVALIDATED else "") + (others[0].get("locator") or "")
+            prefix = "also: " if rv not in (V.INVALIDATED, V.FLAG_FOR_DECLARATION) else ""
+            limiter = prefix + (others[0].get("locator") or "")
     elif blockers:
         limiter = blockers[0].get("locator")
     elif rv == V.CAVEATS and minors:
@@ -275,15 +281,21 @@ def render(led, diff=None, color=False):
     # would mislead) and just point reproduce at the first broken metric.
     if rv in V.CATCH_VERDICTS and led.get("claims"):
         broken = next((c for c in led["claims"]
-                       if c.get("verdict") in (V.REFUTED, V.INVALIDATED)), led["claims"][0])
+                       if c.get("verdict") in (V.REFUTED, V.INVALIDATED, V.FLAG_FOR_DECLARATION)),
+                      led["claims"][0])
         if len(claims) <= 1:
             c = led["claims"][0]
             if c.get("claimed_value") is not None and c.get("recomputed_value") is not None:
                 mid = c.get("metric")
-                # INVALIDATED reproduces (claimed == recomputed) - annotate so the identical pair doesn't
-                # read as a no-op; the point is the RESULT is invalid, not the number.
-                note = ("   (reproduces - the result, not the number, is invalid)"
-                        if c.get("verdict") == V.INVALIDATED else "")
+                # INVALIDATED and FLAG_FOR_DECLARATION both reproduce (claimed == recomputed) - annotate so
+                # the identical pair doesn't read as a no-op; the point is the RESULT (invalid) or the
+                # UNDECLARED STRUCTURE (flag), not the number.
+                if c.get("verdict") == V.INVALIDATED:
+                    note = "   (reproduces - the result, not the number, is invalid)"
+                elif c.get("verdict") == V.FLAG_FOR_DECLARATION:
+                    note = "   (reproduces - undeclared structure flagged; declare the block to resolve)"
+                else:
+                    note = ""
                 cs, rs = fmt_pair(c["claimed_value"], c["recomputed_value"], mid)
                 lines.append("  claimed %s  ->  recomputed %s%s" % (cs, rs, note))
         rep = broken.get("reproduction_or_reverify", {})
@@ -292,7 +304,7 @@ def render(led, diff=None, color=False):
     # the fix line: an INCONCLUSIVE (or any not-clean outcome with a known unblock) names who-can-act
     if rv != V.CONFIRMED:
         fix = _fix_line(led, diff)
-        if fix and rv in (V.INCONCLUSIVE, V.CAVEATS, V.INVALIDATED):
+        if fix and rv in (V.INCONCLUSIVE, V.CAVEATS, V.INVALIDATED, V.FLAG_FOR_DECLARATION):
             lines.append(_wrap("fix: " + _plain(fix)))
         # CAN'T-CONFIRM -> a structured demand: name what could not be verified + exactly what to provide
         if rv == V.INCONCLUSIVE:

@@ -66,7 +66,7 @@ REVERIFY_KINDS = {"static-reread", "artifact-recheck", "requires-reexecution"}
 FIXABLE = {"editor", "author", "operator", "none"}
 BINDING_STATES = {"independently-bound", "plausibly-bound", "author-asserted"}
 CLEAN_REPO = {V.CONFIRMED, V.CAVEATS}
-NONCLEAN_REPO = {"REFUTED", "MIXED", "CONTESTED", V.INVALIDATED}
+NONCLEAN_REPO = {"REFUTED", "MIXED", "CONTESTED", V.INVALIDATED, V.FLAG_FOR_DECLARATION}
 
 
 def load_ledger(path):
@@ -122,11 +122,21 @@ def compute_repo_verdict(led):
     # repo INVALIDATED; a non-headline one rolls up to MIXED, identically to a non-headline REFUTED.
     headline_invalidated = any(c["verdict"] == V.INVALIDATED and c.get("headline") for c in claims)
     nonheadline_invalidated = any(c["verdict"] == V.INVALIDATED and not c.get("headline") for c in claims)
+    # FLAG_FOR_DECLARATION ranks below REFUTED/INVALIDATED, above MIXED (CANONICAL §3). A headline flag
+    # makes the repo flag (the merge gate / IC view reads "not clean, action required" - declare the
+    # block); a non-headline flag rolls up to MIXED like a non-headline REFUTED/INVALIDATED (the headline
+    # determines the loud per-mandate state; a secondary flag still degrades the repo off clean).
+    headline_flag = any(c["verdict"] == V.FLAG_FOR_DECLARATION and c.get("headline") for c in claims)
+    nonheadline_flag = any(c["verdict"] == V.FLAG_FOR_DECLARATION and not c.get("headline") for c in claims)
     if headline_refuted:
         return "REFUTED"
     if headline_invalidated:
         return V.INVALIDATED
     if nonheadline_refuted or nonheadline_invalidated:
+        return "MIXED"
+    if headline_flag:
+        return V.FLAG_FOR_DECLARATION
+    if nonheadline_flag:
         return "MIXED"
     if any(c["verdict"] == V.INCONCLUSIVE for c in claims):
         # not a refutation; if nothing CONFIRMED at all, the repo is under-determined
@@ -187,6 +197,27 @@ def semantic_validate(led):
                 e.append("claim %s: INVALIDATED needs a linked blocker finding of dimension %r" % (cid, axis))
             if not (c.get("verdict_inputs") or {}).get("oos_claim_asserted"):
                 e.append("claim %s: INVALIDATED requires an out-of-sample claim assertion" % cid)
+        if c["verdict"] == V.FLAG_FOR_DECLARATION:
+            # FLAG_FOR_DECLARATION: positive artifact-evidence of invalidating structure on an undeclared
+            # scope. The scope-guard is `flag_for_declaration` (mirrors INVALIDATED's oos gate, so the
+            # label can't be hand-set), and - because a flag is "declare THIS" - it MUST carry a linked
+            # blocking finding of its driving dimension that names the exact block to declare. It must
+            # NOT also assert validity_invalidated (that verdict flip stays declaration-gated).
+            vi = c.get("verdict_inputs") or {}
+            if not vi.get("flag_for_declaration"):
+                e.append("claim %s: FLAG_FOR_DECLARATION requires a flag_for_declaration input" % cid)
+            if vi.get("validity_invalidated"):
+                e.append("claim %s: FLAG_FOR_DECLARATION must not co-assert validity_invalidated "
+                         "(the verdict flip stays declaration-gated)" % cid)
+            axis = c.get("driving_dimension")
+            if axis not in DIMENSIONS:
+                e.append("claim %s: FLAG_FOR_DECLARATION but driving_dimension %r invalid" % (cid, axis))
+            linked = [f for f in led["findings"]
+                      if f.get("claim_id") == cid and f.get("severity") in BLOCKING_SEVERITIES
+                      and f.get("dimension") == axis]
+            if not linked:
+                e.append("claim %s: FLAG_FOR_DECLARATION needs a linked blocking finding of dimension "
+                         "%r naming the block to declare" % (cid, axis))
 
     # (4) referential integrity + execution-derived findings are not static-reread
     for f in led["findings"]:
@@ -203,10 +234,11 @@ def semantic_validate(led):
     if led["repo_verdict"] != computed:
         e.append("repo_verdict %r != computed worst-of-claims %r" % (led["repo_verdict"], computed))
     nonwaivable_bad = any(
-        c["verdict"] in (V.REFUTED, V.INVALIDATED) and not c.get("waivable", False)
+        c["verdict"] in (V.REFUTED, V.INVALIDATED, V.FLAG_FOR_DECLARATION) and not c.get("waivable", False)
         for c in led["claims"])
     if nonwaivable_bad and led["repo_verdict"] in CLEAN_REPO:
-        e.append("a non-waivable REFUTED/INVALIDATED claim cannot coexist with a clean repo_verdict")
+        e.append("a non-waivable REFUTED/INVALIDATED/FLAG_FOR_DECLARATION claim cannot coexist with a "
+                 "clean repo_verdict")
     return e
 
 
