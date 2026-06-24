@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import { Atmo, Reveal } from "./chrome";
 import { ErrorBoundary } from "./site/ErrorBoundary";
 
@@ -64,14 +63,7 @@ export function Hero() {
           </p>
         </Reveal>
 
-        <Reveal delay={300}>
-          <div className="hero__cta">
-            <Link href="/dashboard" className="pbtn pbtn--amber">Start verifying</Link>
-            <Link href="/install" className="pbtn">Read the docs</Link>
-          </div>
-        </Reveal>
-
-        <Reveal delay={500} className="hero__fill">
+        <Reveal delay={400} className="hero__fill">
           <div className="hero__demo">
             <figure className="hero__movie">
               <video
