@@ -56,12 +56,14 @@ NONDET_STDLIB = {"time", "datetime", "uuid", "socket", "threading", "multiproces
 E2B_TIER = "e2b-firecracker"
 E2B_TIER_SELFHOSTED = "e2b-firecracker (self-hosted)"
 
-# the isolation tiers that count as VERIFIED for stamp derivation. MUST stay in lockstep with the
-# verified-tier sets the verdict layer keys on (calma.VERIFIED_TIERS, hook_stop.VERIFIED_TIERS,
-# compare.compare's container_present default, verdict.confidence) - the anti-drift guard test asserts
-# every consumer accepts the same names. host-not-isolated is deliberately absent (it is the CAVEAT).
-_VERIFIED_TIERS = ("seatbelt-verified", "bwrap-verified", "tier0", "container", "vm",
-                   E2B_TIER, E2B_TIER_SELFHOSTED)
+# the isolation tiers that count as VERIFIED for stamp derivation - the SECURITY GATE. Defined ONCE in
+# calma.tiers and imported by EVERY consumer (calma.VERIFIED_TIERS, hook_stop.VERIFIED_TIERS,
+# verdict.VERIFIED_TIERS, compare.compare's default) so the gate can never silently diverge; test_hermetic
+# asserts strict set-equality across all of them. host-not-isolated is deliberately absent (the CAVEAT).
+import tiers as _tiers  # noqa: E402 - sibling leaf module (imports nothing); single source of the gate
+_VERIFIED_TIERS = _tiers.VERIFIED_TIERS
+# fail-closed at import: the local E2B stamp constants MUST be members of the canonical gate set.
+assert E2B_TIER in _VERIFIED_TIERS and E2B_TIER_SELFHOSTED in _VERIFIED_TIERS
 
 
 # Pin the OS binary by absolute path - NEVER PATH-resolved. A `sandbox-exec` planted earlier on
@@ -280,7 +282,17 @@ for path in [SECRET, "/Library/Keychains", "/var/root"]:
         pass
 # egress: raw IP, hostname (DNS+TCP), and a curl subprocess - ALL must be denied
 try:
-    socket.create_connection(("1.1.1.1", 80), timeout=4); leaks.append("egress:ip")
+    # Require an actual DATA round-trip, not just a TCP connect: a packet-filter firewall (e.g. an E2B
+    # microVM with deny_out=0.0.0.0/0) ACCEPTS the TCP handshake and only then drops the payload, so a bare
+    # connect() succeeds even when egress is denied. We send a real request and demand returned bytes;
+    # 1.1.1.1:80 always answers, so an empty recv == egress truly blocked (no false "leak"). A local
+    # sandbox that blocks at connect() raises here and never reaches recv -> still correctly "blocked".
+    _s = socket.create_connection(("1.1.1.1", 80), timeout=4)
+    _s.settimeout(4)
+    _s.sendall(b"GET / HTTP/1.0\r\nHost: 1.1.1.1\r\n\r\n")
+    if _s.recv(1):
+        leaks.append("egress:ip")
+    _s.close()
 except Exception:
     pass
 try:
@@ -1325,24 +1337,35 @@ class _RealE2BSession:
             raise _E2BUnavailable(
                 "the e2b backend needs the optional E2B SDK (not a core dependency): "
                 "pip install e2b  [%s]" % e)
-        kwargs = {"template": cfg["template"], "api_key": cfg["token"], "domain": cfg["endpoint"],
-                  "timeout": max(1, int(timeout))}
-        # Network-deny: pass the SDK's no-internet option. Spelling has varied across SDK versions, so
-        # try the known parameter names; if NONE is accepted, FAIL CLOSED (never boot with the net up).
+        api = {"api_key": cfg["token"], "domain": cfg["endpoint"]}
+        tmo = max(1, int(timeout))
+        # Network-deny: pass the SDK's no-internet option (allow_internet_access=False). This is the
+        # canonical flag on the E2B SDK >= 1.x factory `Sandbox.create(...)`; on legacy (<1.0) SDKs the
+        # constructor took `template` directly and the net-deny kwarg spelling varied. Try the modern
+        # factory first, then fall back across spellings; if NONE expresses net-deny, FAIL CLOSED.
         self._sbx = None
         last = None
-        for net_kw in ("allow_internet_access", "allow_internet", "internet_access"):
+        create = getattr(Sandbox, "create", None)
+        if create is not None:                       # E2B SDK >= 1.x (the factory path)
             try:
-                self._sbx = Sandbox(**dict(kwargs, **{net_kw: False}))
-                break
-            except TypeError as e:
+                self._sbx = create(template=cfg["template"], timeout=tmo,
+                                   allow_internet_access=False, **api)
+            except TypeError as e:                   # unexpected signature -> try the legacy path below
                 last = e
-                continue
+        if self._sbx is None:                        # legacy SDKs (<1.0): net-deny kwarg on the ctor
+            for net_kw in ("allow_internet_access", "allow_internet", "internet_access"):
+                try:
+                    self._sbx = Sandbox(template=cfg["template"], timeout=tmo,
+                                        **dict(api, **{net_kw: False}))
+                    break
+                except TypeError as e:
+                    last = e
+                    continue
         if self._sbx is None:
             raise _E2BUnavailable(
                 "the installed E2B SDK does not accept a network-deny option (tried "
-                "allow_internet_access/allow_internet/internet_access); refusing to boot a microVM "
-                "with the network up [%s]" % last)
+                "Sandbox.create(allow_internet_access=False) and the legacy ctor spellings); refusing "
+                "to boot a microVM with the network up [%s]" % last)
         self.network_disabled = True
 
     def probe(self, src):

@@ -461,6 +461,28 @@ import hook_stop as _HOOK   # noqa: E402
 truth("bwrap-verified" in H._VERIFIED_TIERS, "run_hermetic: bwrap-verified is a verified tier")
 truth("bwrap-verified" in _CALMA.VERIFIED_TIERS, "calma: bwrap-verified in VERIFIED_TIERS")
 truth("bwrap-verified" in _HOOK.VERIFIED_TIERS, "hook_stop: bwrap-verified in VERIFIED_TIERS")
+# anti-drift (strengthened): the verified-tier GATE is the security boundary that decides whether untrusted
+# code may run and whether a verdict is isolation-backed. It is defined ONCE in calma.tiers; assert EVERY
+# consumer is set-identical to it (the old guard checked membership of ONE stamp in THREE of five copies,
+# and never verdict.py / compare.py - a member dropped from an inline copy would have gone unnoticed).
+import tiers as _TIERS        # noqa: E402
+_canon = set(_TIERS.VERIFIED_TIERS)
+truth(set(H._VERIFIED_TIERS) == _canon, "run_hermetic._VERIFIED_TIERS == tiers (set-equal)")
+truth(set(_CALMA.VERIFIED_TIERS) == _canon, "calma.VERIFIED_TIERS == tiers (set-equal)")
+truth(set(_HOOK.VERIFIED_TIERS) == _canon, "hook_stop.VERIFIED_TIERS == tiers (set-equal)")
+truth(hasattr(_V, "VERIFIED_TIERS") and set(_V.VERIFIED_TIERS) == _canon,
+      "verdict.VERIFIED_TIERS exists and == tiers (CANONICAL-DECISIONS §3)")
+# compare consumes the WHOLE set via its default (catches an inline-drop): every canonical tier earns
+# container_present True, every non-member earns False.
+_rc0 = {"metrics": [{"metric_id": "m0", "value": 1.0}]}
+_cn0 = {"metrics": [{"metric_id": "m0", "claimed_value": 1.0}]}
+for _t in _TIERS.VERIFIED_TIERS:
+    _cdt = _CMP.compare(_rc0, _cn0, isolation_tier=_t)
+    truth(_cdt["metrics"][0]["verdict_inputs"]["container_present"] is True,
+          "compare: %s -> container_present True (single-source gate, no inline drift)" % _t)
+truth(_CMP.compare(_rc0, _cn0, isolation_tier="host-not-isolated"
+                   )["metrics"][0]["verdict_inputs"]["container_present"] is False,
+      "compare: a non-member tier -> container_present False (gate control)")
 _rec1 = {"metrics": [{"metric_id": "m1", "value": 1.0}]}
 _con1 = {"metrics": [{"metric_id": "m1", "claimed_value": 1.0}]}
 _cd_bw = _CMP.compare(_rec1, _con1, isolation_tier="bwrap-verified")

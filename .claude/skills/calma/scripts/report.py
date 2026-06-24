@@ -765,8 +765,10 @@ def render_html(led, diff=None, bundle=None, run_dir=None):
 
 
 # files copied verbatim into a replay bundle so `attest verify` re-derives the verdict offline with
-# zero installs (all pure stdlib). This is the dependency closure of attest.verify_bundle().
-_REPLAY_SCRIPTS = ["attest.py", "ledger.py", "verdict.py", "ed25519.py", "sshsig.py", "rfc3161.py"]
+# zero installs (all pure stdlib). This is the dependency closure of attest.verify_bundle() - it MUST
+# include every sibling module the copied ones import (tiers.py is imported by verdict.py for the
+# single-source verified-tier gate; omit it and the bundled verdict.py raises ModuleNotFoundError).
+_REPLAY_SCRIPTS = ["attest.py", "ledger.py", "verdict.py", "tiers.py", "ed25519.py", "sshsig.py", "rfc3161.py"]
 # run artifacts the bundle carries so a counterparty can also RE-EXECUTE (optional, env-dependent).
 _REPLAY_ARTIFACTS = ["attestation.bundle.json", "attestation.payload.json", "attestation.sig.sshsig",
                      "attestation.allowed_signers", "ledger.json", "manifest.json", "verify.yaml",

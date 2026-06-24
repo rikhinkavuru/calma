@@ -20,6 +20,10 @@ INVALIDATED = "INVALIDATED"   # the number reproduces, but the result is invalid
 INCONCLUSIVE = "INCONCLUSIVE"
 VERDICTS = (CONFIRMED, CAVEATS, REFUTED, INVALIDATED, INCONCLUSIVE)
 
+# the verified-isolation gate, defined ONCE in calma.tiers (CANONICAL-DECISIONS §3 names this symbol).
+import tiers as _tiers  # noqa: E402 - sibling leaf module (imports nothing)
+VERIFIED_TIERS = _tiers.VERIFIED_TIERS
+
 # Fail-closed verdict classification. `clean` is an ALLOWLIST: only these pass the gate. Any other
 # value - including an unknown/future verdict - is treated as NON-clean, so a switch-site that forgets
 # to handle a new verdict degrades to over-cautious (exit 1, no clean badge), never to a false-confirm.
@@ -253,8 +257,7 @@ def confidence(verdict_inputs, label):
     if label == INCONCLUSIVE:
         return 0.0
     score = 0.50
-    if vi["isolation_tier"] in ("vm", "container", "tier0", "seatbelt-verified", "bwrap-verified",
-                                "e2b-firecracker", "e2b-firecracker (self-hosted)"):
+    if vi["isolation_tier"] in VERIFIED_TIERS:
         score += 0.15
     dm = vi["determinism_mode"]
     if dm == "controlled-to-bit":

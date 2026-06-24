@@ -19,6 +19,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import recipes as RCP  # noqa: E402
 import verdict as V  # noqa: E402
+import tiers as _tiers  # noqa: E402 - single source of the verified-tier gate
 
 ABS_FLOOR = 1e-9
 REL_FLOOR = 1e-9
@@ -110,9 +111,7 @@ def compare(recompute, contract, isolation_tier="host-not-isolated", container_p
     _load_calibration()
     m2_calibrated = m2_calibrated or bool(_CALIB)
     if container_present is None:
-        container_present = isolation_tier in ("vm", "container", "tier0", "seatbelt-verified",
-                                               "bwrap-verified", "e2b-firecracker",
-                                               "e2b-firecracker (self-hosted)")
+        container_present = isolation_tier in _tiers.VERIFIED_TIERS
     rec_list = recompute["metrics"]
     by_id = {m["metric_id"]: m for m in rec_list}
     # true no-claim mode: NO metric in the whole contract carries a claimed value. A single

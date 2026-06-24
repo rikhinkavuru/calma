@@ -51,9 +51,9 @@ __version__ = "0.12.0"
 
 QUANT_METRICS = {"total_return", "sharpe", "max_drawdown"}
 DEFAULT_TIMEOUT_S = 120
-# keep in lockstep with run_hermetic._VERIFIED_TIERS (the e2b microVM stamps are registered there too)
-VERIFIED_TIERS = ("seatbelt-verified", "bwrap-verified", "tier0", "container", "vm",
-                  "e2b-firecracker", "e2b-firecracker (self-hosted)")
+# the verified-tier gate is defined ONCE in calma.tiers; re-exported here for back-compat callers.
+import tiers as _tiers  # noqa: E402 - sibling leaf module (imports nothing)
+VERIFIED_TIERS = _tiers.VERIFIED_TIERS
 
 
 def _trace_enabled():
