@@ -17,6 +17,13 @@ All notable changes to the calma skill/CLI. Dates are UTC.
   signature keyed to WorkOS identity + the Rekor anchoring are the deferred W3/W2 binding (the signer is
   modelled as `{id, role}` with an optional `signature` field). `tests/test_signoff.py` (24 checks, incl.
   the gate, the role/state guards, and that replay catches a tampered/de-waivered event).
+- **The IC portfolio rollup** (`portfolio.py`, W7) — aggregates the redacted verdicts across an allocator's
+  mandates into the at-a-glance view: the one-line headline sorted loudest-first ("3 CONFIRMED clean; 1
+  FLAG_FOR_DECLARATION; 1 CAN'T-CONFIRM"), the action-required list (the non-clean mandates by catch-loudness,
+  each carrying its inferred-flags / what-to-declare), and a managers × families **heatmap** (✅ checked / ⚠️
+  flagged / 🚩 flag-for-declaration / ⛔ not-assessed — the inferred FLAG overrides its family). Pure logic over
+  metadata-only Verification records (no raw data); ties the M-8b.2 `FLAG_FOR_DECLARATION` into the multi-
+  mandate IC view. `tests/test_portfolio.py` (12 checks).
 
 - **Auditable egress control — the "data never leaves" boundary made into evidence** (`egress_audit.py`,
   master roadmap §1.2 / the P2-M1 acceptance / the K1 sandbox-escape kill-risk). Runs a probe entrypoint
