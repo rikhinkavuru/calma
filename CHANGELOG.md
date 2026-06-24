@@ -85,7 +85,11 @@ All notable changes to the calma skill/CLI. Dates are UTC.
   deterministic eval source**. Redaction-by-construction (no raw data leaves), idempotent (keyed by run id),
   optional native-namespace dual-emit, honors `OTEL_EXPORTER_OTLP_ENDPOINT/HEADERS`. New
   `scripts/otel_eval.py` + `src/calma/otel.py` facade (adds the optional OTel-SDK span-event mode);
-  `tests/test_otel_eval.py` (44 checks, incl. a hermetic `http.server` OTLP-capture ingest test).
+  `tests/test_otel_eval.py` (44 checks, incl. a hermetic `http.server` OTLP-capture ingest test). The
+  **TypeScript half** ships too — `@calma/otel` (`packages/calma-otel/`, `import { emitVerdict,
+  CalmaSpanProcessor } from "@calma/otel"`): a faithful mirror so JS/Next agents + apps emit the same span
+  (same mapping, same redaction, `fetch`-based OTLP, no OTel-SDK dependency). 9/9 via `node --test` incl. its
+  own hermetic node-http ingest test; `tsc` clean (the root Next build excludes `packages/`).
 - Firewall preserved: both are engine-pure and only ever *consume* a finished verdict — no model in any
   verdict path. `make eval` green.
 
