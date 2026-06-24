@@ -607,6 +607,9 @@ def load_contract(path):
     Raises ValueError with an actionable message instead of a raw parser traceback."""
     if not os.path.isfile(path):  # a FIFO/device verify.yaml would block open() forever
         raise ValueError("contract %r is not a regular file" % path)
+    if os.path.getsize(path) > PS.MAX_ARTIFACT_BYTES:  # a verify.yaml is a few KB; cap a hostile multi-GB one
+        raise ValueError("contract %r is over the %d MB byte-cap (a verify.yaml is normally a few KB)"
+                         % (path, PS.MAX_ARTIFACT_BYTES // (1024 * 1024)))
     text = open(path).read()
     try:
         obj = json.loads(text)

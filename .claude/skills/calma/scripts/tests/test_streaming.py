@@ -217,5 +217,35 @@ expect(recompute_one(qcontract, {"metric_id": "column_median", "artifact": "qbad
        "binding": {"value": "value"}}, tmp, stream_threshold=0).get("degenerate"),
        "quantile streaming: a non-finite cell -> degenerate (like the in-memory path)")
 
+# ---- 9. audit-fix regressions (adversarial review 2026-06-24) ----
+# BLOCKER: grouped streaming must DEGENERATE on a non-finite cell under na_policy=error — NEVER silently drop
+# a NaN era (which manufactured a CONFIRMED where the in-memory path is INCONCLUSIVE).
+nan_rows = [list(r) for r in eras_rows]
+nan_rows[25][1] = ""                                          # an empty `pred` cell in era01 (default error)
+write_csv(os.path.join(tmp, "numerai_nan.csv"), ["era", "pred", "target"], nan_rows)
+nan_c = {"artifacts": [{"path": "numerai_nan.csv", "columns": {}}]}
+nnm = {"metric_id": "numerai_corr", "artifact": "numerai_nan.csv", "binding": nbind}
+eager_nan = recompute_one(nan_c, nnm, tmp, stream_threshold=10 ** 12)
+stream_nan = recompute_one(nan_c, nnm, tmp, stream_threshold=0)
+expect(eager_nan.get("degenerate") and stream_nan.get("degenerate"),
+       "grouped: a non-finite cell degenerates on BOTH paths (no false CONFIRMED from a dropped NaN era)")
+# BLOCKER: grouped streaming refuses na_policy=drop (per-era vs whole-column drop can diverge)
+drop_c = {"artifacts": [{"path": "numerai.csv", "columns": {"pred": {"na_policy": "drop"}}}]}
+expect(recompute_one(drop_c, {"metric_id": "numerai_corr", "artifact": "numerai.csv", "binding": nbind},
+                     tmp, stream_threshold=0).get("degenerate"),
+       "grouped streaming refuses na_policy=drop (degenerates, never a divergent number)")
+# MINOR: streaming row_count with an EMPTY binding degenerates (matches the in-memory NaN), not a stray count
+expect(recompute_one(ncontract, {"metric_id": "row_count", "artifact": "numerai.csv", "binding": {}},
+                     tmp, stream_threshold=0).get("degenerate"),
+       "streaming row_count with an empty binding degenerates (matches the in-memory path)")
+# MAJOR: ExternalSortQuantile.cleanup rmtree's an ORPHAN run file (a failed add_chunk) -> no leaked temp dir
+qs2 = SR.ExternalSortQuantile()
+orphan = os.path.join(qs2._tmpdir, "run-0.bin")
+with open(orphan, "wb") as _f:
+    _f.write(b"\x00" * 8)                                     # a partial write that never reached runs.append()
+qs2.cleanup()
+expect(not os.path.exists(orphan) and not os.path.isdir(qs2._tmpdir),
+       "ExternalSortQuantile.cleanup removes an orphan run file + the temp dir (no leak)")
+
 print("streaming: %d checks, %d failures" % (_n, _fail))
 sys.exit(1 if _fail else 0)

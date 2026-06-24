@@ -38,6 +38,7 @@ Pure stdlib (math + heapq + struct + tempfile + numeric's deterministic kernels)
 import heapq
 import math
 import os
+import shutil
 import struct
 import tempfile
 
@@ -328,17 +329,11 @@ class ExternalSortQuantile:
             self.cleanup()
 
     def cleanup(self):
-        for p in self.runs:
-            try:
-                os.remove(p)
-            except OSError:
-                pass
         self.runs = []
         if self._owned_tmpdir:
-            try:
-                os.rmdir(self._tmpdir)
-            except OSError:
-                pass
+            # rmtree (not rmdir) so an ORPHAN run file — written by an add_chunk that opened the file but
+            # raised before runs.append() (e.g. disk-full) — can't pin the dir and leak it permanently.
+            shutil.rmtree(self._tmpdir, ignore_errors=True)
             self._owned_tmpdir = False
 
 

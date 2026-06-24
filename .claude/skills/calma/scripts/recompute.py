@@ -257,20 +257,22 @@ def _run_streaming(m, contract, base, sm, k):
         return _run_streaming_grouped(m, contract, base, sm, reducer_cls, k)
     binding, convention = m["binding"], m.get("convention")
     path = _safe_join(base, m["artifact"])
-    col = reducer_cls(binding, convention).column(binding)   # the bound column (None = pure row count)
+    col = reducer_cls(binding, convention).column(binding)   # the bound column for this reducer
+    if col is None:
+        # an empty binding (e.g. row_count with no `column`): the in-memory recipe degenerates (row_count
+        # returns NaN with no resolvable column; sum/mean/max_drawdown KeyError -> degenerate). Match it
+        # exactly rather than counting an arbitrary projected column -> the same INCONCLUSIVE, never a
+        # divergent CONFIRMED.
+        return _degenerate(m["metric_id"], "streaming requires a bound column (an empty binding degenerates, "
+                           "matching the in-memory path)")
     numeric = reducer_cls.numeric
-    na = _na_policies(contract, m["artifact"]).get(col, "error") if col else "error"
-    proj = [col] if col else None
+    na = _na_policies(contract, m["artifact"]).get(col, "error")
+    proj = [col]
 
     def run_once():
         reducer = reducer_cls(binding, convention)
         for raw_chunk in _iter_chunks(path, proj):
-            if col is None:                                  # row count over any projected column
-                vals = next(iter(raw_chunk.values()), [])
-            elif numeric:
-                vals = _to_numeric(raw_chunk[col], na)
-            else:
-                vals = raw_chunk[col]
+            vals = _to_numeric(raw_chunk[col], na) if numeric else raw_chunk[col]
             reducer.accumulate(vals)
         return reducer.finalize()
 
@@ -331,10 +333,10 @@ def _run_streaming_quantile(m, contract, base, sm, k):
 
 def _iter_groups(chunks, group_col):
     """Regroup a {col:[str]} chunk stream into CONTIGUOUS group slices, yielding (group_key, {col:[str]}).
-    Bounded memory = one group (e.g. one Numerai era). Raises ValueError if a group key recurs non-
-    contiguously — the data is not group-sorted, so it can't be streamed in constant memory (the eager
-    in-memory path handles unsorted data; streaming requires the file be group-sorted, which the Numerai
-    validation parquet is)."""
+    Memory is bounded by the LARGEST group's rows + the distinct-group-key set (one key/group) — for the
+    Numerai case (~1000 small eras) that is tiny; the absolute ceiling is the MAX_STREAM_ROWS wall. Raises
+    ValueError if a group key recurs non-contiguously — the data is not group-sorted, so it can't be streamed
+    this way (the eager in-memory path handles unsorted data; the Numerai validation parquet IS era-sorted)."""
     seen = set()
     cur_key, cur = None, None
     started = False
@@ -370,6 +372,13 @@ def _run_streaming_grouped(m, contract, base, sm, reducer_cls, k):
     group_col = binding[group_tag]
     na = _na_policies(contract, m["artifact"])
     na_pred, na_tgt = na.get(pred_col, "error"), na.get(tgt_col, "error")
+    # na_policy=drop changes a column's length; the in-memory path drops per-WHOLE-column (then zips
+    # pred/tgt/group) while streaming sees one era at a time, so the two can diverge. Refuse it (degenerate,
+    # never a divergent number). error + zero-fill are positional (no row removal) and agree per-era.
+    if "drop" in (na_pred, na_tgt):
+        return _degenerate(m["metric_id"], "grouped streaming does not support na_policy=drop on the "
+                           "prediction/target column (per-era vs whole-column drop can diverge); use "
+                           "na_policy=error or zero-fill")
     needed = sorted({pred_col, tgt_col, group_col})
 
     def run_once():
@@ -377,6 +386,13 @@ def _run_streaming_grouped(m, contract, base, sm, reducer_cls, k):
         for _gkey, gcols in _iter_groups(_iter_chunks(path, needed), group_col):
             pred = _to_numeric(gcols[pred_col], na_pred)
             tgt = _to_numeric(gcols[tgt_col], na_tgt)
+            # mirror the in-memory non-finite guard: under na_policy=error an empty/NA cell is a NaN, and
+            # ANY non-finite bound cell degenerates the WHOLE recompute. NEVER silently drop a NaN era — that
+            # would manufacture a CONFIRMED where the in-memory path is INCONCLUSIVE (the cardinal sin).
+            if any(not (x == x and x not in (_INF, _NINF)) for x in pred) \
+                    or any(not (x == x and x not in (_INF, _NINF)) for x in tgt):
+                raise ValueError("a bound numeric column contains a non-finite value (NaN/Inf cell, or an "
+                                 "unfilled NA under na_policy=error)")
             reducer.accumulate_group(_gkey, pred, tgt)
         return reducer.finalize()
 
