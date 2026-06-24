@@ -58,7 +58,9 @@ All notable changes to the calma skill/CLI. Dates are UTC.
   one move, never a guessed verdict-flip (`INVALIDATED` stays declaration-gated). Rank
   `REFUTED ≥ INVALIDATED > FLAG_FOR_DECLARATION > MIXED > CAVEATS`; it blocks the gate / Stop hook and
   renders with an amber-red `⚑`. Threaded through `verdict.py`, `ledger.py`, `report.py`, `calma.py`,
-  `hook_stop.py`. +9 verdict + +9 ledger unit-checks.
+  `hook_stop.py`, the OTel mapping, the IDD/ODD checklist, and the **PR-bot + MCP merge gate** (CANONICAL §3:
+  `pr/render.py` `check_conclusion` now maps FLAG → a failing GitHub Check-Run, so a flag blocks the merge —
+  the gating claim is enforced, not just asserted). +9 verdict + +9 ledger unit-checks; pr 30/0, mcp 10/0.
 - **The inference detectors that PRODUCE `FLAG_FOR_DECLARATION`** (`infer_validity.py`, M-8b.2) — the
   declare-nothing kill-shot closer. Runs in `_assemble_ledger` after plausibility (so a soft CAVEAT is in
   place first; the flag overrides it). Three governed detectors, each reusing existing machinery and each

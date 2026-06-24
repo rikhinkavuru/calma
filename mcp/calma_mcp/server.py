@@ -39,7 +39,8 @@ _REPO_ROOT_DEFAULT = os.path.abspath(os.path.join(_PKG_DIR, "..", ".."))
 _CALMA_DEFAULT = os.path.join(_REPO_ROOT_DEFAULT, ".claude", "skills", "calma", "scripts", "calma.py")
 
 # the engine's verdict enum (for documentation / schemas only -- never computed here)
-_VERDICTS = ["CONFIRMED", "CONFIRMED-WITH-CAVEATS", "REFUTED", "INVALIDATED", "INCONCLUSIVE", "MIXED"]
+_VERDICTS = ["CONFIRMED", "CONFIRMED-WITH-CAVEATS", "REFUTED", "INVALIDATED", "FLAG_FOR_DECLARATION",
+             "INCONCLUSIVE", "MIXED"]
 
 
 # --- configuration (env-overridable; resolved per call so tests can set it) --------------------

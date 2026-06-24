@@ -103,7 +103,7 @@ on:
 
 permissions:
   pull-requests: write    # the inline review + the summary comment
-  checks: write           # the GATING check-run (failure on REFUTED / INVALIDATED / MIXED)
+  checks: write           # the GATING check-run (failure on REFUTED / INVALIDATED / MIXED / FLAG_FOR_DECLARATION)
   contents: read
 
 jobs:
@@ -175,7 +175,7 @@ def main(argv=None):
         print("WARNING: --ref %r is a mutable ref; re-run with a commit SHA so the engine that "
               "grades a PR can't change under you." % a.ref, file=sys.stderr)
     print("\nNEXT: commit the two files, then mark the `calma` check **Required** in branch "
-          "protection so a REFUTED/INVALIDATED number blocks the merge.", file=sys.stderr)
+          "protection so a REFUTED/INVALIDATED/FLAG_FOR_DECLARATION number blocks the merge.", file=sys.stderr)
     return 0
 
 

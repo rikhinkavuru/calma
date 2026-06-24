@@ -45,9 +45,18 @@ def test_invalidated_reads_distinctly():
     assert "**INVALIDATED**" in body and "reproduces, but not a valid result" in body
 
 
+def test_flag_for_declaration_reads_distinctly_and_is_a_catch():
+    body = R.inline_body(_finding("FLAG_FOR_DECLARATION", citation="inferred train/test split, 28% row overlap"))
+    assert "**FLAG_FOR_DECLARATION**" in body and "declare the named block to resolve" in body
+    assert R.is_catch(_finding("FLAG_FOR_DECLARATION")) is True
+
+
 def test_check_conclusion_is_pure_function_of_verdicts():
     assert R.check_conclusion(_bundle([_target("REFUTED", [_finding("REFUTED")])])) == "failure"
     assert R.check_conclusion(_bundle([_target("INVALIDATED", [_finding("INVALIDATED")])])) == "failure"
+    # a FLAG_FOR_DECLARATION blocks the merge gate (CANONICAL §3: it maps to a failing check conclusion)
+    assert R.check_conclusion(_bundle([_target("FLAG_FOR_DECLARATION",
+                                               [_finding("FLAG_FOR_DECLARATION")])])) == "failure"
     assert R.check_conclusion(_bundle([_target("INCONCLUSIVE", [])])) == "neutral"
     assert R.check_conclusion(_bundle([_target("CONFIRMED", [])])) == "success"
 

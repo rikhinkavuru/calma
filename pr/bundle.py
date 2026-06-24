@@ -7,7 +7,7 @@ FindingsBundle = {
   "pr_number": int, "head_sha": str, "base_sha": str,
   "targets": [ {
     "target": str, "kind": "artifact"|"contract",
-    "repo_verdict": str,        # CONFIRMED|CONFIRMED-WITH-CAVEATS|REFUTED|INVALIDATED|INCONCLUSIVE|MIXED
+    "repo_verdict": str,        # CONFIRMED|CONFIRMED-WITH-CAVEATS|REFUTED|INVALIDATED|FLAG_FOR_DECLARATION|INCONCLUSIVE|MIXED
     "summary": str,             # the engine/A1 summary line, verbatim
     "isolation_tier": str, "determinism_mode": str,
     "findings": [ {             # one per A1 ClaimReport / engine metric
@@ -28,7 +28,8 @@ import re
 
 SCHEMA = "calma/pr-findings@1"
 # the engine verdicts that are CATCHES (a failing check-run); copied verbatim, never recomputed here.
-CATCH_VERDICTS = ("REFUTED", "INVALIDATED", "MIXED")
+# FLAG_FOR_DECLARATION blocks the gate too (undeclared structure that could invalidate the number).
+CATCH_VERDICTS = ("REFUTED", "INVALIDATED", "MIXED", "FLAG_FOR_DECLARATION")
 CANT_CONFIRM = ("INCONCLUSIVE", "CAN'T-CONFIRM")
 
 

@@ -3,7 +3,7 @@ is COPIED from the engine (through the bundle); render adds only structure + a h
 marker. No engine import (transport only). INVALIDATED reads distinctly from a plain REFUTED so the
 validity layer is legible.
 """
-CATCH = ("REFUTED", "INVALIDATED", "MIXED")
+CATCH = ("REFUTED", "INVALIDATED", "MIXED", "FLAG_FOR_DECLARATION")
 CANT_CONFIRM = ("INCONCLUSIVE", "CAN'T-CONFIRM")
 FP_MARK = "<!-- calma:fp=%s -->"          # per-finding idempotency marker (B2 keys off this)
 SUMMARY_MARK = "<!-- calma:summary -->"   # the single updatable summary comment
@@ -39,7 +39,7 @@ def _claimed_recomputed(f):
 
 
 def is_catch(finding):
-    return finding.get("verdict") in ("REFUTED", "INVALIDATED")
+    return finding.get("verdict") in ("REFUTED", "INVALIDATED", "FLAG_FOR_DECLARATION")
 
 
 def inline_body(finding, isolation_tier=None):
@@ -50,6 +50,9 @@ def inline_body(finding, isolation_tier=None):
     cr = _claimed_recomputed(finding)
     if v == "INVALIDATED":
         head = "**INVALIDATED** — reproduces, but not a valid result. %s%s" % (cite, cr)
+    elif v == "FLAG_FOR_DECLARATION":
+        head = ("**FLAG_FOR_DECLARATION** — reproduces, but the artifacts carry undeclared structure that "
+                "could invalidate it; declare the named block to resolve. %s%s" % (cite, cr))
     else:
         head = "**%s** — %s%s" % (v, cite, cr)
     bits = [head]
@@ -100,8 +103,9 @@ def summary_body(bundle):
 
 
 def check_conclusion(bundle):
-    """A pure function of the engine verdicts: failure on any REFUTED/INVALIDATED/MIXED, neutral on any
-    CAN'T-CONFIRM, else success."""
+    """A pure function of the engine verdicts: failure on any REFUTED/INVALIDATED/MIXED/FLAG_FOR_DECLARATION
+    (a flag blocks the merge — undeclared structure that could invalidate the number, resolvable by declaring
+    it), neutral on any CAN'T-CONFIRM, else success."""
     vs = [t.get("repo_verdict") for t in bundle.get("targets", [])]
     if any(v in CATCH for v in vs):
         return "failure"
