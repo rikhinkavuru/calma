@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import {
   mapVerdict, buildOtlpTraces, dualEmitAttrs, ids, emitVerdict, CalmaSpanProcessor,
-  VERDICT_MAP, EVAL_NAME, type VerdictResult,
+  VERDICT_MAP, EVAL_NAME, ADAPTERS, adapterConfig, type VerdictResult,
 } from "../src/index.ts";
 
 function ledger(repoVerdict: string, over: Partial<Record<string, unknown>> = {}): VerdictResult {
@@ -114,6 +114,18 @@ test("CalmaSpanProcessor event mode records a span-event on a live span", async 
   assert.equal((out as any).mode, "event");
   assert.equal(captured.name, EVAL_NAME);
   assert.equal(captured.attrs!["gen_ai.evaluation.outcome"], "block");
+});
+
+test("per-backend adapter recipes (§4.4): copy-paste OTLP config for the 4 backends", () => {
+  assert.deepEqual(Object.keys(ADAPTERS).sort(), ["braintrust", "langfuse", "langsmith", "phoenix"]);
+  const bt = adapterConfig("BrainTrust"); // case-insensitive
+  assert.equal(bt.endpoint, "https://api.braintrust.dev/otel");
+  assert.deepEqual(bt.dualEmit, ["braintrust"]);
+  assert.ok(bt.otelEnv.OTEL_EXPORTER_OTLP_HEADERS.includes("Bearer ${BRAINTRUST_API_KEY}"));
+  const lf = adapterConfig("langfuse");
+  assert.deepEqual(lf.dualEmit, []);
+  assert.equal(lf.readsGenAi, true);
+  assert.throws(() => adapterConfig("nope"), /unknown backend/);
 });
 
 test("HERMETIC INGEST: a node http server stands in for an OTLP collector", async () => {

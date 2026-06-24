@@ -89,7 +89,12 @@ All notable changes to the calma skill/CLI. Dates are UTC.
   **TypeScript half** ships too — `@calma/otel` (`packages/calma-otel/`, `import { emitVerdict,
   CalmaSpanProcessor } from "@calma/otel"`): a faithful mirror so JS/Next agents + apps emit the same span
   (same mapping, same redaction, `fetch`-based OTLP, no OTel-SDK dependency). 9/9 via `node --test` incl. its
-  own hermetic node-http ingest test; `tsc` clean (the root Next build excludes `packages/`).
+  own hermetic node-http ingest test; `tsc` clean (the root Next build excludes `packages/`). And the
+  **per-backend adapter recipes** (§4.4) ship in both — `adapter_config(backend)` / `adapterConfig(backend)`
+  + an `ADAPTERS` registry return the exact OTLP endpoint, auth-header template, native dual-emit, and a
+  ready-to-paste `OTEL_EXPORTER_OTLP_*` block for Braintrust / LangSmith / Langfuse / Phoenix (see
+  `packages/calma-otel/ADAPTERS.md`), so wiring Calma into a backend is copy-paste — the buildable core
+  behind the hosted product's self-serve integrations screen.
 - Firewall preserved: both are engine-pure and only ever *consume* a finished verdict — no model in any
   verdict path. `make eval` green.
 

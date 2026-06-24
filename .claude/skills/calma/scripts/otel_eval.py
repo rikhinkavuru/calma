@@ -189,6 +189,62 @@ def dual_emit_attrs(attrs, backends):
     return out
 
 
+# --- Per-backend adapter recipes (master roadmap §4.4): the exact OTLP endpoint + auth-header template + the
+# native-namespace dual-emit each backend needs, so wiring Calma in is copy-paste. Endpoints/headers are
+# pinned to the build-plan spec (the backends' published OTLP docs as of 2026) - verify against the backend's
+# current docs before use. ${VAR} placeholders name the env vars the user supplies.
+ADAPTERS = {
+    "braintrust": {
+        "endpoint": "https://api.braintrust.dev/otel",
+        "headers": {"Authorization": "Bearer ${BRAINTRUST_API_KEY}",
+                    "x-bt-parent": "project_name:${BRAINTRUST_PROJECT}"},
+        "dual_emit": ["braintrust"],          # no native GenAI-eval reader -> mirror the braintrust.* namespace
+        "env": ["BRAINTRUST_API_KEY", "BRAINTRUST_PROJECT"],
+        "reads_gen_ai": False,
+        "note": "Braintrust has no native GenAI-eval reader; the calma score rides its braintrust.* namespace.",
+    },
+    "langsmith": {
+        "endpoint": "https://api.smith.langchain.com/otel",
+        "headers": {"x-api-key": "${LANGSMITH_API_KEY}"},
+        "dual_emit": ["langsmith"],
+        "env": ["LANGSMITH_API_KEY"],
+        "reads_gen_ai": False,
+        "note": "the canonical gen_ai.* attributes ride along for forward-compat; langsmith.* discriminators "
+                "route it today.",
+    },
+    "langfuse": {
+        "endpoint": "https://cloud.langfuse.com/api/public/otel",
+        "headers": {"Authorization": "Basic ${LANGFUSE_AUTH_B64}", "x-langfuse-ingestion-version": "4"},
+        "dual_emit": [],                      # reads gen_ai.* natively -> the canonical mapping is sufficient
+        "env": ["LANGFUSE_AUTH_B64"],
+        "reads_gen_ai": True,
+        "note": "Langfuse reads gen_ai.* natively; LANGFUSE_AUTH_B64 = base64(public_key:secret_key).",
+    },
+    "phoenix": {
+        "endpoint": "${PHOENIX_COLLECTOR_ENDPOINT}",
+        "headers": {"api_key": "${PHOENIX_API_KEY}"},   # cloud sets PHOENIX_CLIENT_HEADERS=api_key=...
+        "dual_emit": [],                      # reads label/score natively
+        "env": ["PHOENIX_COLLECTOR_ENDPOINT", "PHOENIX_API_KEY"],
+        "reads_gen_ai": True,
+        "note": "Phoenix reads label/score natively; a self-hosted collector needs no api_key.",
+    },
+}
+
+
+def adapter_config(backend):
+    """The OTLP adapter recipe for a backend: {endpoint, headers (with ${ENV} placeholders), dual_emit, env,
+    reads_gen_ai, note, otel_env}. `otel_env` is a ready-to-paste OTEL_EXPORTER_OTLP_ENDPOINT/HEADERS block.
+    Raises KeyError on an unknown backend. No network, no secrets - a pure config projection."""
+    b = (backend or "").strip().lower()
+    if b not in ADAPTERS:
+        raise KeyError("unknown backend %r (known: %s)" % (backend, ", ".join(sorted(ADAPTERS))))
+    rec = {k: (dict(v) if isinstance(v, dict) else list(v) if isinstance(v, list) else v)
+           for k, v in ADAPTERS[b].items()}
+    hdrs = ",".join("%s=%s" % (k, v) for k, v in rec["headers"].items())
+    rec["otel_env"] = {"OTEL_EXPORTER_OTLP_ENDPOINT": rec["endpoint"], "OTEL_EXPORTER_OTLP_HEADERS": hdrs}
+    return rec
+
+
 # --- OTLP/HTTP JSON encoding (the zero-dep transport). trace_id/span_id are HEX strings per the OTLP/JSON
 # spec's deliberate exception to protobuf-JSON base64; every other bytes field is unused here.
 

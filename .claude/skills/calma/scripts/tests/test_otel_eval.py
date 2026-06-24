@@ -162,5 +162,22 @@ cap_kv = {x["key"]: x["value"] for x in cap_span["attributes"]}
 expect(cap_kv["calma.verdict"]["stringValue"] == "REFUTED", "captured body carries calma.verdict=REFUTED")
 expect(cap_kv["gen_ai.evaluation.outcome"]["stringValue"] == "fail", "captured outcome=fail")
 
+# ---- per-backend adapter recipes (§4.4): copy-paste OTLP config for the 4 backends ----
+expect(set(OE.ADAPTERS) == {"braintrust", "langsmith", "langfuse", "phoenix"}, "the 4 backend adapters exist")
+bt = OE.adapter_config("braintrust")
+expect(bt["endpoint"] == "https://api.braintrust.dev/otel" and bt["dual_emit"] == ["braintrust"],
+       "braintrust adapter: endpoint + braintrust dual-emit (no native gen_ai reader)")
+expect("OTEL_EXPORTER_OTLP_ENDPOINT" in bt["otel_env"] and "Bearer ${BRAINTRUST_API_KEY}" in bt["otel_env"]["OTEL_EXPORTER_OTLP_HEADERS"],
+       "adapter_config yields a ready-to-paste OTEL_EXPORTER_OTLP_* block with ${ENV} placeholders")
+lf = OE.adapter_config("LangFuse")                       # case-insensitive
+expect(lf["dual_emit"] == [] and lf["reads_gen_ai"] is True, "langfuse reads gen_ai.* natively -> no dual-emit")
+expect(all("dual_emit" in OE.adapter_config(b) and OE.adapter_config(b)["env"] for b in OE.ADAPTERS),
+       "every adapter names its dual-emit + the env vars to set")
+try:
+    OE.adapter_config("nope")
+    expect(False, "adapter_config raises on an unknown backend")
+except KeyError:
+    expect(True, "adapter_config raises on an unknown backend")
+
 print("otel_eval.py: %d checks, %d failures" % (_n, _fail))
 sys.exit(1 if _fail else 0)
