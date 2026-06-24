@@ -26,7 +26,15 @@ export function Nav({ user }: { user: { name: string; email: string; mode: "work
       <div className={styles.navright}>
         {user.mode === "dev" && <span className={styles.devpill}>DEV SESSION</span>}
         <span>{user.name}</span>
-        {user.mode === "workos" && <Link href="/dashboard/signout" className={styles.navlink}>Sign out</Link>}
+        {user.mode === "workos" && (
+          // POST (not a <Link>): a prefetched GET to /dashboard/signout would silently log the user out.
+          <form action="/dashboard/signout" method="post" style={{ margin: 0 }}>
+            <button type="submit" className={styles.navlink}
+                    style={{ background: "none", border: "none", padding: 0, cursor: "pointer", font: "inherit" }}>
+              Sign out
+            </button>
+          </form>
+        )}
       </div>
     </nav>
   );
