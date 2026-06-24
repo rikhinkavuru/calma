@@ -182,5 +182,40 @@ try:
 except ValueError:
     expect(True, "_iter_groups raises on non-contiguous (unsorted) groups")
 
+# ---- 8. Class B: exact quantile / median / percentile streaming via external merge-sort ----
+import numeric as N  # noqa: E402 - the in-memory kernel to cross-check bit-identity against
+qvals = [((i * 37) % 101 - 50) * 0.1 + (i % 7) * 0.013 for i in range(523)]   # 523 -> odd n, real interpolation
+qpath = os.path.join(tmp, "q.csv")
+write_csv(qpath, ["value"], [(v,) for v in qvals])
+qcontract = {"artifacts": [{"path": "q.csv", "columns": {}}]}
+# median (q=0.5 fixed in the manifest)
+mm = {"metric_id": "column_median", "artifact": "q.csv", "binding": {"value": "value"}}
+eager = recompute_one(qcontract, mm, tmp, stream_threshold=10 ** 12)
+streamed = recompute_one(qcontract, mm, tmp, stream_threshold=0)
+expect(_bits(eager["value"]) == _bits(streamed["value"]),
+       "column_median: streamed == in-memory BIT-IDENTICAL (%r vs %r)" % (eager["value"], streamed["value"]))
+expect(_bits(streamed["value"]) == _bits(N.quantile(qvals, 0.5)), "streamed median == numeric.quantile(.,0.5)")
+expect(streamed.get("streamed") is True and streamed["k_spread"] == 0.0, "median streamed, K-spread 0")
+# percentile (q resolved from the convention "p95")
+mp = {"metric_id": "percentile", "artifact": "q.csv", "binding": {"value": "value"}, "convention": "p95"}
+e95 = recompute_one(qcontract, mp, tmp, stream_threshold=10 ** 12)
+s95 = recompute_one(qcontract, mp, tmp, stream_threshold=0)
+expect(_bits(e95["value"]) == _bits(s95["value"]) and _bits(s95["value"]) == _bits(N.quantile(qvals, 0.95)),
+       "percentile p95: streamed == in-memory == numeric.quantile(.,0.95), bit-identical")
+# the external-sort spills a run per chunk, is exact across runs, and cleans up its temp files
+qs = SR.ExternalSortQuantile()
+qs.add_chunk(qvals[:200])
+qs.add_chunk(qvals[200:])
+qtmpdir = qs._tmpdir
+expect(len(qs.runs) == 2 and os.path.isdir(qtmpdir), "ExternalSortQuantile spills one sorted run per chunk")
+res = qs.result(0.5)
+expect(_bits(res) == _bits(N.quantile(qvals, 0.5)) and not os.path.isdir(qtmpdir),
+       "ExternalSortQuantile.result is exact over the merged runs + cleans up its temp dir")
+# a non-finite cell -> degenerate (mirrors the in-memory _has_nan degrade)
+write_csv(os.path.join(tmp, "qbad.csv"), ["value"], [(1.0,), ("inf",), (3.0,)])
+expect(recompute_one(qcontract, {"metric_id": "column_median", "artifact": "qbad.csv",
+       "binding": {"value": "value"}}, tmp, stream_threshold=0).get("degenerate"),
+       "quantile streaming: a non-finite cell -> degenerate (like the in-memory path)")
+
 print("streaming: %d checks, %d failures" % (_n, _fail))
 sys.exit(1 if _fail else 0)

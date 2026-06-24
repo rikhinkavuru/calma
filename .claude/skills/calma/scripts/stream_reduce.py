@@ -26,9 +26,20 @@ era's value in-memory on its bounded slice and accumulates one float per era; fi
 2-4 GB era-sorted validation file never lands in RAM (memory = one era + one float/era). Bit-identical to the
 in-memory per-era recipe — `numeric.fmean`/`fstd` over the exact `fsum` are order-independent.
 
-Pure stdlib (math + numeric's deterministic kernels).
+Class B (quantile/median): the sorted-vector kernels can't reduce in constant memory, so they stream via an
+EXACT EXTERNAL MERGE-SORT — each chunk is sorted and spilled to a temp run (host-side verifier scratch, not the
+sandbox), then a k-way heap-merge streams the globally-sorted sequence to the target rank. Bit-identical to
+numeric.quantile over the fully-sorted vector (a merge of sorted runs is the same total order; struct round-
+trips doubles losslessly), so the linear-interpolation arithmetic is identical. The one Class-B kernel that
+needs real new machinery — exact, not a t-digest approximation (that would break "recompute = ground truth").
+
+Pure stdlib (math + heapq + struct + tempfile + numeric's deterministic kernels).
 """
+import heapq
 import math
+import os
+import struct
+import tempfile
 
 import numeric as N  # the deterministic per-era CORR + fmean/fstd kernels (pure-stdlib engine leaf)
 
@@ -255,6 +266,80 @@ class NumeraiSharpeGroupedReducer(NumeraiCorrGroupedReducer):
             return self._degenerate()
         return {"value": mean / sd, "terms": {"eras": len(vals), "corr_mean": mean, "corr_std": sd},
                 "near_zero_vol": False, "path_dependent": False, "degenerate": False}
+
+
+class ExternalSortQuantile:
+    """Exact quantile over a streamed numeric column via external merge-sort. `add_chunk(values)` sorts the
+    chunk and spills it to a temp run file (host-side scratch); `result(q)` k-way-merges the runs and extracts
+    the quantile with numpy's 'linear' interpolation (method 7) — BIT-IDENTICAL to numeric.quantile over the
+    fully-sorted vector. Constant memory (one chunk to sort + an 8-byte read per run during the merge). A
+    non-finite cell sets `bad` (-> NaN, mirroring the in-memory _has_nan degrade). Temp runs are cleaned up."""
+
+    def __init__(self, tmpdir=None):
+        self.runs = []
+        self.n = 0
+        self.bad = False
+        self._tmpdir = tmpdir or tempfile.mkdtemp(prefix="calma-qsort-")
+        self._owned_tmpdir = tmpdir is None
+
+    def add_chunk(self, values):
+        for v in values:
+            if not _finite(v):
+                self.bad = True
+                return
+        path = os.path.join(self._tmpdir, "run-%d.bin" % len(self.runs))
+        with open(path, "wb") as fh:
+            fh.write(struct.pack("<%dd" % len(values), *sorted(values)))   # sorted run, lossless doubles
+        self.runs.append(path)
+        self.n += len(values)
+
+    def _iter_run(self, path):
+        with open(path, "rb") as fh:
+            while True:
+                b = fh.read(8)
+                if not b:
+                    return
+                yield struct.unpack("<d", b)[0]
+
+    def result(self, q):
+        """numeric.quantile(sorted(all values), q), computed over the merged runs. Cleans up either way."""
+        try:
+            if self.bad or self.n == 0 or q != q or not (0.0 <= q <= 1.0):
+                return float("nan")
+            merged = heapq.merge(*[self._iter_run(p) for p in self.runs])
+            if self.n == 1:
+                return float(next(merged))
+            h = (self.n - 1) * q
+            lo = int(math.floor(h))
+            frac = h - lo
+            need = lo if frac == 0.0 else lo + 1
+            ylo = ylo1 = None
+            for i, v in enumerate(merged):
+                if i == lo:
+                    ylo = v
+                elif i == lo + 1:
+                    ylo1 = v
+                if i >= need:
+                    break
+            if frac == 0.0:
+                return float(ylo)
+            return ylo + frac * (ylo1 - ylo)
+        finally:
+            self.cleanup()
+
+    def cleanup(self):
+        for p in self.runs:
+            try:
+                os.remove(p)
+            except OSError:
+                pass
+        self.runs = []
+        if self._owned_tmpdir:
+            try:
+                os.rmdir(self._tmpdir)
+            except OSError:
+                pass
+            self._owned_tmpdir = False
 
 
 # the reducer registry: a recipe's manifest `streaming={"reducer": "<name>"}` names one of these.

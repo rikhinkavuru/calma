@@ -46,10 +46,15 @@ All notable changes to the calma skill/CLI. Dates are UTC.
   group regrouper streams the multi-GB **era-sorted Numerai validation** file one era at a time (memory = one
   era + one float per era), computing each era's CORR in-memory and aggregating — so `numerai_corr` /
   `numerai_sharpe` verify over the cap, bit-identical to the in-memory per-era recipe (`fmean`/`fstd` over the
-  exact `fsum` are order-free); a non-group-sorted file degenerates honestly. `tests/test_streaming.py` (43
-  checks: bit-identity per kernel, exact-sum vs `math.fsum`, the grouped Numerai fold, over-cap verification,
-  the DoS guards). Class B (quantile/median, exact external sort) and `total_return` (the pairwise-product tree
-  differs at chunk boundaries) remain deferred.
+  exact `fsum` are order-free); a non-group-sorted file degenerates honestly. And a **Class-B fold**
+  (`streaming.class == "quantile"`): `column_median` / `percentile` stream via an EXACT external merge-sort
+  (`ExternalSortQuantile` — each chunk is sorted + spilled to a temp run, then a k-way heap-merge streams the
+  globally-sorted sequence to the target rank), bit-identical to `numeric.quantile` over the fully-sorted
+  vector (a merge of sorted runs is the same total order; `struct` round-trips doubles losslessly) — exact,
+  not a t-digest approximation. `tests/test_streaming.py` (50 checks: bit-identity per kernel incl.
+  median/percentile, exact-sum vs `math.fsum`, the grouped Numerai fold, the external-sort spill+cleanup,
+  over-cap verification, the DoS guards). Only `total_return` (its pairwise-product tree differs at chunk
+  boundaries — bit-stable but not bit-equal; and a >256 MB single return column is unrealistic) remains deferred.
 - **New verdict: `FLAG_FOR_DECLARATION`** (closes the "declare-nothing → only soft smells fire" hole).
   When the headline number reproduces but the artifacts carry positive, multi-signal structure that would
   invalidate it if it is what it looks like (an inferred train/test split with real row-overlap; a strong

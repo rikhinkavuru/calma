@@ -316,14 +316,16 @@ def error_rate(cols, binding, convention=None):
 # Pack 2 - analytics depth
 # ======================================================================================
 
-@register("column_median", family="analytics", required_tags=["value"], set_maturity="reviewed")
+@register("column_median", family="analytics", required_tags=["value"], set_maturity="reviewed",
+          streaming={"class": "quantile", "q": 0.5})              # exact external merge-sort -> bit-identical
 def column_median(cols, binding, convention=None):
     xs = cols[binding["value"]]
     return _result(N.quantile(xs, 0.5), {"n": len(xs), "method": "linear"})
 
 
 @register("percentile", family="analytics", required_tags=["value"], set_maturity="reviewed",
-          accepted_conventions=["p<NN>", "q=<frac>"])
+          accepted_conventions=["p<NN>", "q=<frac>"],
+          streaming={"class": "quantile", "q_from": "convention"})  # q resolved from the recipe convention
 def percentile(cols, binding, convention=None):
     xs = cols[binding["value"]]
     q = _conv_q(convention)

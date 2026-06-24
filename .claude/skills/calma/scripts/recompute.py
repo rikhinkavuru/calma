@@ -248,6 +248,8 @@ def _run_streaming(m, contract, base, sm, k):
     normal recompute result and need zero changes. Bit-identical to the in-memory recipe (the additive
     reducers use an exact Shewchuk accumulator; max_drawdown is an order-stable online fold)."""
     import stream_reduce as SR  # noqa: PLC0415 - sibling module, lazy to keep import-time minimal
+    if sm.get("class") == "quantile":                    # Class B: external merge-sort (no registered reducer)
+        return _run_streaming_quantile(m, contract, base, sm, k)
     reducer_cls = SR.REDUCERS.get(sm.get("reducer"))
     if reducer_cls is None:
         return _degenerate(m["metric_id"], "unknown streaming reducer %r" % sm.get("reducer"))
@@ -281,6 +283,49 @@ def _run_streaming(m, contract, base, sm, k):
         "metric_id": m["metric_id"], "value": r0["value"], "terms": r0["terms"],
         "k": len(runs), "k_spread": k_spread, "degenerate": r0["degenerate"],
         "near_zero_vol": r0["near_zero_vol"], "path_dependent": r0["path_dependent"], "streamed": True,
+    }
+
+
+def _run_streaming_quantile(m, contract, base, sm, k):
+    """Class-B streaming recompute (quantile / median / percentile): an EXACT external merge-sort over the
+    bound value column, then numpy 'linear' interpolation at q — bit-identical to numeric.quantile over the
+    fully-sorted vector. q is the manifest's fixed q (column_median: 0.5) or resolved from the recipe's
+    convention (percentile). Same result-dict shape as _run_recipe; K-spread 0; temp runs cleaned up."""
+    import stream_reduce as SR  # noqa: PLC0415
+    col = m["binding"].get("value")
+    if not col:
+        return _degenerate(m["metric_id"], "quantile streaming requires a 'value' binding")
+    q = sm.get("q")
+    if q is None and sm.get("q_from") == "convention":
+        import recipes as R  # noqa: PLC0415 - lazy; reuse the recipe's exact convention->q parser
+        try:
+            q = R._conv_q(m.get("convention"))
+        except Exception:  # noqa: BLE001 - an unparseable convention -> degenerate, never a crash
+            q = None
+    if not (isinstance(q, (int, float)) and 0.0 <= q <= 1.0):
+        return _degenerate(m["metric_id"], "quantile streaming: q not resolvable (%r)" % (q,))
+    path = _safe_join(base, m["artifact"])
+    na = _na_policies(contract, m["artifact"]).get(col, "error")
+
+    def run_once():
+        qs = SR.ExternalSortQuantile()
+        try:
+            for raw_chunk in _iter_chunks(path, [col]):
+                qs.add_chunk(_to_numeric(raw_chunk[col], na))
+            return qs.result(float(q)), qs.n
+        finally:
+            qs.cleanup()
+
+    runs = [run_once() for _ in range(max(k, 1))]
+    vals = [r[0] for r in runs]
+    finite = [v for v in vals if isinstance(v, float) and v == v]
+    k_spread = (max(finite) - min(finite)) if len(finite) == len(vals) and finite else 0.0
+    v0 = vals[0]
+    degenerate = not (isinstance(v0, float) and v0 == v0 and v0 not in (_INF, _NINF))
+    return {
+        "metric_id": m["metric_id"], "value": v0, "terms": {"n": runs[0][1], "q": float(q), "method": "linear"},
+        "k": len(runs), "k_spread": k_spread, "degenerate": degenerate,
+        "near_zero_vol": False, "path_dependent": False, "streamed": True,
     }
 
 
