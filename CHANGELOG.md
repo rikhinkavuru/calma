@@ -2,7 +2,20 @@
 
 All notable changes to the calma skill/CLI. Dates are UTC.
 
-## Unreleased — `FLAG_FOR_DECLARATION` verdict tier · OTel-eval distribution wedge · streaming recompute
+## Unreleased — `FLAG_FOR_DECLARATION` verdict tier · OTel-eval wedge · streaming recompute · IDD/ODD report
+
+- **Evidence bundle → the IC-acceptable IDD/ODD deliverable** (`evidence_bundle.py`, M-8c.1). The bundle
+  graduates from a one-page cover sheet into a multi-section IDD/ODD report — still a **pure re-projection**
+  (no verdict is decided; no number is recomputed). `evidence_json` gains five fields: an `examination_statement`
+  (GIPS-scoped: "a metric-level performance examination, not a firm-wide GIPS verification"), `input_data_treatment`
+  (the GIPS Input-Data #9 row — net-of-fees / costs-included / survivorship / look-ahead, each `declared` or
+  `not declared`, surfaced from the contract blocks), a `ddq_performance_module` (the AIMA Performance-Presentation
+  Q&A), an `odd_analyst_checklist` (a signable per-family ✅ checked / ⚠️ flagged / 🚩 flag-for-declaration / ⛔
+  not-assessed table — the **inferred-flags** from M-8b.2 surface here as 🚩), and three fixed, always-present
+  `limitations` clauses (L1 reproducible≠correct · L2 input-data authenticity · L3 scope-is-the-declared-scope —
+  the load-bearing ceilings that keep the report from over-claiming, i.e. what makes it signable). `build_evidence`
+  now also writes `IDD-REPORT.md` + a styled `IDD-REPORT.html` (8 sections) alongside the existing `EVIDENCE.md`
+  cover (back-compat). `tests/test_evidence_bundle.py` extended (42 checks).
 
 - **Streaming recompute past the 256 MB artifact cap** (constant-memory folds). A recipe opts in via a
   `streaming` block in its manifest; when its artifact is over the streaming threshold (default: the eager

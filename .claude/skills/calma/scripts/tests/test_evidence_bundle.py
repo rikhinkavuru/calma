@@ -66,6 +66,55 @@ truth(md.startswith("# Independent verification evidence") and "operational due-
 truth("Independently recomputed" in md and "GIPS-2026" in md and "replay" in md.lower(),
       "cover sheet shows the recompute, the GIPS mapping, and the replay path")
 
+# --- W8(c) M-8c.1: the IDD/ODD deliverable fields (pure re-projection, no new computation) ---
+truth(ev.get("examination_statement", "").endswith("not a firm-wide GIPS verification."),
+      "examination_statement is GIPS-scoped down (a number, not a firm)")
+truth(ev["subject"] in ev["examination_statement"]
+      and (ev["verified_result"].get("verdict") or "") in ev["examination_statement"],
+      "examination_statement names the subject + the verdict")
+lim = ev.get("limitations") or []
+truth([c["id"] for c in lim] == ["L1", "L2", "L3"], "the three fixed limitation clauses are always present")
+truth("reproducible" in lim[0]["title"].lower() and all(c["text"] for c in lim),
+      "L1 = reproducible != correct (the load-bearing ceiling)")
+tf = ev["input_data_treatment"]["treatment_flags"]
+truth(set(tf) == {"net_of_fees", "costs_included", "survivorship_handled", "look_ahead_controlled"},
+      "input_data_treatment carries the GIPS #9 treatment flags")
+truth(all(v == "declared" or v.startswith("not declared") for v in tf.values()),
+      "each treatment flag is declared / not-declared (the honest GIPS #9 row)")
+# a present block (even an empty {}) is 'declared'; an absent block is 'not declared' (key presence, not truthiness)
+_t = EV._input_data_treatment([], {"frictions": {}, "split": {"train": "a", "test": "b"}})["treatment_flags"]
+truth(_t["net_of_fees"] == "declared" and _t["look_ahead_controlled"] == "declared"
+      and _t["survivorship_handled"].startswith("not declared"),
+      "treatment flags: a present block (even empty) -> declared; an absent one -> not declared")
+ddq = ev["ddq_performance_module"]
+truth("replay" in ddq["track_record_independently_verifiable"].lower() and "not_independently_assessed" in ddq,
+      "ddq_performance_module answers the AIMA performance questions")
+truth("Reviewed by" in ev["odd_analyst_checklist"]["sign_off"], "odd_analyst_checklist carries a sign-off line")
+
+# the IDD report renders the 8 sections (markdown) + a styled html page, computing NO new verdict
+idd = EV.idd_report(ev)
+for sec in ("§1 Verified result", "§2 Input data treatment", "§3 How it was verified",
+            "§4 ODD analyst checklist", "§5 DDQ performance", "§6 Scope & limitations",
+            "§7 Assurance", "§8 Redaction"):
+    truth(sec in idd, "IDD report has %s" % sec)
+truth("L1 — reproducible" in idd and "L3 — scope" in idd, "IDD report prints the L1..L3 limitations")
+truth((ev["verified_result"].get("verdict") or "—") in idd,
+      "the report shows the LEDGER's verdict (re-projection, never a new decision)")
+html = EV.idd_report_html(ev)
+truth(html.startswith("<!doctype html") and "<table>" in html and "IDD/ODD" in html,
+      "idd_report_html is a self-contained styled page")
+
+# the checklist surfaces ✅ checked / 🚩 flag-for-declaration / ⛔ not-assessed from families + inferred-flags
+syn_scope = {"families": {"reproducibility": "checked", "leakage": "flagged", "inferred-flags": "flagged"},
+             "not_verified": ["data-snooping (no trials block)"]}
+syn_find = [{"dimension": "leakage", "validity_class": "inferred-flag", "unblock": "declare the split: block"}]
+rows = EV._odd_analyst_checklist(syn_scope, syn_find)["rows"]
+marks = {r["family"]: r["status"] for r in rows}
+truth(marks.get("reproducibility", "").startswith("✅"), "checklist: a checked family -> ✅")
+truth("flag-for-declaration" in marks.get("leakage", ""),
+      "checklist: an inferred-flag dimension -> 🚩 flag-for-declaration")
+truth(any("not-assessed" in r["status"] for r in rows), "checklist: an undeclared family -> ⛔ not-assessed")
+
 # --- build_evidence: the on-disk pack (structured + human + carried proof) ---
 out = tempfile.mkdtemp()
 d = EV.build_evidence(run_dir, out)
@@ -74,6 +123,8 @@ truth(os.path.isfile(os.path.join(d, "EVIDENCE.md")), "build_evidence writes the
 truth(os.path.isfile(os.path.join(d, "attestation.bundle.json")),
       "build_evidence carries the signed attestation bundle (the proof, not just the summary)")
 truth(os.path.isfile(os.path.join(d, "ledger.json")), "build_evidence carries the ledger")
+truth(os.path.isfile(os.path.join(d, "IDD-REPORT.md")) and os.path.isfile(os.path.join(d, "IDD-REPORT.html")),
+      "build_evidence writes the IDD-REPORT.md + .html deliverable")
 # the carried evidence.json re-parses and matches the in-memory object (no drift)
 truth(json.load(open(os.path.join(d, "evidence.json")))["subject"] == ev["subject"],
       "the written evidence.json round-trips")
