@@ -24,6 +24,21 @@ All notable changes to the calma skill/CLI. Dates are UTC.
   flagged / 🚩 flag-for-declaration / ⛔ not-assessed — the inferred FLAG overrides its family). Pure logic over
   metadata-only Verification records (no raw data); ties the M-8b.2 `FLAG_FOR_DECLARATION` into the multi-
   mandate IC view. `tests/test_portfolio.py` (12 checks).
+- **The manager-data connector contract + a working local/on-prem connector** (`connectors.py`, W7). A
+  connector pulls a mandate's data into a **pathsafe-contained workspace**, content-hashes it + emits a W8(d)
+  source manifest (the lineage tier-2), and hands the workspace to recompute — **the invariant: a connector
+  never uploads raw bytes to the control plane** (only the local workspace path + the manifest leave).
+  `LocalConnector` (on-prem / data-handed-over) is fully built + tested, no creds — the reference connector;
+  `S3` / `SFTP` / `DataRoom` are honest skeletons that name their contract and refuse honestly (the transport
+  needs provider creds + the BYOC runner — a fill-in, not a redesign, mirroring `execprovider/remote_drivers`).
+  The shared source-manifest emission is real for every connector (it chains tier-1↔tier-2 in a W8(d)
+  statement). `tests/test_connectors.py` (22 checks). Plus the **W7 control-plane data model** (migration
+  `0003_w7_allocator.sql`): `managers / mandates / manager_verifications / reviews / sign_offs` (CANONICAL §1,
+  metadata-only — hashes + verdicts, never raw data), with the `repo_verdict` CHECK incl. FLAG_FOR_DECLARATION,
+  the sign-off `state` machine enum, and the `nav_corroboration` / sign-off `role` enums. With this the
+  **entire W7 *no-creds* layer is built — decision (sign-off), view (portfolio), intake (connectors), schema
+  (the migration)** — ahead of the platform infra (the cloud-transport bodies, the BYOC runner, the
+  control-plane UI/DB, WorkOS-keyed signing).
 
 - **Auditable egress control — the "data never leaves" boundary made into evidence** (`egress_audit.py`,
   master roadmap §1.2 / the P2-M1 acceptance / the K1 sandbox-escape kill-risk). Runs a probe entrypoint
