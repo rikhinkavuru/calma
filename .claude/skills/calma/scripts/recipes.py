@@ -557,7 +557,8 @@ def _per_group(a, b, keys, fn):
 
 
 @register("numerai_corr", family="stats", required_tags=["prediction", "target", "era"],
-          string_tags=["era"], set_maturity="reviewed")
+          string_tags=["era"], set_maturity="reviewed",
+          streaming={"class": "grouped", "group": "era", "reducer": "NumeraiCorrGroupedReducer"})
 def numerai_corr(cols, binding, convention=None):
     """Numerai validation CORR: the per-era numerai_corr (rank -> norm.ppf -> signed^1.5 on predictions,
     center -> signed^1.5 on target, then Pearson) AVERAGED across eras - the number a Numerai DS stakes
@@ -572,7 +573,8 @@ def numerai_corr(cols, binding, convention=None):
 
 
 @register("numerai_sharpe", family="stats", required_tags=["prediction", "target", "era"],
-          string_tags=["era"], set_maturity="reviewed")
+          string_tags=["era"], set_maturity="reviewed",
+          streaming={"class": "grouped", "group": "era", "reducer": "NumeraiSharpeGroupedReducer"})
 def numerai_sharpe(cols, binding, convention=None):
     """Numerai validation Sharpe = mean / std(ddof=0) of the per-era numerai_corr. No risk-free, no
     annualization (the Numerai convention). The generic `sharpe` recipe can't express this (it needs a

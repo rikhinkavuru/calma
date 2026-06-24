@@ -28,9 +28,14 @@ All notable changes to the calma skill/CLI. Dates are UTC.
   regular-file check, a per-field byte cap, and a row wall (`CALMA_MAX_STREAM_ROWS`) — the 256 MB cap still
   guards the eager path and a non-streaming recipe over the cap still degenerates. New `scripts/stream_reduce.py`
   + `pathsafe.iter_csv_chunks` + a `recompute._run_streaming` branch (parquet via the existing
-  `io_parquet.iter_batches`). `tests/test_streaming.py` (35 checks: bit-identity, exact-sum vs `math.fsum`,
-  over-cap verification, the DoS guards). Class B (quantile/median, exact external sort), `total_return`
-  (the pairwise-product tree differs at chunk boundaries), and the grouped per-era Numerai fold are deferred.
+  `io_parquet.iter_batches`). Also a **grouped per-era fold** (`streaming.class == "grouped"`): a contiguous-
+  group regrouper streams the multi-GB **era-sorted Numerai validation** file one era at a time (memory = one
+  era + one float per era), computing each era's CORR in-memory and aggregating — so `numerai_corr` /
+  `numerai_sharpe` verify over the cap, bit-identical to the in-memory per-era recipe (`fmean`/`fstd` over the
+  exact `fsum` are order-free); a non-group-sorted file degenerates honestly. `tests/test_streaming.py` (43
+  checks: bit-identity per kernel, exact-sum vs `math.fsum`, the grouped Numerai fold, over-cap verification,
+  the DoS guards). Class B (quantile/median, exact external sort) and `total_return` (the pairwise-product tree
+  differs at chunk boundaries) remain deferred.
 - **New verdict: `FLAG_FOR_DECLARATION`** (closes the "declare-nothing → only soft smells fire" hole).
   When the headline number reproduces but the artifacts carry positive, multi-signal structure that would
   invalidate it if it is what it looks like (an inferred train/test split with real row-overlap; a strong

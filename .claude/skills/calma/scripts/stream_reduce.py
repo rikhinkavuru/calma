@@ -20,9 +20,17 @@ Reduction classes (verified against numeric.py):
     in-memory value; Class B (quantile/median — needs an exact external merge-sort); the grouped per-era
     Numerai correlation fold. These stay on the in-memory path until built.
 
-Pure stdlib (math only).
+Grouped folds (Numerai per-era): a recipe with `streaming.class == "grouped"` aggregates a metric computed
+PER GROUP (per era). The driver yields one contiguous group (era) slice at a time; the reducer computes that
+era's value in-memory on its bounded slice and accumulates one float per era; finalize aggregates them. The
+2-4 GB era-sorted validation file never lands in RAM (memory = one era + one float/era). Bit-identical to the
+in-memory per-era recipe — `numeric.fmean`/`fstd` over the exact `fsum` are order-independent.
+
+Pure stdlib (math + numeric's deterministic kernels).
 """
 import math
+
+import numeric as N  # the deterministic per-era CORR + fmean/fstd kernels (pure-stdlib engine leaf)
 
 _INF, _NINF = float("inf"), float("-inf")
 
@@ -190,10 +198,71 @@ class MaxDrawdownReducer(StreamReducer):
                 "near_zero_vol": False, "path_dependent": True, "degenerate": False}
 
 
+class _GroupedReducer(StreamReducer):
+    """A streaming reducer that folds PER GROUP (e.g. per Numerai era). The driver computes each group's
+    value in-memory on that group's bounded slice via accumulate_group(key, pred, tgt); finalize aggregates
+    the per-group values. Memory = one group's rows + one float per group. Subclasses set _group_value +
+    finalize. Bit-identical to the in-memory per-era recipe (fmean/fstd over the exact fsum are order-free)."""
+
+    grouped = True
+
+    def _init(self):
+        self.per = {}                                    # group_key -> finite per-group value
+
+    def column(self, binding):
+        return None                                      # grouped reads prediction/target/group explicitly
+
+    def accumulate(self, values):
+        raise NotImplementedError("grouped reducers use accumulate_group, not accumulate")
+
+    def _group_value(self, pred, tgt):
+        raise NotImplementedError
+
+    def accumulate_group(self, group_key, pred, tgt):
+        if len(pred) >= 2:                               # the recipe's per-group >=2-row floor
+            v = self._group_value(pred, tgt)
+            if v == v:                                   # keep finite per-group values (NaN groups dropped)
+                self.per[group_key] = v
+            self.n += len(pred)
+
+    def _sorted_vals(self):
+        return [self.per[k] for k in sorted(self.per)]   # sorted-group order (matches _per_group; order-free anyway)
+
+
+class NumeraiCorrGroupedReducer(_GroupedReducer):
+    """Streamed `numerai_corr`: the mean of the per-era numerai CORR over eras with >=2 rows."""
+
+    def _group_value(self, pred, tgt):
+        return N.numerai_corr_series(pred, tgt)
+
+    def finalize(self):
+        vals = self._sorted_vals()
+        if not vals:
+            return self._degenerate()
+        return {"value": N.fmean(vals), "terms": {"eras": len(vals)},
+                "near_zero_vol": False, "path_dependent": False, "degenerate": False}
+
+
+class NumeraiSharpeGroupedReducer(NumeraiCorrGroupedReducer):
+    """Streamed `numerai_sharpe`: mean / std(ddof=0) of the per-era CORR (the Numerai convention)."""
+
+    def finalize(self):
+        vals = self._sorted_vals()
+        if len(vals) < 2:
+            return self._degenerate()
+        mean, sd = N.fmean(vals), N.fstd(vals, 0)
+        if not (sd > 0):
+            return self._degenerate()
+        return {"value": mean / sd, "terms": {"eras": len(vals), "corr_mean": mean, "corr_std": sd},
+                "near_zero_vol": False, "path_dependent": False, "degenerate": False}
+
+
 # the reducer registry: a recipe's manifest `streaming={"reducer": "<name>"}` names one of these.
 REDUCERS = {
     "SumReducer": SumReducer,
     "MeanReducer": MeanReducer,
     "CountReducer": CountReducer,
     "MaxDrawdownReducer": MaxDrawdownReducer,
+    "NumeraiCorrGroupedReducer": NumeraiCorrGroupedReducer,
+    "NumeraiSharpeGroupedReducer": NumeraiSharpeGroupedReducer,
 }

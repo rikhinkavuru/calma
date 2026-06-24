@@ -146,5 +146,41 @@ small = recompute_one(contract, {"metric_id": "column_sum", "artifact": "big.csv
 expect(small.get("streamed") is None and small["value"] == math.fsum(vals),
        "below the threshold, a streaming-capable recipe still uses the in-memory path")
 
+# ---- 7. GROUPED streaming: the Numerai per-era CORR fold (the multi-GB ICP case) ----
+# an era-sorted CSV (era, pred, target); the streamed grouped fold == the in-memory per-era recipe bit-for-bit.
+eras_rows = []
+for e in range(8):                                   # 8 eras x 20 rows, a real (noisy) pred/target relationship
+    for j in range(20):
+        p = ((e * 20 + j) % 17 - 8) * 0.1 + j * 0.01
+        t = p * 0.5 + ((e * 7 + j) % 11 - 5) * 0.05
+        eras_rows.append(("era%02d" % e, round(p, 5), round(t, 5)))
+num_path = os.path.join(tmp, "numerai.csv")
+write_csv(num_path, ["era", "pred", "target"], eras_rows)
+ncontract = {"artifacts": [{"path": "numerai.csv", "columns": {}}]}
+nbind = {"prediction": "pred", "target": "target", "era": "era"}
+for mid in ("numerai_corr", "numerai_sharpe"):
+    m = {"metric_id": mid, "artifact": "numerai.csv", "binding": nbind}
+    eager = recompute_one(ncontract, m, tmp, stream_threshold=10 ** 12)
+    streamed = recompute_one(ncontract, m, tmp, stream_threshold=0)
+    expect(not eager.get("degenerate") and not streamed.get("degenerate"),
+           "%s: both paths produce a finite value" % mid)
+    expect(_bits(eager["value"]) == _bits(streamed["value"]),
+           "%s: GROUPED streamed value BIT-IDENTICAL to in-memory (%r vs %r)"
+           % (mid, eager["value"], streamed["value"]))
+    expect(streamed.get("streamed") is True and streamed["terms"].get("eras") == eager["terms"].get("eras"),
+           "%s: streamed, same era count (%s)" % (mid, eager["terms"].get("eras")))
+# the regrouper yields one contiguous era slice at a time (bounded memory = one era), across chunk boundaries
+groups = list(RC._iter_groups(PS.iter_csv_chunks(num_path, columns=["era", "pred", "target"], chunksize=7), "era"))
+expect(len(groups) == 8 and all(len(set(g[1]["era"])) == 1 for g in groups),
+       "_iter_groups yields 8 contiguous era slices (one group per era, spanning chunk boundaries)")
+# non-contiguous groups (an unsorted file) -> ValueError -> the recompute degenerates (honest; eager handles unsorted)
+write_csv(os.path.join(tmp, "unsorted.csv"), ["era", "pred", "target"],
+          [("eA", 1.0, 1.0), ("eB", 2.0, 2.0), ("eA", 3.0, 3.0), ("eB", 4.0, 4.0)])
+try:
+    list(RC._iter_groups(PS.iter_csv_chunks(os.path.join(tmp, "unsorted.csv"), chunksize=10), "era"))
+    expect(False, "_iter_groups raises on non-contiguous groups")
+except ValueError:
+    expect(True, "_iter_groups raises on non-contiguous (unsorted) groups")
+
 print("streaming: %d checks, %d failures" % (_n, _fail))
 sys.exit(1 if _fail else 0)

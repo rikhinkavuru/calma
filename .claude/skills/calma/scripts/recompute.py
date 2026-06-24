@@ -251,6 +251,8 @@ def _run_streaming(m, contract, base, sm, k):
     reducer_cls = SR.REDUCERS.get(sm.get("reducer"))
     if reducer_cls is None:
         return _degenerate(m["metric_id"], "unknown streaming reducer %r" % sm.get("reducer"))
+    if sm.get("class") == "grouped":
+        return _run_streaming_grouped(m, contract, base, sm, reducer_cls, k)
     binding, convention = m["binding"], m.get("convention")
     path = _safe_join(base, m["artifact"])
     col = reducer_cls(binding, convention).column(binding)   # the bound column (None = pure row count)
@@ -268,6 +270,69 @@ def _run_streaming(m, contract, base, sm, k):
             else:
                 vals = raw_chunk[col]
             reducer.accumulate(vals)
+        return reducer.finalize()
+
+    runs = [run_once() for _ in range(max(k, 1))]
+    vals = [r["value"] for r in runs]
+    finite = [v for v in vals if isinstance(v, float) and v == v]
+    k_spread = (max(finite) - min(finite)) if len(finite) == len(vals) and finite else 0.0
+    r0 = runs[0]
+    return {
+        "metric_id": m["metric_id"], "value": r0["value"], "terms": r0["terms"],
+        "k": len(runs), "k_spread": k_spread, "degenerate": r0["degenerate"],
+        "near_zero_vol": r0["near_zero_vol"], "path_dependent": r0["path_dependent"], "streamed": True,
+    }
+
+
+def _iter_groups(chunks, group_col):
+    """Regroup a {col:[str]} chunk stream into CONTIGUOUS group slices, yielding (group_key, {col:[str]}).
+    Bounded memory = one group (e.g. one Numerai era). Raises ValueError if a group key recurs non-
+    contiguously — the data is not group-sorted, so it can't be streamed in constant memory (the eager
+    in-memory path handles unsorted data; streaming requires the file be group-sorted, which the Numerai
+    validation parquet is)."""
+    seen = set()
+    cur_key, cur = None, None
+    started = False
+    for chunk in chunks:
+        cols = list(chunk)
+        if group_col not in chunk:
+            raise ValueError("group column %r not in the artifact" % group_col)
+        gv = chunk[group_col]
+        for i in range(len(gv)):
+            k = gv[i]
+            if not started or k != cur_key:
+                if cur is not None:
+                    yield cur_key, cur
+                if k in seen:
+                    raise ValueError("group %r recurs non-contiguously — the artifact is not group-sorted, "
+                                     "so it cannot be streamed in constant memory" % k)
+                seen.add(k)
+                cur_key, cur, started = k, {c: [] for c in cols}, True
+            for c in cols:
+                cur[c].append(chunk[c][i])
+    if cur is not None:
+        yield cur_key, cur
+
+
+def _run_streaming_grouped(m, contract, base, sm, reducer_cls, k):
+    """Grouped streaming recompute (Numerai per-era fold): drive the reducer over CONTIGUOUS group slices,
+    computing each group's metric in-memory on its bounded slice. The multi-GB era-sorted file never lands
+    in RAM. Bit-identical to the in-memory per-era recipe; K-spread 0. Same result-dict shape as _run_recipe."""
+    binding, convention = m["binding"], m.get("convention")
+    path = _safe_join(base, m["artifact"])
+    group_tag = sm.get("group") or "era"
+    pred_col, tgt_col = binding["prediction"], binding["target"]
+    group_col = binding[group_tag]
+    na = _na_policies(contract, m["artifact"])
+    na_pred, na_tgt = na.get(pred_col, "error"), na.get(tgt_col, "error")
+    needed = sorted({pred_col, tgt_col, group_col})
+
+    def run_once():
+        reducer = reducer_cls(binding, convention)
+        for _gkey, gcols in _iter_groups(_iter_chunks(path, needed), group_col):
+            pred = _to_numeric(gcols[pred_col], na_pred)
+            tgt = _to_numeric(gcols[tgt_col], na_tgt)
+            reducer.accumulate_group(_gkey, pred, tgt)
         return reducer.finalize()
 
     runs = [run_once() for _ in range(max(k, 1))]
