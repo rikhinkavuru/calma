@@ -5,6 +5,7 @@ symlinked escape is caught too. Pure stdlib.
 
 Usage:  path = safe_join(base, contract["split"]["train"])   # raises ValueError on escape
 """
+import csv
 import os
 
 # The artifact byte-cap (also the recompute reference cap). An artifact is emitted by the UNTRUSTED
@@ -12,6 +13,13 @@ import os
 # the verifier, and a FIFO/socket/device must never be open()'d (it would block forever). Generous vs any
 # real artifact (Numerai/Gauntlet datasets are a few MB); override with CALMA_MAX_ARTIFACT_MB.
 MAX_ARTIFACT_BYTES = int(float(os.environ.get("CALMA_MAX_ARTIFACT_MB", "256")) * 1024 * 1024)
+
+# The streaming path's row wall + per-field cap. The 256 MB byte cap above stays the guard for the EAGER
+# (whole-file) read; a streaming reader keeps the DoS property differently — constant memory, a bounded row
+# count, and a per-field byte cap so a pathological no-newline multi-GB line raises instead of OOMing. Both
+# are generous vs any real tournament file (Numerai v5 validation ~1M rows). Override via env.
+MAX_STREAM_ROWS = int(float(os.environ.get("CALMA_MAX_STREAM_ROWS", "200000000")))
+MAX_CSV_FIELD_BYTES = int(float(os.environ.get("CALMA_MAX_CSV_FIELD_MB", "16")) * 1024 * 1024)
 
 
 def within_cap(path, max_bytes=None):
@@ -26,6 +34,51 @@ def within_cap(path, max_bytes=None):
         return os.path.getsize(path) <= cap
     except OSError:
         return False
+
+
+def iter_csv_chunks(path, columns=None, chunksize=65536, max_rows=None):
+    """Stream a CSV in constant memory as {col: [str, ...]} chunks of `chunksize` rows — the streaming
+    counterpart to the eager `recompute._load_cols`, used for genuinely-large (over-byte-cap) artifacts.
+    Keeps the hostile-file DoS property WITHOUT the 256 MB cap: a regular-file check (no FIFO/device/dir
+    that would block or isn't a file), a per-field byte cap (a no-newline multi-GB line raises instead of
+    OOMing), and a cumulative row wall (MAX_STREAM_ROWS). `columns=None` reads every column; a list projects
+    to that subset (others are not retained). Raises ValueError on a non-regular file, an empty/header-less
+    file, a requested column absent from the header, or an over-wall row count."""
+    if not os.path.isfile(path):    # follows symlinks; False for missing/dir/FIFO/socket/device
+        raise ValueError("artifact %s is not a regular file" % os.path.basename(path))
+    wall = MAX_STREAM_ROWS if max_rows is None else max_rows
+    prev_limit = csv.field_size_limit(MAX_CSV_FIELD_BYTES)
+    try:
+        with open(path, newline="") as fh:
+            rd = csv.reader(fh)
+            header = next(rd, None)
+            if header is None:
+                raise ValueError("artifact %s is empty (no header row)" % os.path.basename(path))
+            proj = [h for h in header if (columns is None or h in columns)]
+            if columns is not None and not proj:
+                raise ValueError("none of the requested columns %r are in artifact %s"
+                                 % (list(columns), os.path.basename(path)))
+            col_idx = [(h, i) for i, h in enumerate(header) if h in proj]
+            chunk = {h: [] for h in proj}
+            n_in_chunk = 0
+            seen = 0
+            for row in rd:
+                seen += 1
+                if seen > wall:
+                    raise ValueError("artifact %s exceeds the %d-row streaming wall (raise "
+                                     "CALMA_MAX_STREAM_ROWS for a genuinely larger file)"
+                                     % (os.path.basename(path), wall))
+                for h, i in col_idx:
+                    chunk[h].append(row[i] if i < len(row) else "")
+                n_in_chunk += 1
+                if n_in_chunk >= chunksize:
+                    yield chunk
+                    chunk = {h: [] for h in proj}
+                    n_in_chunk = 0
+            if n_in_chunk:
+                yield chunk
+    finally:
+        csv.field_size_limit(prev_limit)
 
 
 def safe_join(base, rel):

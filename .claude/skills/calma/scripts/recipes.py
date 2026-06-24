@@ -60,7 +60,8 @@ def sharpe(cols, binding, convention=None):
 
 
 @register("max_drawdown", family="quant", required_tags=["return"], set_maturity="reviewed",
-          accepted_conventions=["compounded"])
+          accepted_conventions=["compounded"],
+          streaming={"class": "A", "reducer": "MaxDrawdownReducer"})   # online fold -> bit-identical streamed
 def max_drawdown(cols, binding, convention=None):
     rets = cols[binding["return"]]
     return _result(N.max_drawdown(rets), {"n": len(rets)}, path_dependent=True)
@@ -168,17 +169,20 @@ def f1(cols, binding, convention=None):
 
 
 # ---- analytics / data-pipeline aggregates ----
-@register("column_sum", family="analytics", required_tags=["value"], set_maturity="reviewed")
+@register("column_sum", family="analytics", required_tags=["value"], set_maturity="reviewed",
+          streaming={"class": "A", "reducer": "SumReducer"})       # exact Shewchuk -> bit-identical streamed
 def column_sum(cols, binding, convention=None):
     return _result(N.col_sum(cols[binding["value"]]), {"n": len(cols[binding["value"]])})
 
 
-@register("column_mean", family="analytics", required_tags=["value"], set_maturity="reviewed")
+@register("column_mean", family="analytics", required_tags=["value"], set_maturity="reviewed",
+          streaming={"class": "A", "reducer": "MeanReducer"})      # exact Shewchuk + count -> bit-identical
 def column_mean(cols, binding, convention=None):
     return _result(N.col_mean(cols[binding["value"]]), {"n": len(cols[binding["value"]])})
 
 
-@register("row_count", family="analytics", required_tags=[], set_maturity="reviewed")
+@register("row_count", family="analytics", required_tags=[], set_maturity="reviewed",
+          streaming={"class": "A", "reducer": "CountReducer"})     # pure count -> bit-identical streamed
 def row_count(cols, binding, convention=None):
     col = binding.get("column") or (next(iter(cols)) if cols else None)
     return _result(float(len(cols[col])) if col in cols else float("nan"), {"column": col})

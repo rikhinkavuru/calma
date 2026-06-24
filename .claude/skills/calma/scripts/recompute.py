@@ -26,6 +26,13 @@ _INF, _NINF = float("inf"), float("-inf")
 # with CALMA_MAX_ARTIFACT_MB.
 _MAX_ARTIFACT_BYTES = int(float(os.environ.get("CALMA_MAX_ARTIFACT_MB", "256")) * 1024 * 1024)
 
+# W8(a) streaming: when a recipe DECLARES `streaming` in its manifest AND its artifact is over this
+# threshold, recompute via the constant-memory fold (stream_reduce) instead of the eager whole-file load —
+# so a legitimate multi-GB artifact verifies instead of degenerating to CAN'T-CONFIRM at the byte cap.
+# Default = the eager cap (zero behaviour change below it); CALMA_STREAM_THRESHOLD_BYTES overrides it (set
+# to 0 to force streaming and prove the streamed value equals the in-memory value bit-for-bit).
+_STREAM_THRESHOLD = int(os.environ.get("CALMA_STREAM_THRESHOLD_BYTES", str(_MAX_ARTIFACT_BYTES)))
+
 
 def _load_cols(path, columns=None):
     if not os.path.isfile(path):
@@ -191,6 +198,13 @@ def _recompute_one(contract, m, base, k):
     could not be reproduced, which is exactly INCONCLUSIVE - so the catch-all is sound, not a
     swallow (KeyboardInterrupt/SystemExit still propagate: we catch Exception, not BaseException)."""
     try:
+        # W8(a): a streaming-capable recipe over the streaming threshold takes the constant-memory fold,
+        # so a genuinely-large artifact verifies instead of degenerating at the eager byte cap. Below the
+        # threshold (the default = the eager cap), the in-memory path is unchanged for every recipe.
+        fn = R.get(m["metric_id"])
+        sm = fn.manifest.get("streaming") if fn else None
+        if sm and _should_stream(_safe_join(base, m["artifact"])):
+            return _run_streaming(m, contract, base, sm, k)
         cols = _numeric_cols(contract, m["artifact"], m["binding"], base, m["metric_id"])
         return _run_recipe(m["metric_id"], cols, m["binding"], m.get("convention"), k)
     except (KeyError, ValueError, OSError) as e:
@@ -206,6 +220,66 @@ def _degenerate(metric_id, error):
     return {"metric_id": metric_id, "value": float("nan"), "terms": {},
             "k": 0, "k_spread": 0.0, "degenerate": True,
             "near_zero_vol": False, "path_dependent": False, "error": error}
+
+
+def _should_stream(path):
+    """Route a streaming-capable recipe to the constant-memory fold when its artifact is over the streaming
+    threshold (default: the eager byte cap). Below it, the in-memory path is unchanged."""
+    try:
+        return os.path.getsize(path) > _STREAM_THRESHOLD
+    except OSError:
+        return False
+
+
+def _iter_chunks(path, columns):
+    """File-order, constant-memory {col: [str]} chunks — parquet row-groups (the lazy, firewalled adapter)
+    or CSV lines — mirroring _load_cols's extension branch. Chunk order == row order (so a path-dependent
+    online fold like max_drawdown stays bit-identical)."""
+    if path.lower().endswith(".parquet"):
+        import io_parquet as IOPQ  # noqa: PLC0415 - intentionally lazy (keeps the core import graph clean)
+        return IOPQ.iter_batches(path, columns=columns)
+    return PS.iter_csv_chunks(path, columns=columns)
+
+
+def _run_streaming(m, contract, base, sm, k):
+    """Constant-memory streaming recompute for a recipe that declared `streaming` in its manifest. Drives the
+    declared reducer over file-order chunks, runs it k times (K-spread must stay 0), and returns the SAME
+    result dict shape as _run_recipe — so verdict.py, the ledger, the diff, and the validity rail see a
+    normal recompute result and need zero changes. Bit-identical to the in-memory recipe (the additive
+    reducers use an exact Shewchuk accumulator; max_drawdown is an order-stable online fold)."""
+    import stream_reduce as SR  # noqa: PLC0415 - sibling module, lazy to keep import-time minimal
+    reducer_cls = SR.REDUCERS.get(sm.get("reducer"))
+    if reducer_cls is None:
+        return _degenerate(m["metric_id"], "unknown streaming reducer %r" % sm.get("reducer"))
+    binding, convention = m["binding"], m.get("convention")
+    path = _safe_join(base, m["artifact"])
+    col = reducer_cls(binding, convention).column(binding)   # the bound column (None = pure row count)
+    numeric = reducer_cls.numeric
+    na = _na_policies(contract, m["artifact"]).get(col, "error") if col else "error"
+    proj = [col] if col else None
+
+    def run_once():
+        reducer = reducer_cls(binding, convention)
+        for raw_chunk in _iter_chunks(path, proj):
+            if col is None:                                  # row count over any projected column
+                vals = next(iter(raw_chunk.values()), [])
+            elif numeric:
+                vals = _to_numeric(raw_chunk[col], na)
+            else:
+                vals = raw_chunk[col]
+            reducer.accumulate(vals)
+        return reducer.finalize()
+
+    runs = [run_once() for _ in range(max(k, 1))]
+    vals = [r["value"] for r in runs]
+    finite = [v for v in vals if isinstance(v, float) and v == v]
+    k_spread = (max(finite) - min(finite)) if len(finite) == len(vals) and finite else 0.0
+    r0 = runs[0]
+    return {
+        "metric_id": m["metric_id"], "value": r0["value"], "terms": r0["terms"],
+        "k": len(runs), "k_spread": k_spread, "degenerate": r0["degenerate"],
+        "near_zero_vol": r0["near_zero_vol"], "path_dependent": r0["path_dependent"], "streamed": True,
+    }
 
 
 def main():

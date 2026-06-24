@@ -2,8 +2,22 @@
 
 All notable changes to the calma skill/CLI. Dates are UTC.
 
-## Unreleased — `FLAG_FOR_DECLARATION` verdict tier · OTel-eval distribution wedge
+## Unreleased — `FLAG_FOR_DECLARATION` verdict tier · OTel-eval distribution wedge · streaming recompute
 
+- **Streaming recompute past the 256 MB artifact cap** (constant-memory folds). A recipe opts in via a
+  `streaming` block in its manifest; when its artifact is over the streaming threshold (default: the eager
+  byte cap) the recompute runs as a constant-memory fold instead of a whole-file load — so a legitimate
+  multi-GB artifact verifies instead of degenerating to CAN'T-CONFIRM at the cap. **Bit-identical** to the
+  in-memory recipe (the additive reducers use an incremental Shewchuk exact-sum accumulator — the same
+  algorithm `math.fsum` implements — so `column_sum`/`column_mean` match to the bit; `max_drawdown` is an
+  order-stable online fold; `row_count` is an exact count), K-run spread stays 0, and the 600+ recipes that
+  don't opt in are unchanged. The DoS guarantee is preserved differently for the streaming path: a
+  regular-file check, a per-field byte cap, and a row wall (`CALMA_MAX_STREAM_ROWS`) — the 256 MB cap still
+  guards the eager path and a non-streaming recipe over the cap still degenerates. New `scripts/stream_reduce.py`
+  + `pathsafe.iter_csv_chunks` + a `recompute._run_streaming` branch (parquet via the existing
+  `io_parquet.iter_batches`). `tests/test_streaming.py` (35 checks: bit-identity, exact-sum vs `math.fsum`,
+  over-cap verification, the DoS guards). Class B (quantile/median, exact external sort), `total_return`
+  (the pairwise-product tree differs at chunk boundaries), and the grouped per-era Numerai fold are deferred.
 - **New verdict: `FLAG_FOR_DECLARATION`** (closes the "declare-nothing → only soft smells fire" hole).
   When the headline number reproduces but the artifacts carry positive, multi-signal structure that would
   invalidate it if it is what it looks like (an inferred train/test split with real row-overlap; a strong
