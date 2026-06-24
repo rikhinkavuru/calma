@@ -22,6 +22,14 @@ if ROOT not in sys.path:
 # pin the engine subprocess to the interpreter that actually has the installed deps (e2b/boto3/...).
 os.environ.setdefault("CALMA_ENGINE_PYTHON", sys.executable)
 
+# @vercel/python puts the installed deps (the e2b SDK etc.) on THIS process's sys.path, but the engine runs
+# as a FRESH subprocess that resolves its own site dirs and would miss them ("No module named 'e2b'" ->
+# --isolation e2b REFUSED). Propagate our sys.path via PYTHONPATH; engine.run_verify inherits os.environ, so
+# the child can import the SDK. Same interpreter (CALMA_ENGINE_PYTHON=sys.executable) -> no ABI mismatch.
+_pp = os.pathsep.join(p for p in sys.path if p)
+_existing = os.environ.get("PYTHONPATH", "")
+os.environ["PYTHONPATH"] = (_pp + os.pathsep + _existing) if _existing else _pp
+
 from control_plane.api.app import app  # noqa: E402  (ASGI app Vercel serves)
 
 __all__ = ["app"]
