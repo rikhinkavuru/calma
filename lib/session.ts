@@ -35,7 +35,9 @@ export const getSession = cache(async (): Promise<Session | null> => {
     // WorkOS not configured, or no active session — fall through to the dev tenant.
     console.error("[calma] getSession withAuth error:", e instanceof Error ? e.message : e);
   }
-  const dev = process.env.DASHBOARD_DEV_TENANT_ID;
+  // D3-05: the dev-tenant bypass is a non-prod convenience ONLY. Hard-gate it off in production so a
+  // mis-set DASHBOARD_DEV_TENANT_ID env can never become an unauthenticated tenant backdoor on the live app.
+  const dev = process.env.NODE_ENV !== "production" ? process.env.DASHBOARD_DEV_TENANT_ID : undefined;
   if (dev) return { user: { email: "dev@local", name: "Dev User", mode: "dev" }, tenantId: dev };
   return null;
 });

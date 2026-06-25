@@ -18,7 +18,12 @@ def client():
             "s3", endpoint_url=config.R2_ENDPOINT,
             aws_access_key_id=config.R2_ACCESS_KEY_ID,
             aws_secret_access_key=config.R2_SECRET_ACCESS_KEY,
-            region_name="auto", config=Config(signature_version="s3v4"))
+            region_name="auto",
+            # D9-04: bound every R2 call. connect/read timeouts stop a hung R2 from holding the (inline)
+            # request open to the Vercel function limit; adaptive retries add client-side rate-limiting +
+            # backoff (circuit-breaker behaviour) so a flaky/throttling R2 degrades instead of stampeding.
+            config=Config(signature_version="s3v4", connect_timeout=5, read_timeout=30,
+                          retries={"max_attempts": 3, "mode": "adaptive"}))
     return _client
 
 

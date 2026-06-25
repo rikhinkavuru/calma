@@ -21,7 +21,10 @@ app.add_exception_handler(errors.Problem, errors.problem_handler)
 
 
 def _is_service(token):
-    return bool(config.SERVICE_TOKEN) and bool(token) and hmac.compare_digest(token, config.SERVICE_TOKEN)
+    # constant-time compare against EACH configured token (rotation overlap); empty list -> service path off.
+    if not token or not config.SERVICE_TOKENS:
+        return False
+    return any(hmac.compare_digest(token, t) for t in config.SERVICE_TOKENS)
 
 
 def _authenticate(conn, authorization, service_token, service_tenant):

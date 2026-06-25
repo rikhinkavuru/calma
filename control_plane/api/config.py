@@ -52,6 +52,9 @@ R2_SECRET_ACCESS_KEY = os.environ.get("R2_SECRET_ACCESS_KEY", "")
 # first-party service token: the dashboard (a trusted first party) authenticates to this API with
 # X-Calma-Service-Token + X-Calma-Tenant-Id instead of a per-tenant API key.
 SERVICE_TOKEN = os.environ.get("CALMA_SERVICE_TOKEN", "")
+# D3-02: comma-separated list enables ZERO-DOWNTIME ROTATION — add the new token, deploy API + dashboard,
+# then drop the old one; both are honoured during the overlap. Empty = service path OFF (kill-switch).
+SERVICE_TOKENS = tuple(t.strip() for t in SERVICE_TOKEN.split(",") if t.strip())
 
 DEFAULT_WALL_SECONDS = int(os.environ.get("CALMA_DEFAULT_WALL_S", "120"))
 UPLOAD_URL_TTL_S = int(os.environ.get("CALMA_UPLOAD_URL_TTL_S", "900"))
