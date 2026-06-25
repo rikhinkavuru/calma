@@ -9,8 +9,8 @@ jobs:
   core:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4 (SHA-pinned)
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5 (SHA-pinned)
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4 (SHA-pinned)
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v5 (SHA-pinned)
         with: { python-version: "3.12" }
       - name: Install bubblewrap + allow unprivileged user namespaces
         # the suite includes sandbox-dependent tests (hook / dx / agent-arm) that need a verified
@@ -26,8 +26,8 @@ jobs:
   mcp:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4 (SHA-pinned)
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5 (SHA-pinned)
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4 (SHA-pinned)
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v5 (SHA-pinned)
         with: { python-version: "3.12" }
       - name: mcp transport tests (mcp SDK + pytest)
         run: |
@@ -40,8 +40,8 @@ jobs:
   pr:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4 (SHA-pinned)
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5 (SHA-pinned)
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4 (SHA-pinned)
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v5 (SHA-pinned)
         with: { python-version: "3.12" }
       - name: pr transport tests (pytest + numpy)
         run: |
