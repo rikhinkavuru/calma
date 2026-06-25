@@ -89,6 +89,16 @@ def submit(conn, tenant, api_key_id, req, idem_key):
 
     _admit(conn, tenant)
 
+    # Tenant-scope every caller-supplied object key BEFORE touching storage: a bundle/data_ref URI must
+    # live under THIS tenant's prefix (t/<id>/...), else a tenant could reference — and have the engine
+    # download + recompute over — another tenant's R2 objects (BOLA/IDOR, OWASP API1). The uploads API
+    # only ever mints keys under the caller's prefix, so legitimate submits are unaffected.
+    if not storage.key_under_tenant(req.bundle.uri, tid):
+        raise errors.forbidden("bundle.uri is not under this tenant's storage prefix")
+    for d in req.data_refs:
+        if not storage.key_under_tenant(d.uri, tid):
+            raise errors.forbidden("a data_ref.uri is not under this tenant's storage prefix")
+
     if not repo.template_exists(conn, req.template_id):
         raise errors.malformed("unknown template_id %r" % req.template_id)
     if not repo.recipe_exists(conn, req.recipe_id, req.recipe_version):

@@ -30,6 +30,13 @@ def tenant_key(tenant_id, *parts) -> str:
     return "t/%s/%s" % (tenant_id, "/".join(str(p).strip("/") for p in parts))
 
 
+def key_under_tenant(key, tenant_id) -> bool:
+    """A caller-supplied object key is in-scope only if it lives under THIS tenant's prefix (t/<id>/...).
+    Guards against a tenant referencing another tenant's R2 objects (BOLA/IDOR): every key the dashboard /
+    uploads API hands back is already a tenant_key(), so legitimate flows pass unchanged."""
+    return isinstance(key, str) and key.startswith("t/%s/" % tenant_id)
+
+
 def presign_put(key, content_type="application/octet-stream", ttl=None) -> str:
     # ContentType is intentionally NOT signed so a PUT (server- or browser-side) needs no exact header match.
     return client().generate_presigned_url(
