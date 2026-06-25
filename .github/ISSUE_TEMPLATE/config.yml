@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/rikhinkavuru/calma/security/advisories/new
+    about: Report a vulnerability privately — please do not open a public issue.
+  - name: Question / discussion
+    url: https://github.com/rikhinkavuru/calma/discussions
+    about: Ask how to verify something, or discuss an idea before filing.
