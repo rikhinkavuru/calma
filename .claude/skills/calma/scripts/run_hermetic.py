@@ -1578,22 +1578,33 @@ def _run_e2b_backend(contract, base, entry, entry_path, trust, timeout):
     }
 
 
-def _clear_reemit_artifacts(contract, base):
-    """Artifact-freshness guard (the load-bearing 're-execute to ground truth' invariant). An artifact
-    declared `re_emit: true` ASSERTS that THIS run (re)produces it, so recompute reflects the EXECUTION
-    rather than a value baked into the submitted bundle. Delete those declared paths BEFORE the run: a
-    faithful entrypoint rewrites them (recompute reads the fresh output, unchanged behaviour), while a
-    no-op / irrelevant entrypoint leaves them ABSENT -> recompute degenerates -> INCONCLUSIVE, never a
-    CONFIRMED over a pre-baked number the run never computed (CWE-345). `re_emit: false` (a deliberately
-    committed reference artifact, e.g. an expensive backtest output) is left untouched - that mode is a
-    declared recompute-of-committed-data, not an execution-produced claim. Confined to paths UNDER base;
-    a symlink artifact (a redirect to outside the run area) is removed, never followed."""
+def _clear_stale_artifacts(contract, base, trust):
+    """Artifact-freshness guard (the load-bearing 're-execute to ground truth' invariant). Recompute must
+    read what THIS run produced, never a value baked into the submitted bundle (CWE-345 false-CONFIRMED).
+
+    Under **untrusted (third-party) trust the submitter cannot be trusted to assert freshness**, so EVERY
+    recompute target is cleared pre-run regardless of `re_emit`: every declared artifact path AND every
+    path a metric binds to. A faithful entrypoint rewrites them (recompute reads fresh output, unchanged
+    behaviour); a no-op / pre-baked-CSV bundle leaves them ABSENT -> recompute degenerates -> INCONCLUSIVE,
+    never a CONFIRMED over a number the run never computed. (`re_emit:false` is NOT honoured here — an
+    untrusted party committing a 'reference' artifact IS the attack.)
+
+    Under **own-code trust** only `re_emit:true` is cleared; `re_emit:false`/absent is left untouched — a
+    deliberately committed reference artifact the author vouches for (recompute-of-committed-data). Confined
+    to paths UNDER base; a symlink artifact (a redirect outside the run area) is removed, never followed."""
+    # canonical untrusted posture is "untrusted-third-party" (calma.py rewrites the --trust third-party flag
+    # to it before run(); see the engine's own check at calma.py:~1178). Accept the bare flag value too.
+    untrusted = trust in ("untrusted-third-party", "third-party")
+    paths = set()
     for a in contract.get("artifacts", []) or []:
-        if not (isinstance(a, dict) and a.get("re_emit")):
-            continue
-        rel = a.get("path")
-        if not rel:
-            continue
+        if isinstance(a, dict) and a.get("path") and (untrusted or a.get("re_emit")):
+            paths.add(a["path"])
+    if untrusted:
+        # recompute reads the metric's bound artifact; clear it even if the contract under-declares it
+        for m in contract.get("metrics", []) or []:
+            if isinstance(m, dict) and m.get("artifact"):
+                paths.add(m["artifact"])
+    for rel in paths:
         full, ok = _within(base, rel)
         if not ok:
             continue
@@ -1617,9 +1628,11 @@ def run(contract_path, base=None, timeout=120, trust_override=None, isolation=No
         return {"phase": "refused", "exit_code": 2, "isolation_tier": "n/a",
                 "container_present": False, "killed": False,
                 "reason": "entrypoint escapes the contract base: %r" % entry}
-    # Freshness: clear every re_emit:true artifact so the run must actually (re)produce it; a pre-baked
-    # artifact the entrypoint never writes can no longer be passed off as a recomputed result.
-    _clear_reemit_artifacts(contract, base)
+    # Freshness: clear recompute targets pre-run so the run must actually (re)produce them; a pre-baked
+    # artifact the entrypoint never writes can no longer be passed off as a recomputed result. Under
+    # untrusted (third-party) trust this covers EVERY recompute target, not just re_emit:true (the submitter
+    # can't be trusted to opt in) — closes the false-CONFIRMED of a pre-baked artifact (CWE-345).
+    _clear_stale_artifacts(contract, base, trust)
     # backend selection (WS1): explicit --isolation wins (fail loud, no fallback); else untrusted
     # third-party code auto-escalates to the container tier; else the host Seatbelt tier (default).
     backend = _select_backend(isolation, trust)
