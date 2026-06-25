@@ -1,4 +1,7 @@
 name: calma-package
+# Least-privilege GITHUB_TOKEN (audit 2026-06-24): build+smoke-test only, no write scope needed.
+permissions:
+  contents: read
 # WS-B: continuously validate the INSTALLED ARTIFACT (not the working copy). Build the wheel, install it in
 # a CLEAN venv (which forces the bundled calma/_engine/, with no source tree on the path), and smoke-test the
 # library API + the console script + the firewall + the optional parquet extra. This is what a customer's

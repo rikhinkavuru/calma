@@ -83,5 +83,11 @@ CREATE TABLE IF NOT EXISTS sign_offs (             -- the sign-off AUTHORITY (or
 );
 CREATE INDEX IF NOT EXISTS ix_signoffs_verif ON sign_offs(verification_id);
 
--- RLS (org isolation) is enabled per-table by the same policy 0001 applies; the connector/runner only ever
--- writes hashes + verdicts here — raw manager data never reaches these tables (the BYOC invariant).
+-- NOTE (audit 2026-06-24): these W7 tables are NOT covered by the RLS policy in 0001 — 0001's DO-block
+-- enables RLS only on a hard-coded ARRAY['api_keys','jobs','runs','verdicts','audit_log'] (+ tenants), and
+-- it predates these tables. They are also org-scoped (managers.org_id), not tenant_id-keyed, so the 0001
+-- policy shape does not apply as-is. RLS is currently moot in production (the app connects as the table
+-- owner, which BYPASSES RLS — isolation rests on the explicit WHERE in every query), but when these tables
+-- are wired to the multi-tenant API they MUST get an org-scoped RLS policy (and ideally a NOBYPASSRLS app
+-- role + FORCE ROW LEVEL SECURITY). Until then: the connector/runner only ever writes hashes + verdicts
+-- here — raw manager data never reaches these tables (the BYOC invariant).

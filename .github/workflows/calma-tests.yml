@@ -1,4 +1,7 @@
 name: calma-tests
+# Least-privilege GITHUB_TOKEN (audit 2026-06-24): default to read-only.
+permissions:
+  contents: read
 on: [push, pull_request, workflow_dispatch]
 jobs:
   test:

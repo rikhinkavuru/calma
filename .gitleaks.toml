@@ -1,0 +1,14 @@
+# Calma gitleaks configuration. Extends the default ruleset; adds narrowly-scoped allowlists for
+# confirmed false positives so the clean-history attestation (and CI secret-scanning) stays signal.
+[extend]
+useDefault = true
+
+# FP confirmed in the 2026-06-24 audit: sshsig.py:190 is a DOCSTRING that quotes the OpenSSH PEM header
+# to document the supported key format ("The 32-byte seed from an UNENCRYPTED `-----BEGIN OPENSSH PRIVATE
+# KEY-----` ed25519 key, so an existing ssh-keygen identity can sign calma attestations"). No key material.
+# Scoped to that exact docstring line in that one file — a real key elsewhere is still caught.
+[[allowlists]]
+description = "sshsig.py docstring documents the OpenSSH PEM header (no key material)"
+paths = ['''\.claude/skills/calma/scripts/sshsig\.py''']
+regexes = ['''-----BEGIN OPENSSH PRIVATE KEY-----`?\s*\n?\s*(ed25519|so an)''']
+regexTarget = "line"

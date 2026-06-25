@@ -1,6 +1,9 @@
 name: calma-test-all
 # T1: one workflow runs ALL THREE layers as SEPARATE jobs, so a red transport layer is legible
 # (the old `calma-tests` workflow ran only the pure-stdlib core - mcp/ and pr/ were "out of band").
+# Least-privilege GITHUB_TOKEN (audit 2026-06-24): default to read-only.
+permissions:
+  contents: read
 on: [push, pull_request, workflow_dispatch]
 jobs:
   core:

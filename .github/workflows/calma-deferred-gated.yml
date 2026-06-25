@@ -1,4 +1,7 @@
 name: calma-deferred-gated
+# Least-privilege GITHUB_TOKEN (audit 2026-06-24): default to read-only.
+permissions:
+  contents: read
 # T2: the deferred arms that need secrets / heavy deps. MANUAL trigger only (workflow_dispatch) so
 # they're documented + runnable on demand, never silently skipped. The OFFLINE halves now carry real
 # EVIDENCE every push via calma-test-all (test_deferred_arms.py): the recompute-only baseline MEASURES
