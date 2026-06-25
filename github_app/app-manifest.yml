@@ -1,0 +1,27 @@
+# Calma Merge-Gate — GitHub App manifest (one-click registration).
+#
+# Register: open  https://github.com/settings/apps/new?manifest  (or an org's /organizations/<org>/settings/apps/new?manifest)
+# paste this manifest (or use the create-from-manifest flow in github_app/DEPLOY.md). GitHub returns the
+# App ID + a generated private key (.pem) + the webhook secret — hand those to the deploy step as
+# CALMA_APP_ID / CALMA_APP_PRIVATE_KEY / CALMA_WEBHOOK_SECRET.
+#
+# LEAST PRIVILEGE: the gate only needs to read the diff, post a Check Run, and comment. It NEVER needs
+# write access to code, secrets, or actions. Do not widen these.
+name: Calma Merge Gate
+description: >-
+  Blocks a merge when a claimed number is wrong. Calma re-executes the result to ground truth, recomputes
+  the headline metric from raw outputs, and posts a required Check Run (CONFIRMED / REFUTED / INVALIDATED /
+  FLAG_FOR_DECLARATION).
+url: https://calma.dev
+public: false                      # flip to true only after the hosted execution path is audited (DEPLOY.md §Security)
+default_events:
+  - pull_request                   # opened / synchronize / reopened / ready_for_review -> auto-verify
+  - issue_comment                  # `@calma review` / `@calma full review` on a PR (authorized assoc only)
+default_permissions:
+  checks: write                    # post the required Check Run (the gate)
+  pull_requests: write             # post the summary comment
+  contents: read                   # read the PR diff / fetch the head to re-execute
+  metadata: read                   # required baseline
+hook_attributes:
+  url: https://REPLACE_WITH_DEPLOYED_WEBHOOK_HOST/webhook   # set to the deployed receiver URL before registering
+  active: true
