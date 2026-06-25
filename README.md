@@ -295,7 +295,7 @@ The engine lives in `.claude/skills/calma/scripts/` and imports nothing outside 
 
 ## Status & docs
 
-`v0.12.0`. Real and tested. See [`CHANGELOG.md`](CHANGELOG.md), the [install guide](docs/install.md), the [extending guide](docs/extending.md), the [supported frameworks](docs/frameworks.md), the [PR-bot adopter guide](docs/pr-bot.md), the [GitHub App guide](github_app/README.md), the [console/auth guide](docs/DASHBOARD.md), and the [security policy](SECURITY.md).
+`v0.13.0`. Real and tested. See [`CHANGELOG.md`](CHANGELOG.md), the [install guide](docs/install.md), the [extending guide](docs/extending.md), the [supported frameworks](docs/frameworks.md), the [PR-bot adopter guide](docs/pr-bot.md), the [GitHub App guide](github_app/README.md), the [console/auth guide](docs/DASHBOARD.md), and the [security policy](SECURITY.md).
 
 ## License
 
