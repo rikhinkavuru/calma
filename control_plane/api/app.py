@@ -11,7 +11,7 @@ from typing import Optional
 from fastapi import Depends, FastAPI, Header, Query
 from fastapi.responses import Response
 
-from . import bootstrap, config, errors, keys, repo, service, storage
+from . import bootstrap, config, errors, keys, repo, service, signing, storage
 from .schemas import (KeyCreate, KeyCreated, ProvisionRequest, ProvisionResponse, SubmitRequest,
                       UploadRequest, UploadResponse)
 
@@ -102,6 +102,16 @@ def healthz():
         return {"ok": True}
     except Exception as e:
         raise errors.internal("db unreachable: %s" % e)
+
+
+@app.get("/v1/signing-key")
+def signing_key():
+    """The PUBLIC ed25519 key the control-plane signs proofs with (no auth — it is meant to be public, and
+    pinned out-of-band). Also committed at control_plane/signing_pubkey.json for offline pinning."""
+    info = signing.public_key_info()
+    if not info:
+        raise errors.not_found("proof signing is not configured on this deployment")
+    return info
 
 
 @app.post("/v1/verifications")

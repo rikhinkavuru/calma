@@ -1,0 +1,7 @@
+{
+  "algorithm": "ed25519",
+  "keyid": "6828f0ad98306a21",
+  "public_key_b64": "TY0kvWBGY+henz1JF2OfnFhA/gDJDNLxsxwDNB4+z0U=",
+  "note": "Calma control-plane proof-signing PUBLIC key. Pin THIS to verify a /v1/verifications/{id}/proof DSSE envelope offline. The private key never leaves the deployment (CALMA_SIGNING_KEY secret). Also served live at https://calma-api-wheat.vercel.app/v1/signing-key. Verify with control_plane/verify_proof.py.",
+  "created": "2026-06-24"
+}

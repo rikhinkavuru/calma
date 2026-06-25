@@ -11,7 +11,7 @@ import subprocess
 import tarfile
 import tempfile
 
-from . import config, storage
+from . import config, signing, storage
 
 
 def _safe_join(base, rel):
@@ -90,7 +90,11 @@ def collect_and_store(work, tenant_id, job_id, run_id, json_result):
     proof_key = storage.tenant_key(tenant_id, "proofs", "%s.json" % job_id)
     evidence = {"verification_id": job_id, "run_id": run_id, "result": json_result,
                 "artifacts": manifest}
-    storage.put_bytes(proof_key, json.dumps(evidence, indent=2).encode("utf-8"), "application/json")
+    # The control-plane VOUCHES for the evidence: wrap it in a signed DSSE envelope (ed25519). Anyone can
+    # verify the proof offline against the published public key — that signature is what makes the verdict
+    # carry signal to a third party. Unsigned (no key configured) still yields a valid envelope, signatures:[].
+    envelope = signing.sign_envelope(evidence)
+    storage.put_bytes(proof_key, json.dumps(envelope, indent=2).encode("utf-8"), "application/json")
     return manifest, proof_key
 
 

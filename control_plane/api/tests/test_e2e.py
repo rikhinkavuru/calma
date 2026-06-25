@@ -96,9 +96,16 @@ def main():
     res = client.get("/v1/verifications/%s/result" % vid, headers=H).json()
     ok(res.get("verification_id") == vid, "GET /{id}/result")
 
-    # proof (the stored evidence bundle)
+    # proof (a signed DSSE envelope over the evidence bundle)
+    from control_plane.api import signing
     pr = client.get("/v1/verifications/%s/proof" % vid, headers=H)
-    ok(pr.status_code == 200 and pr.json().get("verification_id") == vid, "GET /{id}/proof serves evidence")
+    env = pr.json()
+    payload = signing.decode_payload(env) if "payload" in env else env
+    ok(pr.status_code == 200 and payload.get("verification_id") == vid, "GET /{id}/proof serves evidence")
+    info = signing.public_key_info()
+    if info:   # signing configured (local .env CALMA_SIGNING_KEY) -> the proof must verify against the key
+        ok(signing.verify_envelope(env, signing._ub64(info["public_key_b64"])),
+           "proof DSSE signature verifies against the public key")
 
     # idempotency: same Idempotency-Key -> same verification, no re-run
     ik = secrets.token_hex(8)

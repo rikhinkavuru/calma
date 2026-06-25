@@ -7,3 +7,4 @@ psycopg[binary,pool]>=3.1          # Postgres driver (Supabase control-plane DB)
 boto3>=1.34                   # Cloudflare R2 (S3-compatible) object storage
 e2b==2.10.2                   # hosted Firecracker microVM execution (PINNED: matches the locally-verified SDK;
                               # unpinned >=1.0 let Vercel drift to an SDK whose files.read/write differs)
+cryptography>=42              # ed25519 DSSE signing of the proof bundle (control-plane vouching key)

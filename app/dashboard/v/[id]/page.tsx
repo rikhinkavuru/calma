@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import Link from "next/link";
 import { calma, type Verification } from "@/lib/calma";
 import { getSession } from "@/lib/session";
@@ -5,6 +6,39 @@ import { StatusBadge, VerdictBadge } from "../../Badge";
 import styles from "../../dashboard.module.css";
 
 export const dynamic = "force-dynamic";
+
+// Pinned control-plane proof-signing public key (source of truth: control_plane/signing_pubkey.json).
+// Verifying here proves the proof was signed by Calma's key — not just that the envelope claims a signature.
+const PINNED_PUBKEY_B64 = "TY0kvWBGY+henz1JF2OfnFhA/gDJDNLxsxwDNB4+z0U=";
+
+type Dsse = { payloadType: string; payload: string; signatures: { keyid: string; sig: string }[] };
+
+function isEnvelope(p: unknown): p is Dsse {
+  const e = p as Dsse;
+  return !!e && typeof e.payloadType === "string" && typeof e.payload === "string" && Array.isArray(e.signatures);
+}
+
+// DSSE PAE, byte-identical to control_plane/api/signing.py::_pae
+function pae(payloadType: string, payload: Buffer): Buffer {
+  const pt = Buffer.from(payloadType, "ascii");
+  return Buffer.concat([
+    Buffer.from(`DSSEv1 ${pt.length} `, "ascii"), pt,
+    Buffer.from(` ${payload.length} `, "ascii"), payload,
+  ]);
+}
+
+function verifyEnvelope(env: Dsse): boolean {
+  try {
+    const raw = Buffer.from(PINNED_PUBKEY_B64, "base64"); // 32-byte ed25519 key
+    const der = Buffer.concat([Buffer.from("302a300506032b6570032100", "hex"), raw]); // SPKI wrapper
+    const pub = crypto.createPublicKey({ key: der, format: "der", type: "spki" });
+    const msg = pae(env.payloadType, Buffer.from(env.payload, "base64"));
+    return (env.signatures || []).some((s) =>
+      crypto.verify(null, msg, pub, Buffer.from(s.sig, "base64")));
+  } catch {
+    return false;
+  }
+}
 
 export default async function Detail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -31,6 +65,14 @@ export default async function Detail({ params }: { params: Promise<{ id: string 
 
   const r = v.recomputed || {};
   const ex = v.execution || {};
+  // proof is a DSSE envelope: verify the signature against the pinned key, then show the decoded evidence.
+  const env = isEnvelope(proof) ? proof : null;
+  const sigVerified = env ? verifyEnvelope(env) : false;
+  const sigKeyid = env?.signatures?.[0]?.keyid;
+  const signed = !!env && env.signatures.length > 0;
+  const evidence: unknown = env
+    ? JSON.parse(Buffer.from(env.payload, "base64").toString("utf-8"))
+    : proof;
   return (
     <div className={styles.main}>
       <Link href="/dashboard" className={styles.back}>← Verifications</Link>
@@ -90,12 +132,24 @@ export default async function Detail({ params }: { params: Promise<{ id: string 
 
       {proof && (
         <div className={styles.section}>
+          <div className={styles.sectionTitle}>Proof signature</div>
+          <div className={styles.pre}>
+            {signed
+              ? `${sigVerified ? "✓ VERIFIED" : "✗ SIGNATURE INVALID"} — ed25519 · keyid ${sigKeyid}\n` +
+                `signed by the Calma control-plane; verify offline: python control_plane/verify_proof.py proof.json`
+              : "unsigned — this deployment has no signing key configured"}
+          </div>
+        </div>
+      )}
+
+      {proof && (
+        <div className={styles.section}>
           <div className={styles.sectionTitle}>Evidence bundle</div>
           <details>
             <summary className={styles.mono} style={{ cursor: "pointer", color: "#77776e" }}>
               {v.proof?.uri || "view"}
             </summary>
-            <div className={styles.pre} style={{ marginTop: 8 }}>{JSON.stringify(proof, null, 2)}</div>
+            <div className={styles.pre} style={{ marginTop: 8 }}>{JSON.stringify(evidence, null, 2)}</div>
           </details>
         </div>
       )}
