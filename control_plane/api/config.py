@@ -15,7 +15,8 @@ import db as _db  # noqa: E402  (control_plane/db.py)
 
 _db.load_env()
 connect = _db.connect          # re-export: a psycopg connection from DATABASE_URL
-pool = _db.pool                # re-export: the process-wide connection pool (reused across warm requests)
+pool = _db.pool                # re-export: the request-path pool (calma_app/NOBYPASSRLS when configured)
+admin_pool = _db.admin_pool    # re-export: the privileged pool for cross-tenant ops (provision, DSR purge)
 
 # the pure-stdlib engine, invoked as a subprocess (the API is a thin host; it never reimplements verify).
 # Resolve the engine interpreter: explicit override wins, then the system python3 (the dev-Mac default,

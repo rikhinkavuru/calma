@@ -37,6 +37,14 @@ def dsn():
     return d
 
 
+def app_dsn():
+    """The REQUEST-path connection. If CALMA_APP_DATABASE_URL is set it connects as the NOBYPASSRLS app role
+    (calma_app) so RLS is a real wall; otherwise it falls back to DATABASE_URL (current behaviour) — so
+    shipping this code is a no-op until the env is set, and flipping it is just setting the env (D3-03)."""
+    load_env()
+    return os.environ.get("CALMA_APP_DATABASE_URL") or dsn()
+
+
 def connect(autocommit=True):
     """A live psycopg3 connection. Raises a clear message if the driver isn't installed."""
     try:
@@ -47,6 +55,7 @@ def connect(autocommit=True):
 
 
 _pool = None
+_admin_pool = None
 
 
 def _reset(conn):
@@ -68,9 +77,23 @@ def pool():
         except ImportError:
             raise SystemExit("psycopg_pool not installed. Run: pip install 'psycopg[binary,pool]'")
         _pool = ConnectionPool(
-            dsn(), min_size=1, max_size=8, open=True, timeout=15, max_idle=300,
+            app_dsn(), min_size=1, max_size=8, open=True, timeout=15, max_idle=300,
             kwargs={"autocommit": True, "prepare_threshold": None},
             check=ConnectionPool.check_connection,   # ping on checkout: never hand out a dead connection
             reset=_reset,
         )
     return _pool
+
+
+def admin_pool():
+    """The privileged (DATABASE_URL / bypassing) pool for the FEW operations that legitimately span tenants:
+    provisioning a new org/tenant and the DSR purge. Everything tenant-scoped goes through pool()."""
+    global _admin_pool
+    if _admin_pool is None:
+        from psycopg_pool import ConnectionPool
+        _admin_pool = ConnectionPool(
+            dsn(), min_size=1, max_size=4, open=True, timeout=15, max_idle=300,
+            kwargs={"autocommit": True, "prepare_threshold": None},
+            check=ConnectionPool.check_connection, reset=_reset,
+        )
+    return _admin_pool

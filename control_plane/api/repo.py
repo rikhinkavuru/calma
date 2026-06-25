@@ -32,10 +32,11 @@ def _all(conn, sql, params=()):
 
 
 # ---------------- auth ----------------
+# These two resolve the key/tenant BEFORE the request tenant is known, so under the NOBYPASSRLS app role
+# (calma_app) they must go through the SECURITY DEFINER lookups (0006) — a direct SELECT would be RLS-empty
+# and break login. Functionally identical under the bypassing postgres role.
 def get_api_key(conn, key_id):
-    return _one(conn,
-        "SELECT id, tenant_id, key_hash, environment, scopes, expires_at, revoked_at "
-        "FROM api_keys WHERE key_id = %s", (key_id,))
+    return _one(conn, "SELECT * FROM calma_lookup_api_key(%s)", (key_id,))
 
 
 def touch_api_key(conn, api_key_id):
@@ -43,8 +44,7 @@ def touch_api_key(conn, api_key_id):
 
 
 def get_tenant(conn, tenant_id):
-    return _one(conn, "SELECT id, org_id, slug, object_bucket, quota FROM tenants WHERE id = %s",
-                (tenant_id,))
+    return _one(conn, "SELECT * FROM calma_lookup_tenant(%s)", (tenant_id,))
 
 
 # ---------------- provisioning (first-party / WorkOS) ----------------
@@ -111,15 +111,17 @@ _TERMINAL = ("COMPLETED", "REFUSED", "FAILED", "TIMED_OUT", "DEDUPED")
 
 
 def count_active_jobs(conn, tenant_id=None, since_seconds=600):
-    # `status <> ALL(%s)` (a Postgres array) instead of `IN %s` — psycopg3 server-binding can't expand a
-    # tuple into an IN-list; the array form binds cleanly. `%s::int * interval` pins the param type.
-    q = ("SELECT count(*) FROM jobs WHERE status <> ALL(%s) "
-         "AND created_at > now() - (%s::int * interval '1 second')")
-    params = [list(_TERMINAL), since_seconds]
-    if tenant_id is not None:
-        q += " AND tenant_id = %s"
-        params.append(tenant_id)
-    cur = conn.execute(q, tuple(params))
+    if tenant_id is None:
+        # the GLOBAL ceiling must see all tenants; under the NOBYPASSRLS app role a direct count is
+        # RLS-filtered to the current tenant, so go through the SECURITY DEFINER fn (0006).
+        cur = conn.execute("SELECT calma_active_job_count(%s)", (since_seconds,))
+        return cur.fetchone()[0]
+    # per-tenant: the explicit WHERE + RLS (app.tenant_id set) both scope to this tenant.
+    # `status <> ALL(%s)` (array) — psycopg3 can't expand a tuple into IN; `%s::int * interval` pins the type.
+    cur = conn.execute(
+        "SELECT count(*) FROM jobs WHERE status <> ALL(%s) "
+        "AND created_at > now() - (%s::int * interval '1 second') AND tenant_id = %s",
+        (list(_TERMINAL), since_seconds, tenant_id))
     return cur.fetchone()[0]
 
 

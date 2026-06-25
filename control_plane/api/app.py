@@ -69,9 +69,11 @@ def request_ctx(authorization: Optional[str] = Header(None),
 
 
 def service_ctx(x_calma_service_token: Optional[str] = Header(None)):
+    # provision + DSR purge legitimately span tenants -> the privileged admin pool (bypasses RLS), never the
+    # NOBYPASSRLS request pool which would filter these cross-tenant writes to nothing.
     if not _is_service(x_calma_service_token):
         raise errors.unauthorized("invalid service token")
-    with config.pool().connection() as conn:
+    with config.admin_pool().connection() as conn:
         yield {"conn": conn}
 
 
