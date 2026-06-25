@@ -167,3 +167,18 @@ def test_calma_suggest_ranks_recipes():
                              {"query": "my risk-adjusted return looked strong", "top": 3}))
     assert "candidates" in res and len(res["candidates"]) >= 1
     assert all("metric_id" in c for c in res["candidates"])
+
+
+# D4-03: HTTP-transport auth guard (shared-bearer path; WorkOS-JWT path needs a live JWKS, tested in deploy).
+def test_http_auth_guard(monkeypatch):
+    from calma_mcp import server
+    monkeypatch.delenv("CALMA_MCP_WORKOS_JWKS_URL", raising=False)
+    monkeypatch.delenv("CALMA_MCP_TOKEN", raising=False)
+    assert server._http_auth_configured() is False                      # fail-closed: nothing configured
+    monkeypatch.setenv("CALMA_MCP_TOKEN", "s3cret-token")
+    assert server._http_auth_configured() is True
+    assert server._http_authorized("Bearer s3cret-token") is True       # correct token
+    assert server._http_authorized("Bearer wrong") is False             # wrong token
+    assert server._http_authorized("s3cret-token") is False             # missing 'Bearer '
+    assert server._http_authorized(None) is False                       # no header
+    assert server._http_authorized("Bearer ") is False                  # empty token

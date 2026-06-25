@@ -333,19 +333,58 @@ async def _run_stdio():
         await server.run(read_stream, write_stream, init_options)
 
 
+def _http_auth_configured():
+    return bool(os.environ.get("CALMA_MCP_WORKOS_JWKS_URL") or os.environ.get("CALMA_MCP_TOKEN"))
+
+
+def _http_authorized(auth_header):
+    """D4-03: every inbound HTTP request is verified (MCP spec: verify every request, NEVER session-as-auth).
+    WorkOS path (preferred): validate the bearer as a WorkOS JWT against the configured JWKS + audience.
+    Fallback: constant-time compare to a shared CALMA_MCP_TOKEN. No/!bearer header -> rejected."""
+    import hmac
+    if not auth_header or not auth_header.lower().startswith("bearer "):
+        return False
+    token = auth_header.split(" ", 1)[1].strip()
+    jwks = os.environ.get("CALMA_MCP_WORKOS_JWKS_URL")
+    if jwks:
+        try:
+            import jwt
+            from jwt import PyJWKClient
+            key = PyJWKClient(jwks).get_signing_key_from_jwt(token).key
+            aud = os.environ.get("CALMA_MCP_WORKOS_AUDIENCE")
+            jwt.decode(token, key, algorithms=["RS256", "ES256"], audience=aud or None,
+                       options={"verify_aud": bool(aud)})
+            return True
+        except Exception:
+            return False
+    shared = os.environ.get("CALMA_MCP_TOKEN", "")
+    return bool(shared) and hmac.compare_digest(token, shared)
+
+
 def _serve_http(host, port):
-    """Optional streamable-HTTP transport (needs the [http] extra: starlette + uvicorn)."""
+    """Optional streamable-HTTP transport (needs the [http] extra: starlette + uvicorn). Fail-closed: refuses
+    to start unauthenticated — an open HTTP MCP server is a confused-deputy / tool-poisoning surface."""
     from contextlib import asynccontextmanager
 
     import uvicorn
     from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
     from starlette.applications import Starlette
+    from starlette.datastructures import Headers
+    from starlette.responses import JSONResponse
     from starlette.routing import Mount
+
+    if not _http_auth_configured():
+        raise SystemExit("refusing to serve the HTTP MCP transport without auth. Set CALMA_MCP_TOKEN "
+                         "(shared bearer) or CALMA_MCP_WORKOS_JWKS_URL [+ CALMA_MCP_WORKOS_AUDIENCE] "
+                         "(WorkOS OAuth). The stdio transport needs no token (it is a local subprocess).")
 
     server = build_server()
     manager = StreamableHTTPSessionManager(app=server, stateless=True)
 
     async def _handle(scope, receive, send):
+        if scope.get("type") == "http" and not _http_authorized(Headers(scope=scope).get("authorization")):
+            await JSONResponse({"error": "unauthorized"}, status_code=401)(scope, receive, send)
+            return
         await manager.handle_request(scope, receive, send)
 
     @asynccontextmanager

@@ -24,6 +24,7 @@ dependencies = [
 http = [
   "starlette>=0.37,<1",
   "uvicorn>=0.29,<1",
+  "pyjwt[crypto]>=2.8",   # D4-03: validate WorkOS bearer JWTs on the HTTP transport
 ]
 # T1: declared test deps so `make test-all` / CI bootstrap the mcp-venv reproducibly
 test = [
