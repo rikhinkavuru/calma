@@ -751,8 +751,12 @@ def _scan_one(path):
     if not os.path.isfile(path):
         return set(), False, None, False  # FIFO/device: never open() (would block); unparseable
     try:
-        tree = ast.parse(open(path).read())
-    except (OSError, SyntaxError):
+        # Read BYTES so ast.parse honours a PEP-263 coding cookie; a non-utf-8/binary neighbour must
+        # degrade to "unparseable" (weaker stamp), NEVER crash the whole verify. ValueError catches
+        # UnicodeDecodeError (a ValueError subclass) that the default text open() would otherwise raise.
+        with open(path, "rb") as _fh:
+            tree = ast.parse(_fh.read())
+    except (OSError, SyntaxError, ValueError):
         return set(), False, None, False
     mods, urandom, dynamic = set(), False, None
     for node in ast.walk(tree):
