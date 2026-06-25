@@ -317,7 +317,10 @@ def render(led, diff=None, color=False):
     if sc:
         fams = sc.get("families", {})
         checked = [k for k, v in fams.items() if str(v).startswith("checked")]
-        nv = sc.get("not_verified", [])
+        # D8-02: the data-authenticity ceiling is surfaced on EVERY verdict (incl. a clean CONFIRMED), not
+        # buried in the footer — Calma recomputes the declared output but cannot attest the inputs are
+        # authentic/untampered upstream. Always present so a CONFIRMED never reads as a provenance blessing.
+        nv = list(sc.get("not_verified", []) or []) + [_DATA_AUTH_CEILING]
         if rv == V.CONFIRMED:
             # clean pass: lead with the plain reassurance, not the families jargon; keep the honest
             # "not verified" scope limit on its own quiet line (a CONFIRMED is reproduction, not
@@ -600,6 +603,12 @@ ul.scope li { margin:4px 0; }
 @media print { body { background:#fff; } .page { padding:0; max-width:none; }
                @page { margin:18mm 16mm; } a { color:inherit; text-decoration:none; } }
 """
+
+# D8-02: the data-authenticity ceiling (K4), rendered on every verdict's "not verified" line — never just
+# the footer. Calma re-executes + recomputes the declared output; it cannot attest the INPUTS are authentic.
+_DATA_AUTH_CEILING = ("input-data authenticity — Calma re-executes and recomputes the declared output, but "
+                      "cannot attest the input data/artifacts are authentic or untampered upstream "
+                      "(chain-of-custody is the producer's)")
 
 _LIMITS = ("Calma verifies a result by RE-EXECUTING it in the stated isolation tier and RECOMPUTING "
            "the headline number from the raw machine-readable outputs on deterministic kernels - every "
