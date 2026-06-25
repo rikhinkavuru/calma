@@ -168,6 +168,7 @@ _TOOLS = [
                     "the verdict. Returns the engine's --json verdict verbatim.",
         inputSchema={
             "type": "object",
+            "additionalProperties": False,  # D4-02: reject undeclared params (MCP tool-schema hardening)
             "required": ["target"],
             "properties": {
                 "target": {"type": "string", "description": "folder with the code and its outputs"},
@@ -194,6 +195,7 @@ _TOOLS = [
                     "A1 claim-graph pipeline; returns the Report JSON with catches first.",
         inputSchema={
             "type": "object",
+            "additionalProperties": False,  # D4-02: reject undeclared params (MCP tool-schema hardening)
             "required": ["target"],
             "properties": {
                 "target": {"type": "string",
@@ -209,6 +211,7 @@ _TOOLS = [
                     "(the shipped recipe suggester). Returns ranked candidates as JSON.",
         inputSchema={
             "type": "object",
+            "additionalProperties": False,  # D4-02: reject undeclared params (MCP tool-schema hardening)
             "required": ["query"],
             "properties": {
                 "query": {"type": "string", "description": "the ask, e.g. 'my risk-adjusted return "
@@ -226,6 +229,7 @@ _TOOLS = [
                     "{metrics:[{metric, binding, claimed, recomputed, gap, reason}], isolation_tier, ...}.",
         inputSchema={
             "type": "object",
+            "additionalProperties": False,  # D4-02: reject undeclared params (MCP tool-schema hardening)
             "required": ["target"],
             "properties": {
                 "target": {"type": "string", "description": "folder with the code and its outputs"},

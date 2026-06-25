@@ -41,6 +41,16 @@ follows from this one fact — and it is a *testable, attestable* property, not 
 In **BYOC / on-prem**, the sandbox + host-recompute run *in the customer's own account/cluster*; Calma's
 control plane only ever receives the redacted verdict + proof. No subprocessor sees raw customer data.
 
+> **Scope of "data never leaves" — be precise (D13-04).** That guarantee is literal for **BYOC / on-prem**.
+> In the **cloud (hosted PLG) path that is live today** (`calma-api`), the raw input bundle *does* transit to
+> Calma: it is uploaded to object storage (R2) and downloaded into the ephemeral function to be re-executed
+> and recomputed. The protection there is **no-retention, not non-transit**: the bundle is **deleted
+> immediately after the run** (`service._maybe_delete_bundle`; `CALMA_RETAIN_BUNDLES` off by default), and
+> only **hashes + verdict + the signed proof + derived run artifacts** persist (D13-01). So for the cloud
+> path, residency/cross-border are **in-scope** (US region, single subprocessor set) and a DSR purge is
+> available (`POST /internal/purge` → R2 prefix delete + PG cascade). Lead with BYOC for allocator/regulated
+> buyers; state the cloud path's transit-but-no-retention honestly.
+
 ## The four controls (run them: `make controls`)
 
 Each is a real, CI-run check (`soc2_controls.py`), emitting a dated JSON evidence pack. A control is
@@ -58,9 +68,11 @@ Each is a real, CI-run check (`soc2_controls.py`), emitting a dated JSON evidenc
 The architecture short-circuits the data-handling domains of CAIQ / SIG / SOC 2:
 
 - **Data retention / deletion / residency / cross-border (DSP):** we don't retain raw data — inputs are
-  processed in an ephemeral, network-isolated sandbox in the customer's own environment and TTL-deleted; only
-  hashes + verdict + validity results persist. Most of DSP collapses to one paragraph; residency/cross-border
-  become **non-applicable** (data never crosses the boundary).
+  processed in an ephemeral, network-isolated sandbox and the bundle is deleted right after the run; only
+  hashes + verdict + validity results persist, and a DSR purge cascades PG + object storage. Most of DSP
+  collapses to one paragraph. **In BYOC/on-prem** residency/cross-border are **non-applicable** (data never
+  crosses the boundary); **in the cloud path** they are in-scope (US region) per the scope note above — answer
+  per the deployment the buyer is on, don't blanket-claim non-transit.
 - **Encryption in transit (CEK):** raw data never transits to Calma → entire classes of in-transit-exposure
   questions are N/A (we still answer at-rest encryption for *metadata*).
 - **Multi-tenancy / isolation:** sandbox-per-run, never reused cross-tenant — control #1.

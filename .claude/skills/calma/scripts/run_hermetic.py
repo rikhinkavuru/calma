@@ -305,6 +305,33 @@ try:
         leaks.append("egress:curl")
 except Exception:
     pass
+# D1-03 SOTA egress matrix — the channels that leak even when an IPv4 deny_out is in place:
+# cloud-metadata IMDS (IAM-credential theft), IPv6 (net-deny written as an IPv4 CIDR leaves ::/0 open),
+# and a DNS-exfil channel. Same data-round-trip discipline (require returned bytes) so an accept-then-drop
+# firewall isn't a false leak. All use the "egress:" prefix so the doctor's all-deny gate catches them.
+for _meta in ("169.254.169.254", "[fd00:ec2::254]"):     # AWS/GCP IMDS v4 + link-local IPv6 metadata
+    try:
+        _m = socket.create_connection((_meta.strip("[]"), 80), timeout=3)
+        _m.settimeout(3)
+        _m.sendall(b"GET /latest/meta-data/ HTTP/1.0\r\nHost: meta\r\n\r\n")
+        if _m.recv(1):
+            leaks.append("egress:metadata")
+        _m.close()
+    except Exception:
+        pass
+for _h6 in ("2606:4700:4700::1111", "2001:4860:4860::8888"):   # public IPv6 (Cloudflare / Google)
+    try:
+        _s6 = socket.socket(socket.AF_INET6, socket.SOCK_STREAM)
+        _s6.settimeout(3)
+        _s6.connect((_h6, 80))
+        _s6.sendall(b"GET / HTTP/1.0\r\n\r\n")
+        if _s6.recv(1):
+            leaks.append("egress:ipv6")
+        _s6.close()
+    except Exception:
+        pass
+# (DNS egress is already exercised by the example.com TCP round-trip above; a bare getaddrinfo is omitted —
+#  it can resolve from a local cache/mDNSResponder even under a connection-denying profile = false leak.)
 print("LEAKS=" + ",".join(leaks))
 '''
 
