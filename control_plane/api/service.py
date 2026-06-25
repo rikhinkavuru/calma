@@ -77,6 +77,15 @@ def _maybe_delete_bundle(uri):
         pass
 
 
+def purge_org(conn, org_id):
+    """DSR / right-to-erasure (D13-03): delete an org's R2 objects (every tenant prefix) then the org row,
+    which FK-cascades its tenants/jobs/runs/verdicts/audit. Irreversible. Returns counts."""
+    tids = repo.tenant_ids_for_org(conn, org_id)
+    objects = sum(storage.delete_prefix("t/%s/" % t) for t in tids)
+    repo.delete_org(conn, org_id)
+    return {"org_id": str(org_id), "tenants_purged": len(tids), "objects_deleted": objects}
+
+
 def submit(conn, tenant, api_key_id, req, idem_key):
     tid = tenant["id"]
     existing = repo.find_job_by_idem(conn, tid, idem_key)
@@ -86,8 +95,6 @@ def submit(conn, tenant, api_key_id, req, idem_key):
                 existing["bundle_sha256"].hex() != req.bundle.sha256.lower():
             raise errors.idempotency_conflict()
         return response_for_job(conn, tenant, existing)   # idempotent replay: no admission, no re-run
-
-    _admit(conn, tenant)
 
     # Tenant-scope every caller-supplied object key BEFORE touching storage: a bundle/data_ref URI must
     # live under THIS tenant's prefix (t/<id>/...), else a tenant could reference — and have the engine
@@ -116,10 +123,17 @@ def submit(conn, tenant, api_key_id, req, idem_key):
     limits["wall_seconds"] = min(int(limits.get("wall_seconds") or config.DEFAULT_WALL_SECONDS),
                                  config.MAX_WALL_SECONDS)   # cap requested wall time (cost/DoS)
 
-    job = repo.insert_job(conn, tenant_id=tid, api_key_id=api_key_id, idem_key=idem_key,
-                          recipe_id=req.recipe_id, recipe_version=req.recipe_version,
-                          template_id=req.template_id, trust=req.trust, bundle_sha256=bundle_sha,
-                          contract_sha256=bundle_sha, data_ref_digest=data_digest, limits=limits)
+    # D2-04: admission + insert under one advisory lock so the count-then-insert race can't over-admit
+    # (concurrent POSTs each reading count<cap then all inserting). Held for two fast DB ops only.
+    repo.admission_lock(conn)
+    try:
+        _admit(conn, tenant)
+        job = repo.insert_job(conn, tenant_id=tid, api_key_id=api_key_id, idem_key=idem_key,
+                              recipe_id=req.recipe_id, recipe_version=req.recipe_version,
+                              template_id=req.template_id, trust=req.trust, bundle_sha256=bundle_sha,
+                              contract_sha256=bundle_sha, data_ref_digest=data_digest, limits=limits)
+    finally:
+        repo.admission_unlock(conn)
     job_id = str(job["id"])
     repo.insert_audit(conn, tenant_id=tid, actor_type="api_key", actor_id=api_key_id,
                       action="job.submit", resource_type="job", resource_id=job["id"],

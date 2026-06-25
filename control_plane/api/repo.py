@@ -123,6 +123,27 @@ def count_active_jobs(conn, tenant_id=None, since_seconds=600):
     return cur.fetchone()[0]
 
 
+_ADMIT_LOCK = 728041  # fixed pg advisory-lock key serializing submit admission (count -> insert)
+
+
+def tenant_ids_for_org(conn, org_id):
+    cur = conn.execute("SELECT id FROM tenants WHERE org_id = %s", (org_id,))
+    return [str(r[0]) for r in cur.fetchall()]
+
+
+def delete_org(conn, org_id):
+    # FK ON DELETE CASCADE (migration 0002) removes the org's tenants/jobs/runs/verdicts/audit rows.
+    conn.execute("DELETE FROM orgs WHERE id = %s", (org_id,))
+
+
+def admission_lock(conn):
+    conn.execute("SELECT pg_advisory_lock(%s)", (_ADMIT_LOCK,))
+
+
+def admission_unlock(conn):
+    conn.execute("SELECT pg_advisory_unlock(%s)", (_ADMIT_LOCK,))
+
+
 def count_recent_creates(conn, tenant_id, since_seconds=60):
     cur = conn.execute(
         "SELECT count(*) FROM jobs WHERE tenant_id = %s "

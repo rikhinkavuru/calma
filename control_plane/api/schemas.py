@@ -107,6 +107,16 @@ class ProvisionResponse(BaseModel):
     tenant_id: str
 
 
+class PurgeRequest(BaseModel):
+    org_id: str
+
+
+class PurgeResponse(BaseModel):
+    org_id: str
+    tenants_purged: int
+    objects_deleted: int
+
+
 class KeyCreate(BaseModel):
     environment: str = "live"      # live | test
 

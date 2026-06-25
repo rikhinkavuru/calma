@@ -12,8 +12,8 @@ from fastapi import Depends, FastAPI, Header, Query
 from fastapi.responses import Response
 
 from . import bootstrap, config, errors, keys, repo, service, signing, storage
-from .schemas import (KeyCreate, KeyCreated, ProvisionRequest, ProvisionResponse, SubmitRequest,
-                      UploadRequest, UploadResponse)
+from .schemas import (KeyCreate, KeyCreated, ProvisionRequest, ProvisionResponse, PurgeRequest,
+                      PurgeResponse, SubmitRequest, UploadRequest, UploadResponse)
 
 app = FastAPI(title="Calma Verifications API", version="0.1.0",
               description="Re-execute a claimed metric to ground truth and recompute it from raw outputs.")
@@ -176,6 +176,12 @@ def provision(req: ProvisionRequest, ctx=Depends(service_ctx)):
                                 org_name=req.org_name, workos_org_id=req.workos_org_id)
     bootstrap.seed_registry(ctx["conn"])          # ensure recipes/templates exist so submits FK-resolve
     return res
+
+
+@app.post("/internal/purge", response_model=PurgeResponse)
+def purge(req: PurgeRequest, ctx=Depends(service_ctx)):
+    """DSR / right-to-erasure: irreversibly delete an org's R2 objects + all PG rows (cascade)."""
+    return service.purge_org(ctx["conn"], req.org_id)
 
 
 @app.get("/v1/keys")

@@ -72,6 +72,17 @@ def delete(key):
     client().delete_object(Bucket=_bucket(), Key=key)
 
 
+def delete_prefix(prefix) -> int:
+    """Delete EVERY object under a key prefix (DSR / right-to-erasure tenant purge). Returns the count."""
+    c, b, n = client(), _bucket(), 0
+    for page in c.get_paginator("list_objects_v2").paginate(Bucket=b, Prefix=prefix):
+        objs = [{"Key": o["Key"]} for o in page.get("Contents", [])]
+        if objs:
+            c.delete_objects(Bucket=b, Delete={"Objects": objs})
+            n += len(objs)
+    return n
+
+
 def exists(key) -> bool:
     try:
         client().head_object(Bucket=_bucket(), Key=key)
