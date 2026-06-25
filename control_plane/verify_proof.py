@@ -43,38 +43,57 @@ def main() -> int:
         print("not valid JSON: %s" % e, file=sys.stderr)
         return 1
 
+    # Pinned trusted keys: signing_pubkey.json `trusted` (current KMS ECDSA-P256 + retired ed25519), or an
+    # explicit --pubkey-b64. A signature verifies only against the key matching its keyid (never a key in
+    # the envelope). Algorithm-aware: ed25519 (raw 32-byte) + ecdsa-p256-sha256 (DER SPKI).
     if a.pubkey_b64:
-        pub_b64 = a.pubkey_b64
+        trusted = [{"keyid": None, "algorithm": None, "public_key_b64": a.pubkey_b64}]
     else:
-        pub_b64 = json.load(open(PINNED))["public_key_b64"]
-    pub_raw = base64.b64decode(pub_b64)
+        pin = json.load(open(PINNED))
+        trusted = pin.get("trusted") or [pin.get("current")] or []
 
     sigs = env.get("signatures") or []
     if not sigs:
         print("UNSIGNED — envelope carries no signatures (proof signing was not configured)")
         return 2
 
-    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
-    from cryptography.exceptions import InvalidSignature
-    pub = Ed25519PublicKey.from_public_bytes(pub_raw)
     pae = _pae(env["payloadType"].encode("ascii"), base64.b64decode(env["payload"]))
 
-    ok = False
-    for s in sigs:
+    def _verify(algo, pub_b64, sig):
+        from cryptography.exceptions import InvalidSignature
+        pub_bytes = base64.b64decode(pub_b64)
         try:
-            pub.verify(base64.b64decode(s["sig"]), pae)
-            ok = True
-            break
+            if algo == "ed25519" or (algo is None and len(pub_bytes) == 32):
+                from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+                Ed25519PublicKey.from_public_bytes(pub_bytes).verify(sig, pae)
+                return True
+            from cryptography.hazmat.primitives.serialization import load_der_public_key
+            from cryptography.hazmat.primitives.asymmetric import ec
+            from cryptography.hazmat.primitives import hashes
+            load_der_public_key(pub_bytes).verify(sig, pae, ec.ECDSA(hashes.SHA256()))
+            return True
         except (InvalidSignature, ValueError, KeyError):
-            continue
+            return False
+
+    ok, used = False, None
+    for s in sigs:
+        sig = base64.b64decode(s["sig"])
+        for k in trusted:
+            if k.get("keyid") and s.get("keyid") and k["keyid"] != s["keyid"]:
+                continue
+            if _verify(k.get("algorithm") or s.get("algorithm"), k["public_key_b64"], sig):
+                ok, used = True, s
+                break
+        if ok:
+            break
 
     if not ok:
-        print("INVALID — no signature verifies against the pinned key")
+        print("INVALID — no signature verifies against the pinned trusted key(s)")
         return 2
 
     payload = json.loads(base64.b64decode(env["payload"]))
     res = payload.get("result") or {}
-    print("VALID ✓  signed by keyid %s (ed25519)" % sigs[0].get("keyid"))
+    print("VALID ✓  signed by keyid %s (%s)" % (used.get("keyid"), used.get("algorithm")))
     print("  verification_id: %s" % payload.get("verification_id"))
     print("  verdict        : %s" % res.get("verdict"))
     print("  metric         : %s  claimed=%s recomputed=%s"

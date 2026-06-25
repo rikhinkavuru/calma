@@ -7,9 +7,15 @@ import styles from "../../dashboard.module.css";
 
 export const dynamic = "force-dynamic";
 
-// Pinned control-plane proof-signing public key (source of truth: control_plane/signing_pubkey.json).
+// Pinned control-plane proof-signing public keys (source of truth: control_plane/signing_pubkey.json).
+// `current` = KMS ECDSA-P256 (non-exportable); the ed25519 one stays for proofs issued before the cutover.
 // Verifying here proves the proof was signed by Calma's key — not just that the envelope claims a signature.
-const PINNED_PUBKEY_B64 = "TY0kvWBGY+henz1JF2OfnFhA/gDJDNLxsxwDNB4+z0U=";
+const TRUSTED_KEYS = [
+  { keyid: "3d48e4df88f77082", algorithm: "ecdsa-p256-sha256",
+    pub_b64: "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEHxlPj9KVKXNv8pP3HRCBg073f1f1Dedm9kcJd+bzQUGvRN9bPuelllETYZoBpJN1lNj9VffAPeD3PTMaHyeseQ==" },
+  { keyid: "6828f0ad98306a21", algorithm: "ed25519",
+    pub_b64: "TY0kvWBGY+henz1JF2OfnFhA/gDJDNLxsxwDNB4+z0U=" },
+];
 
 type Dsse = { payloadType: string; payload: string; signatures: { keyid: string; sig: string }[] };
 
@@ -28,16 +34,24 @@ function pae(payloadType: string, payload: Buffer): Buffer {
 }
 
 function verifyEnvelope(env: Dsse): boolean {
-  try {
-    const raw = Buffer.from(PINNED_PUBKEY_B64, "base64"); // 32-byte ed25519 key
-    const der = Buffer.concat([Buffer.from("302a300506032b6570032100", "hex"), raw]); // SPKI wrapper
-    const pub = crypto.createPublicKey({ key: der, format: "der", type: "spki" });
-    const msg = pae(env.payloadType, Buffer.from(env.payload, "base64"));
-    return (env.signatures || []).some((s) =>
-      crypto.verify(null, msg, pub, Buffer.from(s.sig, "base64")));
-  } catch {
-    return false;
-  }
+  const msg = pae(env.payloadType, Buffer.from(env.payload, "base64"));
+  return (env.signatures || []).some((s) => {
+    const k = TRUSTED_KEYS.find((t) => t.keyid === s.keyid);
+    if (!k) return false;
+    try {
+      const sig = Buffer.from(s.sig, "base64");
+      if (k.algorithm === "ed25519") {
+        const der = Buffer.concat([Buffer.from("302a300506032b6570032100", "hex"), Buffer.from(k.pub_b64, "base64")]);
+        const pub = crypto.createPublicKey({ key: der, format: "der", type: "spki" });
+        return crypto.verify(null, msg, pub, sig);
+      }
+      // ecdsa-p256-sha256: KMS returns a DER-encoded ECDSA signature; the pub is already DER SPKI
+      const pub = crypto.createPublicKey({ key: Buffer.from(k.pub_b64, "base64"), format: "der", type: "spki" });
+      return crypto.verify("sha256", msg, { key: pub, dsaEncoding: "der" }, sig);
+    } catch {
+      return false;
+    }
+  });
 }
 
 export default async function Detail({ params }: { params: Promise<{ id: string }> }) {

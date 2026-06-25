@@ -1,7 +1,27 @@
 {
-  "algorithm": "ed25519",
-  "keyid": "6828f0ad98306a21",
-  "public_key_b64": "TY0kvWBGY+henz1JF2OfnFhA/gDJDNLxsxwDNB4+z0U=",
-  "note": "Calma control-plane proof-signing PUBLIC key. Pin THIS to verify a /v1/verifications/{id}/proof DSSE envelope offline. The private key never leaves the deployment (CALMA_SIGNING_KEY secret). Also served live at https://calma-api-wheat.vercel.app/v1/signing-key. Verify with control_plane/verify_proof.py.",
-  "created": "2026-06-24"
+  "note": "Calma control-plane proof-signing PUBLIC keys. Pin THESE to verify a /v1/verifications/{id}/proof DSSE envelope offline (by the signature's keyid). `current` signs new proofs; `trusted` includes retired keys so historical proofs still verify. The private keys never leave the deployment (KMS is non-exportable). Also served at https://calma-api-wheat.vercel.app/v1/signing-key. Verify with control_plane/verify_proof.py.",
+  "current": {
+    "algorithm": "ecdsa-p256-sha256",
+    "keyid": "3d48e4df88f77082",
+    "public_key_b64": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEHxlPj9KVKXNv8pP3HRCBg073f1f1Dedm9kcJd+bzQUGvRN9bPuelllETYZoBpJN1lNj9VffAPeD3PTMaHyeseQ==",
+    "key_format": "spki-der",
+    "backing": "aws-kms (non-exportable)",
+    "created": "2026-06-25"
+  },
+  "trusted": [
+    {
+      "algorithm": "ecdsa-p256-sha256",
+      "keyid": "3d48e4df88f77082",
+      "public_key_b64": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEHxlPj9KVKXNv8pP3HRCBg073f1f1Dedm9kcJd+bzQUGvRN9bPuelllETYZoBpJN1lNj9VffAPeD3PTMaHyeseQ==",
+      "key_format": "spki-der"
+    },
+    {
+      "algorithm": "ed25519",
+      "keyid": "6828f0ad98306a21",
+      "public_key_b64": "TY0kvWBGY+henz1JF2OfnFhA/gDJDNLxsxwDNB4+z0U=",
+      "key_format": "raw",
+      "retired": "2026-06-25",
+      "note": "pre-KMS env-seed key; verifies proofs issued before the KMS cutover"
+    }
+  ]
 }
