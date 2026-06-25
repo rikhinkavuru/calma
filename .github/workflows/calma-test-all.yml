@@ -12,6 +12,14 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4 (SHA-pinned)
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5 (SHA-pinned)
         with: { python-version: "3.12" }
+      - name: Install bubblewrap + allow unprivileged user namespaces
+        # the suite includes sandbox-dependent tests (hook / dx / agent-arm) that need a verified
+        # isolation tier to produce a real REFUTED; ubuntu-latest has no seatbelt, so without bwrap
+        # those tests can't isolate and false-fail. Mirror the test-linux job's native-Linux tier.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends bubblewrap
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
       - name: core (pure stdlib, no deps)
         run: python3 .claude/skills/calma/scripts/tests/run_all.py
 
@@ -23,7 +31,10 @@ jobs:
         with: { python-version: "3.12" }
       - name: mcp transport tests (mcp SDK + pytest)
         run: |
-          python3 -m pip install --quiet pytest numpy -e ./mcp
+          # anthropic + jsonschema are the edges A1 deps so calma_verify_artifact's `python -m
+          # edges.extract` seam runs against the committed REPLAY fixtures (CALMA_EDGES_RECORD unset
+          # => offline replay, no API key). Without them that test fails "engine produced no JSON".
+          python3 -m pip install --quiet pytest numpy "anthropic>=0.40,<2" "jsonschema>=4.18,<5" -e ./mcp
           PYTHONPATH="$PWD/mcp" python3 -m pytest -q mcp/tests
 
   pr:

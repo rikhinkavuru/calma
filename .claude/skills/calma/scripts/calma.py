@@ -685,7 +685,21 @@ def _ledger_sha256(led_path):
     return h.hexdigest()
 
 
-def _cached_result(target, fingerprint):
+def _reproduce_command(run_dir):
+    """`<invocation> replay <run_dir>`, shown cwd-relative when the run dir is under cwd (no $HOME
+    leak) else home-redacted - the same form the fresh-run path emits (lines ~356/565). Used to
+    RE-POINT a cached ledger's reproduce line at the run dir actually being served."""
+    if not run_dir:
+        return None
+    try:
+        rel = os.path.relpath(run_dir)
+        disp = rel if not rel.startswith("..") else run_dir
+    except ValueError:
+        disp = run_dir
+    return _redact_home("%s replay %s" % (_invocation(), disp))
+
+
+def _cached_result(target, fingerprint, why=False):
     """Return the prior result for this fingerprint, or None. Only definite verdicts are served from
     cache (an INCONCLUSIVE may have been environmental - it always re-runs).
 
@@ -716,11 +730,22 @@ def _cached_result(target, fingerprint):
     code, summary = LED.validate_obj(led)
     if led.get("repo_verdict") not in ("CONFIRMED", "CONFIRMED-WITH-CAVEATS", "REFUTED", "MIXED", "INVALIDATED", "FLAG_FOR_DECLARATION"):
         return None
-    rendered = ("(cached - code, data, and claim unchanged since the last run; "
-                "--force re-executes)\n") + REP.render(led)
+    # re-point the reproduce line at the run dir we are ACTUALLY serving: a ledger can be served from a
+    # relocated/copied tree (the fingerprint matches by content), in which case its stored command still
+    # names the ORIGINAL absolute path. Rewrite it to this target's run dir so `calma replay <...>` works.
+    repro = _reproduce_command(run_dir)
+    if repro:
+        for c in led.get("claims", []):
+            rep = c.get("reproduction_or_reverify")
+            if isinstance(rep, dict) and rep.get("command"):
+                rep["command"] = repro
+    prefix = ("(cached - code, data, and claim unchanged since the last run; "
+              "--force re-executes)\n")
+    rendered = prefix + REP.render(led)                                        # full record
+    display = prefix + REP.render(led, color=_color_enabled(), why=why)        # terminal (collapsed)
     return {"gate_exit": code, "gate": summary, "repo_verdict": led["repo_verdict"],
-            "report": rendered, "teardown": REP.teardown_card(led), "run_dir": run_dir,
-            "ledger": led, "cached": True}
+            "report": rendered, "display": display, "teardown": REP.teardown_card(led),
+            "run_dir": run_dir, "ledger": led, "cached": True}
 
 
 def _store_cache(target, fingerprint, run_id, repo_verdict):
@@ -856,6 +881,7 @@ class VerifyOptions:
     isolation: "str | None" = None
     timeout: "int | None" = None
     restore: bool = False
+    why: bool = False    # terminal verbosity: expand the full 'not verified' list (report.txt stays full)
 
     @classmethod
     def from_args(cls, a):
@@ -869,7 +895,8 @@ class VerifyOptions:
                    trust=getattr(a, "trust", "own-code"),
                    isolation=getattr(a, "isolation", None),
                    timeout=getattr(a, "timeout", None),
-                   restore=getattr(a, "restore", False))
+                   restore=getattr(a, "restore", False),
+                   why=getattr(a, "why", False))
 
 
 _OPT_FIELDS = frozenset(f.name for f in fields(VerifyOptions))
@@ -980,7 +1007,7 @@ def verify(target, claim=None, metric=None, run_id="run", opts=None):
     # Inline/agent-loop use re-verifies only what changed; --force always re-executes, and a
     # determinism check is new evidence, so it never reads the cache (it still stores).
     if block_finding is None and not force and not check_determinism and not run_only and not cross_engine:
-        hit = _cached_result(target, _input_fingerprint(target, contract, isolation))
+        hit = _cached_result(target, _input_fingerprint(target, contract, isolation), opts.why)
         if hit:
             _trace("cache", "code+data+claim unchanged -> prior verdict (--force re-executes)")
             if claim_note:
@@ -1280,8 +1307,10 @@ def verify(target, claim=None, metric=None, run_id="run", opts=None):
     code, summary = LED.validate_obj(led)
     _trace("verdict", "%s - every label re-derived byte-for-byte from its stored inputs"
            % led.get("repo_verdict"))
-    rendered = REP.render(led, diff)                                  # plain - for the file + callers
-    display = REP.render(led, diff, color=_color_enabled())           # symbols/color - for the terminal
+    rendered = REP.render(led, diff)                                  # plain, FULL - for report.txt + callers
+    # terminal: collapse the long 'not verified' list to a one-line summary unless --why (report.txt
+    # keeps the full record either way, and --json carries the full scope.not_verified).
+    display = REP.render(led, diff, color=_color_enabled(), why=opts.why)
     if claim_note:
         rendered = "note: %s\n\n%s" % (claim_note, rendered)
         display = "note: %s\n\n%s" % (claim_note, display)
@@ -1506,6 +1535,9 @@ def _json_result(res):
         "note": res.get("claim_note"),
         "isolation_tier": led.get("scope", {}).get("isolation_tier"),
         "determinism_mode": led.get("scope", {}).get("determinism_mode"),
+        # the full 'what we did NOT check' list (the terminal report collapses this to a one-line
+        # summary unless --why; machine consumers always get the complete set here).
+        "not_verified": led.get("scope", {}).get("not_verified", []),
         "run_dir": res["run_dir"],
         # B2: present only when --cross-engine ran; agents key on cross_engine.any_divergence
         **({"cross_engine": res["cross_engine"]} if res.get("cross_engine") else {}),
@@ -1717,6 +1749,79 @@ def onboard_cmd(metric_id, family, methodology, vectors, *, hints=None, budget=6
     print("\nNOT admitted within budget (last failing stage: %s) - the gate rejected every draft, so "
           "NOTHING was frozen. A bespoke metric the gate can't admit never emits a verdict."
           % out.get("last_stage"))
+    return 1
+
+
+def _repair_subprocess(run_dir, *, budget=4, model=None, apply=False, timeout=900):
+    """Run the edges A4 repair proposer as a SUBPROCESS - the core never imports edges (firewall),
+    exactly like `draft --ai` -> edges.contract and `onboard` -> edges.synth.onboard. Launched from the
+    repo root so the `edges` package resolves. Returns the parsed --json result (or {"ok": False, ...}
+    when the edges deps / API key are unavailable)."""
+    import subprocess
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
+    argv = [sys.executable, "-m", "edges.repair", run_dir, "--budget", str(budget), "--json"]
+    if model:
+        argv += ["--model", model]
+    if apply:
+        argv += ["--apply"]
+    try:
+        p = subprocess.run(argv, cwd=repo_root, capture_output=True, text=True, timeout=timeout)
+    except (OSError, subprocess.SubprocessError) as e:
+        return {"ok": False, "returncode": -1, "error": str(e)}
+    try:
+        # exit 0 (accepted) or 1 (ran, no accepted patch) both emit the JSON result; only exit 2
+        # (not a catch) and the import/key failures emit no JSON.
+        return {"ok": True, "returncode": p.returncode, **json.loads(p.stdout)}
+    except ValueError:
+        tail = (p.stderr or p.stdout or "").strip().splitlines()
+        return {"ok": False, "returncode": p.returncode,
+                "error": tail[-1] if tail else "edges.repair produced no JSON"}
+
+
+def repair_cmd(run_dir, *, budget=4, model=None, apply=False, as_json=False):
+    """A4: repair a REFUTED/INVALIDATED catch. The model PROPOSES a minimal patch; Calma re-verifies the
+    PATCHED code FROM SCRATCH in an isolated clone (the working tree is never touched) and only ACCEPTS a
+    patch that genuinely flips the verdict to clean WITH the goalposts immutable + the anti-test-hacking
+    review gate passing. AI proposes; determinism disposes. Needs the edges deps + an API key (the
+    re-verify gate itself is offline). --apply writes the accepted patch to the working tree."""
+    out = _repair_subprocess(run_dir, budget=budget, model=model, apply=apply)
+    if not out.get("ok"):
+        # exit 2 from the seam = the run is not a REFUTED/INVALIDATED catch (nothing to repair) - a
+        # legitimate, clean outcome, NOT a missing-deps failure. Report the two honestly distinct.
+        if out.get("returncode") == 2:
+            # the seam already prefixes "nothing to repair: ..." / "not a run dir: ..." - print verbatim.
+            print(out.get("error"))
+            print("  repair acts on a REFUTED/INVALIDATED catch - point it at that run's .calma/<run-id>.")
+            return 2
+        print("repair unavailable (%s) - it needs the edges deps + an API key (ANTHROPIC_API_KEY); the "
+              "re-verify gate itself is offline." % out.get("error"))
+        return 2
+    if as_json:
+        print(json.dumps({k: out[k] for k in ("accepted", "one_shot", "before_verdict", "after_verdict",
+              "metric_id", "patch", "hypotheses", "applied") if k in out}, indent=2))
+        return 0 if out.get("accepted") else 1
+    if out.get("accepted"):
+        print("repaired %s -> %s%s  (AI proposed the patch; Calma re-verified the patched code)"
+              % (out.get("before_verdict"), out.get("after_verdict"),
+                 " [one-shot]" if out.get("one_shot") else ""))
+        for h in out.get("hypotheses", []):
+            if h.get("accepted"):
+                print("  cause: %s" % h.get("cause"))
+                print("  files: %s" % (", ".join(h.get("target_files") or []) or "?"))
+        print("\n%s" % (out.get("patch") or ""))
+        if apply:
+            print("applied to working tree: %s" % ("yes - re-run calma verify to confirm"
+                  if out.get("applied") else "FAILED (apply the diff above manually)"))
+        else:
+            print("re-verified in an isolated clone - your files are untouched. apply it:  %s repair %s --apply"
+                  % (_invocation(), run_dir))
+        return 0
+    print("no accepted patch within budget - the verdict stands. what was tried:")
+    for h in out.get("hypotheses", []):
+        print("  #%d %-58s -> %s (gap_closed=%s, reviewers=%s)"
+              % (h.get("index"), (h.get("cause") or "")[:58], h.get("after_verdict"),
+                 h.get("gap_closed"), h.get("reviewers_passed")))
+    print("a patch Calma can't re-verify to a clean verdict is never applied - the catch stands honestly.")
     return 1
 
 
@@ -2013,7 +2118,8 @@ def main():
     ap.add_argument("--version", action="version", version="calma %s" % __version__)
     sub = ap.add_subparsers(dest="cmd", required=True)
     v = sub.add_parser("verify", help="re-run + recompute + diff against the claim")
-    v.add_argument("target", help="folder containing the code and its outputs")
+    v.add_argument("target", nargs="?", default=None,
+                   help="folder containing the code and its outputs")
     v.add_argument("claim_text", nargs="?", default=None,
                    help="the claim to check, e.g. \"accuracy 0.87\" or \"+14,698%%\" (optional)")
     v.add_argument("--claim", help="same as the positional claim")
@@ -2055,6 +2161,10 @@ def main():
                         "the mode governs only follow-on ACTIONS. Also CALMA_MODE / .calma/config.json")
     v.add_argument("--json", action="store_true", dest="as_json",
                    help="print a machine-readable verdict object instead of the report")
+    v.add_argument("--why", action="store_true",
+                   help="expand the full 'not verified' scope list (every undeclared validity family) "
+                        "instead of the one-line summary. The saved report.txt + --json always carry "
+                        "the full list either way")
     v.add_argument("--offline", action="store_true",
                    help="auto mode only: skip the ONE network step (the RFC 3161 timestamp) so a catch "
                         "is signed + appended to the LOCAL catch-record with zero network. Also "
@@ -2166,6 +2276,16 @@ def main():
     ob.add_argument("--compiled-path", default=None, dest="compiled_path",
                     help="freeze target registry (default: the production compiled_recipes.json)")
     ob.add_argument("--json", action="store_true", dest="as_json", help="machine-readable result")
+    rp = sub.add_parser("repair", help="REFUTED catch? An LLM proposes a minimal patch and Calma "
+                                       "re-verifies the patched code from scratch - it accepts the fix "
+                                       "ONLY if the recompute flips it to clean (needs edges deps + an API key)")
+    rp.add_argument("run_dir", help="the .calma/<run-id> of a REFUTED/INVALIDATED verification "
+                                    "(the path in the 'reproduce:' line)")
+    rp.add_argument("--budget", type=int, default=4, help="max diagnosis hypotheses to try (default 4)")
+    rp.add_argument("--model", default=None, help="advisory diagnosis model tier")
+    rp.add_argument("--apply", action="store_true",
+                    help="apply the accepted patch to the working tree (default: propose only, never mutate)")
+    rp.add_argument("--json", action="store_true", dest="as_json", help="machine-readable repair result")
     mo = sub.add_parser("modes", help="show or set Calma's autonomy: the verify scope "
                         "(off/headline/all) + the action mode (ask/suggest/auto)")
     mo.add_argument("--verify", choices=AUT.VERIFY_SCOPES, default=None,
@@ -2274,6 +2394,17 @@ def main():
     a = ap.parse_args()
     try:
         if a.cmd == "verify":
+            if a.target is None:
+                # bare `calma verify` is the most common first fumble: point at the zero-setup demo
+                # and the suggester instead of a raw argparse "the following arguments are required".
+                inv = _invocation()
+                print("calma verify needs a folder to check. Try:\n"
+                      "  %s demo                          watch it catch a real inflated backtest "
+                      "(offline, no setup)\n"
+                      "  %s verify <folder> \"<claim>\"      e.g. %s verify ./out \"accuracy 0.87\"\n"
+                      "  %s suggest \"<what you measured>\"   unsure which metric? get ranked candidates"
+                      % (inv, inv, inv, inv), file=sys.stderr)
+                return 2
             # H2: ONE options object for every dispatch below - run-only, normal, and the auto retry
             # all run through the same VerifyOptions, so no path can silently drop a flag (the bug
             # that left --run-only without cross_engine / check_determinism).
@@ -2400,7 +2531,7 @@ def main():
             shutil.copytree(src, dst, ignore=shutil.ignore_patterns(".calma"))
             print("re-verifying a real overfit backtest (it claimed +14,698% on BTC)...\n")
             res = verify(dst)
-            print(res["report"])
+            print(res.get("display") or res["report"])
             if a.keep:
                 print("\n[fixture copy kept at %s]" % dst)
             print("\nthat was a real inflated backtest. now try your own:  "
@@ -2453,6 +2584,9 @@ def main():
             return onboard_cmd(a.metric_id, a.family, a.methodology, a.vectors, hints=a.hints,
                                budget=a.budget, model=a.model, compiled_path=a.compiled_path,
                                as_json=a.as_json)
+        if a.cmd == "repair":
+            return repair_cmd(a.run_dir, budget=a.budget, model=a.model, apply=a.apply,
+                              as_json=a.as_json)
         if a.cmd == "teardown":
             res = verify(a.target, a.claim_text or a.claim, a.metric, "teardown",
                          opts=VerifyOptions(force=a.force))

@@ -207,6 +207,11 @@ pip install calma                 # or: ./install.sh (symlink) · pip install 'c
 
 # verify a result directory (auto-drafts a contract, or reads a committed verify.yaml)
 calma verify ./result "accuracy 0.94" --metric accuracy --json
+#   the verdict ends with a one-line "not verified" summary; add --why for the full scope list
+
+# REFUTED? let an LLM propose a fix — Calma re-verifies the patched code and accepts it ONLY if the
+# recompute flips the verdict to clean (your files are untouched unless you pass --apply)
+calma repair ./result/.calma/run            # needs the edges deps + an API key
 
 # see the catalog, get a recipe suggestion, replay a sealed verdict offline
 calma recipes

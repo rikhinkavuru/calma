@@ -201,6 +201,13 @@ def suggest(text, k=_TOP_DEFAULT, available_tags=None):
     # "specificity", "n" doesn't match "and"). Strongest signal; most specific phrase first.
     seen_phrase = set()
     for phrase, mid in alias_pairs:
+        # an alias that is itself a single English stopword (e.g. "IS" = implementation_shortfall,
+        # "OR" = odds_ratio) collides with the ordinary word in any prose ask ("how good IS my model")
+        # and would fire a confident, nonsensical #1. The acronym still matches when the user writes
+        # the FULL phrase ("implementation shortfall") via the other aliases / tier-2 tokens, so drop
+        # the bare-stopword collision here - it is never a reliable metric signal.
+        if phrase in _STOP:
+            continue
         if mid in docs and mid not in seen_phrase and _phrase_hit(phrase, norm):
             scores[mid] = scores.get(mid, 0.0) + ALIAS_WEIGHT * len(phrase.split())
             why[mid] = "matches \"%s\"" % phrase
