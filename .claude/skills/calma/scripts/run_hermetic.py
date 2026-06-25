@@ -1578,6 +1578,32 @@ def _run_e2b_backend(contract, base, entry, entry_path, trust, timeout):
     }
 
 
+def _clear_reemit_artifacts(contract, base):
+    """Artifact-freshness guard (the load-bearing 're-execute to ground truth' invariant). An artifact
+    declared `re_emit: true` ASSERTS that THIS run (re)produces it, so recompute reflects the EXECUTION
+    rather than a value baked into the submitted bundle. Delete those declared paths BEFORE the run: a
+    faithful entrypoint rewrites them (recompute reads the fresh output, unchanged behaviour), while a
+    no-op / irrelevant entrypoint leaves them ABSENT -> recompute degenerates -> INCONCLUSIVE, never a
+    CONFIRMED over a pre-baked number the run never computed (CWE-345). `re_emit: false` (a deliberately
+    committed reference artifact, e.g. an expensive backtest output) is left untouched - that mode is a
+    declared recompute-of-committed-data, not an execution-produced claim. Confined to paths UNDER base;
+    a symlink artifact (a redirect to outside the run area) is removed, never followed."""
+    for a in contract.get("artifacts", []) or []:
+        if not (isinstance(a, dict) and a.get("re_emit")):
+            continue
+        rel = a.get("path")
+        if not rel:
+            continue
+        full, ok = _within(base, rel)
+        if not ok:
+            continue
+        try:
+            if os.path.islink(full) or os.path.isfile(full):
+                os.remove(full)
+        except OSError:
+            pass
+
+
 def run(contract_path, base=None, timeout=120, trust_override=None, isolation=None):
     import draft_contract as _DC
     contract = _DC.load_contract(contract_path)
@@ -1591,6 +1617,9 @@ def run(contract_path, base=None, timeout=120, trust_override=None, isolation=No
         return {"phase": "refused", "exit_code": 2, "isolation_tier": "n/a",
                 "container_present": False, "killed": False,
                 "reason": "entrypoint escapes the contract base: %r" % entry}
+    # Freshness: clear every re_emit:true artifact so the run must actually (re)produce it; a pre-baked
+    # artifact the entrypoint never writes can no longer be passed off as a recomputed result.
+    _clear_reemit_artifacts(contract, base)
     # backend selection (WS1): explicit --isolation wins (fail loud, no fallback); else untrusted
     # third-party code auto-escalates to the container tier; else the host Seatbelt tier (default).
     backend = _select_backend(isolation, trust)
