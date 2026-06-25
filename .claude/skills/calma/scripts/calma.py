@@ -48,7 +48,7 @@ import run_hermetic as H
 import suggest as SUGG
 import verdict as V
 
-__version__ = "0.12.0"
+__version__ = "0.13.0"
 
 QUANT_METRICS = {"total_return", "sharpe", "max_drawdown"}
 DEFAULT_TIMEOUT_S = 120

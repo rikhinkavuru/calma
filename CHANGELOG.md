@@ -2,8 +2,25 @@
 
 All notable changes to the calma skill/CLI. Dates are UTC.
 
-## Unreleased — `FLAG_FOR_DECLARATION` · OTel-eval wedge · streaming recompute · IDD/ODD report · input lineage · egress control · sign-off state machine
+## 0.13.0 — 2026-06-25 — auto-repair (`calma repair`) · self-serve console · full recipe registry · `FLAG_FOR_DECLARATION` · OTel-eval wedge · streaming recompute · IDD/ODD report · input lineage · egress control · sign-off state machine
 
+- **`calma repair` — A4 auto-repair, now a live command.** On a REFUTED/INVALIDATED catch, a model
+  proposes a minimal patch and Calma **re-verifies the patched code from scratch in an isolated clone**,
+  accepting it only if the recompute flips the verdict to clean with the goalposts immutable and the
+  anti-test-hacking gate passing (AI proposes, determinism disposes — a firewalled subprocess, never a
+  verdict-core import). `--apply` writes the patch; the default proposes without touching the working tree.
+- **Terminal UX.** The honest `not verified` scope collapses to a one-line summary on the terminal
+  (`--why` expands it; `report.txt` and a new `--json` `not_verified` field always carry the full list).
+  `calma suggest` no longer false-tops a vague ask on a stopword (the "IS" = implementation_shortfall
+  collision); the CAN'T-CONFIRM `fix:`/`needs:` lines are de-duped; bare `calma verify` prints a
+  demo/suggest hint instead of an argparse error; a cached `reproduce:` path re-points to the run dir
+  actually served.
+- **Hosted console + registry.** The dashboard's New-verification flow gains a one-click demo and a
+  searchable, family-grouped recipe picker; the hosted registry now seeds the **full 628-recipe
+  catalogue** (it had 3, so the API rejected every other metric). New `pip install` path: an OIDC
+  trusted-publishing workflow (`.github/workflows/publish-pypi.yml`).
+- **Repo.** Moved the Next.js app into `web/`; added `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, issue/PR
+  templates, and `.gitattributes` (keeps GitHub's language bar on the engine, not generated/vendored data).
 - **Reviewer/IC sign-off state machine + a hash-chained replayable audit trail** (`signoff.py`, W7 / M-7.5 —
   the first allocator-workflow piece). A Verification flows `SUBMITTED → UNDER_REVIEW → REVIEWER_SIGNED →
   IC_APPROVED | IC_REJECTED | RETURNED_TO_MANAGER`. **The gate (the point):** a non-clean verdict — `FLAG_FOR_
