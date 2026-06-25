@@ -27,6 +27,7 @@ jobs:
           cyclonedx-py requirements requirements.txt -o sbom-control-plane.cdx.json || true
           cyclonedx-py requirements api/requirements.txt -o sbom-api.cdx.json || true
       - name: npm audit (dashboard) — BLOCKING
+        working-directory: web
         run: npm audit --audit-level=high
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

@@ -1,8 +1,10 @@
-/node_modules
-/.next/
-/out/
+# web app (now under web/) — match anywhere so web/node_modules, web/.next, etc. are ignored
+node_modules/
+.next/
+out/
 /build
 .DS_Store
+.vscode/
 *.pem
 npm-debug.log*
 .env*.local
