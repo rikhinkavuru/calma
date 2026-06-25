@@ -9,15 +9,16 @@ import argparse
 import sys
 
 from . import keys, repo
+from .recipes_catalogue import RECIPES as _RECIPES
 from .repo import _one
 
 # minimal registry seed (the engine recomputes from the bundle's contract; these rows are the API's
 # registry guard / billing anchor). Real registry sync from the engine's recipe catalogue is a follow-up.
 _TEMPLATES = [("python-3.11", "python", "sha256:base", "local-docker"),
               ("base", "python", "sha256:e2b-base", "e2b")]
-_RECIPES = [("trading.total_return", "1.0.0", "trading", "total_return"),
-            ("trading.sharpe", "1.0.0", "trading", "sharpe"),
-            ("analytics.row_count", "1.0.0", "analytics", "row_count")]
+# _RECIPES (imported above) is the FULL engine recipe catalogue (generated from
+# .claude/skills/calma/scripts/recipes.py); migration 0008 seeds the same set into existing DBs. It was
+# 3 hand-listed rows, which made the hosted API reject every other metric.
 
 
 def seed_registry(conn):
