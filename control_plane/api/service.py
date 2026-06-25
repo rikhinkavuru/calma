@@ -104,13 +104,21 @@ def _execute(conn, tenant, job_id, req, limits):
             repo.update_job(conn, tid, job_id, contract_sha256=bytes.fromhex(csha))
         result, out, err, rc = engine.run_verify(work, req.trust, limits.get("wall_seconds", 120))
 
-        if result is None:                          # engine produced no parseable verdict
+        # result is None  -> engine printed no parseable JSON.
+        # result.ok False -> engine's explicit error envelope ({"ok": false, "error": ...}), e.g. an
+        #   uncaught exception in the verify pipeline. Both are FAILED runs, NOT a verdict-less COMPLETED
+        #   (which would surface to the client as a blank "successful" verification).
+        if result is None or result.get("ok") is False:
+            err_msg = (result or {}).get("error") or "engine produced no parseable verdict"
             repo.insert_run(conn, job_id=job_id, tenant_id=tid, provider=_provider_for(None),
                             isolation_tier="n/a",
                             tier_verified=False, phase="FAILED", run_exit_status=rc, exit_code=rc,
                             killed=False, network_run="n/a", determinism_mode="uncontrolled",
                             determinism_digest="", resource_usage={}, doctor={}, stdout_tail=out,
                             stderr_tail=err)
+            repo.insert_audit(conn, tenant_id=tid, actor_type="system", actor_id=None,
+                              action="job.run_failed", resource_type="job", resource_id=job_id,
+                              metadata={"error": str(err_msg)[:200]})
             repo.update_job(conn, tid, job_id, status="FAILED")
             return
 
@@ -127,7 +135,11 @@ def _execute(conn, tenant, job_id, req, limits):
             network_run="off" if tier in VERIFIED else "host-default", determinism_mode=det,
             determinism_digest="", resource_usage={}, doctor={}, stdout_tail=out, stderr_tail=err))
 
-        if status == "COMPLETED" and result.get("verdict"):
+        # A COMPLETED run MUST carry a verdict; a verdict-less "completed" is a silent engine failure
+        # (e.g. recompute could not bind the artifact). Demote it to FAILED rather than store a blank row.
+        if status == "COMPLETED" and not result.get("verdict"):
+            status = "FAILED"
+        if status == "COMPLETED":
             _manifest, proof_key = engine.collect_and_store(work, tid, job_id, run_id, result)
             claim_v, repo_v = _split_verdict(result)
             claimed, recomputed = result.get("claimed"), result.get("recomputed")
