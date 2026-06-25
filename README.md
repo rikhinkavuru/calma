@@ -1,8 +1,17 @@
 # Calma
 
-[calma1.vercel.app](https://calma1.vercel.app/) · `v0.12.0` · MIT · pure Python stdlib
+[![CI](https://github.com/rikhinkavuru/calma/actions/workflows/calma-test-all.yml/badge.svg)](https://github.com/rikhinkavuru/calma/actions/workflows/calma-test-all.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
+[![runtime deps: none](https://img.shields.io/badge/runtime%20deps-none%20(stdlib)-success.svg)](pyproject.toml)
+[![Live console](https://img.shields.io/badge/console-calma1.vercel.app-black.svg)](https://calma1.vercel.app/)
 
 **An automatic guardrail for AI-generated results: Calma re-runs your agent's work, recomputes the numbers it reported, and blocks the wrong ones before they ship.**
+
+<p align="center">
+  <img src="docs/demo.gif" alt="Calma re-runs a real inflated backtest and breaks the +14,698% claim — recomputed to −32%" width="760">
+  <br><em>A real overfit backtest claimed +14,698%. Calma re-ran it and recomputed −32%. <code>make demo</code> to watch.</em>
+</p>
 
 > **Everyone else reads the diff or trusts the score. Calma re-runs the work and recomputes the number** — from the raw output files, never the number your agent reported. A diff review and an LLM-judge both reason *about* a result; Calma re-derives it. There's no score left to game.
 
@@ -203,7 +212,9 @@ A fourth `agent-with-exec` arm (a frontier agent with a `run_python` tool, sandb
 
 ```bash
 # install the CLI (pure stdlib; no runtime deps) — see docs/install.md for all paths
-pip install calma                 # or: ./install.sh (symlink) · pip install 'calma[parquet]' for .parquet
+make install                      # symlink `calma` onto your PATH — no pip, no venv
+# or from source:  pip install "git+https://github.com/rikhinkavuru/calma"   ( + [parquet] for .parquet )
+# or as a Claude Code plugin (the zero-touch hook + MCP):  /plugin marketplace add rikhinkavuru/calma
 
 # verify a result directory (auto-drafts a contract, or reads a committed verify.yaml)
 calma verify ./result "accuracy 0.94" --metric accuracy --json

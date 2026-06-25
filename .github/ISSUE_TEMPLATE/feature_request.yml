@@ -1,0 +1,27 @@
+name: Feature request
+description: A new metric recipe, validity check, surface, or capability
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to verify?
+      description: The result, metric, or workflow Calma can't yet handle.
+      placeholder: "I want to verify a <metric> from <framework>, but…"
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: |
+        What should Calma do? For a new metric, link the published reference implementation it should
+        reproduce (recipes are admitted only against a reference). For a new validity check, name the
+        flaw it detects.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives / workarounds
+      description: Anything you tried (e.g. `calma onboard`, a custom `verify.yaml`, a different metric).

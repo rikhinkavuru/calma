@@ -1,0 +1,40 @@
+# Normalize line endings across platforms.
+* text=auto eol=lf
+
+# ----------------------------------------------------------------------------------------------------
+# Keep GitHub's language bar + diffs focused on the actual product — the pure-stdlib Python verification
+# engine — instead of generated catalogs, vendored corpora, and test/benchmark fixtures.
+# ----------------------------------------------------------------------------------------------------
+
+# --- generated catalogs / calibration (machine-written; exclude from stats, collapse in diffs) ---
+app/recipes/data.ts                                             linguist-generated
+app/dashboard/submit/recipeCatalog.ts                           linguist-generated
+control_plane/api/recipes_catalogue.py                          linguist-generated
+.claude/skills/calma/assets/compiled_recipes.json               linguist-generated
+.claude/skills/calma/assets/recipe_descriptions.json            linguist-generated
+.claude/skills/calma/assets/reference_vectors.json              linguist-generated
+.claude/skills/calma/assets/overfitting_reference_vectors.json  linguist-generated
+.claude/skills/calma/assets/served_fraction.json                linguist-generated
+.claude/skills/calma/assets/calibration.json                    linguist-generated
+
+# --- vendored third-party corpus + recorded HTTP cache (committed for offline reproducibility) ---
+.claude/skills/calma/assets/corpus/**                           linguist-vendored
+**/.calma_httpcache/**                                          linguist-vendored -diff
+
+# --- test fixtures + benchmark data (not product source) ---
+edges/tests/fixtures/**                                         linguist-vendored
+benchmark/cases/**                                              linguist-vendored
+benchmark/cases_external/**                                     linguist-vendored
+benchmark/judge_batches/**                                      linguist-generated
+benchmark/results/**                                            linguist-generated
+*.csv                                                           linguist-vendored
+
+# --- docs (kept out of the language stats) ---
+docs/**                                                         linguist-documentation
+
+# --- binary assets ---
+*.gif   binary
+*.mp4   binary
+*.png   binary
+*.webp  binary
+*.bin   binary
