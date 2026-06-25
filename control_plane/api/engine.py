@@ -32,8 +32,13 @@ def _safe_extract(tar_path, dest):
                 raise ValueError("link member not allowed in bundle: %r -> %r" % (m.name, m.linkname))
         # filter='data' (PEP 706) blocks symlink/hardlink/absolute/device traversal independently of the
         # interpreter default — Vercel's Python 3.12 still defaults to 'fully_trusted' (only a warning),
-        # so the explicit filter is load-bearing, not cosmetic. Belt-and-suspenders with the check above.
-        tf.extractall(dest, filter="data")    # nosec: members name-validated + link-rejected + data filter
+        # so the explicit filter is defence-in-depth. BUT the `filter` kwarg only exists on Python 3.12+;
+        # on older interpreters (the OSS engine runs on 3.9-3.11; cp-venv is 3.9) it raises TypeError, so
+        # fall back to the name-validated + link-rejected extract above (still traversal-safe).
+        try:
+            tf.extractall(dest, filter="data")    # nosec: members name-validated + link-rejected + data filter
+        except TypeError:
+            tf.extractall(dest)                   # nosec: py<3.12 has no `filter` kwarg; guards above hold
 
 
 def prepare_workdir(tenant_id, bundle_key, data_refs):
