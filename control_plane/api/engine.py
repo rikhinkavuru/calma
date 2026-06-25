@@ -25,8 +25,15 @@ def _safe_join(base, rel):
 def _safe_extract(tar_path, dest):
     with tarfile.open(tar_path) as tf:
         for m in tf.getmembers():
-            _safe_join(dest, m.name)          # raises on traversal
-        tf.extractall(dest)                   # nosec: members pre-validated above
+            _safe_join(dest, m.name)          # raises on NAME traversal (../, absolute)
+            # name validation alone does NOT catch a symlink/hardlink member whose *target* escapes dest
+            # (a later member then writes THROUGH it). Reject link members outright.
+            if m.issym() or m.islnk():
+                raise ValueError("link member not allowed in bundle: %r -> %r" % (m.name, m.linkname))
+        # filter='data' (PEP 706) blocks symlink/hardlink/absolute/device traversal independently of the
+        # interpreter default — Vercel's Python 3.12 still defaults to 'fully_trusted' (only a warning),
+        # so the explicit filter is load-bearing, not cosmetic. Belt-and-suspenders with the check above.
+        tf.extractall(dest, filter="data")    # nosec: members name-validated + link-rejected + data filter
 
 
 def prepare_workdir(tenant_id, bundle_key, data_refs):
