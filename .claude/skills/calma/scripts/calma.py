@@ -685,7 +685,21 @@ def _ledger_sha256(led_path):
     return h.hexdigest()
 
 
-def _cached_result(target, fingerprint):
+def _reproduce_command(run_dir):
+    """`<invocation> replay <run_dir>`, shown cwd-relative when the run dir is under cwd (no $HOME
+    leak) else home-redacted - the same form the fresh-run path emits (lines ~356/565). Used to
+    RE-POINT a cached ledger's reproduce line at the run dir actually being served."""
+    if not run_dir:
+        return None
+    try:
+        rel = os.path.relpath(run_dir)
+        disp = rel if not rel.startswith("..") else run_dir
+    except ValueError:
+        disp = run_dir
+    return _redact_home("%s replay %s" % (_invocation(), disp))
+
+
+def _cached_result(target, fingerprint, why=False):
     """Return the prior result for this fingerprint, or None. Only definite verdicts are served from
     cache (an INCONCLUSIVE may have been environmental - it always re-runs).
 
@@ -716,11 +730,22 @@ def _cached_result(target, fingerprint):
     code, summary = LED.validate_obj(led)
     if led.get("repo_verdict") not in ("CONFIRMED", "CONFIRMED-WITH-CAVEATS", "REFUTED", "MIXED", "INVALIDATED", "FLAG_FOR_DECLARATION"):
         return None
-    rendered = ("(cached - code, data, and claim unchanged since the last run; "
-                "--force re-executes)\n") + REP.render(led)
+    # re-point the reproduce line at the run dir we are ACTUALLY serving: a ledger can be served from a
+    # relocated/copied tree (the fingerprint matches by content), in which case its stored command still
+    # names the ORIGINAL absolute path. Rewrite it to this target's run dir so `calma replay <...>` works.
+    repro = _reproduce_command(run_dir)
+    if repro:
+        for c in led.get("claims", []):
+            rep = c.get("reproduction_or_reverify")
+            if isinstance(rep, dict) and rep.get("command"):
+                rep["command"] = repro
+    prefix = ("(cached - code, data, and claim unchanged since the last run; "
+              "--force re-executes)\n")
+    rendered = prefix + REP.render(led)                                        # full record
+    display = prefix + REP.render(led, color=_color_enabled(), why=why)        # terminal (collapsed)
     return {"gate_exit": code, "gate": summary, "repo_verdict": led["repo_verdict"],
-            "report": rendered, "teardown": REP.teardown_card(led), "run_dir": run_dir,
-            "ledger": led, "cached": True}
+            "report": rendered, "display": display, "teardown": REP.teardown_card(led),
+            "run_dir": run_dir, "ledger": led, "cached": True}
 
 
 def _store_cache(target, fingerprint, run_id, repo_verdict):
@@ -856,6 +881,7 @@ class VerifyOptions:
     isolation: "str | None" = None
     timeout: "int | None" = None
     restore: bool = False
+    why: bool = False    # terminal verbosity: expand the full 'not verified' list (report.txt stays full)
 
     @classmethod
     def from_args(cls, a):
@@ -869,7 +895,8 @@ class VerifyOptions:
                    trust=getattr(a, "trust", "own-code"),
                    isolation=getattr(a, "isolation", None),
                    timeout=getattr(a, "timeout", None),
-                   restore=getattr(a, "restore", False))
+                   restore=getattr(a, "restore", False),
+                   why=getattr(a, "why", False))
 
 
 _OPT_FIELDS = frozenset(f.name for f in fields(VerifyOptions))
@@ -980,7 +1007,7 @@ def verify(target, claim=None, metric=None, run_id="run", opts=None):
     # Inline/agent-loop use re-verifies only what changed; --force always re-executes, and a
     # determinism check is new evidence, so it never reads the cache (it still stores).
     if block_finding is None and not force and not check_determinism and not run_only and not cross_engine:
-        hit = _cached_result(target, _input_fingerprint(target, contract, isolation))
+        hit = _cached_result(target, _input_fingerprint(target, contract, isolation), opts.why)
         if hit:
             _trace("cache", "code+data+claim unchanged -> prior verdict (--force re-executes)")
             if claim_note:
@@ -1280,8 +1307,10 @@ def verify(target, claim=None, metric=None, run_id="run", opts=None):
     code, summary = LED.validate_obj(led)
     _trace("verdict", "%s - every label re-derived byte-for-byte from its stored inputs"
            % led.get("repo_verdict"))
-    rendered = REP.render(led, diff)                                  # plain - for the file + callers
-    display = REP.render(led, diff, color=_color_enabled())           # symbols/color - for the terminal
+    rendered = REP.render(led, diff)                                  # plain, FULL - for report.txt + callers
+    # terminal: collapse the long 'not verified' list to a one-line summary unless --why (report.txt
+    # keeps the full record either way, and --json carries the full scope.not_verified).
+    display = REP.render(led, diff, color=_color_enabled(), why=opts.why)
     if claim_note:
         rendered = "note: %s\n\n%s" % (claim_note, rendered)
         display = "note: %s\n\n%s" % (claim_note, display)
@@ -1506,6 +1535,9 @@ def _json_result(res):
         "note": res.get("claim_note"),
         "isolation_tier": led.get("scope", {}).get("isolation_tier"),
         "determinism_mode": led.get("scope", {}).get("determinism_mode"),
+        # the full 'what we did NOT check' list (the terminal report collapses this to a one-line
+        # summary unless --why; machine consumers always get the complete set here).
+        "not_verified": led.get("scope", {}).get("not_verified", []),
         "run_dir": res["run_dir"],
         # B2: present only when --cross-engine ran; agents key on cross_engine.any_divergence
         **({"cross_engine": res["cross_engine"]} if res.get("cross_engine") else {}),
@@ -2013,7 +2045,8 @@ def main():
     ap.add_argument("--version", action="version", version="calma %s" % __version__)
     sub = ap.add_subparsers(dest="cmd", required=True)
     v = sub.add_parser("verify", help="re-run + recompute + diff against the claim")
-    v.add_argument("target", help="folder containing the code and its outputs")
+    v.add_argument("target", nargs="?", default=None,
+                   help="folder containing the code and its outputs")
     v.add_argument("claim_text", nargs="?", default=None,
                    help="the claim to check, e.g. \"accuracy 0.87\" or \"+14,698%%\" (optional)")
     v.add_argument("--claim", help="same as the positional claim")
@@ -2055,6 +2088,10 @@ def main():
                         "the mode governs only follow-on ACTIONS. Also CALMA_MODE / .calma/config.json")
     v.add_argument("--json", action="store_true", dest="as_json",
                    help="print a machine-readable verdict object instead of the report")
+    v.add_argument("--why", action="store_true",
+                   help="expand the full 'not verified' scope list (every undeclared validity family) "
+                        "instead of the one-line summary. The saved report.txt + --json always carry "
+                        "the full list either way")
     v.add_argument("--offline", action="store_true",
                    help="auto mode only: skip the ONE network step (the RFC 3161 timestamp) so a catch "
                         "is signed + appended to the LOCAL catch-record with zero network. Also "
@@ -2274,6 +2311,17 @@ def main():
     a = ap.parse_args()
     try:
         if a.cmd == "verify":
+            if a.target is None:
+                # bare `calma verify` is the most common first fumble: point at the zero-setup demo
+                # and the suggester instead of a raw argparse "the following arguments are required".
+                inv = _invocation()
+                print("calma verify needs a folder to check. Try:\n"
+                      "  %s demo                          watch it catch a real inflated backtest "
+                      "(offline, no setup)\n"
+                      "  %s verify <folder> \"<claim>\"      e.g. %s verify ./out \"accuracy 0.87\"\n"
+                      "  %s suggest \"<what you measured>\"   unsure which metric? get ranked candidates"
+                      % (inv, inv, inv, inv), file=sys.stderr)
+                return 2
             # H2: ONE options object for every dispatch below - run-only, normal, and the auto retry
             # all run through the same VerifyOptions, so no path can silently drop a flag (the bug
             # that left --run-only without cross_engine / check_determinism).
@@ -2400,7 +2448,7 @@ def main():
             shutil.copytree(src, dst, ignore=shutil.ignore_patterns(".calma"))
             print("re-verifying a real overfit backtest (it claimed +14,698% on BTC)...\n")
             res = verify(dst)
-            print(res["report"])
+            print(res.get("display") or res["report"])
             if a.keep:
                 print("\n[fixture copy kept at %s]" % dst)
             print("\nthat was a real inflated backtest. now try your own:  "

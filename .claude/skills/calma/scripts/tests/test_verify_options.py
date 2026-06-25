@@ -37,8 +37,8 @@ try:
 except FrozenInstanceError:
     truth(True, "frozen: assignment raises")
 truth(C._OPT_FIELDS == {"force", "check_determinism", "run_only", "cross_engine",
-                        "trust", "isolation", "timeout", "restore"},
-      "VerifyOptions carries exactly the 8 run-mode flags")
+                        "trust", "isolation", "timeout", "restore", "why"},
+      "VerifyOptions carries exactly the 9 run-mode flags")
 
 # --- from_args: every CLI flag round-trips into the object, in ONE place ---
 a = NS(force=True, check_determinism=True, run_only=True, cross_engine=True,
@@ -99,7 +99,7 @@ src = open(os.path.join(HERE, "..", "calma.py")).read().replace("\n", " ")
 cleaned = re.sub(r"VerifyOptions\([^)]*\)", "OPTS", src)
 cleaned = re.sub(r"replace\([^)]*\)", "OPTS", cleaned)
 prod_calls = re.findall(r"(?<![A-Za-z_])verify\([^)]*\)", cleaned)
-RUN_MODE = r"\b(force|check_determinism|run_only|cross_engine|restore|trust|isolation|timeout)="
+RUN_MODE = r"\b(force|check_determinism|run_only|cross_engine|restore|trust|isolation|timeout|why)="
 loose = [c for c in prod_calls if re.search(RUN_MODE, c)]
 truth(not loose, "no production verify() callsite passes loose run-mode kwargs: %s" % loose)
 

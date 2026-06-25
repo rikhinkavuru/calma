@@ -210,7 +210,43 @@ def _cross_engine_line(ce):
             "- the single-engine result stands" % who)
 
 
-def render(led, diff=None, color=False):
+_DATA_AUTH_CEILING_SHORT = ("input-data authenticity (Calma recomputes the declared output, not whether "
+                            "the upstream input data is authentic / untampered)")
+
+
+def _short_nv_label(item):
+    """The leading family label of a not-verified phrase, before its parenthetical hint
+    ('data leakage (no train/test split...)' -> 'data leakage')."""
+    return item.split(" (", 1)[0].strip()
+
+
+def _not_verified_lines(nv, why=True):
+    """Render the honest 'not verified' scope limit.
+
+    why=True  (the durable report.txt, --why, and --json): the full enumerated family list plus the
+              data-authenticity ceiling, as one wrapped block - the complete record.
+    why=False (default terminal): a one-line summary (count + the first few family names + how to
+              expand) plus the always-on ceiling, terse - so the verdict the user came for is never
+              buried under a 14-item wall on every single run.
+
+    The data-authenticity ceiling (K4) is surfaced in BOTH modes: it can never be resolved by
+    declaring a block, so a clean CONFIRMED must never read as a provenance blessing."""
+    if why:
+        full = list(nv) + [_DATA_AUTH_CEILING]
+        return [_wrap("not verified: " + "; ".join(full))] if full else []
+    out = []
+    if nv:
+        labels = [_short_nv_label(x) for x in nv]
+        head = ", ".join(labels[:3])
+        more = ", +%d more" % (len(labels) - 3) if len(labels) > 3 else ""
+        out.append(_wrap("not verified: %d deeper check%s not run (%s%s) - declare the relevant "
+                         "block, or re-run with --why / --json for the full list"
+                         % (len(nv), "" if len(nv) == 1 else "s", head, more)))
+    out.append(_wrap("not attested: " + _DATA_AUTH_CEILING_SHORT))
+    return out
+
+
+def render(led, diff=None, color=False, why=True):
     rv = led.get("repo_verdict", V.INCONCLUSIVE)
     word, gloss = _TOPLINE.get(rv, _TOPLINE[V.INCONCLUSIVE])
     c0 = led["claims"][0] if led.get("claims") else {}
@@ -304,39 +340,39 @@ def render(led, diff=None, color=False):
     # the fix line: an INCONCLUSIVE (or any not-clean outcome with a known unblock) names who-can-act
     if rv != V.CONFIRMED:
         fix = _fix_line(led, diff)
-        if fix and rv in (V.INCONCLUSIVE, V.CAVEATS, V.INVALIDATED, V.FLAG_FOR_DECLARATION):
-            lines.append(_wrap("fix: " + _plain(fix)))
+        fix_txt = _plain(fix) if fix else None
+        if fix_txt and rv in (V.INCONCLUSIVE, V.CAVEATS, V.INVALIDATED, V.FLAG_FOR_DECLARATION):
+            lines.append(_wrap("fix: " + fix_txt))
         # CAN'T-CONFIRM -> a structured demand: name what could not be verified + exactly what to provide
         if rv == V.INCONCLUSIVE:
             nd = needs_demand(led)
             if nd and nd.get("provide"):
-                lines.append(_wrap("needs (to verify %s): %s"
-                                   % (nd["unverifiable"], "; ".join(_plain(p) for p in nd["provide"]))))
+                provide_txt = "; ".join(_plain(p) for p in nd["provide"])
+                # de-dup: when the structured 'needs' restates the fix verbatim (e.g. both say "name your
+                # script main.py/run.py..."), one line is enough - don't print the same sentence twice.
+                if provide_txt and provide_txt != fix_txt:
+                    lines.append(_wrap("needs (to verify %s): %s" % (nd["unverifiable"], provide_txt)))
     # scope one-liner (the honest 'what we checked')
     sc = led.get("scope", {})
     if sc:
         fams = sc.get("families", {})
         checked = [k for k, v in fams.items() if str(v).startswith("checked")]
-        # D8-02: the data-authenticity ceiling is surfaced on EVERY verdict (incl. a clean CONFIRMED), not
-        # buried in the footer — Calma recomputes the declared output but cannot attest the inputs are
-        # authentic/untampered upstream. Always present so a CONFIRMED never reads as a provenance blessing.
-        nv = list(sc.get("not_verified", []) or []) + [_DATA_AUTH_CEILING]
         if rv == V.CONFIRMED:
-            # clean pass: lead with the plain reassurance, not the families jargon; keep the honest
-            # "not verified" scope limit on its own quiet line (a CONFIRMED is reproduction, not
-            # a soundness blessing) instead of cramming it into a wall of terms.
+            # clean pass: lead with the plain reassurance, not the families jargon.
             lines.append("  verified by re-execution (isolation: %s, determinism: %s)"
                          % (sc.get("isolation_tier", "?"), _det(sc.get("determinism_mode"))))
-            if nv:
-                lines.append(_wrap("not verified: " + "; ".join(nv)))
         else:
-            # not-clean: scope + the (often long) not-verified list each wrap to their own block,
-            # rather than one 240-char line that wraps into a wall on any normal terminal
+            # not-clean: scope on its own wrapped block, rather than one 240-char line that wraps
+            # into a wall on any normal terminal.
             lines.append(_wrap("scope: %s | isolation: %s | determinism: %s"
                                % (", ".join(checked) or "-", sc.get("isolation_tier", "?"),
                                   _det(sc.get("determinism_mode")))))
-            if nv:
-                lines.append(_wrap("not verified: " + "; ".join(nv)))
+        # the honest 'what we did NOT check' scope limit. Collapses to a one-line summary on the
+        # terminal (why=False) so the verdict isn't buried under a 14-item wall on every run; the
+        # durable report.txt + --why + --json keep the full enumerated list (why=True). The
+        # data-authenticity ceiling is surfaced in both - a CONFIRMED is reproduction, not a
+        # provenance blessing.
+        lines.extend(_not_verified_lines(list(sc.get("not_verified", []) or []), why=why))
         if sc.get("binding_note"):
             lines.append(_wrap("checked: " + sc["binding_note"]))
     return "\n".join(lines)
