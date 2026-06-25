@@ -127,3 +127,29 @@ def test_injected_noop_patch_is_rejected(btc_run_dir, tmp_path, monkeypatch):
     assert result.patch is None
     assert all(h.after_verdict is None for h in result.trajectory)   # nothing applied -> nothing flipped
     assert not os.path.exists(ep)                                    # no accepted episode recorded
+
+
+# === CLI seam: `python -m edges.repair` (what `calma repair` shells out to) ======================
+def test_repair_cli_seam_serializes_result(btc_run_dir, capsys):
+    """The CLI seam runs orchestrate.repair and emits the JSON `calma repair` parses: an honest
+    accepted=False + the full per-hypothesis trajectory for the unfixable btc claim."""
+    from edges.repair import cli
+    rc = cli.main([btc_run_dir, "--budget", "4", "--json"])
+    out = json.loads(capsys.readouterr().out)
+    assert rc == 1                                   # ran, no accepted patch -> exit 1 (verdict stands)
+    assert out["ok"] is True and out["accepted"] is False
+    assert out["before_verdict"] == "REFUTED" and out["after_verdict"] is None
+    assert out["metric_id"] == "total_return" and out["patch"] is None
+    assert len(out["hypotheses"]) == 4               # every hypothesis recorded, honestly
+    assert all("cause" in h and "reasons" in h for h in out["hypotheses"])
+
+
+def test_repair_cli_not_a_catch_is_distinct_from_unavailable():
+    """A clean run / non-dir is exit 2 (nothing to repair) - NOT exit 1 (unavailable), so `calma repair`
+    can tell 'this isn't a catch' apart from 'edges deps missing'."""
+    from edges.repair import cli
+    btc_like = os.path.abspath(os.path.join(os.path.dirname(__file__), "fixtures", "targets", "btc_like"))
+    res = engine.verify(btc_like)
+    assert res["verdict"] in ("CONFIRMED", "CONFIRMED-WITH-CAVEATS")   # a clean run, not a catch
+    assert cli.main([res["run_dir"]]) == 2                              # clean run -> nothing to repair
+    assert cli.main([os.path.join(os.path.dirname(__file__), "no_such_dir")]) == 2   # not a dir at all

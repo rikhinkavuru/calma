@@ -1752,6 +1752,79 @@ def onboard_cmd(metric_id, family, methodology, vectors, *, hints=None, budget=6
     return 1
 
 
+def _repair_subprocess(run_dir, *, budget=4, model=None, apply=False, timeout=900):
+    """Run the edges A4 repair proposer as a SUBPROCESS - the core never imports edges (firewall),
+    exactly like `draft --ai` -> edges.contract and `onboard` -> edges.synth.onboard. Launched from the
+    repo root so the `edges` package resolves. Returns the parsed --json result (or {"ok": False, ...}
+    when the edges deps / API key are unavailable)."""
+    import subprocess
+    repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
+    argv = [sys.executable, "-m", "edges.repair", run_dir, "--budget", str(budget), "--json"]
+    if model:
+        argv += ["--model", model]
+    if apply:
+        argv += ["--apply"]
+    try:
+        p = subprocess.run(argv, cwd=repo_root, capture_output=True, text=True, timeout=timeout)
+    except (OSError, subprocess.SubprocessError) as e:
+        return {"ok": False, "returncode": -1, "error": str(e)}
+    try:
+        # exit 0 (accepted) or 1 (ran, no accepted patch) both emit the JSON result; only exit 2
+        # (not a catch) and the import/key failures emit no JSON.
+        return {"ok": True, "returncode": p.returncode, **json.loads(p.stdout)}
+    except ValueError:
+        tail = (p.stderr or p.stdout or "").strip().splitlines()
+        return {"ok": False, "returncode": p.returncode,
+                "error": tail[-1] if tail else "edges.repair produced no JSON"}
+
+
+def repair_cmd(run_dir, *, budget=4, model=None, apply=False, as_json=False):
+    """A4: repair a REFUTED/INVALIDATED catch. The model PROPOSES a minimal patch; Calma re-verifies the
+    PATCHED code FROM SCRATCH in an isolated clone (the working tree is never touched) and only ACCEPTS a
+    patch that genuinely flips the verdict to clean WITH the goalposts immutable + the anti-test-hacking
+    review gate passing. AI proposes; determinism disposes. Needs the edges deps + an API key (the
+    re-verify gate itself is offline). --apply writes the accepted patch to the working tree."""
+    out = _repair_subprocess(run_dir, budget=budget, model=model, apply=apply)
+    if not out.get("ok"):
+        # exit 2 from the seam = the run is not a REFUTED/INVALIDATED catch (nothing to repair) - a
+        # legitimate, clean outcome, NOT a missing-deps failure. Report the two honestly distinct.
+        if out.get("returncode") == 2:
+            # the seam already prefixes "nothing to repair: ..." / "not a run dir: ..." - print verbatim.
+            print(out.get("error"))
+            print("  repair acts on a REFUTED/INVALIDATED catch - point it at that run's .calma/<run-id>.")
+            return 2
+        print("repair unavailable (%s) - it needs the edges deps + an API key (ANTHROPIC_API_KEY); the "
+              "re-verify gate itself is offline." % out.get("error"))
+        return 2
+    if as_json:
+        print(json.dumps({k: out[k] for k in ("accepted", "one_shot", "before_verdict", "after_verdict",
+              "metric_id", "patch", "hypotheses", "applied") if k in out}, indent=2))
+        return 0 if out.get("accepted") else 1
+    if out.get("accepted"):
+        print("repaired %s -> %s%s  (AI proposed the patch; Calma re-verified the patched code)"
+              % (out.get("before_verdict"), out.get("after_verdict"),
+                 " [one-shot]" if out.get("one_shot") else ""))
+        for h in out.get("hypotheses", []):
+            if h.get("accepted"):
+                print("  cause: %s" % h.get("cause"))
+                print("  files: %s" % (", ".join(h.get("target_files") or []) or "?"))
+        print("\n%s" % (out.get("patch") or ""))
+        if apply:
+            print("applied to working tree: %s" % ("yes - re-run calma verify to confirm"
+                  if out.get("applied") else "FAILED (apply the diff above manually)"))
+        else:
+            print("re-verified in an isolated clone - your files are untouched. apply it:  %s repair %s --apply"
+                  % (_invocation(), run_dir))
+        return 0
+    print("no accepted patch within budget - the verdict stands. what was tried:")
+    for h in out.get("hypotheses", []):
+        print("  #%d %-58s -> %s (gap_closed=%s, reviewers=%s)"
+              % (h.get("index"), (h.get("cause") or "")[:58], h.get("after_verdict"),
+                 h.get("gap_closed"), h.get("reviewers_passed")))
+    print("a patch Calma can't re-verify to a clean verdict is never applied - the catch stands honestly.")
+    return 1
+
+
 def _batch_jobs(targets, manifest):
     """Resolve (path, claim, metric) jobs from dir/glob targets (committed contracts) + a TSV manifest
     of 'path<TAB>claim<TAB>[metric]' rows."""
@@ -2203,6 +2276,16 @@ def main():
     ob.add_argument("--compiled-path", default=None, dest="compiled_path",
                     help="freeze target registry (default: the production compiled_recipes.json)")
     ob.add_argument("--json", action="store_true", dest="as_json", help="machine-readable result")
+    rp = sub.add_parser("repair", help="REFUTED catch? An LLM proposes a minimal patch and Calma "
+                                       "re-verifies the patched code from scratch - it accepts the fix "
+                                       "ONLY if the recompute flips it to clean (needs edges deps + an API key)")
+    rp.add_argument("run_dir", help="the .calma/<run-id> of a REFUTED/INVALIDATED verification "
+                                    "(the path in the 'reproduce:' line)")
+    rp.add_argument("--budget", type=int, default=4, help="max diagnosis hypotheses to try (default 4)")
+    rp.add_argument("--model", default=None, help="advisory diagnosis model tier")
+    rp.add_argument("--apply", action="store_true",
+                    help="apply the accepted patch to the working tree (default: propose only, never mutate)")
+    rp.add_argument("--json", action="store_true", dest="as_json", help="machine-readable repair result")
     mo = sub.add_parser("modes", help="show or set Calma's autonomy: the verify scope "
                         "(off/headline/all) + the action mode (ask/suggest/auto)")
     mo.add_argument("--verify", choices=AUT.VERIFY_SCOPES, default=None,
@@ -2501,6 +2584,9 @@ def main():
             return onboard_cmd(a.metric_id, a.family, a.methodology, a.vectors, hints=a.hints,
                                budget=a.budget, model=a.model, compiled_path=a.compiled_path,
                                as_json=a.as_json)
+        if a.cmd == "repair":
+            return repair_cmd(a.run_dir, budget=a.budget, model=a.model, apply=a.apply,
+                              as_json=a.as_json)
         if a.cmd == "teardown":
             res = verify(a.target, a.claim_text or a.claim, a.metric, "teardown",
                          opts=VerifyOptions(force=a.force))
