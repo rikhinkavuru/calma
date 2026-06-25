@@ -61,8 +61,14 @@ truth("NOT" in EV.REDACTION_NOTICE and "registry" in EV.REDACTION_NOTICE.lower()
 truth("lineage" in EV.REDACTION_NOTICE.lower(),
       "L3: REDACTION_NOTICE names the input-lineage exposure")
 # HERE=tests; ../../../../.. = repo root (tests->scripts->calma->skills->.claude->root)
+# EVIDENCE-VS-REGISTRY.md lives under docs/internal/, which is INTENTIONALLY gitignored (.gitignore:
+# "internal/dev docs - not shipped"), so it is never present on a fresh checkout / CI. Asserting it
+# EXISTS therefore false-fails everywhere but the author's machine; the load-bearing L3 checks are the
+# REDACTION_NOTICE + ALLOWED_FIELDS assertions above/below (real code). Note its presence, never fail on it.
 doc = os.path.join(HERE, "..", "..", "..", "..", "..", "docs", "internal", "EVIDENCE-VS-REGISTRY.md")
-truth(os.path.isfile(doc), "L3: docs/internal/EVIDENCE-VS-REGISTRY.md exists")
+if not os.path.isfile(doc):
+    print("  NOTE [L3: docs/internal/EVIDENCE-VS-REGISTRY.md absent - a gitignored dev-only doc, "
+          "not in the public repo; not a regression]")
 
 # --- L3: the registry redaction whitelist (the thing evidence is NOT) is intact ---
 truth("path" not in REG.ALLOWED_FIELDS and "uri" not in REG.ALLOWED_FIELDS
