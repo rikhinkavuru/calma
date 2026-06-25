@@ -56,3 +56,17 @@ SERVICE_TOKEN = os.environ.get("CALMA_SERVICE_TOKEN", "")
 DEFAULT_WALL_SECONDS = int(os.environ.get("CALMA_DEFAULT_WALL_S", "120"))
 UPLOAD_URL_TTL_S = int(os.environ.get("CALMA_UPLOAD_URL_TTL_S", "900"))
 ERROR_BASE = "https://calma.dev/errors/"
+
+# --- Admission control for untrusted execution (kill-risk K6: runaway cost / abuse) ---
+# Enforced at submit, counted in Postgres (cross-instance correct on Fluid Compute). A job is "active" while
+# non-terminal; the window bounds stale/crashed rows so they cannot wedge the count forever.
+MAX_WALL_SECONDS = int(os.environ.get("CALMA_MAX_WALL_S", "300"))             # hard cap on requested wall time
+MAX_CONCURRENT_GLOBAL = int(os.environ.get("CALMA_MAX_CONCURRENT_GLOBAL", "20"))   # backstop across ALL tenants
+MAX_CONCURRENT_PER_TENANT = int(os.environ.get("CALMA_MAX_CONCURRENT_PER_TENANT", "3"))
+MAX_CREATES_PER_MIN = int(os.environ.get("CALMA_MAX_CREATES_PER_MIN", "20"))  # per-tenant creation-rate
+ACTIVE_WINDOW_S = int(os.environ.get("CALMA_ACTIVE_WINDOW_S", "600"))         # how far back a row counts as active
+
+# Raw-input retention: by default the uploaded bundle is DELETED once the run is done — only hashes + verdict
+# + the signed proof persist (the "data never leaves / no raw retention" control). Set CALMA_RETAIN_BUNDLES=1
+# to keep raw inputs (e.g. for a re-verify window); re-verify otherwise requires a re-upload.
+RETAIN_BUNDLES = os.environ.get("CALMA_RETAIN_BUNDLES", "").strip().lower() in ("1", "true", "yes")

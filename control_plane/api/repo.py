@@ -104,6 +104,33 @@ def find_job_by_idem(conn, tenant_id, idem_key):
                 (tenant_id, idem_key))
 
 
+# Admission control (kill-risk K6). "Active" = non-terminal AND created within the window, so a crashed row
+# (stuck non-terminal) ages out instead of wedging the count. tenant_id=None counts ACROSS all tenants — the
+# owner role bypasses RLS, so this global ceiling is real, not per-tenant.
+_TERMINAL = ("COMPLETED", "REFUSED", "FAILED", "TIMED_OUT", "DEDUPED")
+
+
+def count_active_jobs(conn, tenant_id=None, since_seconds=600):
+    # `status <> ALL(%s)` (a Postgres array) instead of `IN %s` — psycopg3 server-binding can't expand a
+    # tuple into an IN-list; the array form binds cleanly. `%s::int * interval` pins the param type.
+    q = ("SELECT count(*) FROM jobs WHERE status <> ALL(%s) "
+         "AND created_at > now() - (%s::int * interval '1 second')")
+    params = [list(_TERMINAL), since_seconds]
+    if tenant_id is not None:
+        q += " AND tenant_id = %s"
+        params.append(tenant_id)
+    cur = conn.execute(q, tuple(params))
+    return cur.fetchone()[0]
+
+
+def count_recent_creates(conn, tenant_id, since_seconds=60):
+    cur = conn.execute(
+        "SELECT count(*) FROM jobs WHERE tenant_id = %s "
+        "AND created_at > now() - (%s::int * interval '1 second')",
+        (tenant_id, since_seconds))
+    return cur.fetchone()[0]
+
+
 def insert_job(conn, *, tenant_id, api_key_id, idem_key, recipe_id, recipe_version, template_id,
                trust, bundle_sha256, contract_sha256, data_ref_digest, limits):
     row = _one(conn,

@@ -50,6 +50,33 @@ def _provider_for(tier):
     return "local"
 
 
+def _admit(conn, tenant):
+    """Reject a submit that would exceed the global ceiling, the tenant's concurrency cap, or its creation
+    rate — the cost/abuse backstop for running untrusted code (kill-risk K6). Counts are time-bounded in
+    Postgres so a crashed run ages out. Soft under burst (count-then-insert, no lock) — it is a safety
+    backstop, not a billing-exact gate."""
+    tid = tenant["id"]
+    quota = tenant["quota"] or {}
+    per_tenant = int(quota.get("max_concurrent") or config.MAX_CONCURRENT_PER_TENANT)
+    per_min = int(quota.get("max_creates_per_min") or config.MAX_CREATES_PER_MIN)
+    if repo.count_active_jobs(conn, since_seconds=config.ACTIVE_WINDOW_S) >= config.MAX_CONCURRENT_GLOBAL:
+        raise errors.quota_exceeded("global concurrency ceiling reached; retry shortly", retry_after=10)
+    if repo.count_active_jobs(conn, tenant_id=tid, since_seconds=config.ACTIVE_WINDOW_S) >= per_tenant:
+        raise errors.quota_exceeded("at most %d concurrent verifications per tenant" % per_tenant, retry_after=10)
+    if repo.count_recent_creates(conn, tid, 60) >= per_min:
+        raise errors.quota_exceeded("creation rate limit: at most %d verifications/min" % per_min, retry_after=30)
+
+
+def _maybe_delete_bundle(uri):
+    """No-raw-retention: drop the uploaded bundle once the run is done (default; CALMA_RETAIN_BUNDLES to keep)."""
+    if config.RETAIN_BUNDLES:
+        return
+    try:
+        storage.delete(uri)
+    except Exception:
+        pass
+
+
 def submit(conn, tenant, api_key_id, req, idem_key):
     tid = tenant["id"]
     existing = repo.find_job_by_idem(conn, tid, idem_key)
@@ -58,7 +85,9 @@ def submit(conn, tenant, api_key_id, req, idem_key):
         if existing["bundle_sha256"] and req.bundle.sha256 and \
                 existing["bundle_sha256"].hex() != req.bundle.sha256.lower():
             raise errors.idempotency_conflict()
-        return response_for_job(conn, tenant, existing)
+        return response_for_job(conn, tenant, existing)   # idempotent replay: no admission, no re-run
+
+    _admit(conn, tenant)
 
     if not repo.template_exists(conn, req.template_id):
         raise errors.malformed("unknown template_id %r" % req.template_id)
@@ -74,6 +103,8 @@ def submit(conn, tenant, api_key_id, req, idem_key):
     data_digest = hashlib.sha256(
         ",".join(sorted(d.sha256 for d in req.data_refs)).encode("utf-8")).digest()
     limits = req.limits.model_dump() if req.limits else {"wall_seconds": config.DEFAULT_WALL_SECONDS}
+    limits["wall_seconds"] = min(int(limits.get("wall_seconds") or config.DEFAULT_WALL_SECONDS),
+                                 config.MAX_WALL_SECONDS)   # cap requested wall time (cost/DoS)
 
     job = repo.insert_job(conn, tenant_id=tid, api_key_id=api_key_id, idem_key=idem_key,
                           recipe_id=req.recipe_id, recipe_version=req.recipe_version,
@@ -97,6 +128,7 @@ def _execute(conn, tenant, job_id, req, limits):
         repo.insert_audit(conn, tenant_id=tid, actor_type="system", actor_id=None,
                           action="job.stage_failed", resource_type="job", resource_id=job_id,
                           metadata={"error": str(e)[:200]})
+        _maybe_delete_bundle(req.bundle.uri)
         return
     try:
         csha = engine.contract_sha256_hex(work)
@@ -157,6 +189,7 @@ def _execute(conn, tenant, job_id, req, limits):
         repo.update_job(conn, tid, job_id, status=status)
     finally:
         engine.cleanup(work)
+        _maybe_delete_bundle(req.bundle.uri)   # raw input gone once the run is done (no-raw-retention)
 
 
 def response_for_job(conn, tenant, job):

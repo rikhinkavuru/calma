@@ -55,6 +55,11 @@ def upload_file(path, key, content_type="application/octet-stream"):
     client().upload_file(path, _bucket(), key, ExtraArgs={"ContentType": content_type})
 
 
+def delete(key):
+    """Remove an object (used to drop the raw input bundle after a run — the no-raw-retention control)."""
+    client().delete_object(Bucket=_bucket(), Key=key)
+
+
 def exists(key) -> bool:
     try:
         client().head_object(Bucket=_bucket(), Key=key)

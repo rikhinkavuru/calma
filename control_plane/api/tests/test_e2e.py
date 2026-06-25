@@ -90,6 +90,9 @@ def main():
     ok(rec is not None and abs(rec - 0.0077) < 0.01, "recomputed total_return ~ 0.0077 (got %s)" % rec)
     ok((j.get("execution") or {}).get("tier_verified") is True, "tier_verified True (seatbelt on macOS)")
 
+    # no-raw-retention: the uploaded bundle is deleted once the run completes (only hashes + verdict + proof persist)
+    ok(not storage.exists(bundle_key), "raw input bundle deleted after the run (no-raw-retention)")
+
     # GET status + result
     ok(client.get("/v1/verifications/%s" % vid, headers=H).json().get("verdict") == j.get("verdict"),
        "GET /{id} returns the same verdict")
@@ -107,7 +110,10 @@ def main():
         ok(signing.verify_envelope(env, signing._ub64(info["public_key_b64"])),
            "proof DSSE signature verifies against the public key")
 
-    # idempotency: same Idempotency-Key -> same verification, no re-run
+    # idempotency: same Idempotency-Key -> same verification, no re-run.
+    # (re-stage the bundle: the run above deleted it, and the first key'd submit creates a fresh job that
+    #  re-stages from R2; the second key'd submit must return the same job WITHOUT re-running.)
+    storage.put_bytes(bundle_key, tar, "application/gzip")
     ik = secrets.token_hex(8)
     a = client.post("/v1/verifications", headers=dict(H, **{"Idempotency-Key": ik}), json=body).json()
     b = client.post("/v1/verifications", headers=dict(H, **{"Idempotency-Key": ik}), json=body).json()
