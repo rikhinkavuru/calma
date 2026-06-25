@@ -1,9 +1,9 @@
 # Vercel Python function deps for the Calma Verifications API (api/index.py).
 # The pure-stdlib ENGINE carries NO third-party line; these are the control-plane host's deps only.
-fastapi>=0.110
-pydantic>=2.6
-psycopg[binary]>=3.1          # Postgres driver (Supabase control-plane DB)
-boto3>=1.34                   # Cloudflare R2 (S3-compatible) object storage
-e2b==2.10.2                   # hosted Firecracker microVM execution (PINNED to the locally-verified SDK)
-cryptography>=42              # ed25519 DSSE signing of the proof bundle (control-plane vouching key)
-sentry-sdk>=2.0               # D9-02 observability: errors + transaction latency/throughput
+fastapi>=0.138.0
+pydantic>=2.13.4
+psycopg[binary]>=3.3.4          # Postgres driver (Supabase control-plane DB)
+boto3>=1.43.36                   # Cloudflare R2 (S3-compatible) object storage
+e2b==2.29.6                   # hosted Firecracker microVM execution (PINNED to the locally-verified SDK)
+cryptography>=49.0.0              # ed25519 DSSE signing of the proof bundle (control-plane vouching key)
+sentry-sdk>=2.63.0               # D9-02 observability: errors + transaction latency/throughput
