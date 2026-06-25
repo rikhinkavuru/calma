@@ -170,7 +170,7 @@ Calma is one deterministic engine behind a handful of surfaces. *AI proposes, de
 - **MCP server** (`python -m calma_mcp`) — the deterministic verifier callable from *any* MCP host (Cursor, Codex CLI, Windsurf, Claude Desktop, CI bots).
 - **A1 artifact pipeline** (`python -m edges.extract`) — point it at a notebook / PDF / CSV and it verifies *every* number, each catch tied to its source span ("cell 14 says 0.94 → recomputes to 0.71").
 - **The merge gate — *block the merge on a wrong number*** (`pr/` + a hosted GitHub App in `github_app/`) — re-runs `calma verify` on a PR's changed result-dirs in the engine's network-off sandbox and posts the verdicts inline. But the SKU is the **gating check-run**: a pure function of the engine's verdicts (`failure` on any REFUTED / INVALIDATED / MIXED, `neutral` on CAN'T-CONFIRM, `success` otherwise) that you mark **required** in branch protection. A comment-bot posts an LLM opinion you can dismiss; this is a **blocking correctness gate** — *prove your own numbers before you ship.* Built on the pwn-request-proof two-workflow pattern.
-- **The hosted console** (`/dashboard`) — a logged-in product UI on the Next.js site (WorkOS AuthKit), backed by the control-plane API (`control_plane/` + `api/`): submit a bundle, list / inspect verifications, and manage API keys. See [`DASHBOARD.md`](DASHBOARD.md).
+- **The hosted console** (`/dashboard`) — a logged-in product UI on the Next.js site (WorkOS AuthKit), backed by the control-plane API (`control_plane/` + `api/`): submit a bundle, list / inspect verifications, and manage API keys. See [`docs/DASHBOARD.md`](docs/DASHBOARD.md).
 
 ### Autonomy — two axes you control (a mode changes what Calma *does*, never what it *decides*)
 
@@ -295,7 +295,7 @@ The engine lives in `.claude/skills/calma/scripts/` and imports nothing outside 
 
 ## Status & docs
 
-`v0.12.0`. Real and tested. See [`CHANGELOG.md`](CHANGELOG.md), the [install guide](docs/install.md), the [extending guide](docs/extending.md), the [supported frameworks](docs/frameworks.md), the [PR-bot adopter guide](docs/pr-bot.md), the [GitHub App guide](github_app/README.md), the [console/auth guide](DASHBOARD.md), and the [security policy](SECURITY.md).
+`v0.12.0`. Real and tested. See [`CHANGELOG.md`](CHANGELOG.md), the [install guide](docs/install.md), the [extending guide](docs/extending.md), the [supported frameworks](docs/frameworks.md), the [PR-bot adopter guide](docs/pr-bot.md), the [GitHub App guide](github_app/README.md), the [console/auth guide](docs/DASHBOARD.md), and the [security policy](SECURITY.md).
 
 ## License
 
