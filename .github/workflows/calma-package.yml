@@ -46,5 +46,5 @@ jobs:
           import pyarrow  # but it IS installed by the extra
           print("calma[parquet] installs pyarrow", pyarrow.__version__, "yet the core import stays lazy/clean")
           PY
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with: { name: calma-wheel, path: dist/*.whl }

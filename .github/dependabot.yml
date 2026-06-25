@@ -1,0 +1,28 @@
+# D11-03: automated dependency updates (OpenSSF Scorecard Dependency-Update-Tool).
+# Covers the pure-stdlib-engine's host deps (the control-plane), the dashboard's npm tree, and the
+# GitHub Actions themselves (so SHA-pinned actions stay current). Weekly, grouped to reduce PR noise.
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"                 # requirements.txt (control-plane host deps)
+    schedule: { interval: "weekly" }
+    open-pull-requests-limit: 5
+    groups:
+      python-deps: { patterns: ["*"] }
+  - package-ecosystem: "pip"
+    directory: "/api"              # api/requirements.txt (the Vercel function deps)
+    schedule: { interval: "weekly" }
+    open-pull-requests-limit: 5
+    groups:
+      python-api-deps: { patterns: ["*"] }
+  - package-ecosystem: "npm"
+    directory: "/"                 # the dashboard / site (package.json + lockfile)
+    schedule: { interval: "weekly" }
+    open-pull-requests-limit: 5
+    groups:
+      npm-deps: { patterns: ["*"] }
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule: { interval: "weekly" }
+    groups:
+      actions: { patterns: ["*"] }

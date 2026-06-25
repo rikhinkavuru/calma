@@ -35,7 +35,7 @@ jobs:
           test -n "$ANTHROPIC_API_KEY" || { echo "ANTHROPIC_API_KEY secret not set"; exit 1; }
           python3 benchmark/run_agent.py --k 3 --limit 12
           python3 benchmark/score.py
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with: { name: agent-results, path: benchmark/results/agent*.json }
 
   framework-vectors:
@@ -56,5 +56,5 @@ jobs:
           # installed, --check-live additionally asserts golden == the REAL framework number (<=1e-9),
           # closing the loop: Calma == frozen golden == live framework. Non-zero exit on any mismatch.
           python3 benchmark/gen_framework_vectors.py --check-live
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with: { name: framework-vectors, path: benchmark/results/framework_vectors.json }
