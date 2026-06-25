@@ -37,6 +37,12 @@ export default async function DashboardHome() {
           <div className={styles.empty}>
             <h3>No verifications yet</h3>
             <p>Submit a result and Calma re-runs it, recomputes the number, and proves or breaks the claim.</p>
+            <p style={{ marginTop: 14 }}>
+              <Link href="/dashboard/submit" className={styles.btn}>Run your first verification →</Link>
+            </p>
+            <p className={styles.muted} style={{ marginTop: 10, fontSize: 13 }}>
+              No bundle yet? The next page has a one-click demo on a sample backtest — no setup.
+            </p>
           </div>
         </div>
       ) : (

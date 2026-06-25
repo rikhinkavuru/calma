@@ -54,6 +54,26 @@ function verifyEnvelope(env: Dsse): boolean {
   });
 }
 
+// Plain-language gloss for the verdict word — so a first-time reader knows what it MEANS, not just
+// the label. Keyed by the verdict the API returns (CAN'T-CONFIRM is the display form of INCONCLUSIVE).
+const VERDICT_GLOSS: Record<string, string> = {
+  CONFIRMED: "The claimed number holds. Calma re-executed the code and recomputed the same value from the raw outputs.",
+  "CONFIRMED-WITH-CAVEATS": "The number holds, but with caveats worth reading below.",
+  REFUTED: "The claimed number does not hold. Recomputing it from the raw outputs gives a materially different value.",
+  INVALIDATED: "The number reproduces, but the result itself is invalid (e.g. leakage or look-ahead) — the value is real but it doesn't mean what was claimed.",
+  FLAG_FOR_DECLARATION: "The number reproduces, but undeclared structure could invalidate it. Declare the relevant block to resolve.",
+  "CAN'T-CONFIRM": "Not enough was declared to verify this yet — see what to provide below.",
+  INCONCLUSIVE: "Not enough was declared to verify this yet — see what to provide below.",
+};
+
+// One-line plain-English captions for the execution metadata jargon.
+const EXEC_GLOSS: Record<string, string> = {
+  isolation_tier: "the sandbox the code ran in (seatbelt / bubblewrap / docker / firecracker)",
+  tier_verified: "whether Calma confirmed that sandbox actually isolated on this host",
+  network_run: "network during the run — off means the result can't phone home for its number",
+  determinism: "how reproducible the run was — controlled-to-bit means byte-identical across re-runs",
+};
+
 export default async function Detail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const s = await getSession();
@@ -83,6 +103,7 @@ export default async function Detail({ params }: { params: Promise<{ id: string 
   const env = isEnvelope(proof) ? proof : null;
   const sigVerified = env ? verifyEnvelope(env) : false;
   const sigKeyid = env?.signatures?.[0]?.keyid;
+  const sigAlgo = TRUSTED_KEYS.find((t) => t.keyid === sigKeyid)?.algorithm || "unknown";
   const signed = !!env && env.signatures.length > 0;
   const evidence: unknown = env
     ? JSON.parse(Buffer.from(env.payload, "base64").toString("utf-8"))
@@ -100,6 +121,10 @@ export default async function Detail({ params }: { params: Promise<{ id: string 
           <StatusBadge status={v.status} />
         </div>
       </div>
+
+      {v.verdict && VERDICT_GLOSS[v.verdict] && (
+        <p className={styles.sub} style={{ marginTop: 10, maxWidth: 720 }}>{VERDICT_GLOSS[v.verdict]}</p>
+      )}
 
       <div className={styles.detailGrid}>
         <div className={styles.kv}>
@@ -119,6 +144,10 @@ export default async function Detail({ params }: { params: Promise<{ id: string 
           <div className={styles.kvValue}>{r.within_tolerance === undefined ? "—" : r.within_tolerance ? "yes" : "no"}</div>
         </div>
       </div>
+      <p className={styles.hint} style={{ marginTop: -6 }}>
+        Calma diffs the recomputed value against the claim under the recipe&apos;s calibrated tolerance —
+        a pass means they agree within that band, not that they&apos;re bit-identical.
+      </p>
 
       {v.reason && (
         <div className={styles.section}>
@@ -129,11 +158,19 @@ export default async function Detail({ params }: { params: Promise<{ id: string 
 
       <div className={styles.section}>
         <div className={styles.sectionTitle}>Execution</div>
-        <div className={styles.pre}>
-          isolation_tier : {ex.isolation_tier || "—"}{"\n"}
-          tier_verified  : {String(ex.tier_verified)}{"\n"}
-          network_run    : {ex.network_run || "—"}{"\n"}
-          determinism    : {ex.determinism_mode || "—"}
+        <div className={styles.detailGrid}>
+          {([
+            ["isolation_tier", ex.isolation_tier || "—"],
+            ["tier_verified", String(ex.tier_verified)],
+            ["network_run", ex.network_run || "—"],
+            ["determinism", ex.determinism_mode || "—"],
+          ] as const).map(([key, val]) => (
+            <div className={styles.kv} key={key}>
+              <div className={styles.kvLabel} title={EXEC_GLOSS[key]}>{key}</div>
+              <div className={styles.kvValue} style={{ fontSize: 15 }}>{val}</div>
+              <div className={styles.hint} style={{ marginTop: 4 }}>{EXEC_GLOSS[key]}</div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -149,8 +186,11 @@ export default async function Detail({ params }: { params: Promise<{ id: string 
           <div className={styles.sectionTitle}>Proof signature</div>
           <div className={styles.pre}>
             {signed
-              ? `${sigVerified ? "✓ VERIFIED" : "✗ SIGNATURE INVALID"} — ed25519 · keyid ${sigKeyid}\n` +
-                `signed by the Calma control-plane; verify offline: python control_plane/verify_proof.py proof.json`
+              ? (sigVerified
+                  ? `✓ Verified in your browser against Calma's published signing key (${sigAlgo} · keyid ${sigKeyid}).\n` +
+                    `That proves this proof was signed by Calma's key — not just that the envelope claims a signature.\n` +
+                    `It's a self-contained DSSE envelope: anyone can re-verify it offline with the open-source verifier (control_plane/verify_proof.py).`
+                  : `✗ Signature did NOT verify against Calma's published keys (keyid ${sigKeyid}) — do not trust this proof.`)
               : "unsigned — this deployment has no signing key configured"}
           </div>
         </div>

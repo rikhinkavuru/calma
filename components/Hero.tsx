@@ -63,6 +63,13 @@ export function Hero() {
           </p>
         </Reveal>
 
+        <Reveal delay={300}>
+          <div className="hero__cta">
+            <a className="btn-primary" href="/install">Install the CLI →</a>
+            <a className="btn-ghost" href="/dashboard">Open the dashboard</a>
+          </div>
+        </Reveal>
+
         <Reveal delay={400} className="hero__fill">
           <div className="hero__demo">
             <figure className="hero__movie">
