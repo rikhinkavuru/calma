@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import base64
 import hmac
+import os
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -14,6 +15,19 @@ from fastapi.responses import Response
 from . import bootstrap, config, errors, keys, repo, service, signing, storage
 from .schemas import (KeyCreate, KeyCreated, ProvisionRequest, ProvisionResponse, PurgeRequest,
                       PurgeResponse, SubmitRequest, UploadRequest, UploadResponse)
+
+# D9-02: observability. Errors + transaction latency/throughput (golden signals) to Sentry when SENTRY_DSN
+# is set; a no-op otherwise (tests/local). The FastAPI integration auto-instruments; handled Problem (4xx)
+# responses aren't errors, so only real 5xx + unhandled exceptions page.
+if os.environ.get("SENTRY_DSN"):
+    import sentry_sdk
+    sentry_sdk.init(
+        dsn=os.environ["SENTRY_DSN"],
+        traces_sample_rate=float(os.environ.get("SENTRY_TRACES_SAMPLE_RATE", "0.2")),
+        environment=os.environ.get("VERCEL_ENV", "development"),
+        release=os.environ.get("VERCEL_GIT_COMMIT_SHA"),
+        send_default_pii=False,        # never ship request bodies / headers (tenant data discipline)
+    )
 
 app = FastAPI(title="Calma Verifications API", version="0.1.0",
               description="Re-execute a claimed metric to ground truth and recompute it from raw outputs.")
