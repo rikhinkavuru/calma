@@ -61,7 +61,7 @@ $ calma verify ./my-backtest "Sharpe 2.6"
 One deterministic engine and the surfaces that wrap it:
 
 - **The engine + the `calma` CLI/skill** — `.claude/skills/calma/` (pure stdlib) and the pip-installable `src/calma` facade.
-- **The website + hosted console** — a Next.js app (`app/`, `components/`) serving the marketing site and a logged-in `/dashboard` product UI, deployed at [calma1.vercel.app](https://calma1.vercel.app/).
+- **The website + hosted console** — a Next.js app (`web/`) serving the marketing site and a logged-in `/dashboard` product UI, deployed at [calma1.vercel.app](https://calma1.vercel.app/).
 - **The control-plane API** — `control_plane/` (FastAPI) + `api/` (the Vercel Python entry) backing the console's verifications, tenants, and API keys.
 - **The transports** — the MCP server (`mcp/`), the PR-review bot (`pr/`), and the hosted GitHub App (`github_app/`).
 - **The benchmark** — `benchmark/`, the reproducible 117-case head-to-head corpus.
@@ -193,7 +193,7 @@ Beyond the OSS engine, this repo contains the **hosted product** — verificatio
 
 - **Control-plane API** — `control_plane/` (FastAPI), deployed as a Vercel Python / Fluid-Compute function (`api/index.py` + `api.vercel.json`), backed by **Postgres** (Supabase, per-tenant row-level security) and **Cloudflare R2** object storage. Endpoints: `POST /v1/verifications` (submit a bundle), `GET /v1/verifications/{id}[/result|/proof]`, `GET /v1/verifications` (list), `POST /v1/uploads` (presigned R2 PUT), `POST|GET|DELETE /v1/keys` (API-key admin), `POST /internal/provision` (first-party tenant provisioning). Bearer **API-key** auth (`calma_sk_<env>_…`, SHA-256-hashed, constant-time verify), idempotency keys, and an immutable hash-chained `audit_log`.
 - **Execution** — on submit, the API stages the bundle + data from R2 into a workdir and runs the **same engine** as a subprocess (`calma verify --json`), then persists the run + verdict + artifacts. Set `CALMA_EXEC_ISOLATION=e2b` to execute untrusted code in a network-denied **E2B Firecracker microVM** (the host self-proves egress is denied before stamping the tier). Recompute always happens host-side, outside the sandbox.
-- **Dashboard** (`app/dashboard/`, `lib/`) — a logged-in console behind **WorkOS AuthKit**: submit a verification, list and inspect verdicts (claimed vs recomputed, the validity results, the execution tier, the evidence bundle), and create / revoke API keys. The dashboard talks to the API first-party with a service token that never reaches the browser (`lib/calma.ts` is `server-only`). See [`DASHBOARD.md`](DASHBOARD.md) and [`control_plane/README.md`](control_plane/README.md).
+- **Dashboard** (`web/app/dashboard/`, `web/lib/`) — a logged-in console behind **WorkOS AuthKit**: submit a verification, list and inspect verdicts (claimed vs recomputed, the validity results, the execution tier, the evidence bundle), and create / revoke API keys. The dashboard talks to the API first-party with a service token that never reaches the browser (`web/lib/calma.ts` is `server-only`). See [`docs/DASHBOARD.md`](docs/DASHBOARD.md) and [`control_plane/README.md`](control_plane/README.md).
 
 The end-to-end path is real and tested (sign-up → key → upload → submit → execute → verdict → proof). **Not yet wired:** a worker queue (execution is currently synchronous/inline), usage **billing/metering** (Stripe — the schema columns exist, the logic doesn't), hosted **verdict signing** (the local CLI `calma seal` signs; the hosted path stores the evidence JSON unsigned for now), and SSO/SCIM.
 
@@ -241,11 +241,12 @@ A `verify.yaml` pins *how* to verify (entrypoint, column bindings, conventions, 
 ### Running the website locally
 
 ```bash
+cd web
 npm install
 npm run dev          # http://localhost:3000  (marketing site + /dashboard console)
 ```
 
-The console additionally needs the control-plane API and WorkOS env — see [`DASHBOARD.md`](DASHBOARD.md) and [`control_plane/README.md`](control_plane/README.md).
+The console additionally needs the control-plane API and WorkOS env — see [`docs/DASHBOARD.md`](docs/DASHBOARD.md) and [`control_plane/README.md`](control_plane/README.md).
 
 ---
 
@@ -258,7 +259,7 @@ src/calma/                      the thin pip-installable facade (a client of the
 edges/                          the AI edges (extract / draft / synth / repair) — firewalled from core
 mcp/                            the host-agnostic MCP server (transport)
 pr/  ·  github_app/             the PR-review bot (CI) + the hosted GitHub App (transport)
-app/  ·  components/  ·  lib/    the Next.js website (marketing) + the logged-in /dashboard console
+web/                            the Next.js website (marketing) + the logged-in /dashboard console
 control_plane/  ·  api/         the FastAPI control plane + its Vercel Python entry (verifications/tenants/keys)
 registry/                       the hash-chained public catch registry served by the site
 benchmark/                      the 117-case corpus + the 4-arm comparison + scoring

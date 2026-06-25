@@ -1342,7 +1342,7 @@ with tempfile.TemporaryDirectory() as td2:
 
 # ---------------- part H: the site's recipe catalog stays in sync with the registry ----------------
 
-_site_data = os.path.join(HERE, "..", "..", "..", "..", "..", "app", "recipes", "data.ts")
+_site_data = os.path.join(HERE, "..", "..", "..", "..", "..", "web", "app", "recipes", "data.ts")
 if os.path.exists(_site_data):
     import re as _re
     _ids = set(_re.findall(r'id:\s*"([a-z0-9_]+)"', open(_site_data).read()))

@@ -7,8 +7,8 @@
 # ----------------------------------------------------------------------------------------------------
 
 # --- generated catalogs / calibration (machine-written; exclude from stats, collapse in diffs) ---
-app/recipes/data.ts                                             linguist-generated
-app/dashboard/submit/recipeCatalog.ts                           linguist-generated
+web/app/recipes/data.ts                                         linguist-generated
+web/app/dashboard/submit/recipeCatalog.ts                       linguist-generated
 control_plane/api/recipes_catalogue.py                          linguist-generated
 .claude/skills/calma/assets/compiled_recipes.json               linguist-generated
 .claude/skills/calma/assets/recipe_descriptions.json            linguist-generated

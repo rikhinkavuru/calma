@@ -45,10 +45,10 @@ pip install -e ./mcp pytest numpy "anthropic>=0.40,<2" "jsonschema>=4.18,<5"
 pytest -q edges/tests mcp/tests pr/tests   # edges tests REPLAY recorded fixtures — no API key needed
 ```
 
-The web app (the marketing site + dashboard) is a separate Next.js project:
+The web app (the marketing site + dashboard) is a separate Next.js project under `web/`:
 
 ```bash
-npm install && npm run build      # tsc + production build
+cd web && npm install && npm run build      # tsc + production build
 ```
 
 Every PR must keep the engine suite green and the firewall test passing.
@@ -62,7 +62,7 @@ Every PR must keep the engine suite green and the firewall test passing.
 | `edges/` | the AI edges (extract / draft / synth / repair) — firewalled from the core |
 | `mcp/`, `pr/`, `github_app/` | the transports (MCP server, PR-review bot, GitHub App) |
 | `control_plane/`, `api/` | the hosted control-plane API (FastAPI + the Vercel entry) |
-| `app/`, `components/` | the Next.js marketing site + logged-in dashboard |
+| `web/` | the Next.js marketing site + logged-in dashboard |
 | `benchmark/` | the reproducible head-to-head corpus |
 | `docs/` | user + operator docs |
 

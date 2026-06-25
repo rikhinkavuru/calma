@@ -30,11 +30,12 @@ token never reaches the browser (`lib/calma.ts` is `server-only`). Submit upload
 presigned PUT **server-side** (no browser CORS), then calls the engine.
 
 ## Files
+The Next.js app lives under `web/` (run it with `cd web && npm run dev`).
 ```
-lib/calma.ts            server-side API client (service token)
-lib/session.ts          WorkOS session + dev fallback -> { user, tenantId }
-app/callback/route.ts   WorkOS OAuth callback
-app/dashboard/          layout (auth gate) · page (list) · v/[id] · submit · keys · Nav/Badge · actions.ts
+web/lib/calma.ts            server-side API client (service token)
+web/lib/session.ts          WorkOS session + dev fallback -> { user, tenantId }
+web/app/callback/route.ts   WorkOS OAuth callback
+web/app/dashboard/          layout (auth gate) · page (list) · v/[id] · submit · keys · Nav/Badge · actions.ts
 ```
 
 ## Deploy (Vercel)
