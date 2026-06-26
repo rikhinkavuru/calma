@@ -84,10 +84,26 @@ def all_catch_fingerprints(bundle):
             if is_catch(f)}
 
 
+def _summary_outcome(bundle):
+    """The repo-wide 3-outcome roll-up for the PR badge: Caught if any catch, Can't-tell if any
+    can't-confirm (and no catch), else Confirmed. Same precedence as the merge gate (check_conclusion)."""
+    vs = [t.get("repo_verdict") for t in bundle.get("targets", [])]
+    if any(v in CATCH for v in vs):
+        return "Caught"
+    if any(v in CANT_CONFIRM for v in vs):
+        return "Can't tell"
+    return "Confirmed"
+
+
 def summary_body(bundle):
-    """The single updatable summary comment: the per-target table, the most-actionable fix, the
-    isolation/determinism stamps, and the hidden marker B2 finds+updates instead of re-posting."""
-    lines = ["### Calma verification", "", "| target | verdict | catches |", "|---|---|---|"]
+    """The single updatable summary comment: a "Verified by Calma" badge, the per-target table, the
+    most-actionable fix, the isolation/determinism stamps, and the hidden marker B2 finds+updates
+    instead of re-posting (the Vercel auto-updating deploy-comment move)."""
+    import urllib.parse as _up
+    n = len(bundle.get("targets", []))
+    badge = "![verified by calma](https://trycalma.ai/badge?%s)" % _up.urlencode(
+        {"outcome": _summary_outcome(bundle), "label": "%d target%s" % (n, "" if n == 1 else "s")})
+    lines = ["### Calma verification", "", badge, "", "| target | verdict | catches |", "|---|---|---|"]
     fix = None
     for t in bundle.get("targets", []):
         nc = sum(1 for f in t.get("findings", []) if is_catch(f))

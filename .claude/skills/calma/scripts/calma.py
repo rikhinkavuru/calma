@@ -1731,6 +1731,106 @@ def _cli_schema(ap):
     return spec
 
 
+def _find_bundle(path):
+    """Resolve `path` (an attestation bundle file, a run dir, or a project dir) -> the bundle path, or
+    None. Mirrors `calma attest verify`'s convenience so `proof verify <folder>` just works."""
+    import attest as ATT
+    if os.path.isfile(path):
+        return path
+    if os.path.isdir(path):
+        for c in (os.path.join(path, ATT.BUNDLE_NAME),
+                  os.path.join(path, ".calma", "run", ATT.BUNDLE_NAME)):
+            if os.path.isfile(c):
+                return c
+    return None
+
+
+def proof_verify_cmd(path, *, key=None, do_replay=False, as_json=False):
+    """WS5: `calma proof verify <path>` - the cosign-style, zero-network, ONE-COMMAND offline re-verify a
+    counterparty runs WITHOUT trusting Calma's servers (the moat made legible). Accepts a bundle file, a
+    run dir, or a project dir. Prints VALID + who signed it (keyid), or INVALID + which check failed."""
+    import attest as ATT
+    bpath = _find_bundle(path)
+    if not bpath:
+        print("no proof bundle found at %s - the producer makes one with `calma seal <run_dir>`"
+              % path, file=sys.stderr)
+        return 2
+    try:
+        bundle = json.load(open(bpath))
+    except (OSError, ValueError) as e:
+        print("cannot read the proof bundle: %s" % e, file=sys.stderr)
+        return 2
+    pinned = (open(key).read().strip() if (key and os.path.exists(key)) else key.strip()) if key else None
+    ok, checks = ATT.verify_bundle(bundle, pinned_pub_hex=pinned)
+    if as_json:
+        keyid = ((bundle.get("envelope") or {}).get("signatures") or [{}])[0].get("keyid")
+        print(json.dumps({"valid": ok, "keyid": keyid, "checks": checks}, indent=2, default=str))
+        return 0 if ok else 1
+    print(ATT.render_verify(bundle, ok, checks))
+    if ok and do_replay:
+        rok, text = replay(os.path.dirname(os.path.realpath(bpath)))
+        print("\n" + text)
+        ok = ok and rok
+    return 0 if ok else 1
+
+
+def proof_show_cmd(run_dir, *, as_json=False):
+    """WS5: `calma proof show <run_dir>` - the proof at a glance: the claim, the recomputed number, the
+    verdict, the signing key, the data-authenticity ceiling, and the one-command offline re-verify."""
+    rd = os.path.abspath(run_dir or ".")
+    led_path = next((p for p in (os.path.join(rd, "ledger.json"),
+                                 os.path.join(rd, ".calma", "run", "ledger.json")) if os.path.isfile(p)), None)
+    if not led_path:
+        print("no proof here yet - run `calma verify %s` (then `calma seal` to sign it)" % run_dir,
+              file=sys.stderr)
+        return 2
+    try:
+        led = json.load(open(led_path))
+    except (OSError, ValueError) as e:
+        print("cannot read the ledger: %s" % e, file=sys.stderr)
+        return 2
+    rdir = os.path.dirname(led_path)
+    bundle_path = _find_bundle(rdir) or _find_bundle(os.path.dirname(rdir))
+    keyid = None
+    if bundle_path:
+        try:
+            keyid = ((json.load(open(bundle_path)).get("envelope") or {}).get("signatures")
+                     or [{}])[0].get("keyid")
+        except (OSError, ValueError):
+            pass
+    c0 = (led.get("claims") or [{}])[0]
+    rv = led.get("repo_verdict", V.INCONCLUSIVE)
+    oc = V.outcome(rv, 0 if rv in (V.CONFIRMED, V.CAVEATS) else 2 if rv == V.INCONCLUSIVE else 1)
+    if as_json:
+        print(json.dumps({"verdict": rv, "outcome": oc, "metric": c0.get("metric"),
+                          "claimed": c0.get("claimed_value"), "recomputed": c0.get("recomputed_value"),
+                          "keyid": keyid, "signed": bool(keyid), "ledger": led_path}, indent=2, default=str))
+        return 0
+    print("calma proof  ·  %s %s" % (V.outcome_glyph(oc), oc))
+    if c0.get("metric"):
+        cv, rcv = c0.get("claimed_value"), c0.get("recomputed_value")
+        if cv is not None:
+            print("  %s: claimed %s · recomputed %s"
+                  % (c0["metric"], REP.fmt_value(cv, c0["metric"]), REP.fmt_value(rcv, c0["metric"])))
+        elif rcv is not None:
+            print("  %s: recomputed %s  (no claim)" % (c0["metric"], REP.fmt_value(rcv, c0["metric"])))
+    print("  signed by:   %s" % (keyid + " (offline-verifiable)" if keyid
+                                 else "not signed yet - `calma seal %s`" % run_dir))
+    print("  ceiling:     proves the recompute, NOT input-data authenticity or semantic correctness")
+    print("  re-verify offline:  calma proof verify %s" % run_dir)
+    # WS5: the shareable proof permalink + the embeddable badge (the moat made legible).
+    import urllib.parse as _up
+    mv = c0.get("recomputed_value")
+    label = ((c0.get("metric") or "") + ((" %s" % REP.fmt_value(mv, c0.get("metric"))) if mv is not None else "")).strip() or oc
+    params = {"outcome": oc, "metric": c0.get("metric"), "claimed": c0.get("claimed_value"),
+              "recomputed": mv, "keyid": keyid}
+    q = _up.urlencode({k: v for k, v in params.items() if v is not None})
+    print("  share:       https://trycalma.ai/proof?%s" % q)
+    print("  badge:       ![verified by calma](https://trycalma.ai/badge?%s)"
+          % _up.urlencode({"outcome": oc, "label": label}))
+    return 0
+
+
 def _json_finite(obj):
     """Recursively replace non-finite floats (NaN/Inf) with None so `--json` is STRICT JSON.
     Python's json.dumps emits bare NaN/Infinity by default, which JavaScript's JSON.parse rejects
@@ -2681,6 +2781,16 @@ def main():
     av.add_argument("--key", help="pin the signer: hex public key, or a path to the .pub file")
     av.add_argument("--replay", action="store_true",
                     help="also re-execute the run next to the bundle and check the verdict reproduces")
+    pf = sub.add_parser("proof", help="the proof is the product: re-verify one OFFLINE, or show it at a glance")
+    pfsub = pf.add_subparsers(dest="proof_cmd", required=True)
+    pfv = pfsub.add_parser("verify", help="re-verify a proof OFFLINE (no network, no trust in calma's servers)")
+    pfv.add_argument("path", help="a proof bundle file, a run dir, or a project dir")
+    pfv.add_argument("--key", default=None, help="pin the expected signing key (file path or hex)")
+    pfv.add_argument("--replay", action="store_true", help="also re-execute + re-derive the verdict")
+    pfv.add_argument("--json", action="store_true", dest="as_json", help="machine-readable JSON")
+    pfs = pfsub.add_parser("show", help="the proof at a glance: claim, recomputed, verdict, key, ceiling")
+    pfs.add_argument("run_dir", nargs="?", default=".", help="run dir or project dir (default: .)")
+    pfs.add_argument("--json", action="store_true", dest="as_json", help="machine-readable JSON")
     sl = sub.add_parser("seal", help="one command for the whole proof chain: sign + RFC 3161 "
                                      "timestamp + counterparty instructions (+ optional publish)")
     sl.add_argument("run_dir", help="the .calma/<run-id> dir from a previous verify")
@@ -3160,6 +3270,12 @@ def main():
                     print("\nnext: ask the producer to re-run `calma seal <run_dir>` "
                           "and resend the bundle (a stale or tampered bundle never verifies)")
                 return 0 if ok else 1
+        if a.cmd == "proof":
+            if a.proof_cmd == "verify":
+                return proof_verify_cmd(a.path, key=a.key, do_replay=a.replay, as_json=a.as_json)
+            if a.proof_cmd == "show":
+                return proof_show_cmd(a.run_dir, as_json=a.as_json)
+            return 2
         if a.cmd == "seal":
             run_dir = os.path.realpath(a.run_dir)
             bpath = os.path.join(run_dir, attest.BUNDLE_NAME)
