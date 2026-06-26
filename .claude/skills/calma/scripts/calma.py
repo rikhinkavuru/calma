@@ -1169,6 +1169,14 @@ def verify(target, claim=None, metric=None, run_id="run", opts=None):
                 variance = None
                 if run2.get("exit_code") == 0:
                     h2 = _artifact_hashes(target, contract)
+                    # PRECISION FOLLOW-UP (adversarial 2nd-pass, below-major, safe-direction): this
+                    # diffs the WHOLE bound artifact, so a result whose headline metric reproduces
+                    # bit-for-bit still flips to INCONCLUSIVE when a non-metric sibling column varies
+                    # via a scanner-invisible source (getpid/id()-ordering/set()-ordering). Never a
+                    # false CONFIRM (it only ever degrades to CAN'T-CONFIRM). To stop over-flagging a
+                    # reproducing number on noisy sibling columns, compare the recomputed metric VALUE
+                    # across run-1/run-2 (rec1 vs the run-2 recompute) instead of raw artifact bytes -
+                    # that still catches the false-confirm BLOCKER (the metric value itself moves there).
                     unstable_paths = sorted(p for p in set(h1) | set(h2) if h1.get(p) != h2.get(p))
                     if unstable_paths:  # quantify the swing on the headline metric (reads as rigor)
                         variance = _metric_variance(rec1, RC.recompute_contract(contract_path, base=target, k=_rk))
