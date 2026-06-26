@@ -24,8 +24,9 @@ os.environ.setdefault("CALMA_ENGINE_PYTHON", sys.executable)
 
 # @vercel/python puts the installed deps (the e2b SDK etc.) on THIS process's sys.path, but the engine runs
 # as a FRESH subprocess that resolves its own site dirs and would miss them ("No module named 'e2b'" ->
-# --isolation e2b REFUSED). Propagate our sys.path via PYTHONPATH; engine.run_verify inherits os.environ, so
-# the child can import the SDK. Same interpreter (CALMA_ENGINE_PYTHON=sys.executable) -> no ABI mismatch.
+# --isolation e2b REFUSED). Propagate our sys.path via PYTHONPATH; engine.run_verify spawns the child with a
+# COPY of os.environ (+ CALMA_REQUIRE_ISOLATED), so it carries this. Same interpreter
+# (CALMA_ENGINE_PYTHON=sys.executable) -> no ABI mismatch.
 _pp = os.pathsep.join(p for p in sys.path if p)
 _existing = os.environ.get("PYTHONPATH", "")
 os.environ["PYTHONPATH"] = (_pp + os.pathsep + _existing) if _existing else _pp

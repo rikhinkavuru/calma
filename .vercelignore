@@ -1,0 +1,28 @@
+# Files NOT uploaded to the calma-api Vercel deployment (this directory is linked to that project).
+# The API function only needs api/, control_plane/**, and .claude/skills/calma/scripts/** (see
+# api.vercel.json includeFiles) plus requirements.txt. Everything below is dev-only, generated, a
+# secret, or part of a SEPARATE project — none of it belongs in the production serverless bundle.
+
+# secrets + env templates (the deployed side uses `vercel env`, never a committed file)
+.env
+.env.*
+.env.example
+
+# OS / build / tool caches + generated artifacts
+**/.DS_Store
+**/__pycache__/
+**/*.pyc
+.pytest_cache/
+.ruff_cache/
+.next/
+dist/
+node_modules/
+
+# the web app is a SEPARATE Vercel project, never part of the API function
+web/
+
+# research / data / generated trees not imported at API runtime
+benchmark/
+rehearsals/
+graphify-out/
+examples/

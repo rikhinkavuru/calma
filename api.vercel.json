@@ -6,7 +6,8 @@
       "use": "@vercel/python",
       "config": {
         "maxLambdaSize": "50mb",
-        "includeFiles": "{control_plane/**,.claude/skills/calma/scripts/**}"
+        "includeFiles": "{control_plane/**,.claude/skills/calma/scripts/**}",
+        "excludeFiles": "{**/__pycache__/**,**/*.pyc,**/.DS_Store,**/tests/**}"
       }
     }
   ],

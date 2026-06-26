@@ -68,3 +68,7 @@ benchmark/validity_catalog/cases/
 /dist
 *.egg-info
 src/*.egg-info
+
+# tool caches (regenerated; never committed)
+.pytest_cache/
+.ruff_cache/
