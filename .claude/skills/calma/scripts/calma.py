@@ -1914,8 +1914,12 @@ def run_batch(targets, manifest=None, fail_on="not-clean", timeout=None, force=F
             continue
         led = res["ledger"]
         c0 = (led.get("claims") or [{}])[0]
-        clean = res["gate_exit"] == 0 if fail_on == "not-clean" \
-            else res["repo_verdict"] not in V.CATCH_VERDICTS
+        if fail_on == "refuted":
+            clean = res["repo_verdict"] not in V.CATCH_VERDICTS
+        elif fail_on == "caveats":
+            clean = res["gate_exit"] == 0 and res["repo_verdict"] != V.CAVEATS
+        else:  # not-clean (default)
+            clean = res["gate_exit"] == 0
         rows.append({"target": os.path.basename(os.path.normpath(path)),
                      "verdict": res["repo_verdict"], "metric": c0.get("metric"),
                      "claimed": c0.get("claimed_value"), "recomputed": c0.get("recomputed_value"),
@@ -2159,8 +2163,10 @@ def main():
                         "for the full list of %d)" % len(RCP.ids()))
     v.add_argument("--run-id", default="run",
                    help="name of the run directory under <target>/.calma/ (default: run)")
-    v.add_argument("--fail-on", choices=["not-clean", "refuted"], default="not-clean",
-                   help="process exit policy: not-clean (default; INCONCLUSIVE also fails) or refuted")
+    v.add_argument("--fail-on", choices=["not-clean", "refuted", "caveats"], default="not-clean",
+                   help="process exit policy: not-clean (default; INCONCLUSIVE also fails), refuted "
+                        "(only a catch fails), or caveats (STRICTER - a clean CONFIRMED-WITH-CAVEATS "
+                        "also fails, for teams that gate on any narrowing)")
     v.add_argument("--trust", choices=["own-code", "third-party"], default="own-code",
                    help="trust posture for the code being re-executed: own-code (default) runs "
                         "under the verified sandbox; third-party auto-escalates to the container "
@@ -2223,7 +2229,7 @@ def main():
     b.add_argument("--manifest", metavar="TSV",
                    help="a TSV of rows 'path<TAB>claim<TAB>[metric]' (# comments allowed) - for "
                         "targets without a committed verify.yaml")
-    b.add_argument("--fail-on", choices=["not-clean", "refuted"], default="not-clean",
+    b.add_argument("--fail-on", choices=["not-clean", "refuted", "caveats"], default="not-clean",
                    help="exit policy applied across ALL targets (exit 1 if any fails)")
     b.add_argument("--timeout", type=int, default=None, metavar="SECONDS",
                    help="per-target re-execution budget")
@@ -2487,6 +2493,11 @@ def main():
                 _emit_otel_result(a, res)
             if a.fail_on == "refuted":
                 exit_code = 1 if res["repo_verdict"] in V.CATCH_VERDICTS else 0
+            elif a.fail_on == "caveats":
+                # STRICTER than not-clean: also fail a clean CONFIRMED-WITH-CAVEATS (the soft caveat that
+                # exits 0 by default). "Decide for me, but let me override": the default is calm, this
+                # opts a team back into gating on ANY narrowing. Never relaxes a non-zero gate.
+                exit_code = 1 if (res["repo_verdict"] == V.CAVEATS or res["gate_exit"] != 0) else 0
             else:
                 exit_code = res["gate_exit"]
             # refusal/kill outcomes get their own exit codes (documented in the README table):

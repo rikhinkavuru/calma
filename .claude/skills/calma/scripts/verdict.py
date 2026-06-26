@@ -51,6 +51,62 @@ def is_clean(repo_verdict):
 REFUSED_NO_ISOLATION = 3
 KILL_INCONCLUSIVE = 4
 
+# ── WS3: the 3-outcome user-facing roll-up ───────────────────────────────────────────────────────
+# The six internal verdicts above remain the SOURCE OF TRUTH: persisted in the ledger, re-derived,
+# and byte-checked. outcome() is a PURE PRESENTATION roll-up over the (verdict, effective exit code)
+# pair. It adds NOTHING to the decision, changes NO exit code, and discards NO nuance - the full
+# verdict + its single-most-limiting reason stay in the ledger, in --why, and in --json. The roll-up
+# is published here, deterministically, so the terminal headline can read in <2s without exposing the
+# six-way internal vocabulary by default.
+#
+# It keys on the exit code (not the verdict alone) so a green "Confirmed" can NEVER print over a
+# non-zero exit - a clean-verdict run that still carries an open blocking finding (exit 1) reads as
+# "Caught", never as a green pass painted over a real finding (the gitsafehub "incomplete is not safe"
+# rule, applied to "never paint Confirmed over a blocking finding"). Total + fail-closed: an unknown
+# verdict or exit degrades to CAN'T-TELL, never to CONFIRMED.
+CONFIRMED_OUTCOME = "Confirmed"
+CAUGHT_OUTCOME = "Caught"
+CANT_TELL_OUTCOME = "Can't tell"
+OUTCOMES = (CONFIRMED_OUTCOME, CAUGHT_OUTCOME, CANT_TELL_OUTCOME)
+
+# outcome -> (ascii glyph, unicode glyph). The WORD is ALWAYS printed next to the glyph, so the output
+# is unambiguous under NO_COLOR, on a colour-blind terminal, and through a pipe (clig.dev).
+_OUTCOME_GLYPH = {
+    CONFIRMED_OUTCOME: ("v", "✓"),   # ✓
+    CAUGHT_OUTCOME:    ("x", "✗"),   # ✗
+    CANT_TELL_OUTCOME: ("?", "?"),
+}
+# outcome -> ANSI colour (green / red / dim-yellow). Caught is rendered amber for the soft sub-case by
+# the caller (a FLAG_FOR_DECLARATION is a resolvable demand, not a hard break).
+_OUTCOME_ANSI = {CONFIRMED_OUTCOME: "32", CAUGHT_OUTCOME: "31", CANT_TELL_OUTCOME: "33"}
+
+
+def outcome(repo_verdict, exit_code):
+    """Map an internal verdict + its effective process exit code -> one of the three user-facing
+    OUTCOMES. Deterministic, total, fail-closed. Never influences the exit code (display only).
+
+    Keyed on the VERDICT first, then the exit code - because a plain INCONCLUSIVE is "not clean" and so
+    exits 1 (same code as a REFUTED), yet it must read as CAN'T-TELL, never CAUGHT. The exit code is
+    only consulted to catch the one case the verdict alone misses: a clean CONFIRMED / CAVEATS that
+    still failed the gate on an OPEN blocking finding (exit 1) - that reads CAUGHT, never a green pass."""
+    if repo_verdict == INCONCLUSIVE or exit_code in (REFUSED_NO_ISOLATION, KILL_INCONCLUSIVE, 2):
+        return CANT_TELL_OUTCOME           # can't-confirm / refused / killed / invalid ledger
+    if repo_verdict in CATCH_VERDICTS or exit_code == 1:
+        return CAUGHT_OUTCOME              # a catch, or a blocking finding on an otherwise-clean verdict
+    if repo_verdict in CLEAN_VERDICTS and exit_code == 0:
+        return CONFIRMED_OUTCOME
+    return CANT_TELL_OUTCOME               # unknown verdict/exit -> fail-closed (never CONFIRMED)
+
+
+def outcome_glyph(oc, unicode_ok=True):
+    """The glyph for an outcome; ascii fallback when the terminal can't render unicode."""
+    return _OUTCOME_GLYPH.get(oc, ("·", "·"))[1 if unicode_ok else 0]
+
+
+def outcome_ansi(oc):
+    """The ANSI colour code for an outcome (caller wraps; empty string if unknown)."""
+    return _OUTCOME_ANSI.get(oc, "")
+
 # Conservative defaults. verdict_inputs is JSON-serialisable (persisted in the ledger as the exact
 # argument vector so _validate() can re-derive the enum byte-for-byte).
 DEFAULTS = {

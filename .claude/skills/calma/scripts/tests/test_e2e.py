@@ -31,8 +31,11 @@ def truth(cond, label):
 res = C.verify(BTC, run_id="test_e2e", opts=C.VerifyOptions(force=True))  # force: the fixture persists across suite runs
 truth(res["repo_verdict"] == "REFUTED", "BTC -> repo REFUTED")
 truth(res["gate_exit"] == 1, "BTC gate exit 1 (valid, not clean)")
-truth(res["report"].splitlines()[0].lstrip("✗✓▲ ").startswith("REFUTED"),
-      "report leads with REFUTED (after the ✗ verdict symbol)")
+# WS3: the headline leads with the 3-outcome roll-up (Caught), not the six-way internal verdict; the
+# precise REFUTED is preserved lower in the full record (--why / the `verdict:` detail line) + --json.
+truth(res["report"].splitlines()[0].lstrip("✗✓?▲ ").startswith("Caught"),
+      "report headline leads with the Caught outcome (after the ✗ glyph)")
+truth("REFUTED" in res["report"], "the precise REFUTED verdict is preserved in the full record")
 truth(res.get("teardown") and "CALMA TEARDOWN" in res["teardown"] and "RECOMPUTED" in res["teardown"],
       "shareable teardown card produced on REFUTED")
 truth("+14,698%" in res["report"] and "-32.4%" in res["report"],

@@ -246,27 +246,92 @@ def _not_verified_lines(nv, why=True):
     return out
 
 
+# WS3: forward-looking docs base for the four-slot --why template (what / why / fix / docs). This is a
+# product URL we will own (trycalma.ai) - NOT a signed-attestation predicate type (those stay on their
+# permanent GitHub-rooted / legacy ids; see attest.py). A stable per-verdict rule slug deep-links the
+# reader to the explanation of THIS kind of catch (Rust/Elm/Biome "every diagnostic has a docs URL").
+DOCS_BASE = "https://trycalma.ai/r/"
+_RULE_SLUG = {
+    V.REFUTED: "refuted", V.INVALIDATED: "invalidated", V.FLAG_FOR_DECLARATION: "flag-for-declaration",
+    V.INCONCLUSIVE: "cant-confirm", V.CAVEATS: "caveats", "MIXED": "mixed",
+}
+# outcome -> the one-line note shown beside the precise verdict in --why (why the roll-up landed here).
+_OUTCOME_NOTE = {
+    V.CONFIRMED_OUTCOME: "rolled up to Confirmed",
+    V.CAUGHT_OUTCOME: "rolled up to Caught - Calma found a reason this number can't ship unchanged",
+    V.CANT_TELL_OUTCOME: "rolled up to Can't-tell - not enough to decide either way",
+}
+
+
+def _headline_number(rv, c0):
+    """The line-1 metric + value(s) for the calm headline. Confirmed: 'metric R  (claimed C ·
+    recomputed R · Δ D)'. A catch: 'metric C claimed → recomputed R  (Δ D)'. No-claim (reproduction):
+    'metric R'. Returns '' when there's no single headline metric/value (the multi-metric table or the
+    gloss line carries it instead). Δ = recomputed − claimed, in metric units."""
+    mid = c0.get("metric") if c0 else None
+    if not mid:
+        return ""
+    cv, rvv = c0.get("claimed_value"), c0.get("recomputed_value")
+    if cv is None and rvv is not None:                       # reproduction: no claim to diff
+        return "%s %s" % (mid, fmt_value(rvv, mid))
+    if cv is not None and rvv is not None:
+        cs, rs = fmt_pair(cv, rvv, mid)
+        try:
+            delta = float(rvv) - float(cv)
+            ds = fmt_value(delta, mid)
+            if delta > 0 and not ds.startswith("+"):
+                ds = "+" + ds                                # explicit + so the drift direction reads
+        except (TypeError, ValueError):
+            ds = None
+        if rv in (V.CONFIRMED, V.CAVEATS):
+            tail = ("Δ %s" % ds) if ds is not None else "matches"
+            return "%s %s  (claimed %s · recomputed %s · %s)" % (mid, rs, cs, rs, tail)
+        tail = ("  (Δ %s)" % ds) if ds is not None else ""   # a catch: lead with the mismatch
+        return "%s %s claimed → recomputed %s%s" % (mid, cs, rs, tail)
+    if cv is not None:                                       # claim present but the run didn't recompute
+        return "%s %s claimed — not recomputed" % (mid, fmt_value(cv, mid))
+    return ""
+
+
 def render(led, diff=None, color=False, why=True):
     rv = led.get("repo_verdict", V.INCONCLUSIVE)
     word, gloss = _TOPLINE.get(rv, _TOPLINE[V.INCONCLUSIVE])
     c0 = led["claims"][0] if led.get("claims") else {}
     # no-claim mode: a clean verdict with no claimed number is a REPRODUCTION check, and the
-    # render says so instead of pretending a claim was diffed
+    # render says so instead of pretending a claim was diffed.
     scope_repro = (rv in (V.CONFIRMED, V.CAVEATS) and c0
                    and c0.get("claimed_value") is None and c0.get("recomputed_value") is not None)
     if scope_repro:
-        word += " (scope=reproduction)"
-        gloss = "no claim was given - the result re-runs and the number recomputes"
+        gloss = ("scope=reproduction - no claim was given; the result re-runs and the number "
+                 "recomputes from the raw outputs (state a claim to check a number against it)")
     conf = c0.get("headline_confidence") or 0.0
-    # headline: a ✓/✗/▲ symbol + (on a tty) one ANSI color, so the answer is unmistakable at a glance.
-    label = "%s %s" % (_SYMBOL.get(rv, "·"), word)
-    if color and rv in _ANSI:
-        label = "\x1b[1;%sm%s\x1b[0m" % (_ANSI[rv], label)
-    head = "%s  (confidence %d/100)" % (label, int(round(conf * 100))) if conf > 0 else label
-    lines = ["%s  -  %s" % (head, gloss)]
-    if scope_repro:
-        lines.append("  recomputed %s = %s  (state a claim to check a number against it)"
-                     % (c0.get("metric"), fmt_value(c0.get("recomputed_value"), c0.get("metric"))))
+    # WS3 - the 3-outcome calm headline. Line 1 is the answer: {glyph} {Outcome}  {headline number}.
+    # The six-way internal verdict (CONFIRMED / REFUTED / ...) is NOT on the headline by default - it
+    # stays in --why (below), in the [exit N (LABEL)] line, and in --json. eff_exit mirrors ledger.gate
+    # so a green Confirmed can never paint over an OPEN blocking finding (it reads Caught instead).
+    _open_blocking = any(f.get("severity") in ("blocker", "major")
+                         and f.get("status") not in ("resolved", "waived", "accepted")
+                         for f in led.get("findings", []))
+    eff_exit = (2 if rv == V.INCONCLUSIVE
+                else 0 if (rv in (V.CONFIRMED, V.CAVEATS) and not _open_blocking) else 1)
+    oc = V.outcome(rv, eff_exit)
+    head = "%s %s" % (V.outcome_glyph(oc), oc)
+    if color:
+        # amber (not red) for the soft Caught - a FLAG_FOR_DECLARATION is a resolvable demand to declare,
+        # not an assertion the number is wrong.
+        ansi = "38;5;208" if (oc == V.CAUGHT_OUTCOME and rv == V.FLAG_FOR_DECLARATION) else V.outcome_ansi(oc)
+        if ansi:
+            head = "\x1b[1;%sm%s\x1b[0m" % (ansi, head)
+    num = _headline_number(rv, c0)
+    line1 = head + ("  " + num if num else "")
+    if conf > 0:
+        ct = "(confidence %d/100)" % int(round(conf * 100))
+        line1 += "  " + (("\x1b[2m%s\x1b[0m" % ct) if color else ct)
+    lines = [line1]
+    # line 2: the one-phrase gloss, dim - the calm 'why' in a few words (creator-facing internal state
+    # like the deeper-checks list stays out of the default view; clig.dev progressive disclosure).
+    if gloss:
+        lines.append((("  \x1b[2m%s\x1b[0m" % gloss) if color else ("  " + gloss)))
     # multi-metric contract: show EVERY metric's verdict, not just the headline - a per-row table so a
     # broken secondary metric is visible at a glance (claimed -> recomputed, aligned).
     claims = [c for c in led.get("claims", []) if c.get("metric")]
@@ -319,21 +384,16 @@ def render(led, diff=None, color=False, why=True):
         broken = next((c for c in led["claims"]
                        if c.get("verdict") in (V.REFUTED, V.INVALIDATED, V.FLAG_FOR_DECLARATION)),
                       led["claims"][0])
-        if len(claims) <= 1:
+        # line 1 already carried the headline claimed → recomputed; for a single-metric catch we add only
+        # the verdict-specific note. INVALIDATED / FLAG_FOR_DECLARATION both reproduce (claimed ==
+        # recomputed), so the identical pair must not read as a no-op - the point is the RESULT (invalid)
+        # or the UNDECLARED STRUCTURE (flag), not the number.
+        if len(claims) <= 1 and led["claims"][0].get("recomputed_value") is not None:
             c = led["claims"][0]
-            if c.get("claimed_value") is not None and c.get("recomputed_value") is not None:
-                mid = c.get("metric")
-                # INVALIDATED and FLAG_FOR_DECLARATION both reproduce (claimed == recomputed) - annotate so
-                # the identical pair doesn't read as a no-op; the point is the RESULT (invalid) or the
-                # UNDECLARED STRUCTURE (flag), not the number.
-                if c.get("verdict") == V.INVALIDATED:
-                    note = "   (reproduces - the result, not the number, is invalid)"
-                elif c.get("verdict") == V.FLAG_FOR_DECLARATION:
-                    note = "   (reproduces - undeclared structure flagged; declare the block to resolve)"
-                else:
-                    note = ""
-                cs, rs = fmt_pair(c["claimed_value"], c["recomputed_value"], mid)
-                lines.append("  claimed %s  ->  recomputed %s%s" % (cs, rs, note))
+            if c.get("verdict") == V.INVALIDATED:
+                lines.append("  (reproduces - the result, not the number, is invalid)")
+            elif c.get("verdict") == V.FLAG_FOR_DECLARATION:
+                lines.append("  (reproduces - undeclared structure flagged; declare the block to resolve)")
         rep = broken.get("reproduction_or_reverify", {})
         if rep.get("command"):
             lines.append("  reproduce: " + rep["command"])
@@ -352,6 +412,15 @@ def render(led, diff=None, color=False, why=True):
                 # script main.py/run.py..."), one line is enough - don't print the same sentence twice.
                 if provide_txt and provide_txt != fix_txt:
                     lines.append(_wrap("needs (to verify %s): %s" % (nd["unverifiable"], provide_txt)))
+    # --why keeps the PRECISE internal verdict (the headline showed only the 3-outcome roll-up) and a
+    # docs deep-link for this kind of catch - the 'docs' slot of the four-slot what/why/fix/docs trace
+    # (Rust/Elm/Biome: every diagnostic carries a stable code + a docs URL). Default (why=False) terminal
+    # output stays calm; the six-way vocabulary lives here, in the [exit N (LABEL)] line, and in --json.
+    if why:
+        lines.append("  verdict: %s  (%s)" % (word, _OUTCOME_NOTE.get(oc, "")))
+        slug = _RULE_SLUG.get(rv)
+        if slug:
+            lines.append("  docs: " + DOCS_BASE + slug)
     # scope one-liner (the honest 'what we checked')
     sc = led.get("scope", {})
     if sc:

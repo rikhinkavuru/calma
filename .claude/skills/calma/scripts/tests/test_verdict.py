@@ -152,5 +152,44 @@ for bad in [None, {}, {"gap": float("nan")}, {"exit_codes": None}, {"margin": -5
     assert v in V.VERDICTS, "non-enum result %r for %r" % (v, bad)
 _n += 1
 
+
+def _oc(verdict, exit_code, want, label):
+    global _n, _fail
+    _n += 1
+    got = V.outcome(verdict, exit_code)
+    if got != want:
+        _fail += 1
+        print("  FAIL [outcome] %s @exit %s -> expected %s got %s (%s)"
+              % (verdict, exit_code, want, got, label))
+
+
+# ==== WS3: the deterministic 3-outcome roll-up =====================================================
+# Confirmed: a clean verdict that PASSED the gate (exit 0).
+_oc(V.CONFIRMED, 0, V.CONFIRMED_OUTCOME, "clean confirmed")
+_oc(V.CAVEATS, 0, V.CONFIRMED_OUTCOME, "soft caveats fold into Confirmed (exit 0)")
+# Caught: any catch verdict, OR a clean verdict that FAILED the gate on a blocking finding (exit 1).
+for cv in (V.REFUTED, V.INVALIDATED, V.FLAG_FOR_DECLARATION, "MIXED"):
+    _oc(cv, 1, V.CAUGHT_OUTCOME, "catch verdict %s" % cv)
+_oc(V.CAVEATS, 1, V.CAUGHT_OUTCOME, "CAVEATS + open blocking finding (exit 1) reads Caught, not green")
+_oc(V.CONFIRMED, 1, V.CAUGHT_OUTCOME, "CONFIRMED + blocking finding never paints a green pass")
+# Can't-tell: INCONCLUSIVE (which is 'not clean' and so exits 1) must NEVER read as Caught; plus the
+# refused/killed/invalid exit codes.
+_oc(V.INCONCLUSIVE, 1, V.CANT_TELL_OUTCOME, "INCONCLUSIVE@exit1 is Can't-tell, never Caught (the key bug)")
+_oc(V.INCONCLUSIVE, 2, V.CANT_TELL_OUTCOME, "INCONCLUSIVE@exit2")
+_oc(V.CONFIRMED, V.REFUSED_NO_ISOLATION, V.CANT_TELL_OUTCOME, "refused (exit 3) -> Can't-tell")
+_oc(V.CONFIRMED, V.KILL_INCONCLUSIVE, V.CANT_TELL_OUTCOME, "killed (exit 4) -> Can't-tell")
+# Fail-closed totality: an unknown verdict or exit never resolves to Confirmed.
+_oc("ZZZ_UNKNOWN", 0, V.CANT_TELL_OUTCOME, "unknown verdict @exit0 is NOT Confirmed (fail-closed)")
+_oc("ZZZ_UNKNOWN", 7, V.CANT_TELL_OUTCOME, "unknown verdict + unknown exit -> Can't-tell")
+# Invariant: outcome() never raises and only ever returns one of the three published OUTCOMES.
+for cv in list(V.VERDICTS) + ["MIXED", "ZZZ", None]:
+    for xc in (0, 1, 2, 3, 4, 99, -1):
+        assert V.outcome(cv, xc) in V.OUTCOMES, "outcome(%r,%r) off-enum" % (cv, xc)
+_n += 1
+# The glyph/colour helpers are total and pair a word with every glyph (NO_COLOR / pipe safe).
+assert V.outcome_glyph(V.CONFIRMED_OUTCOME) and V.outcome_glyph("nonsense") == "·"
+assert V.outcome_ansi(V.CAUGHT_OUTCOME) == "31" and V.outcome_ansi("nonsense") == ""
+_n += 2
+
 print("verdict.py: %d checks, %d failures" % (_n, _fail))
 sys.exit(1 if _fail else 0)

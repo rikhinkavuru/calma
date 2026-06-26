@@ -460,8 +460,8 @@ r = subprocess.run([sys.executable, CAL, "verify", "--help"], capture_output=Tru
 truth("recipes`" in r.stdout.replace("\n", " ") and "column_median" not in r.stdout,
       "P2: --metric help references `calma recipes` instead of dumping 120 ids")
 r = subprocess.run([sys.executable, CAL, "demo"], capture_output=True, text=True)
-truth(r.returncode == 0 and "REFUTED" in r.stdout and "now try your own" in r.stdout,
-      "P0-2: calma demo runs offline and prints the verdict card + closer")
+truth(r.returncode == 0 and "Caught" in r.stdout and "now try your own" in r.stdout,
+      "P0-2: calma demo runs offline and prints the verdict card (✗ Caught) + closer")
 
 # --- P2: reproduce hint echoes the invocation style actually used ---
 _old0 = sys.argv[0]
