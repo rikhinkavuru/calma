@@ -41,6 +41,11 @@ CLEAN_VERDICTS = (CONFIRMED, CAVEATS)
 # Catch-loudness rank (CANONICAL §3): REFUTED >= INVALIDATED > FLAG_FOR_DECLARATION > MIXED > CAVEATS.
 CATCH_VERDICTS = (REFUTED, "MIXED", INVALIDATED, FLAG_FOR_DECLARATION)
 
+# DEFINITE verdicts: a settled outcome that is safe to cache / publish (clean OR a catch). INCONCLUSIVE
+# is deliberately EXCLUDED - it may have been environmental (a missing dep, a timeout), so it always
+# re-runs and is never cached. Single source for the cache guards that used to hand-write this tuple.
+DEFINITE_VERDICTS = CLEAN_VERDICTS + CATCH_VERDICTS
+
 
 def is_clean(repo_verdict):
     """True iff `repo_verdict` is an explicitly-clean outcome. Allowlist by design (fail-closed)."""

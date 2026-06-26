@@ -729,7 +729,7 @@ def _cached_result(target, fingerprint, why=False):
     if led.get("repo_verdict") != ent.get("repo_verdict"):
         return None  # cached verdict and stored ledger disagree - never serve it
     code, summary = LED.validate_obj(led)
-    if led.get("repo_verdict") not in ("CONFIRMED", "CONFIRMED-WITH-CAVEATS", "REFUTED", "MIXED", "INVALIDATED", "FLAG_FOR_DECLARATION"):
+    if led.get("repo_verdict") not in V.DEFINITE_VERDICTS:
         return None
     # re-point the reproduce line at the run dir we are ACTUALLY serving: a ledger can be served from a
     # relocated/copied tree (the fingerprint matches by content), in which case its stored command still
@@ -750,7 +750,7 @@ def _cached_result(target, fingerprint, why=False):
 
 
 def _store_cache(target, fingerprint, run_id, repo_verdict):
-    if repo_verdict not in ("CONFIRMED", "CONFIRMED-WITH-CAVEATS", "REFUTED", "MIXED", "INVALIDATED", "FLAG_FOR_DECLARATION"):
+    if repo_verdict not in V.DEFINITE_VERDICTS:
         return
     led_sha = _ledger_sha256(os.path.join(target, ".calma", run_id, "ledger.json"))
     if led_sha is None:
@@ -1360,7 +1360,7 @@ def verify(target, claim=None, metric=None, run_id="run", opts=None):
                 "ts": int(time.time()), "run_id": run_id, "verdict": led["repo_verdict"],
                 # persist the REAL gate exit so `calma status` rolls a CONFIRMED-with-open-blocker run up
                 # to Caught (matching the gate), not green - the verdict word alone can't recover it.
-                "gate_exit": _gate_exit(led),
+                "gate_exit": LED.gate_exit(led),
                 "metric": c0.get("metric"), "claimed": c0.get("claimed_value"),
                 "recomputed": c0.get("recomputed_value"),
                 "isolation": led.get("scope", {}).get("isolation_tier"),
@@ -1527,181 +1527,12 @@ def stats(target):
             "auto": auto}, "\n".join(lines)
 
 
-def _signing_keyid():
-    """The local signing key id (Ed25519, ~/.calma/keys), or None. Best-effort - never raises."""
-    kdir = os.path.expanduser(os.environ.get("CALMA_KEY_DIR", "~/.calma/keys"))
-    for name in ("key.json", "signing_key.json"):
-        try:
-            kp = os.path.join(kdir, name)
-            if os.path.isfile(kp):
-                return (json.load(open(kp)) or {}).get("keyid")
-        except (OSError, ValueError):
-            pass
-    return None
-
-
-def _health_checks():
-    """WS4: the environment checks behind `calma doctor` (and the guardrail line in `calma status`).
-    Each entry: {key, status: ok|warn|fail, detail, fix}. Pure inspection - never mutates anything."""
-    scripts = os.path.dirname(os.path.abspath(__file__))
-    plugin_root = os.environ.get("CLAUDE_PLUGIN_ROOT") or os.path.realpath(
-        os.path.join(scripts, "..", "..", "..", ".."))
-    out = [{"key": "engine", "status": "ok", "detail": "calma %s" % __version__, "fix": None}]
-    pyv = "%d.%d.%d" % sys.version_info[:3]
-    okpy = sys.version_info[:2] >= (3, 9)
-    out.append({"key": "runtime", "status": "ok" if okpy else "fail",
-                "detail": "Python %s%s" % (pyv, "" if okpy else "  (need >= 3.9)"),
-                "fix": None if okpy else "install Python 3.9+ (calma is pure stdlib - no other deps)"})
-    hooks_json = os.path.join(plugin_root, "hooks", "hooks.json")
-    defined = os.path.isfile(hooks_json) and os.path.isfile(os.path.join(scripts, "hook_stop.py"))
-    out.append({"key": "stop-hook", "status": "ok" if defined else "warn",
-                "detail": "wired (hooks.json -> hook_stop.py)" if defined
-                          else "not wired here (CLI / CI use needs no hook; the Claude Code plugin adds it)",
-                "fix": None if defined else "for the zero-touch guardrail, install the calma plugin in "
-                       "Claude Code (confirm with /hooks); not needed for CLI or CI verification"})
-    off = os.environ.get("CALMA_HOOK") == "0" or os.environ.get("CALMA_VERIFY", "").lower() == "off"
-    quiet = os.environ.get("CALMA_QUIET", "").lower() in ("1", "on", "true", "yes")
-    out.append({"key": "guardrail", "status": "warn" if off else "ok",
-                "detail": "opted OUT via env (CALMA_HOOK=0 / CALMA_VERIFY=off)" if off
-                          else "active" + (" · per-run line quiet (CALMA_QUIET=1)" if quiet else ""),
-                "fix": "unset CALMA_HOOK / CALMA_VERIFY to re-enable the guardrail" if off else None})
-    kid = _signing_keyid()
-    out.append({"key": "signing-key", "status": "ok" if kid else "warn",
-                "detail": ("local Ed25519 key %s…" % kid[:16]) if kid
-                          else "no local signing key (proofs still emit; signing is optional defense-in-depth)",
-                "fix": None if kid else "calma attest keygen   # generate a local Ed25519 signing key"})
-    return out
-
-
-_DOCTOR_GLYPH = {"ok": "[✓]", "warn": "[!]", "fail": "[✗]"}
-_DOCTOR_RANK = {"ok": 0, "warn": 1, "fail": 2}
-
-
-def doctor_cmd(*, fix=False, as_json=False):
-    """WS4: `calma doctor` - environment health. [✓]/[!]/[✗] per check + a fix line on every non-OK
-    one; --fix applies the safe auto-fixes (today: generate a local signing key). Answers 'is the
-    guardrail wired and working?' (the Homebrew/Flutter/Expo doctor convention)."""
-    checks = _health_checks()
-    if fix:
-        for c in checks:
-            if c["key"] == "signing-key" and c["status"] != "ok":
-                try:
-                    import attest as ATT
-                    ATT.keygen()
-                    print("fixed: generated a local signing key")
-                except Exception as e:  # keygen is optional; never let --fix crash doctor
-                    print("could not auto-generate a signing key: %s" % e, file=sys.stderr)
-        checks = _health_checks()   # re-evaluate after fixes
-    if as_json:
-        ok = all(c["status"] != "fail" for c in checks)
-        print(json.dumps({"checks": checks, "ok": ok}, indent=2))
-        return 0 if ok else 1
-    print("calma doctor")
-    worst = 0
-    for c in checks:
-        print("  %s %-13s %s" % (_DOCTOR_GLYPH[c["status"]], c["key"], c["detail"]))
-        if c["status"] != "ok" and c["fix"]:
-            print("       ↳ %s" % c["fix"])
-        worst = max(worst, _DOCTOR_RANK[c["status"]])
-    nfail = sum(1 for c in checks if c["status"] == "fail")
-    nwarn = sum(1 for c in checks if c["status"] == "warn")
-    if worst == 0:
-        print("\nall good - the guardrail is wired and ready.")
-    else:
-        tip = "" if fix else "  (run `calma doctor --fix` to auto-fix what's safe)"
-        print("\n%d issue(s), %d warning(s) - see the fix lines above.%s" % (nfail, nwarn, tip))
-    return 0 if nfail == 0 else 1
-
-
-def status_cmd(target=".", *, as_json=False):
-    """WS4: the glance command. Is the guardrail on, is it working, and what has it checked? - answered
-    in ONE command: hook + signing-key state, this project's 7-day verdict tally, and the last run."""
-    import time
-    target = os.path.abspath(target)
-    cfg = CFG.verify_config(target)
-    vtarget = cfg["target"] if cfg else target
-    checks = {c["key"]: c for c in _health_checks()}
-    hist = []
-    hpath = os.path.join(vtarget, ".calma", "history.jsonl")
-    if os.path.isfile(hpath):
-        for line in open(hpath, encoding="utf-8", errors="replace"):
-            line = line.strip()
-            if line:
-                try:
-                    obj = json.loads(line)
-                except ValueError:
-                    continue
-                if isinstance(obj, dict):   # a hand-edited line that is valid JSON but not an object
-                    hist.append(obj)         # (a bare array/scalar) must not crash the .get() below
-    verifs = [h for h in hist if h.get("run_id") != "teardown"]
-    now = int(time.time())
-    last7 = [h for h in verifs if now - int(h.get("ts", 0) or 0) <= 7 * 86400]
-
-    def _entry_outcome(h):
-        # prefer the persisted REAL gate exit (so a CONFIRMED-with-open-blocker run tallies as Caught,
-        # matching the gate); fall back to the verdict word only for pre-fix history records.
-        v = h.get("verdict", "?")
-        ec = h.get("gate_exit")
-        if ec is None:
-            ec = 0 if v in (V.CONFIRMED, V.CAVEATS) else 2 if v == V.INCONCLUSIVE else 1
-        return V.outcome(v, ec)
-
-    tally = {V.CONFIRMED_OUTCOME: 0, V.CAUGHT_OUTCOME: 0, V.CANT_TELL_OUTCOME: 0}
-    for h in last7:
-        tally[_entry_outcome(h)] += 1
-    last = verifs[-1] if verifs else None
-    if as_json:
-        print(json.dumps({"guardrail": {k: checks[k]["status"] for k in checks},
-                          "signing_keyid": _signing_keyid(), "project": vtarget,
-                          "last7": tally, "checks_total": len(last7),
-                          "last_run": last}, indent=2, default=str))
-        return 0
-    g, sk = checks["guardrail"], checks["signing-key"]
-    hook_ok = checks["stop-hook"]["status"] == "ok" and g["status"] == "ok"
-    # the guardrail line: coherent glyph + detail. Active when the hook is wired and not opted-out;
-    # otherwise show the actual reason (opted-out, or hook-not-wired for a CLI/CI-only install).
-    if hook_ok:
-        grail = "stop-hook active"
-    elif g["status"] != "ok":
-        grail = g["detail"]                       # opted out via env
-    else:
-        grail = checks["stop-hook"]["detail"]     # hook not wired here (CLI/CI install)
-    print("calma status")
-    print("  guardrail   %s %s" % ("[✓]" if hook_ok else "[!]", grail))
-    print("  signing     %s" % (sk["detail"]))
-    print("  engine      calma %s · Python %d.%d" % (__version__, *sys.version_info[:2]))
-    rel = os.path.relpath(vtarget)
-    print("  project     %s%s" % (rel, "  (calma.toml: %s)" % cfg.get("metric")
-                                  if cfg and cfg.get("metric") else ""))
-    if last7 or verifs:
-        total = len(last7)
-        parts = ["%d %s" % (tally[o], o) for o in (V.CONFIRMED_OUTCOME, V.CAUGHT_OUTCOME,
-                                                   V.CANT_TELL_OUTCOME) if tally[o]]
-        print("  last 7 days %d check%s%s" % (total, "" if total == 1 else "s",
-              "  ·  " + " · ".join(parts) if parts else ""))
-        # the promise made legible: with the guardrail on, every number the agent emitted got checked.
-        caught = tally[V.CAUGHT_OUTCOME]
-        print("  shipped     %d number%s caught before shipping%s"
-              % (caught, "" if caught == 1 else "s",
-                 "  ·  0 shipped unverified" if hook_ok else ""))
-        if last:
-            ago = _ago(now - int(last.get("ts", now) or now))
-            oc = _entry_outcome(last)
-            mv = REP.fmt_value(last.get("recomputed"), last.get("metric"))
-            print("  last run    %s %s %s  ·  %s" % (oc, last.get("metric") or "", mv, ago))
-    else:
-        print("  history     no verifications in this project yet - run `calma up`")
-    print("  → calma doctor   full health check (+ --fix)")
-    return 0
-
-
-def _ago(secs):
-    """A terse 'N{s,m,h,d} ago' for a delta in seconds."""
-    secs = max(0, int(secs))
-    for unit, n in (("d", 86400), ("h", 3600), ("m", 60)):
-        if secs >= n:
-            return "%d%s ago" % (secs // n, unit)
-    return "%ds ago" % secs
+# WS4 status/doctor live in cli_status.py (clean-architecture pass: the operator-visibility surface,
+# separated from the verify pipeline + the dispatcher). Re-exported here so the dispatch + callers/tests
+# that reference calma.status_cmd / doctor_cmd / _health_checks / _signing_keyid / _ago are unchanged.
+from cli_status import (   # noqa: E402  (intentional mid-file re-export of the extracted module)
+    _ago, _health_checks, _signing_keyid, doctor_cmd, status_cmd,
+)
 
 
 def _cli_schema(ap):
@@ -1743,17 +1574,6 @@ def _cli_schema(ap):
             args.append(entry)
         spec["commands"][name] = {"help": helps.get(name), "args": args}
     return spec
-
-
-def _gate_exit(led):
-    """The REAL gate exit for a ledger (0 clean / 1 findings) via ledger.gate - the single source of
-    truth the proof/status surfaces share with report.render, so a caught run (e.g. a CONFIRMED verdict
-    carrying an open blocking finding) can never read green on a secondary surface. Fail-closed: an
-    unusable ledger degrades to 1 (not-clean), never 0."""
-    try:
-        return LED.gate(led)[0]
-    except Exception:
-        return 1
 
 
 def _find_bundle(path):
@@ -1833,7 +1653,7 @@ def proof_show_cmd(run_dir, *, as_json=False):
     # use the REAL gate, not a verdict-only reconstruction: a CONFIRMED verdict that carries an OPEN
     # blocking finding (e.g. reproduces its number but loses to the trivial baseline) gates to exit 1
     # and MUST read "Caught" here too - never paint a caught result green on the proof surface.
-    oc = V.outcome(rv, 2 if rv == V.INCONCLUSIVE else _gate_exit(led))
+    oc = V.outcome(rv, 2 if rv == V.INCONCLUSIVE else LED.gate_exit(led))
     if as_json:
         print(json.dumps({"verdict": rv, "outcome": oc, "metric": c0.get("metric"),
                           "claimed": c0.get("claimed_value"), "recomputed": c0.get("recomputed_value"),

@@ -251,6 +251,17 @@ def gate(led):
     }
 
 
+def gate_exit(led):
+    """The gate exit code (0 clean / 1 findings) for a ledger - the SINGLE source of truth shared by the
+    report headline, `calma proof show`, and the `calma status` tally, so a caught run (e.g. a CONFIRMED
+    verdict carrying an open blocking finding) can never read green on one surface and red on another.
+    Fail-closed: an unusable / malformed ledger degrades to 1 (not-clean), never 0."""
+    try:
+        return gate(led)[0]
+    except Exception:
+        return 1
+
+
 def validate_obj(led):
     errs = structural_validate(led)
     if errs:
