@@ -1116,10 +1116,23 @@ def verify(target, claim=None, metric=None, run_id="run", opts=None):
         else:
             # chicken-and-egg: on a fresh project the outputs only exist AFTER the first run, so a
             # pre-run draft finds no metrics. Re-draft from the artifacts the run just produced.
-            if not contract.get("metrics") and contract_path != committed \
-                    and run_res.get("exit_code") == 0:
+            # This also rescues a COMMITTED verify.yaml that pins NOTHING (e.g. `calma draft` ran
+            # before the outputs existed, writing artifacts:[] / metrics:[]): rather than dead-end
+            # in CAN'T-CONFIRM, auto-detect from the emitted artifacts. Never overwrite the user's
+            # committed file - write the resolved contract into the run dir and switch to it.
+            _empty_committed = (contract_path == committed and not contract.get("artifacts"))
+            if not contract.get("metrics") and run_res.get("exit_code") == 0 \
+                    and (contract_path != committed or _empty_committed):
                 redrafted = DC.draft(target, claim=claim, metric=metric)
                 if redrafted.get("metrics"):
+                    if _empty_committed:
+                        # mirror the run-only re-draft (above): keep the committed run block
+                        # (entrypoint/cwd/network) and let committed env keys win, so a hand-written
+                        # PYTHONHASHSEED / ecosystem / trust survives — then move off the committed
+                        # file so the user's verify.yaml is never overwritten.
+                        redrafted["run"] = contract.get("run", redrafted.get("run"))
+                        redrafted["env"] = {**(redrafted.get("env") or {}), **(contract.get("env") or {})}
+                        contract_path = os.path.join(run_dir, "verify.yaml")
                     contract = redrafted
                     json.dump(contract, open(contract_path, "w"), indent=2)
             # FLAKY check (WS5): re-execute once more and diff the artifact bytes. Identical inputs
@@ -2536,6 +2549,8 @@ def main():
                 print("\n[fixture copy kept at %s]" % dst)
             print("\nthat was a real inflated backtest. now try your own:  "
                   "%s verify <folder> \"<claim>\"" % _invocation())
+            print("   many results at once:  %s batch --manifest m.tsv"
+                  "   (one summary table over a whole sprint)" % _invocation())
             return 0 if res["repo_verdict"] == "REFUTED" else 1
         if a.cmd == "suggest":
             text = " ".join(a.text)

@@ -108,10 +108,10 @@ export default function InstallPage() {
                   them <em>before the turn finishes</em>. Invisible until a number doesn&apos;t hold.
                 </p>
                 <Term
-                  title="claude code"
+                  title="claude code — run each line on its own"
                   lines={[
-                    { p: "/plugin", t: " marketplace add rikhinkavuru/calma" },
-                    { p: "/plugin", t: " install calma@calma" },
+                    { p: "/plugin", t: " marketplace add rikhinkavuru/calma", c: "  # step 1" },
+                    { p: "/plugin", t: " install calma@calma", c: "             # step 2, after step 1 finishes" },
                   ]}
                 />
               </article>

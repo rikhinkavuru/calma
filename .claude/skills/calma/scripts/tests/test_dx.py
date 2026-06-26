@@ -397,7 +397,9 @@ truth(res["repo_verdict"] in (V.CONFIRMED, V.CAVEATS),
 truth(res["gate_exit"] == 0, "P1-4: no-claim reproduction gates exit 0")
 truth("scope=reproduction" in res["report"], "P1-4: report names the reproduction scope")
 
-# --- P1-5: committed contract with artifacts: [] names verify.yaml as the cause ---
+# --- P1-5: a committed contract that pins NOTHING (artifacts:[]/metrics:[], e.g. `calma draft`
+#     ran before the outputs existed) AUTO-DETECTS from the emitted output instead of dead-ending
+#     in CAN'T-CONFIRM. The committed file is NOT overwritten (resolved into the run dir). ---
 ea = os.path.join(tmp, "emptyart")
 os.makedirs(ea)
 shutil.copy(os.path.join(stable, "main.py"), os.path.join(ea, "main.py"))
@@ -405,9 +407,30 @@ with open(os.path.join(ea, "verify.yaml"), "w") as fh:
     json.dump({"run": {"entrypoint": "main.py", "network": "off"},
                "artifacts": [], "metrics": []}, fh)
 res = C.verify(ea)
-truth(res["repo_verdict"] == V.INCONCLUSIVE, "P1-5: empty-artifacts contract -> CAN'T-CONFIRM")
-truth("lists no artifacts" in res["report"] and "out.csv" in res["report"],
-      "P1-5: fix line names verify.yaml and the recomputable output")
+truth(res["repo_verdict"] in (V.CONFIRMED, V.CAVEATS),
+      "P1-5: empty-artifacts committed contract auto-detects from the output (no dead-end)")
+truth("scope=reproduction" in res["report"] and "recompute" in res["report"].lower(),
+      "P1-5: empty-artifacts contract recomputes from the emitted output")
+truth(json.load(open(os.path.join(ea, "verify.yaml")))["artifacts"] == [],
+      "P1-5: the committed verify.yaml is left untouched")
+# safety boundary: a committed contract that pins an ARTIFACT but no metrics must NOT be
+# re-drafted — `_empty_committed` is keyed on artifacts, not metrics. Guards the exact refactor
+# (flip artifacts->metrics) that would start silently re-drafting a user's real contract and
+# could mask a wrong number. A fabricated claim here must not confirm, and the file stays intact.
+pinned = os.path.join(tmp, "pinnedart")
+os.makedirs(pinned)
+shutil.copy(os.path.join(stable, "main.py"), os.path.join(pinned, "main.py"))
+with open(os.path.join(pinned, "verify.yaml"), "w") as fh:
+    json.dump({"run": {"entrypoint": "main.py", "network": "off"},
+               "artifacts": [{"path": "out.csv", "columns": {
+                   "value": {"tag": "value", "dtype": "float", "na_policy": "error"}}}],
+               "metrics": []}, fh)
+res = C.verify(pinned, claim="sum 999")
+truth(res["repo_verdict"] not in (V.CONFIRMED, V.CAVEATS),
+      "P1-5: committed contract pinning artifacts (no metrics) is NOT re-drafted into a confirm")
+_pa = json.load(open(os.path.join(pinned, "verify.yaml")))
+truth(_pa["metrics"] == [] and len(_pa["artifacts"]) == 1,
+      "P1-5: a committed pinned-artifact contract is left untouched")
 # malformed contract error carries a copy-pasteable minimal example
 bad = os.path.join(tmp, "badcontract.yaml")
 open(bad, "w").write("this is not\n  a contract {{{\n")

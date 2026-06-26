@@ -1,9 +1,12 @@
-.PHONY: install uninstall test test-all eval controls validity-catalog demo benchmark
+.PHONY: install uninstall dev test test-all eval controls validity-catalog demo benchmark
 
 SKILL := .claude/skills/calma
 
 install:        ## put `calma` on your PATH (symlink; no deps)
 	@./install.sh
+
+dev:            ## boot the local console: API (:8000) + web (:3000) together (Ctrl-C stops both)
+	@bash scripts/dev.sh
 
 uninstall:      ## remove the `calma` symlink from common bin dirs
 	@for d in "$$HOME/.local/bin" /usr/local/bin; do \
