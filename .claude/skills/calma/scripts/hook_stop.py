@@ -173,8 +173,12 @@ def _resolve_timeout(cfg):
 
 def _coverage_on(cfg):
     """Whether to print the one-line 'what got checked this turn' note. Default ON: a team has to be
-    able to SEE the guardrail run to trust it and leave it on. env CALMA_HOOK_COVERAGE=0|off|false
-    or .calma/config.json {"hook": {"coverage": false}} turns it off."""
+    able to SEE the guardrail run to trust it and leave it on (the Turbo `>>> FULL TURBO` move - one
+    terse line builds trust without nagging). env CALMA_HOOK_COVERAGE=0|off|false, the global
+    CALMA_QUIET=1 (the inverse of HUSKY=0), or .calma/config.json {"hook": {"coverage": false}}
+    turns it off."""
+    if os.environ.get("CALMA_QUIET", "").strip().lower() in ("1", "on", "true", "yes"):
+        return False
     env = os.environ.get("CALMA_HOOK_COVERAGE", "").strip().lower()
     if env in ("0", "off", "false", "no", "disabled"):
         return False

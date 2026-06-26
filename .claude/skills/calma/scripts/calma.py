@@ -38,6 +38,7 @@ import embargo_checks as EMB
 import simulation_assumptions_checks as SAC
 import cross_engine as CE
 import compare as CMP
+import config_toml as CFG
 import draft_contract as DC
 import intake as INTAKE
 import ledger as LED
@@ -1521,6 +1522,174 @@ def stats(target):
             "auto": auto}, "\n".join(lines)
 
 
+def _signing_keyid():
+    """The local signing key id (Ed25519, ~/.calma/keys), or None. Best-effort - never raises."""
+    kdir = os.path.expanduser(os.environ.get("CALMA_KEY_DIR", "~/.calma/keys"))
+    for name in ("key.json", "signing_key.json"):
+        try:
+            kp = os.path.join(kdir, name)
+            if os.path.isfile(kp):
+                return (json.load(open(kp)) or {}).get("keyid")
+        except (OSError, ValueError):
+            pass
+    return None
+
+
+def _health_checks():
+    """WS4: the environment checks behind `calma doctor` (and the guardrail line in `calma status`).
+    Each entry: {key, status: ok|warn|fail, detail, fix}. Pure inspection - never mutates anything."""
+    scripts = os.path.dirname(os.path.abspath(__file__))
+    plugin_root = os.environ.get("CLAUDE_PLUGIN_ROOT") or os.path.realpath(
+        os.path.join(scripts, "..", "..", "..", ".."))
+    out = [{"key": "engine", "status": "ok", "detail": "calma %s" % __version__, "fix": None}]
+    pyv = "%d.%d.%d" % sys.version_info[:3]
+    okpy = sys.version_info[:2] >= (3, 9)
+    out.append({"key": "runtime", "status": "ok" if okpy else "fail",
+                "detail": "Python %s%s" % (pyv, "" if okpy else "  (need >= 3.9)"),
+                "fix": None if okpy else "install Python 3.9+ (calma is pure stdlib - no other deps)"})
+    hooks_json = os.path.join(plugin_root, "hooks", "hooks.json")
+    defined = os.path.isfile(hooks_json) and os.path.isfile(os.path.join(scripts, "hook_stop.py"))
+    out.append({"key": "stop-hook", "status": "ok" if defined else "warn",
+                "detail": "wired (hooks.json -> hook_stop.py)" if defined
+                          else "not wired here (CLI / CI use needs no hook; the Claude Code plugin adds it)",
+                "fix": None if defined else "for the zero-touch guardrail, install the calma plugin in "
+                       "Claude Code (confirm with /hooks); not needed for CLI or CI verification"})
+    off = os.environ.get("CALMA_HOOK") == "0" or os.environ.get("CALMA_VERIFY", "").lower() == "off"
+    quiet = os.environ.get("CALMA_QUIET", "").lower() in ("1", "on", "true", "yes")
+    out.append({"key": "guardrail", "status": "warn" if off else "ok",
+                "detail": "opted OUT via env (CALMA_HOOK=0 / CALMA_VERIFY=off)" if off
+                          else "active" + (" · per-run line quiet (CALMA_QUIET=1)" if quiet else ""),
+                "fix": "unset CALMA_HOOK / CALMA_VERIFY to re-enable the guardrail" if off else None})
+    kid = _signing_keyid()
+    out.append({"key": "signing-key", "status": "ok" if kid else "warn",
+                "detail": ("local Ed25519 key %s…" % kid[:16]) if kid
+                          else "no local signing key (proofs still emit; signing is optional defense-in-depth)",
+                "fix": None if kid else "calma attest keygen   # generate a local Ed25519 signing key"})
+    return out
+
+
+_DOCTOR_GLYPH = {"ok": "[✓]", "warn": "[!]", "fail": "[✗]"}
+_DOCTOR_RANK = {"ok": 0, "warn": 1, "fail": 2}
+
+
+def doctor_cmd(*, fix=False, as_json=False):
+    """WS4: `calma doctor` - environment health. [✓]/[!]/[✗] per check + a fix line on every non-OK
+    one; --fix applies the safe auto-fixes (today: generate a local signing key). Answers 'is the
+    guardrail wired and working?' (the Homebrew/Flutter/Expo doctor convention)."""
+    checks = _health_checks()
+    if fix:
+        for c in checks:
+            if c["key"] == "signing-key" and c["status"] != "ok":
+                try:
+                    import attest as ATT
+                    ATT.keygen()
+                    print("fixed: generated a local signing key")
+                except Exception as e:  # keygen is optional; never let --fix crash doctor
+                    print("could not auto-generate a signing key: %s" % e, file=sys.stderr)
+        checks = _health_checks()   # re-evaluate after fixes
+    if as_json:
+        ok = all(c["status"] != "fail" for c in checks)
+        print(json.dumps({"checks": checks, "ok": ok}, indent=2))
+        return 0 if ok else 1
+    print("calma doctor")
+    worst = 0
+    for c in checks:
+        print("  %s %-13s %s" % (_DOCTOR_GLYPH[c["status"]], c["key"], c["detail"]))
+        if c["status"] != "ok" and c["fix"]:
+            print("       ↳ %s" % c["fix"])
+        worst = max(worst, _DOCTOR_RANK[c["status"]])
+    nfail = sum(1 for c in checks if c["status"] == "fail")
+    nwarn = sum(1 for c in checks if c["status"] == "warn")
+    if worst == 0:
+        print("\nall good - the guardrail is wired and ready.")
+    else:
+        tip = "" if fix else "  (run `calma doctor --fix` to auto-fix what's safe)"
+        print("\n%d issue(s), %d warning(s) - see the fix lines above.%s" % (nfail, nwarn, tip))
+    return 0 if nfail == 0 else 1
+
+
+def status_cmd(target=".", *, as_json=False):
+    """WS4: the glance command. Is the guardrail on, is it working, and what has it checked? - answered
+    in ONE command: hook + signing-key state, this project's 7-day verdict tally, and the last run."""
+    import time
+    target = os.path.abspath(target)
+    cfg = CFG.verify_config(target)
+    vtarget = cfg["target"] if cfg else target
+    checks = {c["key"]: c for c in _health_checks()}
+    hist = []
+    hpath = os.path.join(vtarget, ".calma", "history.jsonl")
+    if os.path.isfile(hpath):
+        for line in open(hpath, encoding="utf-8", errors="replace"):
+            line = line.strip()
+            if line:
+                try:
+                    hist.append(json.loads(line))
+                except ValueError:
+                    pass
+    verifs = [h for h in hist if h.get("run_id") != "teardown"]
+    now = int(time.time())
+    last7 = [h for h in verifs if now - int(h.get("ts", 0) or 0) <= 7 * 86400]
+    tally = {V.CONFIRMED_OUTCOME: 0, V.CAUGHT_OUTCOME: 0, V.CANT_TELL_OUTCOME: 0}
+    for h in last7:
+        v = h.get("verdict", "?")
+        ec = 0 if v in (V.CONFIRMED, V.CAVEATS) else 2 if v == V.INCONCLUSIVE else 1
+        tally[V.outcome(v, ec)] += 1
+    last = verifs[-1] if verifs else None
+    if as_json:
+        print(json.dumps({"guardrail": {k: checks[k]["status"] for k in checks},
+                          "signing_keyid": _signing_keyid(), "project": vtarget,
+                          "last7": tally, "checks_total": len(last7),
+                          "last_run": last}, indent=2, default=str))
+        return 0
+    g, sk = checks["guardrail"], checks["signing-key"]
+    hook_ok = checks["stop-hook"]["status"] == "ok" and g["status"] == "ok"
+    # the guardrail line: coherent glyph + detail. Active when the hook is wired and not opted-out;
+    # otherwise show the actual reason (opted-out, or hook-not-wired for a CLI/CI-only install).
+    if hook_ok:
+        grail = "stop-hook active"
+    elif g["status"] != "ok":
+        grail = g["detail"]                       # opted out via env
+    else:
+        grail = checks["stop-hook"]["detail"]     # hook not wired here (CLI/CI install)
+    print("calma status")
+    print("  guardrail   %s %s" % ("[✓]" if hook_ok else "[!]", grail))
+    print("  signing     %s" % (sk["detail"]))
+    print("  engine      calma %s · Python %d.%d" % (__version__, *sys.version_info[:2]))
+    rel = os.path.relpath(vtarget)
+    print("  project     %s%s" % (rel, "  (calma.toml: %s)" % cfg.get("metric")
+                                  if cfg and cfg.get("metric") else ""))
+    if last7 or verifs:
+        total = len(last7)
+        parts = ["%d %s" % (tally[o], o) for o in (V.CONFIRMED_OUTCOME, V.CAUGHT_OUTCOME,
+                                                   V.CANT_TELL_OUTCOME) if tally[o]]
+        print("  last 7 days %d check%s%s" % (total, "" if total == 1 else "s",
+              "  ·  " + " · ".join(parts) if parts else ""))
+        # the promise made legible: with the guardrail on, every number the agent emitted got checked.
+        caught = tally[V.CAUGHT_OUTCOME]
+        print("  shipped     %d number%s caught before shipping%s"
+              % (caught, "" if caught == 1 else "s",
+                 "  ·  0 shipped unverified" if hook_ok else ""))
+        if last:
+            ago = _ago(now - int(last.get("ts", now) or now))
+            oc = V.outcome(last.get("verdict", "?"),
+                           0 if last.get("verdict") in (V.CONFIRMED, V.CAVEATS) else 1)
+            mv = REP.fmt_value(last.get("recomputed"), last.get("metric"))
+            print("  last run    %s %s %s  ·  %s" % (oc, last.get("metric") or "", mv, ago))
+    else:
+        print("  history     no verifications in this project yet - run `calma up`")
+    print("  → calma doctor   full health check (+ --fix)")
+    return 0
+
+
+def _ago(secs):
+    """A terse 'N{s,m,h,d} ago' for a delta in seconds."""
+    secs = max(0, int(secs))
+    for unit, n in (("d", 86400), ("h", 3600), ("m", 60)):
+        if secs >= n:
+            return "%d%s ago" % (secs // n, unit)
+    return "%ds ago" % secs
+
+
 def _json_finite(obj):
     """Recursively replace non-finite floats (NaN/Inf) with None so `--json` is STRICT JSON.
     Python's json.dumps emits bare NaN/Infinity by default, which JavaScript's JSON.parse rejects
@@ -1659,6 +1828,99 @@ def init_cmd(framework, target=".", *, force=False, list_fw=False):
     if note:
         print(textwrap.fill(note, 94, initial_indent="  next: ", subsequent_indent="        "))
     return 0
+
+
+def init_detect_cmd(target=".", *, yes=False, force=False):
+    """WS1: `calma init` with NO framework = an auto-DETECTOR, not a questionnaire. Scan the target for a
+    result artifact + a recomputable metric, PROPOSE it in one line, take a single confirmation, and emit
+    a committed calma.toml so the NEXT verify is bare `calma verify`. The Wrangler/uv pattern: detect ->
+    show -> confirm -> generate; never interrogate. `--yes` (for agents / CI) skips the prompt."""
+    target = os.path.abspath(target)
+    if not os.path.isdir(target):
+        print("not a directory: %s" % target, file=sys.stderr)
+        return 2
+    if os.path.isfile(os.path.join(target, CFG.FILENAME)) and not force:
+        print("calma.toml is already here - `calma verify` will use it (pass --force to re-detect).")
+        return 0
+    try:
+        contract = DC.draft(target)
+    except (OSError, ValueError) as e:
+        print("couldn't scan %s: %s" % (os.path.relpath(target), e), file=sys.stderr)
+        return 2
+    picked = (contract.get("metrics") or [None])[0]
+    notes = contract.get("_draft_notes", {})
+    if not picked:
+        print("calma couldn't auto-detect a result in %s yet (no machine-readable output on disk)."
+              % os.path.relpath(target))
+        print("  run the code + detect in one step:  calma up")
+        print("  or name the metric yourself:        calma verify --metric <id> --claim \"<m>=<value>\"")
+        print("  browse the recipes:                 calma recipes search <term>")
+        return 1
+    mid = picked["metric_id"]
+    art = picked.get("artifact") or "?"
+    binding = picked.get("binding") or {}
+    cols = ", ".join("%s=%s" % (k, v) for k, v in binding.items()) if binding else None
+    rcp = RCP.get(mid)
+    fam = rcp.manifest.get("family") if rcp else None
+    print("Detected: recipe '%s'%s on %s%s"
+          % (mid, " (%s)" % fam if fam else "", art, "  [%s]" % cols if cols else ""))
+    for d in notes.get("detected_blocks", []):
+        print("  + %s" % d)
+    for s in notes.get("suggested_blocks", [])[:2]:
+        print("  ? you could also declare %s" % s)
+    if not yes:
+        try:
+            ans = input("\nWrite calma.toml so `calma verify` re-checks this? [Y/n] ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return 1
+        if ans in ("n", "no", "q"):
+            print("cancelled - nothing written.")
+            return 1
+    detected = ["recipe '%s'%s on %s" % (mid, " (%s)" % fam if fam else "", art)] \
+        + list(notes.get("detected_blocks", []))
+    path = CFG.write(target, target=".", metric=mid, detected=detected)
+    print("→ wrote %s" % os.path.relpath(path))
+    print("  verify it now:          calma up")
+    print("  add a number to check:  set  claim = \"%s=<value>\"  in calma.toml" % mid)
+    return 0
+
+
+def up_cmd(target=".", *, yes=False, claim=None, metric=None):
+    """WS1: the one-command magic moment. VERIFY-FIRST (re-executes the code, which produces + auto-
+    detects the outputs even on a fresh repo), then persist a calma.toml so the NEXT run is bare
+    `calma verify`. Idempotent - a re-run re-verifies against the committed calma.toml. Visible timing
+    (uv's "Resolved in 170ms" move) - the recompute speed IS the magic."""
+    import time
+    target = os.path.abspath(target)
+    cfg = CFG.verify_config(target)
+    vtarget = cfg["target"] if cfg else target
+    eff_claim = claim or (cfg.get("claim") if cfg else None)
+    eff_metric = metric or (cfg.get("metric") if cfg else None)
+    t0 = time.time()
+    res = verify(vtarget, eff_claim, eff_metric, (cfg or {}).get("run_id") or "run", opts=VerifyOptions())
+    print(res.get("display") or res["report"])
+    rv = res["repo_verdict"]
+    exit_code = 3 if res.get("refused") else 4 if res.get("killed") else res["gate_exit"]
+    print("\n[exit %d (%s) · verified in %.1fs]" % (exit_code, REP.display(rv), time.time() - t0))
+    # first run with no committed config: persist what we detected so the NEXT verify is bare. `up` IS
+    # the "set this up" command, so write without re-prompting (the user already opted in by running up).
+    wrote = False
+    if cfg is None and not os.path.isfile(os.path.join(vtarget, CFG.FILENAME)):
+        det_metric = eff_metric or ((res.get("ledger", {}).get("claims") or [{}])[0].get("metric"))
+        if det_metric and os.access(vtarget, os.W_OK):
+            try:
+                p = CFG.write(vtarget, target=".", metric=det_metric, claim=eff_claim,
+                              detected=["recipe '%s' (auto-detected by `calma up`)" % det_metric])
+                print("→ wrote %s  (next time, just run `calma verify`)" % os.path.relpath(p))
+                wrote = True
+            except OSError:
+                pass
+    # suggest the next command (clig.dev: lead the user to the next step).
+    if not wrote:
+        print("  → calma verify              re-check (uses calma.toml)")
+    print("  → calma status              is the guardrail on? recent checks + signing key")
+    return exit_code
 
 
 def draft_cmd(target, *, ai=False, budget=3, model=None, force=False, as_json=False):
@@ -2261,6 +2523,12 @@ def main():
     s.add_argument("target", help="folder whose .calma verification history to summarize")
     s.add_argument("--json", action="store_true", dest="as_json",
                    help="print the summary as machine-readable JSON")
+    st = sub.add_parser("status", help="is the guardrail on? hook + signing key, recent checks, last run")
+    st.add_argument("target", nargs="?", default=".", help="project to summarize (default: .)")
+    st.add_argument("--json", action="store_true", dest="as_json", help="machine-readable JSON")
+    doc = sub.add_parser("doctor", help="check the install is healthy ([✓]/[!]/[✗] + fixes)")
+    doc.add_argument("--fix", action="store_true", help="apply the safe auto-fixes (e.g. generate a key)")
+    doc.add_argument("--json", action="store_true", dest="as_json", help="machine-readable JSON")
     dm = sub.add_parser("demo", help="watch calma catch a real inflated backtest "
                                      "(bundled fixture; offline, a few seconds)")
     dm.add_argument("--keep", action="store_true",
@@ -2274,17 +2542,27 @@ def main():
     rc = sub.add_parser("recipes", help="list every built-in metric recipe, grouped by family")
     rc.add_argument("--json", action="store_true", dest="as_json",
                     help="print {family: [metric ids]} as JSON")
-    ini = sub.add_parser("init", help="scaffold a starter verify.yaml for an ML/quant framework "
-                                      "(backtrader/vectorbt/zipline/pytorch/xgboost/sklearn)")
+    ini = sub.add_parser("init", help="auto-detect a result + recipe and write calma.toml (no args), "
+                                      "or scaffold a framework starter (`calma init backtrader`)")
     ini.add_argument("framework", nargs="?", default=None,
-                     help="backtrader | vectorbt | zipline | pytorch | xgboost | sklearn "
-                          "(aliases: torch, xgb, scikit-learn). Omit with --list to see them all")
-    ini.add_argument("target", nargs="?", default=".", help="dir to write verify.yaml into (default: .)")
+                     help="OMIT to AUTO-DETECT the result + recipe and write calma.toml. Or name a "
+                          "framework to scaffold a verify.yaml: backtrader | vectorbt | zipline | "
+                          "pytorch | xgboost | sklearn (aliases: torch, xgb, scikit-learn)")
+    ini.add_argument("target", nargs="?", default=".", help="dir to scan / write into (default: .)")
     ini.add_argument("--list", action="store_true", dest="list_fw",
                      help="list the available frameworks + aliases and exit")
+    ini.add_argument("--yes", "-y", action="store_true",
+                     help="non-interactive: accept the auto-detected recipe without prompting (agents / CI)")
     ini.add_argument("--force", action="store_true",
-                     help="overwrite an existing verify.yaml, or write the skeleton even when the "
-                          "repo's artifacts don't match the template (init normally steers to draft)")
+                     help="overwrite an existing calma.toml / verify.yaml, or write the framework "
+                          "skeleton even when the repo's artifacts don't match the template")
+    up = sub.add_parser("up", help="the one-command magic: auto-detect (first run) -> verify -> "
+                                   "verdict + proof. Re-runs re-verify against calma.toml")
+    up.add_argument("target", nargs="?", default=".", help="folder to verify (default: .)")
+    up.add_argument("--claim", default=None, help="the headline number to check (overrides calma.toml)")
+    up.add_argument("--metric", default=None, help="force a recipe id (overrides calma.toml)")
+    up.add_argument("--yes", "-y", action="store_true",
+                    help="non-interactive: accept the auto-detected recipe on first run (agents / CI)")
     dr = sub.add_parser("draft", help="generate a verify.yaml for a repo (point it at a messy repo); "
                                       "heuristic by default, --ai adds the LLM drafter + repair loop")
     dr.add_argument("target", help="the repo/dir to draft a verify.yaml for")
@@ -2420,8 +2698,18 @@ def main():
                       help="pin an external witness key (repeatable); >=1 cosignature -> the witnessed tier")
     # bare `calma` (or `calma help`) is a person looking for the door, not an error
     if len(sys.argv) <= 1 or sys.argv[1] == "help":
+        if len(sys.argv) <= 1 and CFG.find(".") is not None:
+            # WS1: in a configured project (a calma.toml exists), bare `calma` is the one-command
+            # re-verify (`calma up`) - the idempotent magic moment.
+            try:
+                return up_cmd(".")
+            except (ValueError, OSError) as e:
+                print("calma: %s" % e, file=sys.stderr)
+                return 2
         ap.print_help()
         print("\nstart here:\n"
+              "  calma up                           one command: detect -> verify -> proof "
+              "(run it in a result folder)\n"
               "  calma demo                         watch a real inflated backtest get caught "
               "(offline, a few seconds)\n"
               "  calma verify <folder> \"<claim>\"    check your own result, "
@@ -2432,16 +2720,28 @@ def main():
     try:
         if a.cmd == "verify":
             if a.target is None:
-                # bare `calma verify` is the most common first fumble: point at the zero-setup demo
-                # and the suggester instead of a raw argparse "the following arguments are required".
-                inv = _invocation()
-                print("calma verify needs a folder to check. Try:\n"
-                      "  %s demo                          watch it catch a real inflated backtest "
-                      "(offline, no setup)\n"
-                      "  %s verify <folder> \"<claim>\"      e.g. %s verify ./out \"accuracy 0.87\"\n"
-                      "  %s suggest \"<what you measured>\"   unsure which metric? get ranked candidates"
-                      % (inv, inv, inv, inv), file=sys.stderr)
-                return 2
+                # WS1: no positional target -> use the committed calma.toml, so the SECOND verify is bare
+                # `calma verify` (the first one wrote the config via `calma init` / `calma up`).
+                cfg = CFG.verify_config(".")
+                if cfg is not None:
+                    a.target = cfg["target"]
+                    if a.claim is None and a.claim_text is None:
+                        a.claim = cfg.get("claim")
+                    if a.metric is None:
+                        a.metric = cfg.get("metric")
+                    if a.run_id == "run" and cfg.get("run_id"):
+                        a.run_id = cfg["run_id"]
+                else:
+                    # no target AND no calma.toml: the most common first fumble - point at the zero-setup
+                    # demo, `calma up`, and the suggester instead of a raw argparse "required" error.
+                    inv = _invocation()
+                    print("calma verify needs a folder to check (or a committed calma.toml). Try:\n"
+                          "  %s up                            auto-detect + verify this folder in one step\n"
+                          "  %s demo                          watch it catch a real inflated backtest "
+                          "(offline, no setup)\n"
+                          "  %s verify <folder> \"<claim>\"      e.g. %s verify ./out \"accuracy 0.87\""
+                          % (inv, inv, inv, inv), file=sys.stderr)
+                    return 2
             # H2: ONE options object for every dispatch below - run-only, normal, and the auto retry
             # all run through the same VerifyOptions, so no path can silently drop a flag (the bug
             # that left --run-only without cross_engine / check_determinism).
@@ -2620,7 +2920,13 @@ def main():
                     print("    " + ln)
             return 0
         if a.cmd == "init":
+            # WS1: no framework named -> the AUTO-DETECTOR (scan -> propose -> write calma.toml). A named
+            # framework keeps the original verify.yaml scaffolding (back-compat).
+            if a.framework is None and not a.list_fw:
+                return init_detect_cmd(a.target, yes=a.yes, force=a.force)
             return init_cmd(a.framework, a.target, force=a.force, list_fw=a.list_fw)
+        if a.cmd == "up":
+            return up_cmd(a.target, yes=a.yes, claim=a.claim, metric=a.metric)
         if a.cmd == "draft":
             return draft_cmd(a.target, ai=a.ai, budget=a.budget, model=a.model,
                              force=a.force, as_json=a.as_json)
@@ -2663,6 +2969,10 @@ def main():
             data, rendered = stats(a.target)
             print(json.dumps(data, indent=2) if a.as_json else rendered)
             return 0
+        if a.cmd == "status":
+            return status_cmd(a.target, as_json=a.as_json)
+        if a.cmd == "doctor":
+            return doctor_cmd(fix=a.fix, as_json=a.as_json)
         if a.cmd == "modes":
             base = os.path.realpath(a.dir or ".")
             cfg_path = (os.path.join(os.path.expanduser("~"), ".calma", "config.json") if a.glob
