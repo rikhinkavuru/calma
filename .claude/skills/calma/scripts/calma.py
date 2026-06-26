@@ -1690,6 +1690,47 @@ def _ago(secs):
     return "%ds ago" % secs
 
 
+def _cli_schema(ap):
+    """WS2: a machine-readable spec of the whole CLI so an agent never has to parse --help
+    (clispec.dev). Built by INTROSPECTING argparse, so it cannot drift from the real commands. Carries
+    the verdict outcomes + the exit-code contract an agent keys on."""
+    import argparse as _ap
+    spec = {
+        "tool": "calma", "version": __version__,
+        "summary": "Verify a computational result by re-executing it and recomputing the headline "
+                   "number from the raw outputs; the verdict comes from deterministic scripts.",
+        "outcomes": list(V.OUTCOMES),
+        "verdicts": list(V.VERDICTS),
+        "exit_codes": {"0": "Confirmed / clean (gate passed)", "1": "Caught / findings (gate failed)",
+                       "2": "invalid ledger", "3": "execution refused (trust posture)",
+                       "4": "killed (timeout / resource)"},
+        "config_file": CFG.FILENAME,
+        "commands": {},
+    }
+    subs = next((a for a in ap._actions if isinstance(a, _ap._SubParsersAction)), None)
+    helps = {ca.dest: ca.help for ca in (subs._choices_actions if subs else [])}
+    novalue = (_ap._StoreTrueAction, _ap._StoreFalseAction, _ap._HelpAction)
+    for name, p in (subs.choices.items() if subs else []):
+        args = []
+        for ac in p._actions:
+            if ac.dest == "help":
+                continue
+            entry = {
+                "flags": list(ac.option_strings) or [ac.dest],
+                "dest": ac.dest,
+                "positional": not ac.option_strings,
+                "required": bool(getattr(ac, "required", False)),
+                "takes_value": not isinstance(ac, novalue),
+                "choices": list(ac.choices) if (ac.choices and not isinstance(ac, _ap._SubParsersAction)) else None,
+                "help": ac.help if ac.help is not _ap.SUPPRESS else None,
+            }
+            if isinstance(ac, _ap._SubParsersAction):
+                entry["subcommands"] = sorted(ac.choices)
+            args.append(entry)
+        spec["commands"][name] = {"help": helps.get(name), "args": args}
+    return spec
+
+
 def _json_finite(obj):
     """Recursively replace non-finite floats (NaN/Inf) with None so `--json` is STRICT JSON.
     Python's json.dumps emits bare NaN/Infinity by default, which JavaScript's JSON.parse rejects
@@ -2539,9 +2580,14 @@ def main():
     sg.add_argument("-k", "--top", type=int, default=5, help="how many candidates to show (default 5)")
     sg.add_argument("--json", action="store_true", dest="as_json",
                     help="print ranked candidates as JSON")
-    rc = sub.add_parser("recipes", help="list every built-in metric recipe, grouped by family")
+    rc = sub.add_parser("recipes", help="list recipes by family, or `calma recipes search <term>` to find one")
+    rc.add_argument("term", nargs="*", help="free-text to search (e.g. `recipes search sharpe ratio`); "
+                                            "omit to list every recipe grouped by family")
     rc.add_argument("--json", action="store_true", dest="as_json",
-                    help="print {family: [metric ids]} as JSON")
+                    help="print {family: [metric ids]} (or search hits) as JSON")
+    sc = sub.add_parser("schema", help="emit the machine-readable CLI spec (for agents; no --help parsing)")
+    sc.add_argument("--json", action="store_true", dest="as_json", default=True,
+                    help="(default) print the spec as JSON")
     ini = sub.add_parser("init", help="auto-detect a result + recipe and write calma.toml (no args), "
                                       "or scaffold a framework starter (`calma init backtrader`)")
     ini.add_argument("framework", nargs="?", default=None,
@@ -2840,6 +2886,13 @@ def main():
                         label += ", with caveat findings"
                     tail = " - see --fail-on for the exit policy"
                 print("\n[exit %d (%s)%s]" % (exit_code, label, tail))
+                # WS2: suggest the next command (clig.dev - lead the user onward, never dead-end).
+                _rvv = res["repo_verdict"]
+                if _rvv in V.CATCH_VERDICTS:
+                    print("  → calma teardown %s   a shareable card of this catch" % a.target)
+                elif _rvv in (V.CONFIRMED, V.CAVEATS) and res.get("run_dir"):
+                    print("  → calma report %s   a signed, offline-re-verifiable proof"
+                          % os.path.relpath(res["run_dir"]))
             _autonomy_followup(res, mode, _base, quiet=a.as_json,
                                offline=_offline_enabled(a.offline, _base))
             return exit_code
@@ -2901,6 +2954,25 @@ def main():
                           % (_invocation(), mid))
             return 0 if results else 1
         if a.cmd == "recipes":
+            # WS2: `calma recipes search <term>` (or just `calma recipes <term>`) -> ranked matches via
+            # the same semantic suggester as `calma suggest` (Biome ships `search`/`explain` for this).
+            terms = [t for t in (a.term or []) if t.lower() != "search"]
+            if terms:
+                query = " ".join(terms)
+                results = SUGG.suggest(query, k=10)
+                if a.as_json:
+                    print(json.dumps({"query": query, "matches": results}, indent=2))
+                    return 0 if results else 1
+                if not results:
+                    print("no recipe matches %r - try a metric name (accuracy / sharpe / rmse), "
+                          "or `calma recipes` for the full list" % query)
+                    return 1
+                print("recipes matching %r:" % query)
+                for r in results:
+                    print("  %-26s %-12s %s" % (r.get("metric_id"), r.get("family") or "",
+                                                (r.get("description") or "")[:58]))
+                print("\n  use one:  calma verify <folder> \"<claim>\" --metric <id>")
+                return 0
             fams = {}
             for mid in RCP.ids():
                 fams.setdefault(RCP.get(mid).manifest.get("family") or "other", []).append(mid)
@@ -2918,6 +2990,10 @@ def main():
                 print("\n  %s (%d)" % (fam, len(fams[fam])))
                 for ln in textwrap.wrap(", ".join(fams[fam]), width=wrap_w):
                     print("    " + ln)
+            print("\n  find one:  calma recipes search \"<what you measured>\"")
+            return 0
+        if a.cmd == "schema":
+            print(json.dumps(_cli_schema(ap), indent=2))
             return 0
         if a.cmd == "init":
             # WS1: no framework named -> the AUTO-DETECTOR (scan -> propose -> write calma.toml). A named
