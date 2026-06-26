@@ -66,11 +66,11 @@ export function SubmitForm({ recipeGroups }: { recipeGroups: RecipeGroup[] }) {
           </div>
           <div className={styles.field}>
             <label className={styles.label}>Trust</label>
-            <select className={styles.input} name="trust" defaultValue="own-code">
-              <option value="own-code">own-code</option>
+            <select className={styles.input} name="trust" defaultValue="untrusted-third-party">
               <option value="untrusted-third-party">untrusted-third-party</option>
+              <option value="own-code">own-code</option>
             </select>
-            <p className={styles.hint}>Use untrusted-third-party for code you didn&apos;t write — it runs under stricter isolation.</p>
+            <p className={styles.hint}>Uploads default to untrusted — they run under a verified container/microVM tier (refused if none is live). Switch to own-code only for code you wrote yourself.</p>
           </div>
           <div className={styles.field}>
             <label className={styles.label}>Recipe version</label>

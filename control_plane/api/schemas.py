@@ -15,14 +15,14 @@ class Claim(BaseModel):
 
 class Bundle(BaseModel):
     uri: str                      # R2 object key/uri of the code bundle (tar.gz)
-    sha256: str
-    entrypoint: str               # contract run.entrypoint inside the bundle
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")   # lowercase hex; the engine re-hashes the downloaded
+    entrypoint: str               # bytes against this before execution (declared != actual is rejected)
     language: str = "python"
 
 
 class DataRef(BaseModel):
     uri: str
-    sha256: str
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")   # re-hashed against the downloaded bytes before use
     dest_rel: str                 # relative path inside the workdir (safe_join-checked)
     size_bytes: int = 0
 

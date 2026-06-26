@@ -44,6 +44,24 @@ EXEC_ISOLATION = os.environ.get("CALMA_EXEC_ISOLATION", "").strip()
 if EXEC_ISOLATION not in _ISO_OK:
     raise ValueError("CALMA_EXEC_ISOLATION must be one of %r (got %r)" % (_ISO_OK, EXEC_ISOLATION))
 
+
+# Production isolation policy. The control plane is a MULTI-TENANT host that executes submitted code: it
+# must NEVER run tenant bytes unisolated. When this is on, run_verify() invokes the engine with
+# CALMA_REQUIRE_ISOLATED=1 (the engine then REFUSES exit-3 on a non-verified native tier instead of
+# degrading to an unwrapped host run, for EVERY trust level), and the service demotes any run that still
+# reports a non-verified tier to REFUSED rather than storing a verdict over unisolated bytes. Defaults ON
+# in production (VERCEL_ENV=production); override explicitly with CALMA_REQUIRE_ISOLATED=0/1.
+def _require_verified_isolation():
+    raw = os.environ.get("CALMA_REQUIRE_ISOLATED", "").strip().lower()
+    if raw in ("1", "true", "yes", "on"):
+        return True
+    if raw in ("0", "false", "no", "off"):
+        return False
+    return os.environ.get("VERCEL_ENV", "").strip().lower() == "production"
+
+
+REQUIRE_VERIFIED_ISOLATION = _require_verified_isolation()
+
 # Cloudflare R2 (S3-compatible) object storage.
 R2_ENDPOINT = os.environ.get("R2_ENDPOINT", "")
 R2_BUCKET = os.environ.get("R2_BUCKET", "")
@@ -60,6 +78,12 @@ SERVICE_TOKENS = tuple(t.strip() for t in SERVICE_TOKEN.split(",") if t.strip())
 DEFAULT_WALL_SECONDS = int(os.environ.get("CALMA_DEFAULT_WALL_S", "120"))
 UPLOAD_URL_TTL_S = int(os.environ.get("CALMA_UPLOAD_URL_TTL_S", "900"))
 ERROR_BASE = "https://calma.dev/errors/"
+
+# Artifact-collection caps (security: bound a hostile output flood and per-file exfil size). Only regular
+# files contained in runs/ are ever uploaded — symlinks/hardlinks/devices are rejected in collect_and_store.
+MAX_ARTIFACT_FILES = int(os.environ.get("CALMA_MAX_ARTIFACT_FILES", "2000"))
+MAX_ARTIFACT_FILE_BYTES = int(os.environ.get("CALMA_MAX_ARTIFACT_FILE_MB", "256")) * 1024 * 1024
+MAX_ARTIFACT_BYTES = int(os.environ.get("CALMA_MAX_ARTIFACT_TOTAL_MB", "1024")) * 1024 * 1024
 
 # --- Admission control for untrusted execution (kill-risk K6: runaway cost / abuse) ---
 # Enforced at submit, counted in Postgres (cross-instance correct on Fluid Compute). A job is "active" while

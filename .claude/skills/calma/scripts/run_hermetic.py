@@ -482,6 +482,20 @@ def _bwrap_argv(base, inner_argv, interp_dirs=(), writable=True, deny_calma=True
     return argv
 
 
+def _env_flag(name):
+    """A truthy env flag (1/true/yes/on, case-insensitive); anything else (incl. unset) is False."""
+    return str(os.environ.get(name, "")).strip().lower() in ("1", "true", "yes", "on")
+
+
+def _require_isolated():
+    """When CALMA_REQUIRE_ISOLATED is set, the AUTO own-code path REFUSES (exit 3) on a non-verified
+    native tier instead of degrading to an unwrapped host run. A multi-tenant host that executes
+    submitted code (the Calma control plane) sets this so tenant bytes can never run unisolated on the
+    API host. Off by default — the OSS CLI keeps its honest `host-not-isolated` caveat on a dev host
+    with no sandbox (where running your OWN code unwrapped is the documented, acceptable behaviour)."""
+    return _env_flag("CALMA_REQUIRE_ISOLATED")
+
+
 def _env_int(name, default):
     """A non-negative int env override (CALMA_BWRAP_*); fall back to default on missing/garbage/negative."""
     try:
@@ -1681,10 +1695,19 @@ def run(contract_path, base=None, timeout=120, trust_override=None, isolation=No
     isolation_tier = doc["tier"]
     # FAIL LOUD: an EXPLICIT --isolation seatbelt|bwrap that did not verify never degrades to an
     # unisolated host run (parity with the container tier's missing-image refusal). The AUTO path
-    # (isolation is None) instead proceeds and stamps host-not-isolated honestly below - that is
-    # today's behavior on a host without the tier, never a silent verified claim.
-    if isolation in ("seatbelt", "bwrap") and isolation_tier not in _VERIFIED_TIERS:
-        reason = "%s isolation requested but unavailable: %s" % (backend, doc.get("note", "self-test did not verify"))
+    # (isolation is None) ALSO refuses when this host REQUIRES verified isolation (CALMA_REQUIRE_ISOLATED
+    # — set by the multi-tenant control plane): own-code must never execute unwrapped on a host that runs
+    # submitted code. Without that flag the AUTO path proceeds and stamps host-not-isolated honestly below
+    # — today's behavior on a dev host running its OWN code without a sandbox, never a silent verified claim.
+    explicit_native = isolation in ("seatbelt", "bwrap")
+    if (explicit_native or _require_isolated()) and isolation_tier not in _VERIFIED_TIERS:
+        if explicit_native:
+            reason = "%s isolation requested but unavailable: %s" % (backend, doc.get("note", "self-test did not verify"))
+        else:
+            reason = ("verified isolation is required on this host (CALMA_REQUIRE_ISOLATED) but the native "
+                      "own-code tier did not verify (%s): %s — run on a host with a verified sandbox tier, "
+                      "or pin --isolation e2b (remote microVM)"
+                      % (isolation_tier, doc.get("note", "self-test did not verify")))
         if doc.get("fix"):
             reason += " - fix: %s" % doc["fix"]
         return {"phase": "refused", "exit_code": 3, "isolation_tier": isolation_tier,

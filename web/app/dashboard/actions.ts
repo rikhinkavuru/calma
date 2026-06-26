@@ -46,7 +46,10 @@ export async function submitAction(formData: FormData) {
     recipeId: String(formData.get("recipe_id") || "trading.total_return"),
     recipeVersion: String(formData.get("recipe_version") || "1.0.0"),
     entrypoint: String(formData.get("entrypoint") || "gen.py"),
-    trust: String(formData.get("trust") || "own-code"),
+    // Tenant uploads default to UNTRUSTED: the server must never execute submitted bytes as own-code
+    // (which can degrade to an unisolated host run). Untrusted requires a verified container/microVM
+    // tier and is refused otherwise. The form only offers own-code as an explicit opt-in.
+    trust: String(formData.get("trust") || "untrusted-third-party"),
     claim: metric && valueRaw ? { metric, value: Number(valueRaw) } : undefined,
   });
   redirect(`/dashboard/v/${v.verification_id}`);
@@ -63,6 +66,9 @@ export async function submitDemoAction() {
     recipeId: DEMO_BUNDLE.recipeId,
     recipeVersion: DEMO_BUNDLE.recipeVersion,
     entrypoint: DEMO_BUNDLE.entrypoint,
+    // own-code is truthful here: these are Calma's OWN fixed sample bytes (shipped in demoBundle.ts),
+    // not tenant-controlled input. On a host that requires verified isolation it still runs only under
+    // a verified tier (e.g. the e2b microVM) and is otherwise refused — never an unwrapped host run.
     trust: "own-code",
     claim: { metric: DEMO_BUNDLE.metric, value: DEMO_BUNDLE.claimedValue },
   });

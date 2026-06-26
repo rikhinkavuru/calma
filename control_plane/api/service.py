@@ -146,7 +146,7 @@ def submit(conn, tenant, api_key_id, req, idem_key):
 def _execute(conn, tenant, job_id, req, limits):
     tid = tenant["id"]
     try:
-        work = engine.prepare_workdir(tid, req.bundle.uri, req.data_refs)
+        work = engine.prepare_workdir(tid, req.bundle.uri, req.bundle.sha256, req.data_refs)
     except Exception as e:
         repo.update_job(conn, tid, job_id, status="FAILED")
         repo.insert_audit(conn, tenant_id=tid, actor_type="system", actor_id=None,
@@ -181,14 +181,22 @@ def _execute(conn, tenant, job_id, req, limits):
         gate_exit = int(result.get("gate_exit") or 0)
         refused, killed = gate_exit == 3, gate_exit == 4
         tier = result.get("isolation_tier") or "n/a"
+        tier_ok = tier in VERIFIED
+        # Security backstop (defense in depth): a host that requires verified isolation must NEVER record a
+        # verdict from a run that did not achieve a verified tier — a non-verified ("host-not-isolated") run
+        # means tenant code may have executed unisolated on the API host. The engine's CALMA_REQUIRE_ISOLATED
+        # guard refuses such runs pre-execution (exit 3); this demotes any that still report COMPLETED to
+        # REFUSED so no verdict/proof is ever stored over unisolated bytes.
+        if config.REQUIRE_VERIFIED_ISOLATION and not refused and not killed and not tier_ok:
+            refused = True
         det = result.get("determinism_mode") or "uncontrolled"
         status = "REFUSED" if refused else "TIMED_OUT" if killed else "COMPLETED"
 
         run_id = str(repo.insert_run(
             conn, job_id=job_id, tenant_id=tid, provider=_provider_for(tier), isolation_tier=tier,
-            tier_verified=tier in VERIFIED, phase="REFUSED" if refused else "RUN_DONE",
+            tier_verified=tier_ok, phase="REFUSED" if refused else "RUN_DONE",
             run_exit_status=gate_exit, exit_code=gate_exit, killed=killed,
-            network_run="off" if tier in VERIFIED else "host-default", determinism_mode=det,
+            network_run="off" if tier_ok else "host-default", determinism_mode=det,
             determinism_digest="", resource_usage={}, doctor={}, stdout_tail=out, stderr_tail=err))
 
         # A COMPLETED run MUST carry a verdict; a verdict-less "completed" is a silent engine failure
