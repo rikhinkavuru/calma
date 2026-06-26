@@ -443,6 +443,12 @@ def verify_bundle(bundle, pinned_pub_hex=None):
         checks.append((name, bool(ok), ok_detail if ok else detail))
         return bool(ok)
 
+    # a bundle that is valid JSON but not an object (a bare array/scalar) must FAIL cleanly, never
+    # crash on .get() - fail-closed (never a false VERIFIED).
+    if not isinstance(bundle, dict):
+        chk("schema", False, "proof bundle is not a JSON object")
+        return False, checks
+
     env = bundle.get("envelope") or {}
     if not chk("schema", bundle.get("schema") in BUNDLE_SCHEMAS_ACCEPTED,
                "expected one of %s" % ", ".join(sorted(BUNDLE_SCHEMAS_ACCEPTED))):

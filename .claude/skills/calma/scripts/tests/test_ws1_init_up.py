@@ -44,6 +44,15 @@ truth(rt["verify"] == {"target": ".", "metric": "rmse", "claim": "rmse=0.2", "to
       "dump_verify -> loads round-trips every field")
 rt2 = CFG.loads(CFG.dump_verify(target="./out", metric="accuracy"))
 truth("claim" not in rt2["verify"], "dump_verify omits claim when none given (reproduction-only)")
+# a MALFORMED calma.toml must RAISE, never silently re-parse to a different value (verifying the wrong
+# claim is the one thing Calma must never do). tomllib (py>=3.11) rejects a duplicate key; on py<3.11
+# the flat reader has no tomllib to be stricter than, so this assertion is version-gated.
+if sys.version_info[:2] >= (3, 11):
+    try:
+        CFG.loads('[verify]\nclaim = "a=0.9"\nclaim = "a=0.5"\n')
+        truth(False, "malformed calma.toml (duplicate key) must raise, not silently pick one value")
+    except ValueError:
+        truth(True, "malformed calma.toml raises a clear ValueError (never verifies the wrong value)")
 
 # find(): walks up, stops at the repo root (.git), never escapes into an unrelated parent.
 tmp = tempfile.mkdtemp(prefix="calma-ws1-")

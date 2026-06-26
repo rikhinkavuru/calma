@@ -82,6 +82,25 @@ try:
     rc, out = _run(C.proof_show_cmd, os.path.join(tmp, "repro"))
     truth(rc == 0 and "Confirmed" in out and "no claim" in out, "proof show: reproduction reads as Confirmed (no claim)")
     truth("ceiling" in out, "proof show: the ceiling is on every proof, including reproductions")
+
+    # ---- the MEDIUM fix: a CONFIRMED verdict carrying an OPEN blocking finding (e.g. reproduces its
+    #      number but loses to the trivial baseline) gates to exit 1 and MUST read Caught on proof show,
+    #      NEVER green - via the real gate, not a verdict-only reconstruction. ----
+    led3 = {"repo_verdict": "CONFIRMED",
+            "claims": [{"metric": "total_return", "claimed_value": -0.324, "recomputed_value": -0.324,
+                        "verdict": "CONFIRMED"}],
+            "findings": [{"severity": "major", "status": "open", "dimension": "baseline",
+                          "locator": "loses to buy-and-hold"}],
+            "scope": {}}
+    rd3 = os.path.join(tmp, "baseline", ".calma", "run")
+    os.makedirs(rd3)
+    with open(os.path.join(rd3, "ledger.json"), "w") as fh:
+        json.dump(led3, fh)
+    rc, out = _run(C.proof_show_cmd, os.path.join(tmp, "baseline"))
+    truth("Caught" in out and "Confirmed" not in out,
+          "proof show: CONFIRMED + open blocking finding reads Caught (the real gate), never green")
+    rc, out = _run(C.proof_show_cmd, os.path.join(tmp, "baseline"), as_json=True)
+    truth(json.loads(out)["outcome"] == "Caught", "proof show --json: open-blocker run rolls up to Caught")
 finally:
     import shutil
     shutil.rmtree(tmp, ignore_errors=True)

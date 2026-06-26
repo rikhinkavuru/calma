@@ -62,26 +62,36 @@ def _parse_minimal(text):
 
 
 def loads(text):
-    """Parse calma.toml text -> a nested dict. tomllib when present (full spec), else the flat reader."""
+    """Parse calma.toml text -> a nested dict. tomllib when present (full spec), else the flat reader.
+
+    A REAL tomllib parse error (a duplicate key, a git merge-conflict marker, genuinely malformed TOML)
+    is RAISED, never silently re-parsed by the lenient flat reader: degrading there would accept a
+    broken file and quietly verify the WRONG claim/target (the one thing Calma must never do). The flat
+    reader is a fallback ONLY on Python < 3.11, where there is no stdlib tomllib at all."""
     try:
         import tomllib
-        return tomllib.loads(text)
     except ModuleNotFoundError:
-        return _parse_minimal(text)
-    except Exception:
-        # tomllib is stricter than our flat subset; if a hand-edit trips it, degrade to the flat reader
-        # rather than dead-ending the user (the fields we read are simple key=value pairs).
-        return _parse_minimal(text)
+        return _parse_minimal(text)        # Python < 3.11: no stdlib TOML parser
+    try:
+        return tomllib.loads(text)
+    except Exception as e:
+        raise ValueError("malformed calma.toml (%s) - fix the file; Calma won't guess which value you "
+                         "meant" % e)
 
 
 def load(path):
-    """Read + parse a calma.toml file. Raises ValueError on an unreadable / oversized file."""
+    """Read + parse a calma.toml file. Raises ValueError on an unreadable / oversized / non-utf8 /
+    non-regular file (a FIFO or device would block open() forever, and a non-utf8 file is corrupt)."""
+    import stat as _stat
     try:
-        if os.path.getsize(path) > 1 << 20:   # a calma.toml is a few hundred bytes; cap a hostile one
+        st = os.stat(path)
+        if not _stat.S_ISREG(st.st_mode):       # a FIFO/socket/device: never open() (would block)
+            raise ValueError("calma.toml is not a regular file: %s" % path)
+        if st.st_size > 1 << 20:                 # a calma.toml is a few hundred bytes; cap a hostile one
             raise ValueError("calma.toml is over the 1 MB cap - it should be a few lines")
         with open(path, "r", encoding="utf-8") as fh:
             return loads(fh.read())
-    except OSError as e:
+    except (OSError, UnicodeError) as e:
         raise ValueError("could not read %s: %s" % (path, e))
 
 

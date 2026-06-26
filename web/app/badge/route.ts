@@ -31,10 +31,14 @@ function seg(text: string): number {
 
 export function GET(req: NextRequest): Response {
   const sp = req.nextUrl.searchParams;
-  const outcome = (sp.get("outcome") || sp.get("verdict") || "Pending").trim();
-  const left = (sp.get("left") || "verified by calma").trim();
+  // cap EVERY user-controlled segment so a crafted long param can't amplify the SVG / blow out the
+  // layout (the badge is a tiny two-segment label).
+  const outcome = (sp.get("outcome") || sp.get("verdict") || "Pending").trim().slice(0, 40);
+  const left = (sp.get("left") || "verified by calma").trim().slice(0, 64);
   const right = (sp.get("label") || outcome).trim().slice(0, 64);
-  const color = COLOR[outcome] || COLOR.Pending;
+  // own-property lookup ONLY, so `?outcome=toString` (or any inherited member) falls through to the
+  // safe default instead of returning a function/object that lands in the unescaped `fill=`.
+  const color = Object.prototype.hasOwnProperty.call(COLOR, outcome) ? COLOR[outcome] : COLOR.Pending;
 
   const lt = left.toUpperCase();
   const rt = right.toUpperCase();

@@ -1358,6 +1358,9 @@ def verify(target, claim=None, metric=None, run_id="run", opts=None):
         with open(os.path.join(target, ".calma", "history.jsonl"), "a") as fh:
             fh.write(json.dumps({
                 "ts": int(time.time()), "run_id": run_id, "verdict": led["repo_verdict"],
+                # persist the REAL gate exit so `calma status` rolls a CONFIRMED-with-open-blocker run up
+                # to Caught (matching the gate), not green - the verdict word alone can't recover it.
+                "gate_exit": _gate_exit(led),
                 "metric": c0.get("metric"), "claimed": c0.get("claimed_value"),
                 "recomputed": c0.get("recomputed_value"),
                 "isolation": led.get("scope", {}).get("isolation_tier"),
@@ -1473,9 +1476,11 @@ def stats(target):
         line = line.strip()
         if line:
             try:
-                rows.append(json.loads(line))
+                obj = json.loads(line)
             except ValueError:
-                pass
+                continue
+            if isinstance(obj, dict):   # a non-dict JSON line must not crash the .get() below
+                rows.append(obj)
     # teardown's internal re-verify is bookkeeping, not a new verification - count it separately
     verifs = [r for r in rows if r.get("run_id") != "teardown"]
     teardowns = len(rows) - len(verifs)
@@ -1623,17 +1628,27 @@ def status_cmd(target=".", *, as_json=False):
             line = line.strip()
             if line:
                 try:
-                    hist.append(json.loads(line))
+                    obj = json.loads(line)
                 except ValueError:
-                    pass
+                    continue
+                if isinstance(obj, dict):   # a hand-edited line that is valid JSON but not an object
+                    hist.append(obj)         # (a bare array/scalar) must not crash the .get() below
     verifs = [h for h in hist if h.get("run_id") != "teardown"]
     now = int(time.time())
     last7 = [h for h in verifs if now - int(h.get("ts", 0) or 0) <= 7 * 86400]
+
+    def _entry_outcome(h):
+        # prefer the persisted REAL gate exit (so a CONFIRMED-with-open-blocker run tallies as Caught,
+        # matching the gate); fall back to the verdict word only for pre-fix history records.
+        v = h.get("verdict", "?")
+        ec = h.get("gate_exit")
+        if ec is None:
+            ec = 0 if v in (V.CONFIRMED, V.CAVEATS) else 2 if v == V.INCONCLUSIVE else 1
+        return V.outcome(v, ec)
+
     tally = {V.CONFIRMED_OUTCOME: 0, V.CAUGHT_OUTCOME: 0, V.CANT_TELL_OUTCOME: 0}
     for h in last7:
-        v = h.get("verdict", "?")
-        ec = 0 if v in (V.CONFIRMED, V.CAVEATS) else 2 if v == V.INCONCLUSIVE else 1
-        tally[V.outcome(v, ec)] += 1
+        tally[_entry_outcome(h)] += 1
     last = verifs[-1] if verifs else None
     if as_json:
         print(json.dumps({"guardrail": {k: checks[k]["status"] for k in checks},
@@ -1671,8 +1686,7 @@ def status_cmd(target=".", *, as_json=False):
                  "  ·  0 shipped unverified" if hook_ok else ""))
         if last:
             ago = _ago(now - int(last.get("ts", now) or now))
-            oc = V.outcome(last.get("verdict", "?"),
-                           0 if last.get("verdict") in (V.CONFIRMED, V.CAVEATS) else 1)
+            oc = _entry_outcome(last)
             mv = REP.fmt_value(last.get("recomputed"), last.get("metric"))
             print("  last run    %s %s %s  ·  %s" % (oc, last.get("metric") or "", mv, ago))
     else:
@@ -1729,6 +1743,17 @@ def _cli_schema(ap):
             args.append(entry)
         spec["commands"][name] = {"help": helps.get(name), "args": args}
     return spec
+
+
+def _gate_exit(led):
+    """The REAL gate exit for a ledger (0 clean / 1 findings) via ledger.gate - the single source of
+    truth the proof/status surfaces share with report.render, so a caught run (e.g. a CONFIRMED verdict
+    carrying an open blocking finding) can never read green on a secondary surface. Fail-closed: an
+    unusable ledger degrades to 1 (not-clean), never 0."""
+    try:
+        return LED.gate(led)[0]
+    except Exception:
+        return 1
 
 
 def _find_bundle(path):
@@ -1789,18 +1814,26 @@ def proof_show_cmd(run_dir, *, as_json=False):
     except (OSError, ValueError) as e:
         print("cannot read the ledger: %s" % e, file=sys.stderr)
         return 2
+    if not isinstance(led, dict):
+        print("the ledger at %s is not a JSON object" % led_path, file=sys.stderr)
+        return 2
     rdir = os.path.dirname(led_path)
     bundle_path = _find_bundle(rdir) or _find_bundle(os.path.dirname(rdir))
     keyid = None
     if bundle_path:
         try:
-            keyid = ((json.load(open(bundle_path)).get("envelope") or {}).get("signatures")
+            _b = json.load(open(bundle_path))
+            keyid = (((_b.get("envelope") if isinstance(_b, dict) else {}) or {}).get("signatures")
                      or [{}])[0].get("keyid")
-        except (OSError, ValueError):
+        except (OSError, ValueError, AttributeError, IndexError):
             pass
-    c0 = (led.get("claims") or [{}])[0]
+    _claims = led.get("claims") or [{}]
+    c0 = _claims[0] if (_claims and isinstance(_claims[0], dict)) else {}
     rv = led.get("repo_verdict", V.INCONCLUSIVE)
-    oc = V.outcome(rv, 0 if rv in (V.CONFIRMED, V.CAVEATS) else 2 if rv == V.INCONCLUSIVE else 1)
+    # use the REAL gate, not a verdict-only reconstruction: a CONFIRMED verdict that carries an OPEN
+    # blocking finding (e.g. reproduces its number but loses to the trivial baseline) gates to exit 1
+    # and MUST read "Caught" here too - never paint a caught result green on the proof surface.
+    oc = V.outcome(rv, 2 if rv == V.INCONCLUSIVE else _gate_exit(led))
     if as_json:
         print(json.dumps({"verdict": rv, "outcome": oc, "metric": c0.get("metric"),
                           "claimed": c0.get("claimed_value"), "recomputed": c0.get("recomputed_value"),

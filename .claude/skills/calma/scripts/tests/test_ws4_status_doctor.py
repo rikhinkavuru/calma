@@ -85,18 +85,26 @@ try:
     import time
     now = int(time.time())
     with open(os.path.join(cd, "history.jsonl"), "w") as fh:
-        fh.write(json.dumps({"ts": now - 60, "run_id": "run", "verdict": "CONFIRMED",
+        fh.write(json.dumps({"ts": now - 90, "run_id": "run", "verdict": "CONFIRMED", "gate_exit": 0,
                              "metric": "accuracy", "recomputed": 0.91}) + "\n")
-        fh.write(json.dumps({"ts": now - 30, "run_id": "run", "verdict": "REFUTED",
+        fh.write(json.dumps({"ts": now - 60, "run_id": "run", "verdict": "REFUTED", "gate_exit": 1,
                              "metric": "accuracy", "claimed": 0.99, "recomputed": 0.81}) + "\n")
+        # the open-blocker case: a CONFIRMED verdict the GATE caught (exit 1). Must tally as Caught,
+        # not green — keyed on the persisted gate_exit, never the verdict word alone.
+        fh.write(json.dumps({"ts": now - 30, "run_id": "run", "verdict": "CONFIRMED", "gate_exit": 1,
+                             "metric": "total_return", "recomputed": -0.324}) + "\n")
+        # a pre-fix record with NO gate_exit field falls back to the verdict word (here, a clean pass).
+        fh.write(json.dumps({"ts": now - 20, "run_id": "run", "verdict": "CONFIRMED",
+                             "metric": "f1", "recomputed": 0.8}) + "\n")
     rc, out = _run(C.status_cmd, tmp)
     truth(rc == 0 and "calma status" in out, "status renders + exits 0")
-    truth("last 7 days 2 check" in out, "status counts this project's 7-day history")
-    truth("1 Confirmed" in out and "1 Caught" in out, "status rolls the history into the 3 outcomes")
-    truth("last run" in out and "Caught" in out, "status names the last run (a Caught) + the metric")
+    truth("last 7 days 4 check" in out, "status counts this project's 7-day history")
+    truth("2 Confirmed" in out and "2 Caught" in out,
+          "status keys on the persisted gate_exit: a CONFIRMED-with-open-blocker tallies as Caught")
     rc_j, out_j = _run(C.status_cmd, tmp, as_json=True)
     sj = json.loads(out_j)
-    truth(sj["last7"]["Confirmed"] == 1 and sj["last7"]["Caught"] == 1, "status --json carries the tally")
+    truth(sj["last7"]["Confirmed"] == 2 and sj["last7"]["Caught"] == 2,
+          "status --json: gate_exit drives the tally (the open-blocker CONFIRMED is a Caught)")
 finally:
     import shutil
     shutil.rmtree(tmp, ignore_errors=True)
