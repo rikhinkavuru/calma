@@ -314,9 +314,18 @@ for _meta in ("169.254.169.254", "[fd00:ec2::254]"):     # AWS/GCP IMDS v4 + lin
         _m = socket.create_connection((_meta.strip("[]"), 80), timeout=3)
         _m.settimeout(3)
         _m.sendall(b"GET /latest/meta-data/ HTTP/1.0\r\nHost: meta\r\n\r\n")
-        if _m.recv(1):
-            leaks.append("egress:metadata")
+        _mr = _m.recv(64)
         _m.close()
+        # Flag ONLY a cloud IMDS that serves its metadata tree to an UNAUTHENTICATED GET (HTTP 2xx) — the
+        # IMDSv1 SSRF -> IAM-credential-theft channel. A 401/403/404 is NOT exfiltration: it is a token-
+        # gated IMDSv2 (the hardened, hop-limited posture) OR a benign link-local guest-metadata service
+        # that has no EC2 IMDS tree (Firecracker/E2B MMDS, which serves only the sandbox's own env/
+        # instance ids — verified empirically: GET / -> envID/instanceID, GET /latest/meta-data/ -> 404).
+        # Counting a bare 404 as a leak falsely failed the microVM tier; the internet-egress probes above
+        # (IP/DNS/curl/IPv6) still catch any real exfiltration channel.
+        _ms = _mr.split(b" ", 2)
+        if len(_ms) >= 2 and _ms[1][:1] == b"2":
+            leaks.append("egress:metadata")
     except Exception:
         pass
 for _h6 in ("2606:4700:4700::1111", "2001:4860:4860::8888"):   # public IPv6 (Cloudflare / Google)
