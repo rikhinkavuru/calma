@@ -768,28 +768,6 @@ def _store_cache(target, fingerprint, run_id, repo_verdict):
     os.replace(tmp, cache_path)
 
 
-def _metric_unstable(rec1, rec2):
-    """True iff any recomputed metric VALUE differs across the two identical re-runs (i.e. the NUMBER
-    the claim is about did not reproduce). Type-agnostic (int/float/str/None), NaN-aware. The pure
-    recompute kernel is bit-deterministic on identical bytes, so a real divergence means the metric
-    COLUMN itself moved between runs - which is the false-confirm BLOCKER. Used as the FLAKY signal
-    instead of a whole-artifact byte diff, so a sibling column that varies while the number stays put
-    no longer over-blocks a reproducing result to CAN'T-CONFIRM."""
-    by2 = {m.get("metric_id"): m for m in (rec2.get("metrics") or [])}
-    for m in rec1.get("metrics") or []:
-        a = m.get("value")
-        b = (by2.get(m.get("metric_id")) or {}).get("value")
-        a_nan = isinstance(a, float) and a != a
-        b_nan = isinstance(b, float) and b != b
-        if a_nan or b_nan:
-            if a_nan != b_nan:
-                return True          # one run produced NaN, the other a number
-            continue                 # both NaN -> equally degenerate, not a swing
-        if a != b:
-            return True
-    return False
-
-
 def _metric_variance(rec1, rec2):
     """The swing on the first finite headline metric between two re-runs: {metric_id, v1, v2, spread}.
     Quantifies HOW non-reproducible the result is, so the FLAKY message reads as a measurement."""
@@ -1191,22 +1169,25 @@ def verify(target, claim=None, metric=None, run_id="run", opts=None):
                 variance = None
                 if run2.get("exit_code") == 0:
                     h2 = _artifact_hashes(target, contract)
-                    rec2 = RC.recompute_contract(contract_path, base=target, k=_rk)  # run-2 metric values
-                    # FLAKY blocks on the recomputed METRIC VALUE not reproducing across identical
-                    # re-runs (the NUMBER the claim is about), NOT on raw artifact bytes. A sibling
-                    # column that varies (getpid/id()-ordering/set()-ordering) while the number itself
-                    # reproduces is not a flaky number and used to over-block to CAN'T-CONFIRM. This
-                    # still catches the false-confirm BLOCKER: a nondeterministic METRIC column moves
-                    # its recomputed value -> metric_unstable. The byte diff is kept as informational
-                    # evidence (which files changed), not the verdict gate.
-                    metric_unstable = _metric_unstable(rec1, rec2)
+                    # FLAKY gates on the WHOLE bound artifact differing across two identical re-runs,
+                    # NOT just the recomputed metric value. This is deliberate and load-bearing: a
+                    # DISCRETE / low-cardinality metric (row_count, distinct/duplicate/null counts,
+                    # pass@k / exact-match integer counts, pass/fail flags) computed from a
+                    # nondeterministic execution can COINCIDE across 2 runs by chance (e.g. m=getpid%2
+                    # is 50/50) - a metric-value-only gate would then ship a CLEAN CONFIRMED on a number
+                    # that does NOT reproduce, and a producer could rejection-sample it (adversarial
+                    # 2nd-pass proved this; you cannot tell a coincidental discrete value from a stable
+                    # one in 2 runs, and escalating runs can't deterministically resist rejection-
+                    # sampling). The differing artifact BYTES (e.g. a sibling id/timestamp/ordering
+                    # column) are a deterministic nondeterminism canary that closes that hole 100%. The
+                    # cost is the SAFE direction only: a reproducing headline metric riding next to a
+                    # noisy sibling column is CAN'T-CONFIRM, never a false CONFIRM.
                     unstable_paths = sorted(p for p in set(h1) | set(h2) if h1.get(p) != h2.get(p))
-                    if metric_unstable:  # quantify the swing on the headline metric (reads as rigor)
-                        variance = _metric_variance(rec1, rec2)
+                    if unstable_paths:  # quantify the swing on the headline metric (reads as rigor)
+                        variance = _metric_variance(rec1, RC.recompute_contract(contract_path, base=target, k=_rk))
                 else:
-                    metric_unstable = True
                     unstable_paths = ["<second run exited %s>" % run2.get("exit_code")]
-                outputs_unstable = metric_unstable
+                outputs_unstable = bool(unstable_paths)
                 run_res["determinism_recheck"] = {
                     "reruns": 2, "stable": not outputs_unstable,
                     "differing_artifacts": unstable_paths, "variance": variance,
