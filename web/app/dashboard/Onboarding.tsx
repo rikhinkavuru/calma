@@ -6,6 +6,7 @@
 // Plus a dismissible, non-blocking progress checklist. No API calls: the sample data is baked in.
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { CopyBlock, DiffCell } from "./diff";
 import styles from "./dashboard.module.css";
 
 const HOOK_INSTALL =
@@ -183,64 +184,3 @@ function SampleDiff({ s }: { s: Sample }) {
   );
 }
 
-function DiffCell({
-  label,
-  value,
-  ok,
-  highlight,
-}: {
-  label: string;
-  value: string;
-  ok: boolean;
-  highlight?: boolean;
-}) {
-  const border = ok ? "rgba(26,127,55,0.35)" : "rgba(196,50,10,0.35)";
-  return (
-    <div
-      style={{
-        border: `1px solid ${highlight ? border : "rgba(0,0,0,0.10)"}`,
-        background: highlight ? (ok ? "rgba(231,246,236,0.5)" : "rgba(253,236,235,0.5)") : "transparent",
-        borderRadius: 8,
-        padding: "10px 12px",
-      }}
-    >
-      <div className={styles.muted} style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>
-        {label}
-      </div>
-      <div className={styles.mono} style={{ fontSize: 20, marginTop: 4 }}>
-        {value}
-      </div>
-    </div>
-  );
-}
-
-function CopyBlock({ text, label, small }: { text: string; label?: string; small?: boolean }) {
-  const [copied, setCopied] = useState(false);
-  function copy(e: React.MouseEvent) {
-    e.stopPropagation();
-    navigator.clipboard?.writeText(text).then(
-      () => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1400);
-      },
-      () => {},
-    );
-  }
-  return (
-    <div style={{ marginTop: small ? 0 : 12 }}>
-      {label && (
-        <div className={styles.muted} style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>
-          {label}
-        </div>
-      )}
-      <div style={{ display: "flex", gap: 8, alignItems: "stretch" }}>
-        <code className={styles.pre} style={{ flex: 1, fontSize: small ? 12 : 13, margin: 0 }}>
-          {text}
-        </code>
-        <button type="button" className={styles.btnGhost} onClick={copy} style={{ fontSize: 12 }}>
-          {copied ? "Copied" : "Copy"}
-        </button>
-      </div>
-    </div>
-  );
-}

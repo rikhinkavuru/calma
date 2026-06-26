@@ -3,6 +3,7 @@
 // claim, the recomputed value, the diff, the verdict + the data-authenticity ceiling, the signing key,
 // and a "Re-verify offline" panel a skeptic runs without trusting Calma's servers.
 import type { Metadata } from "next";
+import Link from "next/link";
 
 export const dynamic = "force-static";
 
@@ -120,9 +121,9 @@ export default async function ProofPage({ searchParams }: { searchParams: Promis
       </div>
 
       <p style={{ marginTop: 28, fontSize: 13, color: "rgba(236,231,223,0.4)" }}>
-        <a href="/" style={{ color: "var(--amber, #eec88c)" }}>
+        <Link href="/" style={{ color: "var(--amber, #eec88c)" }}>
           trycalma.ai
-        </a>{" "}
+        </Link>{" "}
         — catch your own wrong number before it ships.
       </p>
     </main>

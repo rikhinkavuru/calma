@@ -8,6 +8,7 @@ import { useState } from "react";
 import Link from "next/link";
 import type { Verification } from "@/lib/calma";
 import { StatusBadge } from "./Badge";
+import { CopyButton, DiffCell } from "./diff";
 import styles from "./dashboard.module.css";
 
 // the deterministic 6 -> 3 roll-up, mirrored from the engine's verdict.outcome() (kept in sync by the
@@ -141,7 +142,12 @@ function RowGroup({
                 <Link href={proofUrl} className={styles.rowlink}>
                   Public permalink →
                 </Link>
-                <CopyBadge md={`![verified by calma](https://trycalma.ai${badgeUrl})`} />
+                <CopyButton
+                  text={`![verified by calma](https://trycalma.ai${badgeUrl})`}
+                  idle="Copy badge"
+                  done="Badge copied ✓"
+                  className={styles.rowlink}
+                />
               </div>
             </div>
           </td>
@@ -151,43 +157,3 @@ function RowGroup({
   );
 }
 
-function DiffCell({ label, value, ok, highlight }: { label: string; value: string; ok: boolean; highlight?: boolean }) {
-  const border = ok ? "rgba(26,127,55,0.35)" : "rgba(196,50,10,0.35)";
-  return (
-    <div
-      style={{
-        border: `1px solid ${highlight ? border : "rgba(0,0,0,0.10)"}`,
-        background: highlight ? (ok ? "rgba(231,246,236,0.5)" : "rgba(253,236,235,0.5)") : "transparent",
-        borderRadius: 8,
-        padding: "10px 12px",
-      }}
-    >
-      <div className={styles.muted} style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>
-        {label}
-      </div>
-      <div className={styles.mono} style={{ fontSize: 20, marginTop: 4 }}>
-        {value}
-      </div>
-    </div>
-  );
-}
-
-function CopyBadge({ md }: { md: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      type="button"
-      className={styles.rowlink}
-      style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "inherit" }}
-      onClick={(e) => {
-        e.stopPropagation();
-        navigator.clipboard?.writeText(md).then(() => {
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1400);
-        });
-      }}
-    >
-      {copied ? "Badge copied ✓" : "Copy badge"}
-    </button>
-  );
-}
