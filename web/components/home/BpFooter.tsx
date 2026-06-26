@@ -11,9 +11,9 @@ export function BpFooter() {
         </div>
         <div className="bp-fcol">
           <h5>Product</h5>
-          <a href="#how-it-works">How it works</a>
-          <a href="#features">Capabilities</a>
-          <a href="#benchmarks">Benchmarks</a>
+          <a href="#flow">How it works</a>
+          <a href="#features">Features</a>
+          <a href="#faq">FAQ</a>
           <Link href="/install">Docs</Link>
         </div>
         <div className="bp-fcol">

@@ -846,6 +846,27 @@ img, svg, canvas { display: block; max-width: 100%; }
 .btn-ghost { border: 1px solid var(--cream-55); color: var(--cream); }
 .arrow { display: inline-block; }
 
+/* ---- hero CTAs — compact, readable pills (scoped so the dialog buttons keep
+   their wide mono look). A high-contrast filled primary + a subtle, low-contrast
+   secondary that sits quietly beside it. ---- */
+.hero__cta { gap: 11px; margin-top: 30px; }
+.hero__cta a {
+  font-family: var(--disp); text-transform: none; letter-spacing: -0.003em;
+  font-size: 14.5px; font-weight: 500; line-height: 1;
+  padding: 11px 19px; border-radius: 999px; border: 1px solid transparent;
+  display: inline-flex; align-items: center; gap: 0.5em;
+  transition: background-color 0.22s var(--ease), border-color 0.22s var(--ease),
+    color 0.22s var(--ease);
+}
+.hero__cta .btn-primary { background: var(--amber); border-color: var(--amber); color: var(--void); }
+.hero__cta .btn-primary:hover { background: var(--sun); border-color: var(--sun); color: var(--void); }
+.hero__cta .btn-ghost {
+  background: rgba(233, 221, 196, 0.055); border-color: var(--hairline); color: var(--cream-70);
+}
+.hero__cta .btn-ghost:hover { background: rgba(233, 221, 196, 0.11); border-color: var(--cream-35); color: var(--cream); }
+.hero__cta .arrow { transition: transform 0.22s var(--ease); }
+.hero__cta .btn-ghost:hover .arrow { transform: translateX(2px); }
+
 /* ---------------- recipe band (inside Features) ---------------- */
 .rband {
   margin-top: clamp(28px, 4vw, 44px);
@@ -1644,3 +1665,105 @@ img, svg, canvas { display: block; max-width: 100%; }
 @media (max-width: 860px) {
   .feat__grid { grid-template-columns: 1fr; max-width: 460px; margin-inline: auto; gap: 30px; }
 }
+
+/* ============================================================================
+   MOATS — the alternating features section under the flow. Sits on the warm-beige
+   light band (.flowsec flips the theme tokens), continuous with the flow above and
+   the FAQ below. Each row pairs a copy column with a framed screen-recording
+   (illustrated fallback until /video/feature-<key>.mp4 is added).
+   ========================================================================== */
+.moats { position: relative; padding-block: clamp(64px, 8vw, 116px); }
+.moats .bp-head--center { margin-bottom: clamp(44px, 6vw, 84px); }
+
+.moats__list { display: grid; gap: clamp(54px, 7vw, 104px); }
+
+.fmoat { display: grid; grid-template-columns: 1.02fr 1fr; gap: clamp(30px, 5vw, 78px); align-items: center; }
+/* alternate sides: even rows put the recording on the left, copy on the right.
+   Each row is wrapped in a Reveal (.rv), so target the list's direct children. */
+.moats__list > :nth-child(even) .fmoat__copy { order: 2; }
+.moats__list > :nth-child(even) .fmoat__media { order: 1; }
+
+.fmoat__copy { max-width: 31em; }
+.fmoat__idx { font-size: 12px; letter-spacing: 0.32em; color: var(--amber); }
+.fmoat__h {
+  font-family: var(--disp); font-weight: 600; font-size: clamp(25px, 2.7vw, 34px);
+  line-height: 1.06; letter-spacing: -0.022em; margin-top: 13px; color: var(--cream);
+}
+.fmoat__h em { font-style: normal; color: var(--amber); }
+.fmoat__p { margin-top: 15px; font-size: clamp(15px, 1.4vw, 17px); line-height: 1.62; color: var(--cream-70); }
+.fmoat__p b { color: var(--cream); font-weight: 500; }
+.fmoat__p i { font-style: italic; }
+.fmoat__meta { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 22px; }
+.fmoat__tag {
+  font-size: 11px; letter-spacing: 0.06em; color: var(--cream-70);
+  padding: 5px 11px; border: 1px solid var(--hairline); border-radius: 999px;
+  background: rgba(31, 26, 19, 0.025);
+}
+
+/* --- the framed media: a white window around the recording / fallback, like the
+   flow / feature cards on the same band --- */
+.fmoat__frame {
+  border: 1px solid rgba(31, 26, 19, 0.08); border-radius: 15px; overflow: hidden;
+  background: #fff;
+  box-shadow: 0 20px 44px -22px rgba(60, 42, 18, 0.30), 0 2px 6px rgba(60, 42, 18, 0.05);
+}
+.fmoat__chrome { display: flex; align-items: center; gap: 11px; padding: 11px 15px; border-bottom: 1px solid var(--hairline); background: rgba(31, 26, 19, 0.018); }
+.fmoat__dots { display: inline-flex; gap: 6px; }
+.fmoat__dots i { width: 9px; height: 9px; border-radius: 50%; background: var(--cream-35); }
+.fmoat__cap { font-family: var(--mono); font-size: 11px; letter-spacing: 0.05em; color: var(--cream-55); }
+.fmoat__stage { position: relative; display: grid; aspect-ratio: 16 / 10; }
+.fmoat__stage > * { grid-area: 1 / 1; }
+.fmoat__ph { display: grid; place-items: center; padding: clamp(22px, 3vw, 38px); transition: opacity 0.4s var(--ease); }
+.fmoat__ph.is-hidden { opacity: 0; pointer-events: none; }
+.fmoat__vid { width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 0.5s var(--ease); }
+.fmoat__vid.is-on { opacity: 1; }
+
+/* --- moat-viz fallbacks (mvz): self-contained, dark-surface illustrations --- */
+.mvz { width: 100%; max-width: 320px; display: grid; gap: 13px; justify-items: center; text-align: center; }
+.mvz__badge { font-family: var(--disp); font-weight: 700; font-size: 10.5px; letter-spacing: 0.16em; padding: 5px 12px; border-radius: 7px; }
+.mvz__badge--no { background: color-mix(in srgb, var(--amber) 16%, transparent); color: var(--amber); }
+.mvz__badge--inv { background: color-mix(in srgb, var(--sky) 18%, transparent); color: var(--sky); }
+.mvz__badge--ok { background: color-mix(in srgb, var(--teal) 18%, transparent); color: var(--teal); }
+
+/* 01 recompute — claimed vs recomputed diff */
+.mvz__rec { display: grid; justify-items: center; gap: 9px; width: 100%; }
+.mvz__recrow { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; width: 100%; max-width: 250px; padding: 9px 13px; border: 1px solid var(--hairline); border-radius: 10px; background: rgba(31, 26, 19, 0.02); }
+.mvz__k { font-size: 12px; color: var(--cream-55); text-align: left; }
+.mvz__claim { font-family: var(--disp); font-weight: 600; font-size: 18px; color: var(--amber); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--amber) 50%, transparent); font-variant-numeric: tabular-nums; flex: none; }
+.mvz__real { font-family: var(--disp); font-weight: 700; font-size: 22px; color: var(--cream); font-variant-numeric: tabular-nums; flex: none; }
+.mvz__arrow { color: var(--cream-35); transform: rotate(90deg); display: inline-flex; font-size: 12px; }
+
+/* 02 validity + 03 proof — labelled rows */
+.mvz__line { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--cream); }
+.mvz__line--ok { color: var(--teal); }
+.mvz__ok { color: var(--teal); font-size: 15px; flex: none; }
+.mvz__lock { color: var(--amber); font-size: 13px; flex: none; }
+.mvz__flag { font-size: 13px; line-height: 1.45; color: var(--cream-70); max-width: 250px; padding: 9px 13px; border-radius: 10px; background: color-mix(in srgb, var(--sky) 10%, transparent); border: 1px solid color-mix(in srgb, var(--sky) 22%, transparent); }
+.mvz__chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 7px; }
+.mvz__chips span { font-family: var(--mono); font-size: 11px; letter-spacing: 0.04em; padding: 5px 10px; border-radius: 7px; background: rgba(31, 26, 19, 0.05); border: 1px solid var(--hairline); color: var(--cream-70); }
+
+/* 04 guardrail — a mini transcript */
+.mvz--term { gap: 11px; max-width: 340px; justify-items: stretch; text-align: left; }
+.mvz__t { font-family: var(--mono); font-size: 12.5px; line-height: 1.5; color: var(--cream-55); display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.mvz__t--hook { color: var(--cream-70); }
+.mvz__t--end { align-items: center; color: var(--cream); }
+.mvz__tp { color: var(--cream-35); flex: none; }
+.mvz__ttag { color: var(--amber); flex: none; }
+
+@media (max-width: 820px) {
+  .fmoat { grid-template-columns: 1fr; gap: 26px; }
+  /* stack copy above the recording on every row, regardless of side */
+  .moats__list > :nth-child(even) .fmoat__copy { order: 1; }
+  .moats__list > :nth-child(even) .fmoat__media { order: 2; }
+  .fmoat__copy { max-width: 38em; }
+}
+
+/* ============================================================================
+   FAQ band — the existing accordion, recoloured onto the warm-beige light band
+   (.flowsec flips the theme tokens; .faqsec just centres it like flow/features).
+   ========================================================================== */
+.faqsec { padding-block: clamp(40px, 5vw, 70px); }
+.faqsec .bp-block { padding-block: 0; }
+.faqsec .bp-head { max-width: 760px; margin-inline: auto; text-align: center; }
+.faqsec .bp-faq { margin-inline: auto; }
+.faqsec .bp-faq__a p { margin-inline: auto; }

@@ -5,10 +5,11 @@ import { SiteNav } from "./SiteNav";
 import { Hero } from "./Hero";
 import { BpProgress } from "./home/BpProgress";
 import { BpFlow } from "./home/BpFlow";
-import { BpFeatures } from "./home/BpFeatures";
+import { BpMoats } from "./home/BpMoats";
+import { BpFaq } from "./home/BpFaq";
 import { BpFooter } from "./home/BpFooter";
 
-// Landing: hero + convergence section + footer; the full body is being rebuilt.
+// Landing: hero → convergence (flow) → features (moats) → FAQ → footer.
 export default function App() {
   return (
     <MotionConfig reducedMotion="user">
@@ -19,7 +20,12 @@ export default function App() {
       <main>
         <Hero />
         <BpFlow />
-        <BpFeatures />
+        <BpMoats />
+        <section className="flowsec faqsec">
+          <div className="wrap">
+            <BpFaq />
+          </div>
+        </section>
       </main>
 
       <BpFooter />

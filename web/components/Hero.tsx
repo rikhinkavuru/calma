@@ -65,8 +65,10 @@ export function Hero() {
 
         <Reveal delay={300}>
           <div className="hero__cta">
-            <a className="btn-primary" href="/install">Install the CLI →</a>
-            <a className="btn-ghost" href="/dashboard">Open the dashboard</a>
+            <a className="btn-primary" href="/install">Install the CLI</a>
+            <a className="btn-ghost" href="/dashboard">
+              Open the dashboard <span className="arrow" aria-hidden="true">→</span>
+            </a>
           </div>
         </Reveal>
 

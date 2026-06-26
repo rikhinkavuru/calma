@@ -14,9 +14,9 @@ const NAV_ITEMS: CardNavItem[] = [
     bgColor: "#16130d",
     textColor: "#e9ddc4",
     links: [
-      { label: "The problem", href: "/#problem", ariaLabel: "The problem" },
+      { label: "How it works", href: "/#flow", ariaLabel: "How it works" },
       { label: "Features", href: "/#features", ariaLabel: "Features" },
-      { label: "Benchmarks", href: "/#benchmarks", ariaLabel: "Benchmarks" },
+      { label: "FAQ", href: "/#faq", ariaLabel: "Frequently asked questions" },
     ],
   },
   {

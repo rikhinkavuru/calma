@@ -106,6 +106,25 @@
 .noticeErr { background: #fdeceb; color: #c4320a; border: 1px solid #f4cdc7; }
 .keytoken { font-family: var(--mono, monospace); font-size: 13px; background: #1a1a18; color: #e9e8e3; padding: 12px 14px; border-radius: 8px; word-break: break-all; }
 
+/* skeletons — instant feedback on navigation while a segment fetches server-side */
+@keyframes skelShimmer { 0% { background-position: -360px 0; } 100% { background-position: 360px 0; } }
+.skel {
+  background-color: #eceae4;
+  background-image: linear-gradient(90deg, #eceae4 0%, #f6f5f1 50%, #eceae4 100%);
+  background-size: 720px 100%;
+  border-radius: 6px;
+  animation: skelShimmer 1.3s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) { .skel { animation: none; } }
+.skelTitle { width: 210px; height: 22px; margin-bottom: 9px; }
+.skelSub { width: 300px; height: 13px; }
+.skelBtn { width: 158px; height: 38px; border-radius: 8px; flex: none; }
+.skelRow { display: flex; align-items: center; gap: 18px; padding: 16px; border-bottom: 1px solid #f3f2ee; }
+.skelRow:last-child { border-bottom: none; }
+.skelPill { width: 96px; height: 22px; border-radius: 999px; flex: none; }
+.skelCell { flex: 1; height: 14px; }
+.skelCellSm { width: 84px; height: 14px; flex: none; }
+
 /* sign-in */
 .signin { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: #fbfbfa; }
 .signinCard { background: #fff; border: 1px solid #e7e6e2; border-radius: 16px; padding: 40px; max-width: 400px; text-align: center; }
