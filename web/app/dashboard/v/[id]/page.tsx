@@ -105,9 +105,16 @@ export default async function Detail({ params }: { params: Promise<{ id: string 
   const sigKeyid = env?.signatures?.[0]?.keyid;
   const sigAlgo = TRUSTED_KEYS.find((t) => t.keyid === sigKeyid)?.algorithm || "unknown";
   const signed = !!env && env.signatures.length > 0;
-  const evidence: unknown = env
-    ? JSON.parse(Buffer.from(env.payload, "base64").toString("utf-8"))
-    : proof;
+  // decode the signed payload defensively: a malformed envelope must not escalate one bad row to a
+  // full-page error boundary — show the rest of the verdict (sig status etc.) instead.
+  let evidence: unknown = proof;
+  if (env) {
+    try {
+      evidence = JSON.parse(Buffer.from(env.payload, "base64").toString("utf-8"));
+    } catch {
+      evidence = null;
+    }
+  }
   return (
     <div className={styles.main}>
       <Link href="/dashboard" className={styles.back}>← Verifications</Link>

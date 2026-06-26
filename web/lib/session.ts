@@ -17,23 +17,29 @@ export type Session = {
 const tenantCache = new Map<string, string>();
 
 export const getSession = cache(async (): Promise<Session | null> => {
+  // Only "is the user authenticated?" goes in this try. A failure here (WorkOS not configured, no
+  // middleware, no session) correctly falls through to the dev tenant / sign-in gate.
+  let user: { id: string; email: string; firstName?: string | null; lastName?: string | null } | null = null;
   try {
     const mod = await import("@workos-inc/authkit-nextjs");
-    const { user } = await mod.withAuth();
-    if (user) {
-      const name = [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email;
-      let tenantId = tenantCache.get(user.id);
-      if (!tenantId) {
-        const orgName = (user.email?.split("@")[1] || "personal") + " workspace";
-        const prov = await provision({ workos_user_id: user.id, email: user.email, org_name: orgName });
-        tenantId = prov.tenant_id;
-        tenantCache.set(user.id, tenantId);
-      }
-      return { user: { email: user.email, name, mode: "workos" }, tenantId };
-    }
+    user = (await mod.withAuth()).user;
   } catch (e) {
-    // WorkOS not configured, or no active session — fall through to the dev tenant.
     console.error("[calma] getSession withAuth error:", e instanceof Error ? e.message : e);
+  }
+  if (user) {
+    const name = [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email;
+    let tenantId = tenantCache.get(user.id);
+    if (!tenantId) {
+      // provision() hits OUR control-plane API. If it fails, the user IS authenticated but our
+      // backend is down — let the error propagate so error.tsx shows the retry view, NOT the
+      // sign-in gate (which loops: WorkOS bounces the already-authed user straight back, provision
+      // fails again, gate again). This is deliberately OUTSIDE the withAuth try.
+      const orgName = (user.email?.split("@")[1] || "personal") + " workspace";
+      const prov = await provision({ workos_user_id: user.id, email: user.email, org_name: orgName });
+      tenantId = prov.tenant_id;
+      tenantCache.set(user.id, tenantId);
+    }
+    return { user: { email: user.email, name, mode: "workos" }, tenantId };
   }
   // D3-05: the dev-tenant bypass is a non-prod convenience ONLY. Hard-gate it off in production so a
   // mis-set DASHBOARD_DEV_TENANT_ID env can never become an unauthenticated tenant backdoor on the live app.

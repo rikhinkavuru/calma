@@ -83,9 +83,9 @@ class VerificationList(BaseModel):
 
 # ---------- uploads ----------
 class UploadRequest(BaseModel):
-    kind: str                      # "bundle" | "input"
-    sha256: str
-    content_type: str = "application/octet-stream"
+    kind: str = Field(pattern=r"^(bundle|input)$")   # what the object is
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")   # lowercase hex; becomes the R2 object-key name,
+    content_type: str = "application/octet-stream"   # so a malformed value can't shape the key
 
 
 class UploadResponse(BaseModel):

@@ -5,10 +5,23 @@ from __future__ import annotations
 
 import hashlib
 import json
+import uuid
 
 from psycopg.rows import dict_row
 
 from . import config
+
+
+def _is_uuid(s):
+    """A path/body id is a uuid column key. A non-uuid string would make Postgres raise
+    `invalid input syntax for type uuid` (an uncaught 500); treat it as 'not found' instead so
+    a typo / stale link / bad input returns a clean 404 problem+json, not a 5xx (which also pages
+    on Sentry)."""
+    try:
+        uuid.UUID(str(s))
+        return True
+    except (ValueError, TypeError, AttributeError):
+        return False
 
 
 def connect():
@@ -81,6 +94,8 @@ def insert_api_key(conn, tenant_id, prefix, key_id, key_hash, environment):
 
 
 def revoke_api_key(conn, tenant_id, key_id_uuid):
+    if not _is_uuid(key_id_uuid):
+        return 0
     with conn.cursor() as cur:
         cur.execute("UPDATE api_keys SET revoked_at=now() WHERE id=%s AND tenant_id=%s AND revoked_at IS NULL",
                     (key_id_uuid, tenant_id))
@@ -176,6 +191,8 @@ def update_job(conn, tenant_id, job_id, *, status=None, contract_sha256=None):
 
 
 def get_job(conn, tenant_id, job_id):
+    if not _is_uuid(job_id):
+        return None
     return _one(conn, "SELECT * FROM jobs WHERE id=%s AND tenant_id=%s", (job_id, tenant_id))
 
 
@@ -219,11 +236,15 @@ def insert_verdict(conn, *, run_id, job_id, tenant_id, verdict, repo_verdict, cl
 
 
 def get_verdict_for_job(conn, tenant_id, job_id):
+    if not _is_uuid(job_id):
+        return None
     return _one(conn, "SELECT * FROM verdicts WHERE job_id=%s AND tenant_id=%s "
                       "ORDER BY created_at DESC LIMIT 1", (job_id, tenant_id))
 
 
 def get_latest_run(conn, tenant_id, job_id):
+    if not _is_uuid(job_id):
+        return None
     return _one(conn, "SELECT * FROM runs WHERE job_id=%s AND tenant_id=%s "
                       "ORDER BY attempt DESC, started_at DESC LIMIT 1", (job_id, tenant_id))
 

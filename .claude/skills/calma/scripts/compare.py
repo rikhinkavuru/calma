@@ -147,7 +147,15 @@ def compare(recompute, contract, isolation_tier="host-not-isolated", container_p
             accepted = set((fn.manifest.get("accepted_conventions") if fn else []) or [])
             if str(conv) in accepted:
                 ratio = max(abs(recomputed / claimed), abs(claimed / recomputed)) if claimed and recomputed else 1e9
-                # a legitimate convention (periodicity, k, units) rescales - it never flips sign
+                # a legitimate convention (periodicity, k, units) rescales - it never flips sign.
+                # KNOWN LIMITATION (adversarial review, MAJOR): for annualization conventions the
+                # legitimate cross-convention ratios (sharpe 252/365/52 -> sqrt(365/252)=1.20,
+                # sqrt(252/52)=2.20, sqrt(365/52)=2.65) span [1x,3x], so a same-sign overclaim up to
+                # ~3x is indistinguishable BY RATIO from a real cross-convention claim and is softened
+                # to CONFIRMED-WITH-CAVEATS (which carries a visible convention-gap caveat, not a clean
+                # CONFIRMED). The sound fix is convention-AWARE recompute (recompute under the DECLARED
+                # convention and require the claim to match that specific value), which removes this
+                # leniency - tracked separately as it changes behaviour + needs a leniency decision.
                 conv_capped = ratio <= CONV_RATIO and _sign(recomputed) == _sign(claimed)
         gap = None
         if claimed is not None and isinstance(recomputed, float) and recomputed == recomputed:

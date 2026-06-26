@@ -1139,8 +1139,10 @@ def verify(target, claim=None, metric=None, run_id="run", opts=None):
             # that produce different outputs is a verdict-BLOCKING finding (G1c) -> CAN'T-CONFIRM,
             # never a false-confirm of a number that won't reproduce. We pay for the 2nd run exactly
             # when it matters: the caller asked (--check-determinism), it's untrusted counterparty
-            # code (third-party), OR bit-determinism could NOT be proven statically (measured-band/
-            # uncontrolled) AND a claim is being judged. A controlled-to-bit run is provably stable.
+            # code (third-party), OR a claim value is being adjudicated. The determinism stamp is a
+            # STATIC AST scan and CANNOT see every nondeterminism source - os.getpid()/os.times()/
+            # id()-ordering/open('/dev/urandom') all leave it at controlled-to-bit - so a
+            # controlled-to-bit stamp is NOT, on its own, proof a claimed number reproduces.
             det_mode = run_res.get("determinism_mode", "uncontrolled")
             # PERF: the recompute kernels are PURE (numeric.py) - re-running one on the same fixed columns
             # is bit-identical, so the k>1 intra-recompute spread is provably 0 on the controlled-to-bit
@@ -1150,9 +1152,12 @@ def verify(target, claim=None, metric=None, run_id="run", opts=None):
             _rk = 1 if det_mode == "controlled-to-bit" else 3
             any_claim_value = any(m.get("claimed_value") is not None
                                   for m in contract.get("metrics", []))
+            # Adjudicating a claim => always run the dynamic flaky check, regardless of the static
+            # determinism stamp. Otherwise a producer can rejection-sample a nondeterministic output
+            # (getpid/id/urandom all stamp controlled-to-bit) until it lands within budget and ship a
+            # clean CONFIRMED for a number that does not reproduce. (+1 run, only when judging a claim.)
             do_recheck = run_res.get("exit_code") == 0 and (
-                check_determinism or trust == "third-party"
-                or (det_mode != "controlled-to-bit" and any_claim_value))
+                check_determinism or trust == "third-party" or any_claim_value)
             outputs_unstable = False
             if do_recheck:
                 h1 = _artifact_hashes(target, contract)
