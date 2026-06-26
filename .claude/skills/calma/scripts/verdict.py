@@ -244,9 +244,19 @@ def _decide(vi):
         # A gap explained by cross-stack reduction order is a CAVEAT, never a REFUTED.
         if vi["cross_stack_attributable"]:
             return CAVEATS, "gap attributable to cross-stack numeric differences, not a definition error"
-        # A gap explainable by a declared legitimate (in-set) convention is a CAVEAT, never a REFUTED.
+        # A gap of convention-scale earns the producer the benefit of the doubt over a hard REFUTED -
+        # but it is NOT a clean pass. Calma did not recompute the number under the declared convention,
+        # so it cannot CONFIRM it, and a producer must not be able to launder a same-magnitude overclaim
+        # into a clean CONFIRMED-WITH-CAVEATS by naming an in-set convention (the legitimate
+        # cross-annualization ratios span [1x,3x], so an overclaim is indistinguishable BY RATIO from a
+        # real cross-convention claim). Surface it as INCONCLUSIVE (can't-confirm, not-clean): the number
+        # may be right under that convention, but Calma can't verify it without recomputing under it.
+        # The sound upgrade is convention-AWARE recompute (recompute under the declared convention and
+        # match the specific value), which would let this CONFIRM legitimately.
         if vi["convention_capped"]:
-            return CAVEATS, "gap is within the range of a declared legitimate convention; recompute under it to resolve"
+            return INCONCLUSIVE, ("recompute differs from the claim by a declared-convention-scale factor; "
+                                  "Calma did not recompute under that convention, so it can't confirm the "
+                                  "number - recompute under the declared convention to resolve")
         blocked, why = _refute_blocked(vi)
         if blocked:
             return INCONCLUSIVE, "recompute differs from the claim but REFUTED is blocked: " + why

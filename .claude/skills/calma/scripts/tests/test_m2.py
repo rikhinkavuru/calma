@@ -71,10 +71,12 @@ truth(cmp1(0.4237, 0.42, isolation_tier="tier0", determinism_mode="controlled-to
 truth(cmp1(-0.324, 146.98, isolation_tier="tier0", determinism_mode="controlled-to-bit") == V.REFUTED,
       "fraud-grade gap still REFUTES")
 
-# 6) convention cap: declared in-set convention within ratio -> CAVEAT, not REFUTE
+# 6) convention cap: a declared in-set convention spares a hard REFUTE, but is NOT a clean pass -
+# Calma didn't recompute under the convention, so it can't CONFIRM (closes the overclaim-laundering
+# vector where a same-magnitude overclaim under a named convention shipped a clean CAVEAT).
 truth(cmp1(1.57, 1.90, mid="sharpe", convention="252", terms={"sampling_se": 0.12},
-           isolation_tier="tier0", determinism_mode="controlled-to-bit") == V.CAVEATS,
-      "declared in-set convention -> CONFIRMED-WITH-CAVEATS, not REFUTED")
+           isolation_tier="tier0", determinism_mode="controlled-to-bit") == V.INCONCLUSIVE,
+      "declared in-set convention -> INCONCLUSIVE (not-clean, not a hard REFUTED)")
 
 # 7) served-fraction: both self-contained fixtures verify and correctly REFUTE
 sys.path.insert(0, os.path.join(SCR, "..", "calibration"))
