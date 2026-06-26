@@ -1,14 +1,15 @@
-# Files NOT uploaded to the calma-api Vercel deployment (this directory is linked to that project).
-# The API function only needs api/, control_plane/**, and .claude/skills/calma/scripts/** (see
-# api.vercel.json includeFiles) plus requirements.txt. Everything below is dev-only, generated, a
-# secret, or part of a SEPARATE project — none of it belongs in the production serverless bundle.
+# Files NOT uploaded to Vercel deploys from this repo root.
+# IMPORTANT: BOTH the `calma-api` and `calma` (web) projects deploy from the repo root and SHARE this
+# file, so it must exclude ONLY universally-safe cruft — never a source dir (web/, control_plane/, api/,
+# .claude/), or one project's build would lose its source. The API function bundle is trimmed separately
+# via api.vercel.json `excludeFiles`.
 
-# secrets + env templates (the deployed side uses `vercel env`, never a committed file)
+# secrets + local env (the deployed side uses `vercel env`, never a committed/local file)
 .env
 .env.*
 .env.example
 
-# OS / build / tool caches + generated artifacts
+# OS / tool caches + regenerated build outputs (Vercel rebuilds these)
 **/.DS_Store
 **/__pycache__/
 **/*.pyc
@@ -17,12 +18,3 @@
 .next/
 dist/
 node_modules/
-
-# the web app is a SEPARATE Vercel project, never part of the API function
-web/
-
-# research / data / generated trees not imported at API runtime
-benchmark/
-rehearsals/
-graphify-out/
-examples/
