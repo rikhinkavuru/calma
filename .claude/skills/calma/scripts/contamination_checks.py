@@ -24,7 +24,6 @@ apply_validity(claims, findings, contract, claim_text); contamination_status(con
 """
 import csv
 import hashlib
-import os
 import re
 import unicodedata
 

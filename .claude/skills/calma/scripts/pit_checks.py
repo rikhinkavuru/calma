@@ -33,7 +33,6 @@ Library: run_checks(contract, base, claim_id, claim_text) -> [finding,...];
 apply_validity(claims, findings, contract, claim_text, base=None); family_status(contract, findings).
 """
 import csv
-import os
 import re
 
 import pathsafe as PS

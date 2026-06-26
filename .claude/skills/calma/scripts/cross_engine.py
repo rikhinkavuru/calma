@@ -28,7 +28,6 @@ available_external_engines() -> [names]; finding(divergences, claim_id) -> findi
 """
 import csv
 import math
-import os
 import shutil
 
 import pathsafe as PS

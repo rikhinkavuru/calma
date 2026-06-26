@@ -27,7 +27,6 @@ apply_validity(claims, findings, contract, claim_text, base); net_status(contrac
 """
 import csv
 import math
-import os
 import re
 
 import numeric as N

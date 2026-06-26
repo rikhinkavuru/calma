@@ -20,7 +20,7 @@ import tempfile
 import time
 
 from .base import PreparedTemplate, from_engine_result, refused, _engine
-from .valuetypes import (ArtifactRef, CodeBundle, ResourceLimits, ResourceUsage, RunSpec,
+from .valuetypes import (ArtifactRef, ResourceLimits, ResourceUsage, RunSpec,
                          TemplateSpec)
 
 # the determinism-controlling env the engine pins for every re-execution (run_hermetic.py:1627-1628 /

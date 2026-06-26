@@ -40,7 +40,6 @@ apply_validity(claims, findings, contract, claim_text, base=None); family_status
 """
 import csv
 import math
-import os
 import re
 
 import numeric as N

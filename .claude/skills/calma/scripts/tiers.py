@@ -25,8 +25,3 @@ VERIFIED_TIERS = (
     "e2b-firecracker",
     "e2b-firecracker (self-hosted)",
 )
-
-
-def is_verified(tier):
-    """True iff `tier` is a stamp that counts as VERIFIED isolation (the gate). host-not-isolated -> False."""
-    return tier in VERIFIED_TIERS

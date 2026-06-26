@@ -11,7 +11,7 @@ import sys
 from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
-from .valuetypes import ArtifactRef, ResourceUsage, RunResult, RunSpec, TemplateSpec
+from .valuetypes import ResourceUsage, RunResult, RunSpec, TemplateSpec
 
 
 def _engine():

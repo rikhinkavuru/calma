@@ -52,11 +52,6 @@ _FORWARD_RE = re.compile(r"robust|out.?of.?sample|\boos\b|forward|walk.?forward|
                          r"holds|stable|future|going.?forward|live", re.I)
 
 
-def _headline_claim_id(claims):
-    head = next((c for c in claims if c.get("headline")), claims[0]) if claims else None
-    return head["id"] if head else "c1"
-
-
 # ---- Detector 1: inferred train/test split + real overlap + an OOS claim -> FLAG ----
 def flag_inferred_split(contract, base, claim_text, claim_id="c1", findings=None):
     if contract.get("split"):
