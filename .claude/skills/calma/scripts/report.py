@@ -66,7 +66,7 @@ _FIXES = [
     ("determinism is measured-band", "set a fixed seed (e.g. np.random.seed(42) / torch.manual_seed(42)), or run a calibration pass, so the determinism band is controlled"),
     ("claim target is unconfirmed", "name the metric in the claim (e.g. \"accuracy 0.99\") or pass --metric (e.g. --metric accuracy)"),
     ("not statistically distinguishable", "the gap is within the claim's own noise - a finer-grained claim or more data is needed"),
-    ("no recomputed numeric", "write the result's raw numbers to a machine-readable file (e.g. predictions.csv with y_true,y_pred)"),
+    ("no recomputed numeric", "your code reported a number but didn't save the raw data Calma recomputes from - write it to a file (e.g. predictions.csv with y_true,y_pred, or returns.csv with strat_return) and re-run"),
     ("untrusted code", "third-party code needs a verified container/VM tier (--isolation docker, or --isolation e2b for a remote microVM) - or set trust: own-code in verify.yaml if you wrote it"),
     ("killed or isolation was refused", "the run was killed or refused - raise the budget with --timeout SECONDS, or check `run_hermetic.py doctor`"),
     ("degenerate recompute", "the recompute hit NaN/Inf - check for missing/blank cells in the output file, or declare an na_policy in verify.yaml"),

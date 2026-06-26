@@ -2887,15 +2887,26 @@ def main():
                 return 2
             dst = os.path.join(tempfile.mkdtemp(prefix="calma-demo-"), "btc-backtest")
             shutil.copytree(src, dst, ignore=shutil.ignore_patterns(".calma"))
-            print("re-verifying a real overfit backtest (it claimed +14,698% on BTC)...\n")
+            _bar = "─" * 64
+            print("CALMA DEMO  ·  catching a wrong number\n")
+            print("The setup: an AI agent reported this BTC trading strategy returned")
+            print("+14,698%. Watch Calma re-run the actual code and recompute the real")
+            print("number from the files it wrote, not the number it reported:\n")
+            print(_bar)
             res = verify(dst)
             print(res.get("display") or res["report"])
+            print(_bar)
             if a.keep:
                 print("\n[fixture copy kept at %s]" % dst)
-            print("\nthat was a real inflated backtest. now try your own:  "
-                  "%s verify <folder> \"<claim>\"" % _invocation())
-            print("   many results at once:  %s batch --manifest m.tsv"
-                  "   (one summary table over a whole sprint)" % _invocation())
+            # the plain-English takeaway, so the (necessarily technical) card lands.
+            print("\nIn plain English: the agent claimed +14,698%. Calma re-ran the")
+            print("strategy and the real return is -32% — it lost money. Caught in under")
+            print("a second, offline, by recomputing from the raw output, never the")
+            print("number the agent reported. Every verdict ships as a signed proof")
+            print("anyone re-checks offline.\n")
+            print("Now run it on your own result:")
+            print("  %s up                 # auto-detect + verify a result folder" % _invocation())
+            print("  %s verify <folder> \"<your claim>\"" % _invocation())
             return 0 if res["repo_verdict"] == "REFUTED" else 1
         if a.cmd == "suggest":
             text = " ".join(a.text)
