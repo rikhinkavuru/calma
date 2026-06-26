@@ -3330,11 +3330,15 @@ def main():
         # ALSO emit a {"error": ...} object on STDOUT so an agent that parses stdout (the documented
         # --json contract) gets valid JSON instead of a JSONDecodeError on an empty stream.
         print("error: %s" % e, file=sys.stderr)
-        # Full traceback to STDERR (never to the --json stdout contract). A bare message like a
-        # UnicodeDecodeError ("can't decode byte 0xa3 ...") hides WHERE it came from; the host captures
-        # this stream (runs.stderr_tail) so a control-plane failure is diagnosable without a live repro.
-        import traceback as _tb
-        _tb.print_exc()
+        # Full traceback to STDERR (never to the --json stdout contract) - but ONLY when it's being
+        # captured for diagnosis or explicitly asked for. A human at an interactive terminal who typo'd
+        # a metric ("no recipe named X. did you mean...") gets the clean, actionable message, NOT a
+        # scary stack trace that reads like a crash (DX: an error is problem+cause+fix, never a
+        # traceback). When stderr is piped (the control-plane captures runs.stderr_tail; CI logs) or
+        # CALMA_DEBUG is set, the traceback IS printed so a failure stays diagnosable without a repro.
+        if os.environ.get("CALMA_DEBUG") or not sys.stderr.isatty():
+            import traceback as _tb
+            _tb.print_exc()
         if getattr(a, "as_json", False):
             print(json.dumps({"ok": False, "error": str(e)}))
         return 2

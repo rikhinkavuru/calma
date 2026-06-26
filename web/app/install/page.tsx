@@ -44,11 +44,17 @@ function Term({
 }
 
 const COMMANDS: { p: string; t?: string; c?: string }[] = [
+  { p: "calma up", c: "    # one command: detect the result + recipe, verify, prove — then it's bare `calma verify`" },
   { p: "calma demo", c: "  # zero-setup: catch a bundled real inflated backtest (offline, seconds)" },
   { p: "calma verify", t: " <folder> \"<claim>\"", c: "   # check a result against a claim (exit codes below)" },
   { p: "calma verify", t: " <folder>", c: "             # no claim: just check the result reproduces" },
+  { p: "calma init", c: "  # auto-detect + write calma.toml (so the next verify is bare); --yes for CI" },
+  { p: "calma status", c: "                          # is the guardrail on? recent checks + signing key" },
+  { p: "calma doctor", t: " [--fix]", c: "             # health check: hook wired, runtime, signing key" },
   { p: "calma batch", t: " <dir>... | --manifest m.tsv", c: " # verify MANY results + one summary table (CI/sprint)" },
+  { p: "calma recipes search", t: " \"<term>\"", c: "    # find a metric by name; `calma recipes` lists all" },
   { p: "calma recipes", c: `                       # the ${RECIPE_COUNT} built-in metrics, grouped by family` },
+  { p: "calma schema", c: "                          # machine-readable CLI spec (agents; no --help parsing)" },
   { p: "calma verify", t: " ... --json", c: "          # machine-readable verdict (for agents / CI)" },
   { p: "calma verify", t: " ... --check-determinism", c: " # run twice; flaky outputs can't confirm anything" },
   { p: "calma verify", t: " ... --timeout 300", c: "   # raise the re-execution budget (default 120s)" },
@@ -56,15 +62,16 @@ const COMMANDS: { p: string; t?: string; c?: string }[] = [
   { p: "calma teardown", t: " <folder> \"<claim>\"", c: " # shareable \"claimed X -> really Y\" card (+ --svg)" },
   { p: "calma replay", t: " <run_dir>", c: "            # re-run a saved verification; exit 0 iff it reproduces" },
   { p: "calma stats", t: " <folder>", c: "             # verification history: catches, hook activity" },
+  { p: "calma proof show", t: " <dir>", c: "           # the proof at a glance + a shareable permalink + badge" },
+  { p: "calma proof verify", t: " <proof>", c: "       # re-verify a proof OFFLINE (no network, no trust in our servers)" },
   { p: "calma seal", t: " <run_dir> [--publish]", c: "  # sign + RFC-3161 timestamp + counterparty instructions" },
   { p: "calma attest keygen", c: "                 # one-time signing key; after this every verify is signed" },
-  { p: "calma attest verify", t: " <bundle>", c: "     # check a signed bundle, fully offline" },
   { p: "calma registry verify", t: " [dir]", c: "      # audit the public catch-history chain offline" },
 ];
 
 const EXIT_CODES: { code: string; meaning: string }[] = [
-  { code: "0", meaning: "clean — CONFIRMED / CONFIRMED-WITH-CAVEATS" },
-  { code: "1", meaning: "not clean — REFUTED / INVALIDATED / MIXED / CAN'T-CONFIRM" },
+  { code: "0", meaning: "Confirmed — clean (CONFIRMED / CONFIRMED-WITH-CAVEATS)" },
+  { code: "1", meaning: "Caught / Can't-tell — not clean (REFUTED / INVALIDATED / FLAG_FOR_DECLARATION / MIXED / CAN'T-CONFIRM)" },
   { code: "2", meaning: "bad input — missing target, malformed contract, unknown --metric" },
   { code: "3", meaning: "refused — execution declined (e.g. third-party code, no verified sandbox)" },
   { code: "4", meaning: "killed — the re-execution exceeded the --timeout budget" },
