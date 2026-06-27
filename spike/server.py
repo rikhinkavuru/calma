@@ -38,6 +38,7 @@ from core import verdict as VD  # noqa: E402
 from discovery import extract as DISC  # noqa: E402
 from runner import build  # noqa: E402
 from runner.local_runner import run_local  # noqa: E402
+from synth import formula as SYNTH  # noqa: E402  — the catalog flywheel (store → Exa-synth → validate)
 
 app = FastAPI(title="Calma — the correctness layer")
 
@@ -97,8 +98,9 @@ def _clone(repo: str, dest: str, job) -> str:
     return dest
 
 
-def _verify_claims(repo_dir, claims, runner, entry, pip_install, k, job) -> list[dict]:
-    """Deep-verify: run the entrypoint with capture, then three-way diff each claim. Returns verdict records."""
+def _run_repo(repo_dir, runner, entry, pip_install, k, job):
+    """Run the entrypoint k× with capture armed (the deep step). Sets job['run']; returns the run result.
+    Runs BEFORE discovery so the entrypoint's generated results.json + stdout feed claim discovery."""
     entry_argv = entry.split() if entry else ["eval.py"]
     _set(job, stage="building")
     if runner == "e2b":
@@ -118,30 +120,35 @@ def _verify_claims(repo_dir, claims, runner, entry, pip_install, k, job) -> list
         _log(job, "run failed: %s" % err[-200:])
     _log(job, "captured %d computation(s)" % total_calls)
     job["run"] = {"ran": ran_ok, "calls": total_calls, "entry": " ".join(entry_argv), "error": err}
+    return r
+
+
+def _diff_claims(claims, r, job):
+    """Three-way diff each claim against the captured runs, via the flywheel resolver. A metric the run
+    never recomputed stays DISCOVERED (not re-run) rather than a misleading INCONCLUSIVE."""
     _set(job, stage="diffing")
     records = []
     for claim in claims:
         if not r["runs"]:
             records.append(_claim_out(claim, DISCOVERED, "deep verify could not run the entrypoint", {}))
             continue
-        rec = D.diff_claim(claim, r["runs"])
+        rec = D.diff_claim(claim, r["runs"], resolver=SYNTH.recompute_any)   # catalog → store → Exa-synth
         v, reason = rec["verdict"], rec.get("reason", "")
-        # a claim whose metric this run never recomputed is DISCOVERED (not re-run) — not a failed verify.
-        # INCONCLUSIVE is reserved for a metric we DID compute but couldn't bind (ambiguous).
         if v == VD.INCONCLUSIVE and "no captured computation" in reason:
             v = DISCOVERED
             reason = ("the re-run did not recompute this number"
-                      + (" (the entrypoint failed to run)" if not ran_ok
+                      + (" (the entrypoint failed to run)" if not job["run"]["ran"]
                          else " — point Calma at the script/args that compute it"))
-        records.append(_claim_out(claim, v, reason, rec.get("diff", {})))
+        records.append(_claim_out(claim, v, reason, rec.get("diff", {}),
+                                  provenance=rec.get("recompute_provenance")))
     return records
 
 
-def _claim_out(claim, verdict, reason, diff):
+def _claim_out(claim, verdict, reason, diff, provenance=None):
     return {"id": claim.get("id"), "metric": claim.get("metric"), "claimed": claim.get("value"),
             "context": claim.get("context", ""), "location": claim.get("location", ""),
             "source": claim.get("source", "stated"), "confidence": claim.get("confidence"),
-            "verdict": verdict, "reason": reason, "diff": diff}
+            "verdict": verdict, "reason": reason, "diff": diff, "provenance": provenance}
 
 
 def run_job(job, req: VerifyReq):
@@ -150,17 +157,20 @@ def run_job(job, req: VerifyReq):
         dest = os.path.join(_WORKDIR, job["id"])
         repo_dir = _clone(req.repo, dest, job)
 
+        # deep verify RUNS FIRST so discovery can read the entrypoint's generated results.json + stdout
+        r = _run_repo(repo_dir, req.runner, req.entry, req.pip_install, req.k, job) if req.deep else None
+
         claims = list(req.claims or [])
         if req.discover:
             _set(job, stage="discovering")
-            discovered = DISC.discover(repo_dir)
+            stdout0 = r["meta"][0].get("stdout_tail", "") if (r and r.get("meta")) else ""
+            discovered = DISC.discover(repo_dir, stdout_text=stdout0)
             _log(job, "discovered %d claim(s)" % len(discovered))
             claims = claims + discovered
         job["n_claims"] = len(claims)
 
-        if req.deep and claims:
-            verified = _verify_claims(repo_dir, claims, req.runner, req.entry, req.pip_install, req.k, job)
-            records = verified
+        if req.deep and r:
+            records = _diff_claims(claims, r, job)
         else:
             # static layer: report what we found + what we'd need to verify it
             records = [_claim_out(c, DISCOVERED,

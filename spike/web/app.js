@@ -145,16 +145,25 @@ function renderTable(claims, g) {
       const d = c.diff || {};
       const recomp = d.recomputed != null ? (+d.recomputed).toPrecision(5) : (d.produced != null ? (+d.produced).toPrecision(5) : "—");
       const where = esc(c.context || c.location || c.source || "");
+      const prov = provenanceTag(c.provenance);
       return `<tr>
         <td><b>${esc(c.metric)}</b></td>
         <td class="mono">${esc(c.claimed)}</td>
-        <td class="mono">${recomp}</td>
+        <td class="mono">${recomp}${prov}</td>
         <td><span class="pill ${PILL[c.verdict] || "INCONCLUSIVE"}">${esc(c.verdict)}</span></td>
         <td class="muted" style="font-size:12px;max-width:230px">${where.slice(0, 90)}</td>
         <td class="reason">${esc(c.reason || "")}</td>
       </tr>`;
     }).join("")}</tbody></table>
     ${rows.length === 300 ? '<div class="empty" style="padding:14px">Showing first 300.</div>' : ""}`;
+}
+
+// how a claim was independently recomputed — the flywheel makes this visible
+function provenanceTag(p) {
+  if (!p || p === "catalog") return "";
+  if (p === "synth") return '<div class="prov synth">✦ synthesized + validated</div>';
+  if (p && p.indexOf("store") === 0) return '<div class="prov bank">✦ banked formula</div>';
+  return "";
 }
 
 loadRepos();

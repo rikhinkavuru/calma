@@ -37,6 +37,9 @@ _KEYWORDS = [
     (("rmse",), "rmse"), (("mae",), "mae"), (("mse",), "mse"),
     (("r2",), "r2"), (("rsquared",), "r2"),
     (("sharpe",), "sharpe"),
+    # metrics outside the curated catalog — discoverable, then verified via the synth/store flywheel
+    (("mcc",), "mcc"), (("matthews",), "mcc"),
+    (("cohen", "kappa"), "cohen_kappa"), (("kappa",), "cohen_kappa"), (("spearman",), "spearman"),
     # NB: mean/sum/average are intentionally NOT greedy keywords — they over-match column names like
     # "auroc_mean"/"peak_ram_mb_mean". They stay reachable via an exact alias (a column literally "mean").
 ]

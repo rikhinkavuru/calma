@@ -5,3 +5,4 @@ __pycache__/
 *.pyc
 .pytest_cache/
 # keep the report + scored results (results/SPIKE-REPORT.md, results/results.json)
+synth/formula_store.json

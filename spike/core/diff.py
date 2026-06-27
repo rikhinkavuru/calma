@@ -75,8 +75,11 @@ def _select(calls, selector):
     return cands[occ] if 0 <= occ < len(cands) else None
 
 
-def diff_claim(claim, runs) -> dict:
-    """Three-way diff for one claim across `runs` (a list of capture-call lists; runs[0] is authoritative)."""
+def diff_claim(claim, runs, resolver=None) -> dict:
+    """Three-way diff for one claim across `runs` (a list of capture-call lists; runs[0] is authoritative).
+
+    `resolver(metric, inputs, kwargs) -> Result` is an optional injected recompute for metrics the curated
+    catalog doesn't know (the synth/store flywheel). Keeping it injected leaves core pure-stdlib."""
     cid, raw = _claim_cid(claim)
     base_calls = runs[0] if runs else []
     binding = _bind(claim, base_calls)
@@ -94,13 +97,21 @@ def diff_claim(claim, runs) -> dict:
     produced = _finite_float(call.get("result"))
     inputs = call.get("inputs") if call.get("captured_full", True) else None
 
-    # independent recompute (only if we recognise the metric AND we captured the inputs)
+    # independent recompute: catalog (recognised) → resolver (synth/store) → none. Needs captured inputs.
     recomputed, recompute_known = None, cid is not None
-    if cid is not None and inputs is not None:
-        recomputed = C.recompute(cid, inputs, call.get("kwargs") or {})
-    elif cid is not None and inputs is None:
-        recomputed = {"value": float("nan"), "degenerate": True,
-                      "note": "inputs not captured (too large)", "terms": {}}
+    kw = call.get("kwargs") or {}
+    if inputs is None:
+        if cid is not None:
+            recomputed = {"value": float("nan"), "degenerate": True,
+                          "note": "inputs not captured (too large)", "terms": {}}
+    elif cid is not None:
+        recomputed = C.recompute(cid, inputs, kw)
+    elif resolver is not None:
+        rr = resolver(raw, inputs, kw)            # the flywheel: store hit / Exa-synth / none
+        if rr and not rr.get("degenerate"):
+            recomputed, recompute_known = rr, True
+        elif rr:
+            recomputed = rr                       # degenerate resolver result → stays reproduced-only
 
     # validity overlay on the captured inputs
     validity = V.check(raw, inputs, produced) if inputs is not None else {"invalidating": [], "advisory": []}
@@ -127,12 +138,13 @@ def diff_claim(claim, runs) -> dict:
     rec["sink"] = call.get("sink")
     rec["determinism"] = determinism
     rec["validity"] = validity
+    rec["recompute_provenance"] = (recomputed or {}).get("provenance")   # catalog | store | synth
     return rec
 
 
-def diff_repo(claims, runs) -> dict:
+def diff_repo(claims, runs, resolver=None) -> dict:
     """Diff every claim. Returns {"claims": [verdict record...], "counts": {verdict: n}}."""
-    records = [diff_claim(cl, runs) for cl in claims]
+    records = [diff_claim(cl, runs, resolver=resolver) for cl in claims]
     counts: dict[str, int] = {}
     for r in records:
         counts[r["verdict"]] = counts.get(r["verdict"], 0) + 1

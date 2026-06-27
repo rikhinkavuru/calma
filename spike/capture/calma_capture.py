@@ -195,6 +195,9 @@ _SKLEARN_ADAPTERS = {
     "root_mean_squared_error": _ad_reg("rmse"),
     "mean_absolute_error": _ad_reg("mae"),
     "r2_score": _ad_reg("r2"),
+    # metrics not in the curated catalog — captured here, recomputed via the synth/store flywheel:
+    "matthews_corrcoef": _ad_classify("mcc"),
+    "cohen_kappa_score": _ad_classify("cohen_kappa"),
 }
 
 
