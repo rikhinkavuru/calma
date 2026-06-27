@@ -1,5 +1,0 @@
-account,block,event,repaid,pre_debt
-0xA,100,liquidation,40,100
-0xA,100,liquidation,30,60
-0xB,101,liquidation,20,100
-0xC,102,liquidation,15,50

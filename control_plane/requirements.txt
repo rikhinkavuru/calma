@@ -1,3 +1,0 @@
-# control-plane service deps (the engine stays pure-stdlib; deps live here, outside it).
-psycopg[binary,pool]>=3.1   # Postgres driver (migrations + API)
-# added as the API lands: fastapi, uvicorn, boto3 (R2/S3), stripe, workos

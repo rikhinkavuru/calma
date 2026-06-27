@@ -1,0 +1,99 @@
+# Calma rebuild — Phase 0 spike corpus.
+#
+# Each repo carries hand-specified claims (the reported numbers, as written) + an `expect` (the
+# hand-graded verdict) so run_spike.py can score reproduction, input-binding, verdict accuracy, and —
+# the franchise gate — FALSE-CONFIRM COUNT (must be 0). The synthetic fixtures pin each verdict path; the
+# realistic + e2b repos exercise the build-runnable and isolation paths. Real external git repos go in the
+# `# real:` section and are attempted best-effort (an honest pass/fail feeds the couldn't-reproduce taxonomy).
+#
+# claim fields: id, metric, value (string, as reported), [bind: {occurrence|sink|label}], expect
+
+repos:
+  # ---- synthetic: one verdict path each (the routing proof) -------------------------------------
+  - name: clean_eval
+    source: {kind: local, path: fixtures/clean_eval}
+    entry: [eval.py]
+    claims:
+      - {id: acc, metric: accuracy, value: "0.831", expect: CONFIRMED}
+      - {id: auc, metric: roc_auc, value: "0.942", expect: CONFIRMED}
+
+  - name: misreported
+    source: {kind: local, path: fixtures/clean_eval}   # same code, an inflated README number
+    entry: [eval.py]
+    claims:
+      - {id: acc, metric: accuracy, value: "0.95", expect: REFUTED}
+
+  - name: custom_metric_invalid
+    source: {kind: local, path: fixtures/custom_metric}
+    entry: [eval.py]
+    targets:
+      - {target: metrics.my_accuracy, metric: accuracy, inputs: {y_true: arg0, y_pred: arg1}}
+    claims:
+      - {id: acc, metric: accuracy, value: "1.0", expect: INVALIDATED}   # reproduces to 1.0; recompute ≈ 0.5
+
+  - name: trivial_baseline
+    source: {kind: local, path: fixtures/trivial_baseline}
+    entry: [eval.py]
+    claims:
+      - {id: acc, metric: accuracy, value: "0.918", expect: INVALIDATED}  # = majority-class baseline
+
+  - name: nondeterministic
+    source: {kind: local, path: fixtures/nondeterministic}
+    entry: [eval.py]
+    claims:
+      - {id: acc, metric: accuracy, value: "0.700", expect: NON-DETERMINISTIC}
+
+  - name: two_splits
+    source: {kind: local, path: fixtures/two_splits}
+    entry: [eval.py]
+    claims:
+      - {id: acc_bare, metric: accuracy, value: "0.55", expect: INCONCLUSIVE}        # ambiguous: train vs test
+      - {id: acc_test, metric: accuracy, value: "0.544", bind: {occurrence: 1}, expect: CONFIRMED}
+
+  - name: unknown_metric
+    source: {kind: local, path: fixtures/unknown_metric}
+    entry: [eval.py]
+    hooks: ""        # no sink to auto-hook; the repo records explicitly
+    claims:
+      - {id: bleu, metric: bleu, value: "0.722", expect: REPRODUCED-ONLY}   # not in the trusted catalog
+
+  # ---- realistic: full build-runnable path (own requirements.txt, real model, results.json) -----
+  - name: realistic_sklearn
+    source: {kind: local, path: fixtures/realistic_sklearn}
+    entry: [train.py]
+    pip_install: [numpy, scikit-learn]      # exercises build.ensure_venv (per-repo env)
+    claims:
+      - {id: acc, metric: accuracy, value: "0.755", expect: CONFIRMED}
+      - {id: auc, metric: roc_auc, value: "0.8146", expect: CONFIRMED}
+      - {id: f1, metric: f1, value: "0.6726", expect: CONFIRMED}
+
+  # ---- auto-discovery: the FREE path — no hand-specified claims; TDMR finds them (guide §3) -------
+  - name: realistic_autodiscover
+    source: {kind: local, path: fixtures/realistic_sklearn}
+    entry: [train.py]
+    discover: true          # claims auto-extracted from results.json + stdout, then verified
+    # (no `claims:` — everything here is discovered)
+
+  # ---- isolation path: real E2B Firecracker microVM, network-denied ------------------------------
+  - name: e2b_smoke
+    source: {kind: local, path: fixtures/e2b_smoke}
+    runner: e2b
+    entry: [eval.py]
+    hooks: ""
+    claims:
+      - {id: mean, metric: mean, value: "0.3000", expect: CONFIRMED}
+
+  # ---- real: external git repos (attempted best-effort; honest pass/fail) ------------------------
+  # First real external repo: a single-file LogisticRegression-on-iris demo. Its README claims 96.67%
+  # accuracy (computed under scikit-learn 1.3.0). Re-run in a fresh env (sklearn 1.9) the same seeded code
+  # produces 1.0 — a textbook ENVIRONMENT-DRIFT catch: the reported number does not reproduce -> REFUTED.
+  # Reproducing the 0.9667 would need the pinned 1.3.0 env (the reproduction-flywheel / repo2docker point).
+  # Also exercises: git clone at a pinned commit, per-repo venv build, and the estimator .score() hook.
+  - name: ml-in-10-lines
+    source: {kind: git, url: https://github.com/sanjaynela/ml-in-10-lines.git,
+             commit: c5f6c4c14cea337df9ebf71444b7367228b16d87}
+    entry: [iris.py]
+    pip_install: [scikit-learn]
+    claims:
+      - {id: acc, metric: accuracy, value: "96.67%", expect: REFUTED}   # version drift; 1.0 in a fresh env
+  # ... ~15-20 more self-contained CPU repos to curate here (the Phase-0 rate measurement).

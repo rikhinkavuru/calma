@@ -1,0 +1,7 @@
+# build artifacts produced by run_spike.py — not source
+results/.venvs/
+results/repos/
+__pycache__/
+*.pyc
+.pytest_cache/
+# keep the report + scored results (results/SPIKE-REPORT.md, results/results.json)

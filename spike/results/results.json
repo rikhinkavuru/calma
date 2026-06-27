@@ -1,0 +1,807 @@
+{
+  "aggregate": {
+    "repos_total": 11,
+    "repos_ran": 11,
+    "discovered_claims": 3,
+    "reproduction_rate": 1.0,
+    "claims_total": 17,
+    "claims_bound": 16,
+    "binding_rate": 0.941,
+    "claims_graded": 14,
+    "verdict_matches": 14,
+    "verdict_accuracy": 1.0,
+    "false_confirm_count": 0,
+    "false_confirms": [],
+    "wall_seconds_total": 17.4,
+    "wall_seconds_per_repo": 1.6
+  },
+  "repos": [
+    {
+      "name": "clean_eval",
+      "ran": true,
+      "runner": "local",
+      "seconds": 1.7,
+      "n_calls": [
+        2,
+        2
+      ],
+      "hooks_armed": {
+        "sklearn": [
+          "accuracy_score",
+          "balanced_accuracy_score",
+          "precision_score",
+          "recall_score",
+          "f1_score",
+          "roc_auc_score",
+          "mean_squared_error",
+          "root_mean_squared_error",
+          "mean_absolute_error",
+          "r2_score",
+          "ClassifierMixin.score",
+          "RegressorMixin.score"
+        ],
+        "targets": []
+      },
+      "n_discovered": 0,
+      "build": "local/harness python",
+      "claims": [
+        {
+          "id": "acc",
+          "metric": "accuracy",
+          "claimed": "0.831",
+          "verdict": "CONFIRMED",
+          "expect": "CONFIRMED",
+          "match": true,
+          "bound": true,
+          "reason": "claim == runtime value == independent recompute, deterministic",
+          "diff": {
+            "claimed": "0.831",
+            "produced": 0.83125,
+            "recomputed": 0.83125,
+            "claim_match": {
+              "claimed_value": 0.831,
+              "decimals": 3,
+              "kind": "plain",
+              "tol": 0.0005000018310000001,
+              "delta": 0.0002500000000000835
+            }
+          },
+          "discovered": false,
+          "discovery_source": null,
+          "confidence": null,
+          "false_confirm": false
+        },
+        {
+          "id": "auc",
+          "metric": "roc_auc",
+          "claimed": "0.942",
+          "verdict": "CONFIRMED",
+          "expect": "CONFIRMED",
+          "match": true,
+          "bound": true,
+          "reason": "claim == runtime value == independent recompute, deterministic",
+          "diff": {
+            "claimed": "0.942",
+            "produced": 0.9424879607712641,
+            "recomputed": 0.9424879607712641,
+            "claim_match": {
+              "claimed_value": 0.942,
+              "decimals": 3,
+              "kind": "plain",
+              "tol": 0.0005000019420000001,
+              "delta": 0.00048796077126411763
+            }
+          },
+          "discovered": false,
+          "discovery_source": null,
+          "confidence": null,
+          "false_confirm": false
+        }
+      ],
+      "failure": null,
+      "stderr_tail": ""
+    },
+    {
+      "name": "misreported",
+      "ran": true,
+      "runner": "local",
+      "seconds": 1.4,
+      "n_calls": [
+        2,
+        2
+      ],
+      "hooks_armed": {
+        "sklearn": [
+          "accuracy_score",
+          "balanced_accuracy_score",
+          "precision_score",
+          "recall_score",
+          "f1_score",
+          "roc_auc_score",
+          "mean_squared_error",
+          "root_mean_squared_error",
+          "mean_absolute_error",
+          "r2_score",
+          "ClassifierMixin.score",
+          "RegressorMixin.score"
+        ],
+        "targets": []
+      },
+      "n_discovered": 0,
+      "build": "local/harness python",
+      "claims": [
+        {
+          "id": "acc",
+          "metric": "accuracy",
+          "claimed": "0.95",
+          "verdict": "REFUTED",
+          "expect": "REFUTED",
+          "match": true,
+          "bound": true,
+          "reason": "the reported value '0.95' is not what the code produced (0.83125); \u0394=0.119",
+          "diff": {
+            "claimed": "0.95",
+            "produced": 0.83125,
+            "recomputed": 0.83125,
+            "claim_match": {
+              "claimed_value": 0.95,
+              "decimals": 2,
+              "kind": "plain",
+              "tol": 0.00500000195,
+              "delta": 0.11874999999999991
+            }
+          },
+          "discovered": false,
+          "discovery_source": null,
+          "confidence": null,
+          "false_confirm": false
+        }
+      ],
+      "failure": null,
+      "stderr_tail": ""
+    },
+    {
+      "name": "custom_metric_invalid",
+      "ran": true,
+      "runner": "local",
+      "seconds": 1.5,
+      "n_calls": [
+        1,
+        1
+      ],
+      "hooks_armed": {
+        "sklearn": [
+          "accuracy_score",
+          "balanced_accuracy_score",
+          "precision_score",
+          "recall_score",
+          "f1_score",
+          "roc_auc_score",
+          "mean_squared_error",
+          "root_mean_squared_error",
+          "mean_absolute_error",
+          "r2_score",
+          "ClassifierMixin.score",
+          "RegressorMixin.score"
+        ],
+        "targets": [
+          "metrics.my_accuracy"
+        ]
+      },
+      "n_discovered": 0,
+      "build": "local/harness python",
+      "claims": [
+        {
+          "id": "acc",
+          "metric": "accuracy",
+          "claimed": "1.0",
+          "verdict": "INVALIDATED",
+          "expect": "INVALIDATED",
+          "match": true,
+          "bound": true,
+          "reason": "the repo produced 1 but an independent recompute of the same inputs gives 0.526667 \u2014 the formula is wrong or cheating (\u0394=0.473)",
+          "diff": {
+            "claimed": "1.0",
+            "produced": 1.0,
+            "recomputed": 0.5266666666666666,
+            "claim_match": {
+              "claimed_value": 1.0,
+              "decimals": 1,
+              "kind": "plain",
+              "tol": 0.050000002,
+              "delta": 0.0
+            }
+          },
+          "discovered": false,
+          "discovery_source": null,
+          "confidence": null,
+          "false_confirm": false
+        }
+      ],
+      "failure": null,
+      "stderr_tail": ""
+    },
+    {
+      "name": "trivial_baseline",
+      "ran": true,
+      "runner": "local",
+      "seconds": 1.4,
+      "n_calls": [
+        1,
+        1
+      ],
+      "hooks_armed": {
+        "sklearn": [
+          "accuracy_score",
+          "balanced_accuracy_score",
+          "precision_score",
+          "recall_score",
+          "f1_score",
+          "roc_auc_score",
+          "mean_squared_error",
+          "root_mean_squared_error",
+          "mean_absolute_error",
+          "r2_score",
+          "ClassifierMixin.score",
+          "RegressorMixin.score"
+        ],
+        "targets": []
+      },
+      "n_discovered": 0,
+      "build": "local/harness python",
+      "claims": [
+        {
+          "id": "acc",
+          "metric": "accuracy",
+          "claimed": "0.918",
+          "verdict": "INVALIDATED",
+          "expect": "INVALIDATED",
+          "match": true,
+          "bound": true,
+          "reason": "reproducible but invalid: accuracy 0.918 is at or below the majority-class baseline 0.918 \u2014 a constant predictor matches it (no signal)",
+          "diff": {
+            "claimed": "0.918",
+            "produced": 0.918,
+            "recomputed": 0.918,
+            "claim_match": {
+              "claimed_value": 0.918,
+              "decimals": 3,
+              "kind": "plain",
+              "tol": 0.000500001918,
+              "delta": 0.0
+            }
+          },
+          "discovered": false,
+          "discovery_source": null,
+          "confidence": null,
+          "false_confirm": false
+        }
+      ],
+      "failure": null,
+      "stderr_tail": ""
+    },
+    {
+      "name": "nondeterministic",
+      "ran": true,
+      "runner": "local",
+      "seconds": 1.5,
+      "n_calls": [
+        1,
+        1
+      ],
+      "hooks_armed": {
+        "sklearn": [
+          "accuracy_score",
+          "balanced_accuracy_score",
+          "precision_score",
+          "recall_score",
+          "f1_score",
+          "roc_auc_score",
+          "mean_squared_error",
+          "root_mean_squared_error",
+          "mean_absolute_error",
+          "r2_score",
+          "ClassifierMixin.score",
+          "RegressorMixin.score"
+        ],
+        "targets": []
+      },
+      "n_discovered": 0,
+      "build": "local/harness python",
+      "claims": [
+        {
+          "id": "acc",
+          "metric": "accuracy",
+          "claimed": "0.700",
+          "verdict": "NON-DETERMINISTIC",
+          "expect": "NON-DETERMINISTIC",
+          "match": true,
+          "bound": true,
+          "reason": "the produced value is not stable across 2 runs (spread=0.001) \u2014 seeds/time/urandom uncontrolled; no hard CONFIRMED",
+          "diff": {
+            "claimed": "0.700",
+            "produced": 0.7,
+            "recomputed": 0.7,
+            "claim_match": {
+              "claimed_value": 0.7,
+              "decimals": 3,
+              "kind": "plain",
+              "tol": 0.0005000017,
+              "delta": 0.0
+            }
+          },
+          "discovered": false,
+          "discovery_source": null,
+          "confidence": null,
+          "false_confirm": false
+        }
+      ],
+      "failure": null,
+      "stderr_tail": ""
+    },
+    {
+      "name": "two_splits",
+      "ran": true,
+      "runner": "local",
+      "seconds": 1.5,
+      "n_calls": [
+        2,
+        2
+      ],
+      "hooks_armed": {
+        "sklearn": [
+          "accuracy_score",
+          "balanced_accuracy_score",
+          "precision_score",
+          "recall_score",
+          "f1_score",
+          "roc_auc_score",
+          "mean_squared_error",
+          "root_mean_squared_error",
+          "mean_absolute_error",
+          "r2_score",
+          "ClassifierMixin.score",
+          "RegressorMixin.score"
+        ],
+        "targets": []
+      },
+      "n_discovered": 0,
+      "build": "local/harness python",
+      "claims": [
+        {
+          "id": "acc_bare",
+          "metric": "accuracy",
+          "claimed": "0.55",
+          "verdict": "INCONCLUSIVE",
+          "expect": "INCONCLUSIVE",
+          "match": true,
+          "bound": false,
+          "reason": "could not bind the metric inputs: 2 candidate computations of 'accuracy' (sklearn.metrics.accuracy_score)",
+          "diff": {
+            "claimed": "0.55",
+            "produced": null,
+            "recomputed": null
+          },
+          "discovered": false,
+          "discovery_source": null,
+          "confidence": null,
+          "false_confirm": false
+        },
+        {
+          "id": "acc_test",
+          "metric": "accuracy",
+          "claimed": "0.544",
+          "verdict": "CONFIRMED",
+          "expect": "CONFIRMED",
+          "match": true,
+          "bound": true,
+          "reason": "claim == runtime value == independent recompute, deterministic",
+          "diff": {
+            "claimed": "0.544",
+            "produced": 0.544,
+            "recomputed": 0.544,
+            "claim_match": {
+              "claimed_value": 0.544,
+              "decimals": 3,
+              "kind": "plain",
+              "tol": 0.000500001544,
+              "delta": 0.0
+            }
+          },
+          "discovered": false,
+          "discovery_source": null,
+          "confidence": null,
+          "false_confirm": false
+        }
+      ],
+      "failure": null,
+      "stderr_tail": ""
+    },
+    {
+      "name": "unknown_metric",
+      "ran": true,
+      "runner": "local",
+      "seconds": 1.4,
+      "n_calls": [
+        1,
+        1
+      ],
+      "hooks_armed": {
+        "sklearn": [
+          "accuracy_score",
+          "balanced_accuracy_score",
+          "precision_score",
+          "recall_score",
+          "f1_score",
+          "roc_auc_score",
+          "mean_squared_error",
+          "root_mean_squared_error",
+          "mean_absolute_error",
+          "r2_score",
+          "ClassifierMixin.score",
+          "RegressorMixin.score"
+        ],
+        "targets": []
+      },
+      "n_discovered": 0,
+      "build": "local/harness python",
+      "claims": [
+        {
+          "id": "bleu",
+          "metric": "bleu",
+          "claimed": "0.722",
+          "verdict": "REPRODUCED-ONLY",
+          "expect": "REPRODUCED-ONLY",
+          "match": true,
+          "bound": true,
+          "reason": "reproduced the reported number, but no independent correctness check was possible (metric not in the trusted catalog)",
+          "diff": {
+            "claimed": "0.722",
+            "produced": 0.7222222222222222,
+            "recomputed": null,
+            "claim_match": {
+              "claimed_value": 0.722,
+              "decimals": 3,
+              "kind": "plain",
+              "tol": 0.0005000017220000001,
+              "delta": 0.00022222222222223476
+            }
+          },
+          "discovered": false,
+          "discovery_source": null,
+          "confidence": null,
+          "false_confirm": false
+        }
+      ],
+      "failure": null,
+      "stderr_tail": ""
+    },
+    {
+      "name": "realistic_sklearn",
+      "ran": true,
+      "runner": "local",
+      "seconds": 1.4,
+      "n_calls": [
+        3,
+        3
+      ],
+      "hooks_armed": {
+        "sklearn": [
+          "accuracy_score",
+          "balanced_accuracy_score",
+          "precision_score",
+          "recall_score",
+          "f1_score",
+          "roc_auc_score",
+          "mean_squared_error",
+          "root_mean_squared_error",
+          "mean_absolute_error",
+          "r2_score",
+          "ClassifierMixin.score",
+          "RegressorMixin.score"
+        ],
+        "targets": []
+      },
+      "n_discovered": 0,
+      "build": "local/cached venv",
+      "claims": [
+        {
+          "id": "acc",
+          "metric": "accuracy",
+          "claimed": "0.755",
+          "verdict": "CONFIRMED",
+          "expect": "CONFIRMED",
+          "match": true,
+          "bound": true,
+          "reason": "claim == runtime value == independent recompute, deterministic",
+          "diff": {
+            "claimed": "0.755",
+            "produced": 0.755,
+            "recomputed": 0.755,
+            "claim_match": {
+              "claimed_value": 0.755,
+              "decimals": 3,
+              "kind": "plain",
+              "tol": 0.000500001755,
+              "delta": 0.0
+            }
+          },
+          "discovered": false,
+          "discovery_source": null,
+          "confidence": null,
+          "false_confirm": false
+        },
+        {
+          "id": "auc",
+          "metric": "roc_auc",
+          "claimed": "0.8146",
+          "verdict": "CONFIRMED",
+          "expect": "CONFIRMED",
+          "match": true,
+          "bound": true,
+          "reason": "claim == runtime value == independent recompute, deterministic",
+          "diff": {
+            "claimed": "0.8146",
+            "produced": 0.8145777736923293,
+            "recomputed": 0.8145777736923293,
+            "claim_match": {
+              "claimed_value": 0.8146,
+              "decimals": 4,
+              "kind": "plain",
+              "tol": 5.000181460000001e-05,
+              "delta": 2.222630767068079e-05
+            }
+          },
+          "discovered": false,
+          "discovery_source": null,
+          "confidence": null,
+          "false_confirm": false
+        },
+        {
+          "id": "f1",
+          "metric": "f1",
+          "claimed": "0.6726",
+          "verdict": "CONFIRMED",
+          "expect": "CONFIRMED",
+          "match": true,
+          "bound": true,
+          "reason": "claim == runtime value == independent recompute, deterministic",
+          "diff": {
+            "claimed": "0.6726",
+            "produced": 0.6726057906458798,
+            "recomputed": 0.6726057906458798,
+            "claim_match": {
+              "claimed_value": 0.6726,
+              "decimals": 4,
+              "kind": "plain",
+              "tol": 5.0001672600000006e-05,
+              "delta": 5.790645879799605e-06
+            }
+          },
+          "discovered": false,
+          "discovery_source": null,
+          "confidence": null,
+          "false_confirm": false
+        }
+      ],
+      "failure": null,
+      "stderr_tail": ""
+    },
+    {
+      "name": "realistic_autodiscover",
+      "ran": true,
+      "runner": "local",
+      "seconds": 1.7,
+      "n_calls": [
+        3,
+        3
+      ],
+      "hooks_armed": {
+        "sklearn": [
+          "accuracy_score",
+          "balanced_accuracy_score",
+          "precision_score",
+          "recall_score",
+          "f1_score",
+          "roc_auc_score",
+          "mean_squared_error",
+          "root_mean_squared_error",
+          "mean_absolute_error",
+          "r2_score",
+          "ClassifierMixin.score",
+          "RegressorMixin.score"
+        ],
+        "targets": []
+      },
+      "n_discovered": 3,
+      "build": "local/harness python",
+      "claims": [
+        {
+          "id": "d0_accuracy",
+          "metric": "accuracy",
+          "claimed": "0.755",
+          "verdict": "CONFIRMED",
+          "expect": null,
+          "match": true,
+          "bound": true,
+          "reason": "claim == runtime value == independent recompute, deterministic",
+          "diff": {
+            "claimed": "0.755",
+            "produced": 0.755,
+            "recomputed": 0.755,
+            "claim_match": {
+              "claimed_value": 0.755,
+              "decimals": 3,
+              "kind": "plain",
+              "tol": 0.000500001755,
+              "delta": 0.0
+            }
+          },
+          "discovered": true,
+          "discovery_source": "results-json",
+          "confidence": 0.9,
+          "false_confirm": false
+        },
+        {
+          "id": "d1_f1",
+          "metric": "f1",
+          "claimed": "0.6726",
+          "verdict": "CONFIRMED",
+          "expect": null,
+          "match": true,
+          "bound": true,
+          "reason": "claim == runtime value == independent recompute, deterministic",
+          "diff": {
+            "claimed": "0.6726",
+            "produced": 0.6726057906458798,
+            "recomputed": 0.6726057906458798,
+            "claim_match": {
+              "claimed_value": 0.6726,
+              "decimals": 4,
+              "kind": "plain",
+              "tol": 5.0001672600000006e-05,
+              "delta": 5.790645879799605e-06
+            }
+          },
+          "discovered": true,
+          "discovery_source": "results-json",
+          "confidence": 0.9,
+          "false_confirm": false
+        },
+        {
+          "id": "d2_roc_auc",
+          "metric": "roc_auc",
+          "claimed": "0.8146",
+          "verdict": "CONFIRMED",
+          "expect": null,
+          "match": true,
+          "bound": true,
+          "reason": "claim == runtime value == independent recompute, deterministic",
+          "diff": {
+            "claimed": "0.8146",
+            "produced": 0.8145777736923293,
+            "recomputed": 0.8145777736923293,
+            "claim_match": {
+              "claimed_value": 0.8146,
+              "decimals": 4,
+              "kind": "plain",
+              "tol": 5.000181460000001e-05,
+              "delta": 2.222630767068079e-05
+            }
+          },
+          "discovered": true,
+          "discovery_source": "results-json",
+          "confidence": 0.9,
+          "false_confirm": false
+        }
+      ],
+      "failure": null,
+      "stderr_tail": ""
+    },
+    {
+      "name": "e2b_smoke",
+      "ran": true,
+      "runner": "e2b",
+      "seconds": 2.4,
+      "n_calls": [
+        1,
+        1
+      ],
+      "hooks_armed": {
+        "sklearn": [],
+        "targets": []
+      },
+      "n_discovered": 0,
+      "build": "local/e2b",
+      "claims": [
+        {
+          "id": "mean",
+          "metric": "mean",
+          "claimed": "0.3000",
+          "verdict": "CONFIRMED",
+          "expect": "CONFIRMED",
+          "match": true,
+          "bound": true,
+          "reason": "claim == runtime value == independent recompute, deterministic",
+          "diff": {
+            "claimed": "0.3000",
+            "produced": 0.3,
+            "recomputed": 0.3,
+            "claim_match": {
+              "claimed_value": 0.3,
+              "decimals": 4,
+              "kind": "plain",
+              "tol": 5.0001300000000005e-05,
+              "delta": 0.0
+            }
+          },
+          "discovered": false,
+          "discovery_source": null,
+          "confidence": null,
+          "false_confirm": false
+        }
+      ],
+      "failure": null,
+      "stderr_tail": ""
+    },
+    {
+      "name": "ml-in-10-lines",
+      "ran": true,
+      "runner": "local",
+      "seconds": 1.5,
+      "n_calls": [
+        1,
+        1
+      ],
+      "hooks_armed": {
+        "sklearn": [
+          "accuracy_score",
+          "balanced_accuracy_score",
+          "precision_score",
+          "recall_score",
+          "f1_score",
+          "roc_auc_score",
+          "mean_squared_error",
+          "root_mean_squared_error",
+          "mean_absolute_error",
+          "r2_score",
+          "ClassifierMixin.score",
+          "RegressorMixin.score"
+        ],
+        "targets": []
+      },
+      "n_discovered": 0,
+      "build": "cached clone/cached venv",
+      "claims": [
+        {
+          "id": "acc",
+          "metric": "accuracy",
+          "claimed": "96.67%",
+          "verdict": "REFUTED",
+          "expect": "REFUTED",
+          "match": true,
+          "bound": true,
+          "reason": "the reported value '96.67%' is not what the code produced (1); \u0394=0.0333",
+          "diff": {
+            "claimed": "96.67%",
+            "produced": 1.0,
+            "recomputed": 1.0,
+            "claim_match": {
+              "claimed_value": 0.9667,
+              "decimals": 4,
+              "kind": "percent",
+              "tol": 5.00019667e-05,
+              "delta": 0.033299999999999996
+            }
+          },
+          "discovered": false,
+          "discovery_source": null,
+          "confidence": null,
+          "false_confirm": false
+        }
+      ],
+      "failure": null,
+      "stderr_tail": ""
+    }
+  ]
+}

@@ -72,3 +72,4 @@ src/*.egg-info
 # tool caches (regenerated; never committed)
 .pytest_cache/
 .ruff_cache/
+legacy/
