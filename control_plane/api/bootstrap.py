@@ -25,6 +25,13 @@ def seed_registry(conn):
     for tid, lang, digest, prov in _TEMPLATES:
         conn.execute("INSERT INTO templates (id, language, image_digest, provider) "
                      "VALUES (%s,%s,%s,%s) ON CONFLICT (id) DO NOTHING", (tid, lang, digest, prov))
+    # The recipe catalogue is GLOBAL and seeded once (here on the first provision, or by migration 0008).
+    # Re-running the full per-recipe upsert on EVERY provision cost ~40s — one DB round-trip per recipe
+    # across the whole catalogue — and provision() runs on every cold serverless instance (getSession()
+    # calls it to resolve the tenant), so it dominated the dashboard load. Skip the loop once the catalogue
+    # is complete: a single COUNT instead of ~130 idempotent INSERTs. It self-heals when the catalogue grows.
+    if _one(conn, "SELECT count(*) AS n FROM recipes")["n"] >= len(_RECIPES):
+        return
     for rid, ver, fam, metric in _RECIPES:
         conn.execute("INSERT INTO recipes (id, version, family, metric, spec_sha256) "
                      "VALUES (%s,%s,%s,%s,%s) ON CONFLICT (id, version) DO NOTHING",
