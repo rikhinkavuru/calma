@@ -50,6 +50,31 @@ def cosine(a: list[float], b: list[float]) -> float:
     return sum(x * y for x, y in zip(a, b))
 
 
+def _match(records, metric: str, text: str = None, threshold: float = 0.86):
+    """Shared lookup: exact metric/alias (certain) first, then vector cosine for paraphrases. Used by both
+    the local store and the Helix store (a formula catalog is small, so reading all + matching host-side is
+    fine, and keeps the backend-agnostic)."""
+    m = (metric or "").strip().lower()
+    for r in records:
+        if r.metric == m or m in [a.lower() for a in r.aliases]:
+            return r, 1.0
+    if not records:
+        return None
+    q = embed(text or metric)
+    best, score = None, 0.0
+    for r in records:
+        s = cosine(q, r.embedding or embed(r.text()))
+        if s > score:
+            best, score = r, s
+    return (best, score) if (best and score >= threshold) else None
+
+
+def _find_helix():
+    import shutil  # noqa: PLC0415
+    p = os.path.expanduser("~/.local/bin/helix")
+    return shutil.which("helix") or (p if os.path.isfile(p) else None)
+
+
 @dataclass
 class FormulaRecord:
     metric: str                       # canonical id we file it under
@@ -96,20 +121,7 @@ class LocalStore:
             pass
 
     def lookup(self, metric: str, text: str = None, threshold: float = 0.86):
-        m = (metric or "").strip().lower()
-        for r in self.records:                                   # exact / alias — certain match
-            if r.metric == m or m in [a.lower() for a in r.aliases]:
-                return r, 1.0
-        if not self.records:
-            return None
-        q = embed(text or metric)                                # semantic match for paraphrases
-        best, score = None, 0.0
-        for r in self.records:
-            e = r.embedding or embed(r.text())
-            s = cosine(q, e)
-            if s > score:
-                best, score = r, s
-        return (best, score) if (best and score >= threshold) else None
+        return _match(self.records, metric, text, threshold)
 
     def add(self, rec: FormulaRecord):
         if not rec.embedding:
@@ -127,64 +139,71 @@ class LocalStore:
 
 
 class HelixStore:
-    """helix-py adapter over a running HelixDB instance (the production backend). Mirrors LocalStore's
-    interface. Requires the instance to expose the queries (queries.hx) named below; on any connection or
-    schema error it reports unavailable so the factory falls back to LocalStore. Vectors use HelixDB's
-    SearchV/AddV (server-side Embed if configured). Import + connection are lazy."""
+    """Live HelixDB (3.x) backend over a running local instance (`helix start dev`, port 6969). Each formula
+    is a graph node (label `Formula`) carrying its `metric` key + a base64-encoded JSON of the full record
+    (base64 sidesteps DSL string-escaping for code/aliases). Writes via the `helix query -e writeBatch addN`
+    DSL; reads all `Formula` nodes via `valueMap()` and matches host-side (a formula catalog is small). The
+    instance IS the graph store of record — formulas persist as nodes you can traverse/visualize."""
 
     name = "helix"
-    #: the HelixQL queries this adapter expects (a builder fills queries.hx/schema.hx from this contract):
-    QUERIES = {
-        "AddFormula": "AddV<Formula>(Embed(text), {metric, aliases, inputs, code, definition, source, validation})",
-        "SearchFormula": "SearchV<Formula>(Embed(text), limit) -> the nearest formula records",
-    }
 
-    def __init__(self, port=6969, api_endpoint=None):
-        self._client = None
-        self._err = ""
-        try:
-            import helix  # noqa: PLC0415 - optional, lazy
-            self._client = (helix.Client(api_endpoint=api_endpoint) if api_endpoint
-                            else helix.Client(local=True, port=port))
-        except Exception as e:  # noqa: BLE001
-            self._err = "helix-py/instance unavailable: %s" % e
+    def __init__(self, project_dir=None, helix_bin=None):
+        self.project_dir = project_dir or os.path.join(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "helix")
+        self.helix = helix_bin or _find_helix()
+
+    def _q(self, expr):
+        import subprocess  # noqa: PLC0415
+        r = subprocess.run([self.helix, "query", "dev", "-e", expr], cwd=self.project_dir,
+                           capture_output=True, text=True, timeout=90)
+        i = r.stdout.find("{")
+        if i < 0:
+            raise RuntimeError("helix query failed: %s" % (r.stderr or r.stdout)[-200:])
+        return json.loads(r.stdout[i:])
 
     def available(self):
-        if self._client is None:
-            return False, self._err
+        if not self.helix:
+            return False, "helix CLI not found"
         try:
-            self._client.query("SearchFormula", {"text": "ping", "limit": 1})
-            return True, "helixdb reachable"
+            self._q('readBatch().varAs("n", g().nWithLabel("Formula").count()).returning(["n"])')
+            return True, "helix instance reachable"
         except Exception as e:  # noqa: BLE001
-            return False, "helixdb query failed: %s" % e
-
-    def lookup(self, metric: str, text: str = None, threshold: float = 0.86):
-        try:
-            res = self._client.query("SearchFormula", {"text": text or metric, "limit": 1})
-            rows = res if isinstance(res, list) else res.get("formulas", [])
-            if not rows:
-                return None
-            row = rows[0]
-            rec = FormulaRecord(metric=row["metric"], aliases=row.get("aliases", []),
-                                inputs=row.get("inputs", []), code=row["code"],
-                                definition=row.get("definition", ""), source=row.get("source", ""),
-                                validation=row.get("validation", {}))
-            return rec, float(row.get("score", 1.0))
-        except Exception:  # noqa: BLE001
-            return None
+            return False, "helix unreachable: %s" % str(e)[:120]
 
     def add(self, rec: FormulaRecord):
+        import base64  # noqa: PLC0415
+        if not rec.embedding:
+            rec.embedding = embed(rec.text())
+        if not rec.created:
+            rec.created = _now()
+        b64 = base64.b64encode(json.dumps(asdict(rec)).encode()).decode()
+        metric = "".join(c for c in rec.metric if c.isalnum() or c in "_-")
         try:
-            self._client.query("AddFormula", {"text": rec.text(), "metric": rec.metric,
-                                              "aliases": rec.aliases, "inputs": rec.inputs, "code": rec.code,
-                                              "definition": rec.definition, "source": rec.source,
-                                              "validation": rec.validation})
+            self._q('writeBatch().varAs("f", g().addN("Formula", {metric:"%s", b64:"%s"})).returning(["f"])'
+                    % (metric, b64))
         except Exception:  # noqa: BLE001
             pass
         return rec
 
     def all(self):
-        return []
+        import base64  # noqa: PLC0415
+        try:
+            res = self._q('readBatch().varAs("fs", g().nWithLabel("Formula").valueMap()).returning(["fs"])')
+        except Exception:  # noqa: BLE001
+            return []
+        rows = (res.get("fs") or {}).get("properties", []) if isinstance(res.get("fs"), dict) else []
+        out = []
+        for row in rows:
+            if not row.get("b64"):
+                continue
+            try:
+                out.append(FormulaRecord(**json.loads(base64.b64decode(row["b64"]))))
+            except Exception:  # noqa: BLE001
+                pass
+        return out
+
+    def lookup(self, metric: str, text: str = None, threshold: float = 0.86):
+        return _match(self.all(), metric, text, threshold)
 
 
 def _now():
@@ -196,9 +215,10 @@ def _now():
 
 
 def get_store():
-    """The default store: HelixDB when CALMA_HELIX is set + reachable, else the local JSON store."""
+    """The default store: the live HelixDB graph instance when CALMA_HELIX is set + reachable, else the
+    local JSON store (fast, zero-infra). Falls back automatically if the Helix instance isn't running."""
     if os.environ.get("CALMA_HELIX"):
-        hs = HelixStore(api_endpoint=os.environ.get("CALMA_HELIX_ENDPOINT"))
+        hs = HelixStore()
         ok, _ = hs.available()
         if ok:
             return hs
