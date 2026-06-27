@@ -157,8 +157,14 @@ def run_job(job, req: VerifyReq):
         dest = os.path.join(_WORKDIR, job["id"])
         repo_dir = _clone(req.repo, dest, job)
 
-        # deep verify RUNS FIRST so discovery can read the entrypoint's generated results.json + stdout
-        r = _run_repo(repo_dir, req.runner, req.entry, req.pip_install, req.k, job) if req.deep else None
+        # deep verify RUNS FIRST so discovery can read the entrypoint's generated results.json + stdout.
+        # auto-detect the entrypoint (README run-cmd / common script) when the user didn't name one.
+        entry = req.entry
+        if req.deep and not entry:
+            entry = " ".join(build.detect_entrypoint(repo_dir) or [])
+            if entry:
+                _log(job, "auto-detected entrypoint: %s" % entry)
+        r = _run_repo(repo_dir, req.runner, entry, req.pip_install, req.k, job) if req.deep else None
 
         claims = list(req.claims or [])
         if req.discover:

@@ -6,8 +6,41 @@ env-synthesis (Repo2Run; cache the synthesized env per repo — the reproduction
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import sys
+
+# common eval/run entrypoint names, in rough priority order (most-likely-the-headline first)
+_ENTRY_NAMES = ("reproduce.py", "run.py", "main.py", "eval.py", "evaluate.py", "run_eval.py",
+                "benchmark.py", "run_benchmark.py", "experiment.py", "demo.py", "train.py", "test.py")
+# a README run command: ```python foo.py``` / `python3 foo.py` / `python -m pkg.mod`
+_RUN_RE = re.compile(r"python3?\s+(-m\s+[\w.]+|[\w./-]+\.py)(?:\s+[^\n`]*)?", re.I)
+
+
+def detect_entrypoint(repo_dir):
+    """Best-effort: find the script that produces the headline numbers, so deep verify works without the
+    user naming it. Prefers a runnable command from the README, then a known entrypoint filename that
+    exists. Returns an argv list (e.g. ['run_benchmark.py']) or None. (Part of make-runnable, guide §5.)"""
+    # 1) a run command in the README that points at a file present in the repo
+    for fn in ("README.md", "README.rst", "README.txt", "readme.md", "REPRODUCE.md", "REPRODUCIBILITY.md"):
+        p = os.path.join(repo_dir, fn)
+        if not os.path.isfile(p):
+            continue
+        try:
+            text = open(p, errors="replace").read()
+        except OSError:
+            continue
+        for m in _RUN_RE.finditer(text):
+            tok = m.group(1)
+            if tok.startswith("-m"):
+                return tok.split()                      # python -m pkg.mod
+            if os.path.isfile(os.path.join(repo_dir, os.path.basename(tok))):
+                return [os.path.basename(tok)]
+    # 2) a known entrypoint filename present at the repo root
+    for name in _ENTRY_NAMES:
+        if os.path.isfile(os.path.join(repo_dir, name)):
+            return [name]
+    return None
 
 
 def ensure_repo(spec, workdir):
