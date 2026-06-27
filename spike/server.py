@@ -34,6 +34,7 @@ from fastapi.responses import FileResponse, JSONResponse  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
 from core import diff as D  # noqa: E402
+from core import leakage as LEAK  # noqa: E402  — data-validity (train/test leakage, no re-run)
 from core import verdict as VD  # noqa: E402
 from discovery import extract as DISC  # noqa: E402
 from runner import build  # noqa: E402
@@ -203,6 +204,16 @@ def run_job(job, req: VerifyReq):
             claims = claims + discovered
         job["n_claims"] = len(claims)
 
+        # data-validity: train/test leakage + homology contamination on committed splits (no re-run)
+        _set(job, stage="checking data")
+        try:
+            lk = LEAK.from_committed_splits(repo_dir)
+            job["leakage"] = [r for r in lk if r["findings"]]
+            if job["leakage"]:
+                _log(job, "⚠ data leakage detected in %d dataset(s)" % len(job["leakage"]))
+        except Exception:  # noqa: BLE001
+            job["leakage"] = []
+
         # cheapest path: recompute from committed predictions (no re-run). Real verdicts with zero sandbox.
         artifacts = _artifact_verify(repo_dir, claims) if claims else {}
         if artifacts:
@@ -233,7 +244,7 @@ def verify(req: VerifyReq):
     job_id = uuid.uuid4().hex[:12]
     job = {"id": job_id, "repo": req.repo, "runner": req.runner, "deep": req.deep,
            "status": "queued", "stage": "queued", "created": time.time(), "updated": time.time(),
-           "claims": [], "counts": {}, "logs": [], "n_claims": 0, "error": None}
+           "claims": [], "counts": {}, "logs": [], "n_claims": 0, "leakage": [], "error": None}
     with _LOCK:
         JOBS[job_id] = job
     threading.Thread(target=run_job, args=(job, req), daemon=True).start()

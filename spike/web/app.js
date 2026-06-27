@@ -73,7 +73,8 @@ async function poll(id) {
 
 function renderJob(job) {
   const deep = job.deep;
-  const seq = ["cloning", "discovering", ...(deep ? ["building", "running", "diffing"] : []), "done"];
+  const seq = ["cloning", ...(deep ? ["building", "running"] : []), "discovering", "checking data",
+               ...(deep ? ["diffing"] : []), "done"];
   const cur = seq.indexOf(job.stage);
   const panel = $("#job"); panel.classList.remove("hidden");
   const running = job.status === "running" || job.status === "queued";
@@ -111,8 +112,16 @@ function renderResults(job) {
                  ...present.map(v => [v, v + " (" + counts[v] + ")"]), ["ALL", "All (" + claims.length + ")"]];
   const filters = fdefs.map(([f, label]) => `<span class="filt ${FILTER === f ? "on" : ""}" data-f="${f}">${label}</span>`).join("");
 
+  // data-validity: leakage / contamination (no re-run) — surfaced prominently, it invalidates the numbers
+  const leak = job.leakage || [];
+  const leakPanel = leak.length ? `<div class="banner warn" style="border-color:#f1c0c0;background:#fdeef0">
+    <b style="color:var(--red)">⚠ Data leakage — ${leak.length} dataset(s) contaminated</b>
+    <div class="muted" style="margin:3px 0 8px">A leaked train/test split makes the held-out numbers invalid, even if they recompute perfectly.</div>
+    ${leak.map(d => `<div style="margin-top:8px"><b>${esc(d.dataset)}</b> ${d.findings.map(f => `<span class="pill INVALIDATED">${esc(f.kind)} ${(100 * f.magnitude).toFixed(0)}%</span>`).join(" ")}
+      <div class="muted" style="font-size:12px;margin-top:2px">${esc(d.findings[0].detail)}</div></div>`).join("")}</div>` : "";
+
   const res = $("#results");
-  res.innerHTML = `${banner}
+  res.innerHTML = `${leakPanel}${banner}
     <div class="sumgrid">${cards}</div>
     ${job.truncated ? `<p class="muted">Showing 500 of ${job.truncated} discovered claims.</p>` : ""}
     <div class="card">
