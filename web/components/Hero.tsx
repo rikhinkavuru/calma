@@ -1,7 +1,6 @@
 // Hero — a SERVER component. The headline, lead, CTAs, and video poster are server-rendered HTML, so
 // they paint together on first load with no hydration wait and no staggered reveal. Only the two
 // genuinely interactive pieces are client islands: the WebGL backdrop and the lazy video.
-import Link from "next/link";
 import { HeroBackdrop } from "./hero/HeroBackdrop";
 import { HeroVideo } from "./hero/HeroVideo";
 
@@ -36,12 +35,13 @@ export function Hero() {
 
         <div>
           <div className="hero__cta">
-            <a className="btn-primary" href="/install">Install the CLI</a>
-            {/* prefetch off: /dashboard is auth-gated, no point pre-rendering the login for every
-                landing visitor. Still a Link for fast client-side navigation on click. */}
-            <Link className="btn-ghost" href="/dashboard" prefetch={false}>
-              Open the dashboard <span className="arrow" aria-hidden="true">→</span>
-            </Link>
+            {/* primary CTA → the verify dashboard (the new product). Env-configurable so prod points at the
+                deployed app; defaults to the local dashboard for `cd web && npm run dev` + `./spike/web.sh`. */}
+            <a className="btn-primary"
+               href={process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:8787"}>
+              Verify a repo <span className="arrow" aria-hidden="true">→</span>
+            </a>
+            <a className="btn-ghost" href="/install">Install the CLI</a>
           </div>
         </div>
 
