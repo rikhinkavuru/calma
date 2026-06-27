@@ -93,6 +93,12 @@
   .prov{font-size:10px;margin-top:3px;font-weight:700;letter-spacing:.01em}
   .prov.synth{color:var(--purple)}
   .prov.bank{color:var(--blue)}
+  .catgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(255px,1fr));gap:14px;margin-top:20px}
+  .catcard{border:1px solid var(--line);border-radius:12px;padding:16px;background:#fff}
+  .catcard.syn{border-color:#e3dbf7;background:#fcfbff}
+  .cattag{font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:999px;white-space:nowrap}
+  .cattag.syn{color:var(--purple);background:var(--purple-bg)}
+  .cattag.cur{color:var(--slate);background:var(--slate-bg)}
   .banner{padding:13px 16px;border-radius:10px;margin-bottom:16px;font-size:13px;line-height:1.55}
   .banner code{background:rgba(0,0,0,.05);padding:1px 6px;border-radius:5px;font-family:ui-monospace,Menlo,monospace}
   .banner.ok{background:var(--green-bg);color:#176a3a;border:1px solid #cdeeda}
@@ -111,14 +117,15 @@
   <aside class="side">
     <div class="brand"><div class="logo">C</div><b>Calma</b></div>
     <nav class="nav">
-      <a class="active">◈ &nbsp;Verify</a>
-      <a id="nav-findings">◷ &nbsp;Findings</a>
+      <a id="nav-verify" class="active">◈ &nbsp;Verify</a>
+      <a id="nav-catalog">▦ &nbsp;Catalog</a>
       <a class="muted" style="pointer-events:none">⚙ &nbsp;Settings</a>
     </nav>
     <div class="foot">The correctness layer.<br/>Re-run · recompute · prove or break it.</div>
   </aside>
 
   <main class="main">
+    <div id="verifyView">
     <h1>Verify a repository</h1>
     <p class="sub">Connect a repo. Calma finds the numbers it reports, re-runs the work, and recomputes each one — then tells you which hold up.</p>
 
@@ -149,6 +156,8 @@
 
     <div id="job" class="card pad hidden" style="margin-top:22px"></div>
     <div id="results" style="margin-top:22px"></div>
+    </div>
+    <div id="catalogView" class="hidden"></div>
   </main>
 </div>
 <script src="/app.js"></script>

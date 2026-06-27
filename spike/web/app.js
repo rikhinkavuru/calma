@@ -166,4 +166,51 @@ function provenanceTag(p) {
   return "";
 }
 
+// ---- Catalog view: everything Calma can recompute (curated + flywheel-banked) ----
+function showView(which) {
+  $("#verifyView").classList.toggle("hidden", which !== "verify");
+  $("#catalogView").classList.toggle("hidden", which !== "catalog");
+  $("#nav-verify").classList.toggle("active", which === "verify");
+  $("#nav-catalog").classList.toggle("active", which === "catalog");
+  if (which === "catalog") loadCatalog();
+}
+$("#nav-verify").addEventListener("click", () => showView("verify"));
+$("#nav-catalog").addEventListener("click", () => showView("catalog"));
+
+async function loadCatalog() {
+  const cv = $("#catalogView");
+  cv.innerHTML = '<h1>Formula catalog</h1><p class="sub">Loading…</p>';
+  let data;
+  try { data = await (await fetch("/api/catalog")).json(); }
+  catch (_) { cv.innerHTML = '<h1>Formula catalog</h1><p class="sub">Could not load.</p>'; return; }
+  const all = [...data.banked, ...data.curated];   // synthesized first — the flywheel's growth
+  const c = data.counts;
+  cv.innerHTML = `
+    <h1>Formula catalog</h1>
+    <p class="sub">Everything Calma can recompute — the curated trusted catalog plus formulas the flywheel synthesized, validated, and banked (store: <b>${esc(data.store)}</b>). The banked set grows every time a repo reports a metric we haven't seen.</p>
+    <div class="sumgrid">
+      <div class="sum"><div class="n">${c.total}</div><div class="l">metrics</div></div>
+      <div class="sum"><div class="n">${c.curated}</div><div class="l">curated</div></div>
+      <div class="sum"><div class="n" style="color:var(--purple)">${c.banked}</div><div class="l">✦ synthesized + banked</div></div>
+    </div>
+    <div class="catgrid">${all.map(catCard).join("")}</div>`;
+}
+
+function catCard(m) {
+  const syn = m.kind === "synthesized";
+  const aliases = (m.aliases || []).slice(0, 6).map(a => `<span class="tag">${esc(a)}</span>`).join(" ");
+  const v = m.validation || {};
+  const val = v.method ? esc(v.method) + (v.max_err != null ? ` (max_err ${(+v.max_err).toExponential(1)})` : "") : "";
+  return `<div class="catcard ${syn ? "syn" : ""}">
+    <div class="row" style="justify-content:space-between;align-items:start">
+      <b>${esc(m.metric)}</b>
+      <span class="cattag ${syn ? "syn" : "cur"}">${syn ? "✦ synthesized" : "curated"}</span>
+    </div>
+    ${aliases ? `<div style="margin:8px 0 2px">${aliases}</div>` : ""}
+    ${m.definition ? `<div class="muted" style="font-size:12px;margin:7px 0">${esc(m.definition).slice(0, 150)}</div>` : ""}
+    ${val ? `<div class="muted" style="font-size:11.5px;margin-top:4px">✓ ${val}</div>` : ""}
+    ${m.source && m.source !== "trusted catalog" ? `<div class="muted mono" style="font-size:10.5px;margin-top:4px">${esc(m.source)}</div>` : ""}
+  </div>`;
+}
+
 loadRepos();

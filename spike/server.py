@@ -39,6 +39,7 @@ from discovery import extract as DISC  # noqa: E402
 from runner import build  # noqa: E402
 from runner.local_runner import run_local  # noqa: E402
 from synth import formula as SYNTH  # noqa: E402  — the catalog flywheel (store → Exa-synth → validate)
+from synth import store as SYNTH_STORE  # noqa: E402
 
 app = FastAPI(title="Calma — the correctness layer")
 
@@ -244,6 +245,32 @@ def repos():
                  "language": (d.get("primaryLanguage") or {}).get("name", "")} for d in data]
     except Exception:  # noqa: BLE001
         return JSONResponse([], status_code=200)
+
+
+@app.get("/api/catalog")
+def catalog_view():
+    """Everything Calma can recompute: the curated trusted catalog + the formulas the flywheel has
+    synthesized, validated, and banked (the store / HelixDB). The banked set grows as repos are verified."""
+    from core import catalog as C
+    curated = {m: {"metric": m, "aliases": [], "kind": "curated", "source": "trusted catalog",
+                   "inputs": [], "validation": {"method": "curated + validated vs sklearn/scipy"}}
+               for m in sorted(C.CATALOG)}
+    for alias, m in C.ALIASES.items():
+        if m in curated and alias != m:
+            curated[m]["aliases"].append(alias)
+    banked = []
+    store = SYNTH_STORE.get_store()
+    try:
+        for r in store.all():
+            banked.append({"metric": r.metric, "aliases": r.aliases, "kind": "synthesized",
+                           "inputs": r.inputs, "source": r.source, "definition": r.definition,
+                           "validation": r.validation})
+    except Exception:  # noqa: BLE001
+        pass
+    return {"curated": list(curated.values()), "banked": banked,
+            "counts": {"curated": len(curated), "banked": len(banked),
+                       "total": len(curated) + len(banked)},
+            "store": getattr(store, "name", "local")}
 
 
 @app.get("/")
