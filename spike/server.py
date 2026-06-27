@@ -145,6 +145,33 @@ def _diff_claims(claims, r, job):
     return records
 
 
+def _artifact_verify(repo_dir, claims):
+    """Recompute claims directly from COMMITTED predictions (no re-run) — the cheapest verify path.
+    Returns {claim_id: verdict record}. Two-way: claimed vs recompute-from-committed-data."""
+    from core import artifacts as A
+    from core import tolerance as T
+    files = A.find_prediction_files(repo_dir)
+    out = {}
+    if not files:
+        return out
+    for claim in claims:
+        for path, cols in files:
+            res = A.recompute_from_cols(cols, claim.get("metric"), SYNTH.recompute_any)
+            if not res:
+                continue
+            recomputed = res["value"]
+            ok, _ = T.claim_close(claim.get("value"), recomputed)
+            fname = os.path.basename(path)
+            reason = (("claim matches the committed predictions (%s · recomputed %.5g)" % (fname, recomputed))
+                      if ok else ("claim %r ≠ recompute from committed predictions (%s = %.5g)"
+                                  % (claim.get("value"), fname, recomputed)))
+            out[claim.get("id")] = _claim_out(claim, VD.CONFIRMED if ok else VD.REFUTED, reason,
+                                              {"claimed": claim.get("value"), "recomputed": recomputed},
+                                              provenance="artifact:" + (res.get("provenance") or "recipe"))
+            break
+    return out
+
+
 def _claim_out(claim, verdict, reason, diff, provenance=None):
     return {"id": claim.get("id"), "metric": claim.get("metric"), "claimed": claim.get("value"),
             "context": claim.get("context", ""), "location": claim.get("location", ""),
@@ -176,13 +203,18 @@ def run_job(job, req: VerifyReq):
             claims = claims + discovered
         job["n_claims"] = len(claims)
 
+        # cheapest path: recompute from committed predictions (no re-run). Real verdicts with zero sandbox.
+        artifacts = _artifact_verify(repo_dir, claims) if claims else {}
+        if artifacts:
+            _log(job, "recomputed %d claim(s) from committed predictions" % len(artifacts))
         if req.deep and r:
             records = _diff_claims(claims, r, job)
+            # for claims the run didn't recompute, fall back to a committed-artifact verdict if we have one
+            records = [artifacts.get(rec["id"], rec) if rec["verdict"] == DISCOVERED else rec for rec in records]
         else:
-            # static layer: report what we found + what we'd need to verify it
-            records = [_claim_out(c, DISCOVERED,
-                                  "discovered in %s — provide an entrypoint to re-run and verify"
-                                  % c.get("source", "the repo"), {}) for c in claims]
+            records = [artifacts.get(c.get("id")) or _claim_out(
+                c, DISCOVERED, "discovered in %s — provide an entrypoint or committed predictions to verify"
+                % c.get("source", "the repo"), {}) for c in claims]
 
         counts: dict[str, int] = {}
         for rec in records:
