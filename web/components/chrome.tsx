@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { GITHUB_URL } from "./contact";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -39,12 +39,15 @@ export function Reveal({
   className?: string;
   style?: CSSProperties;
 }) {
+  // Replaces the old global <MotionConfig reducedMotion="user">: when the user prefers reduced motion,
+  // render the content in its final visible state with no entrance animation.
+  const reduce = useReducedMotion();
   return (
     <motion.div
       className={"rv" + (className ? " " + className : "")}
       style={style}
-      initial={{ opacity: 0, y: 18 }}
-      whileInView={{ opacity: 1, y: 0 }}
+      initial={reduce ? false : { opacity: 0, y: 18 }}
+      whileInView={reduce ? undefined : { opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "0px 0px -8% 0px" }}
       transition={{ duration: 0.7, ease: EASE, delay: delay / 1000 }}
     >

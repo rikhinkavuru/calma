@@ -64,8 +64,12 @@ const GradientBlinds: React.FC<GradientBlindsProps> = ({
   const geometryRef = useRef<Triangle | null>(null);
   const rendererRef = useRef<Renderer | null>(null);
   const mouseTargetRef = useRef<[number, number]>([0, 0]);
-  const lastTimeRef = useRef<number>(0);
   const firstResizeRef = useRef<boolean>(true);
+  // paused/render bookkeeping lives in refs so toggling `paused` (scroll in/out of the hero) never
+  // re-runs the init effect — putting `paused` in its deps tore down and rebuilt the whole WebGL context.
+  const pausedRef = useRef<boolean>(paused);
+  const lastRenderRef = useRef<number>(0);
+  const loopRef = useRef<((t: number) => void) | null>(null);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -308,13 +312,21 @@ void main() {
     };
     window.addEventListener('pointermove', onPointerMove);
 
+    // Cap the shader at ~48fps. Imperceptible for the slow blinds, but it roughly halves GPU work on
+    // 120Hz / ProMotion displays where requestAnimationFrame otherwise fires 120 times a second.
+    const FRAME_MS = 1000 / 48;
     const loop = (t: number) => {
+      // Fully stop the loop while the hero is offscreen; the paused effect restarts it on return.
+      if (pausedRef.current) {
+        rafRef.current = null;
+        return;
+      }
       rafRef.current = requestAnimationFrame(loop);
+      if (lastRenderRef.current && t - lastRenderRef.current < FRAME_MS) return; // throttle to the cap
+      const dt = (lastRenderRef.current ? t - lastRenderRef.current : 16) / 1000;
+      lastRenderRef.current = t;
       uniforms.iTime.value = t * 0.001;
       if (mouseDampening > 0) {
-        if (!lastTimeRef.current) lastTimeRef.current = t;
-        const dt = (t - lastTimeRef.current) / 1000;
-        lastTimeRef.current = t;
         const tau = Math.max(1e-4, mouseDampening);
         let factor = 1 - Math.exp(-dt / tau);
         if (factor > 1) factor = 1;
@@ -322,10 +334,8 @@ void main() {
         const cur = uniforms.iMouse.value;
         cur[0] += (target[0] - cur[0]) * factor;
         cur[1] += (target[1] - cur[1]) * factor;
-      } else {
-        lastTimeRef.current = t;
       }
-      if (!paused && programRef.current && meshRef.current) {
+      if (programRef.current && meshRef.current) {
         try {
           renderer.render({ scene: meshRef.current });
         } catch (e) {
@@ -333,6 +343,8 @@ void main() {
         }
       }
     };
+    loopRef.current = loop;
+    lastRenderRef.current = 0;
     rafRef.current = requestAnimationFrame(loop);
 
     return () => {
@@ -358,7 +370,6 @@ void main() {
     };
   }, [
     dpr,
-    paused,
     gradientColors,
     angle,
     noise,
@@ -372,6 +383,17 @@ void main() {
     distortAmount,
     shineDirection
   ]);
+
+  // Reflect `paused` into the loop without re-initialising WebGL, and restart the RAF when the hero
+  // scrolls back into view (the loop returns without rescheduling while paused).
+  useEffect(() => {
+    const wasPaused = pausedRef.current;
+    pausedRef.current = paused;
+    if (!paused && wasPaused && rendererRef.current && rafRef.current == null && loopRef.current) {
+      lastRenderRef.current = 0;
+      rafRef.current = requestAnimationFrame(loopRef.current);
+    }
+  }, [paused]);
 
   return (
     <div

@@ -9,20 +9,8 @@ import Link from "next/link";
 import type { Verification } from "@/lib/calma";
 import { StatusBadge } from "./Badge";
 import { CopyButton, DiffCell } from "./diff";
+import { outcome, type Outcome } from "./outcome";
 import styles from "./dashboard.module.css";
-
-// the deterministic 6 -> 3 roll-up, mirrored from the engine's verdict.outcome() (kept in sync by the
-// reference docs). Anything unknown degrades to Can't-tell (fail-closed, never a green pass).
-function outcome(verdict?: string): { name: string; glyph: string; cls: string } {
-  const v = (verdict || "").toUpperCase();
-  if (v === "CONFIRMED" || v === "CONFIRMED-WITH-CAVEATS")
-    return { name: "Confirmed", glyph: "✓", cls: styles.bConfirmed };
-  if (["REFUTED", "INVALIDATED", "FLAG_FOR_DECLARATION", "MIXED"].includes(v))
-    return { name: "Caught", glyph: "✗", cls: styles.bRefuted };
-  if (v === "INCONCLUSIVE" || v === "CAN'T-CONFIRM")
-    return { name: "Can't tell", glyph: "?", cls: styles.bInconcl };
-  return { name: verdict || "pending", glyph: "·", cls: styles.bInconcl };
-}
 
 export function VerificationRows({ items }: { items: Verification[] }) {
   const [open, setOpen] = useState<string | null>(null);
@@ -66,7 +54,7 @@ function RowGroup({
   onToggle,
 }: {
   v: Verification;
-  oc: { name: string; glyph: string; cls: string };
+  oc: Outcome;
   isOpen: boolean;
   onToggle: () => void;
 }) {
@@ -87,8 +75,9 @@ function RowGroup({
     <>
       <tr onClick={onToggle} style={{ cursor: "pointer" }}>
         <td>
-          <span className={`${styles.badge} ${oc.cls}`}>
-            {oc.glyph} {oc.name}
+          <span className={styles.verdict}>
+            <i className={`${styles.vdot} ${oc.key === "ok" ? styles.vdotOk : oc.key === "bad" ? styles.vdotBad : styles.vdotIdle}`} />
+            {oc.name}
           </span>
         </td>
         <td>
@@ -101,13 +90,13 @@ function RowGroup({
         </td>
         <td className={styles.muted}>{new Date(v.created_at).toLocaleString()}</td>
         <td className={styles.mono}>
-          <span aria-hidden>{isOpen ? "▾ " : "▸ "}</span>
+          <span aria-hidden className={`${styles.chevron} ${isOpen ? styles.chevronOpen : ""}`}>›</span>{" "}
           {v.verification_id.slice(0, 8)}
         </td>
       </tr>
       {isOpen && (
         <tr>
-          <td colSpan={6} style={{ background: "rgba(0,0,0,0.015)" }}>
+          <td colSpan={6} style={{ background: "var(--surface-2)" }}>
             <div style={{ padding: "6px 4px 14px" }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, maxWidth: 520 }}>
                 <DiffCell label="claimed" value={claimed === undefined ? "— (reproduction)" : String(claimed)} ok={match} />

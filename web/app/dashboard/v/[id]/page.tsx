@@ -1,8 +1,11 @@
 import crypto from "crypto";
 import Link from "next/link";
+import { FiArrowLeft, FiCheckCircle, FiAlertTriangle, FiShield } from "react-icons/fi";
 import { calma, type Verification } from "@/lib/calma";
 import { getSession } from "@/lib/session";
-import { StatusBadge, VerdictBadge } from "../../Badge";
+import { StatusBadge } from "../../Badge";
+import { DiffCell } from "../../diff";
+import { outcome } from "../../outcome";
 import { DEMO_VERIFICATION, DEMO_PROOF } from "./demoFixture";
 import styles from "../../dashboard.module.css";
 
@@ -100,7 +103,7 @@ export default async function Detail({ params }: { params: Promise<{ id: string 
   if (error || !v) {
     return (
       <div className={styles.main}>
-        <Link href="/dashboard" className={styles.back}>← Verifications</Link>
+        <Link href="/dashboard" className={styles.back}><FiArrowLeft /> Overview</Link>
         <div className={`${styles.notice} ${styles.noticeErr}`} style={{ marginTop: 16 }}>{error || "Not found"}</div>
       </div>
     );
@@ -124,9 +127,18 @@ export default async function Detail({ params }: { params: Promise<{ id: string 
       evidence = null;
     }
   }
+  const oc = outcome(v.verdict || v.repo_verdict);
+  const heroAccent =
+    oc.key === "ok" ? styles.verdictHeroOk : oc.key === "bad" ? styles.verdictHeroBad : styles.verdictHeroIdle;
+  const claimed = v.claim?.value;
+  const recomputed = r.value;
+  const within = r.within_tolerance === true;
+  const delta = claimed !== undefined && recomputed !== undefined ? recomputed - claimed : undefined;
+  const gloss = v.verdict ? VERDICT_GLOSS[v.verdict] : undefined;
+
   return (
     <div className={styles.main}>
-      <Link href="/dashboard" className={styles.back}>← Verifications</Link>
+      <Link href="/dashboard" className={styles.back}><FiArrowLeft /> Overview</Link>
       {isDemo && (
         <div className={`${styles.notice} ${styles.noticeOk}`} style={{ marginTop: 12 }}>
           <strong>Pre-recorded sample.</strong> A real past verification of the demo backtest — re-executed in
@@ -134,53 +146,78 @@ export default async function Detail({ params }: { params: Promise<{ id: string 
           verifies in your browser. <Link href="/dashboard/submit">Run your own →</Link>
         </div>
       )}
-      <div className={styles.row} style={{ marginTop: 14 }}>
-        <div>
-          <h1 className={styles.h1}>{v.recipe.id} <span className={styles.muted}>@{v.recipe.version}</span></h1>
-          <p className={styles.sub}><span className={styles.mono}>{v.verification_id}</span></p>
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <VerdictBadge verdict={v.verdict} />
-          <StatusBadge status={v.status} />
+
+      {/* verdict hero — the one-glance answer */}
+      <div className={`${styles.verdictHero} ${heroAccent}`}>
+        <div className={`${styles.verdictGlyph} ${oc.cls}`}>{oc.glyph}</div>
+        <div className={styles.verdictMeta}>
+          <div className={styles.verdictRow}>
+            <span className={`${styles.badge} ${oc.cls}`}>{oc.glyph} {oc.name}</span>
+            <StatusBadge status={v.status} />
+            {v.verdict && <span className={styles.mono} style={{ color: "var(--ink-3)" }}>{v.verdict}</span>}
+          </div>
+          <h1 className={styles.verdictTitle}>{v.recipe.id} <span className={styles.muted}>@{v.recipe.version}</span></h1>
+          <p className={styles.idMono}>{v.verification_id}</p>
+          {gloss && <p className={styles.verdictGloss}>{gloss}</p>}
         </div>
       </div>
 
-      {v.verdict && VERDICT_GLOSS[v.verdict] && (
-        <p className={styles.sub} style={{ marginTop: 10, maxWidth: 720 }}>{VERDICT_GLOSS[v.verdict]}</p>
-      )}
-
-      <div className={styles.detailGrid}>
-        <div className={styles.kv}>
-          <div className={styles.kvLabel}>Claimed{v.claim?.metric ? ` · ${v.claim.metric}` : ""}</div>
-          <div className={styles.kvValue}>{v.claim?.value ?? "—"}</div>
-        </div>
-        <div className={styles.kv}>
-          <div className={styles.kvLabel}>Recomputed (ground truth)</div>
-          <div className={styles.kvValue}>{r.value ?? "—"}</div>
-        </div>
-        <div className={styles.kv}>
-          <div className={styles.kvLabel}>Absolute difference</div>
-          <div className={styles.kvValue}>{r.abs_diff ?? "—"}</div>
-        </div>
-        <div className={styles.kv}>
-          <div className={styles.kvLabel}>Within tolerance</div>
-          <div className={styles.kvValue}>{r.within_tolerance === undefined ? "—" : r.within_tolerance ? "yes" : "no"}</div>
-        </div>
+      {/* the diff — the product's whole point, front and center */}
+      <p className={styles.sectionTitle}>Claimed vs recomputed</p>
+      <div className={styles.detailGrid} style={{ margin: "0 0 12px" }}>
+        <DiffCell
+          label={`claimed${v.claim?.metric ? ` · ${v.claim.metric}` : ""}`}
+          value={claimed === undefined ? "— (reproduction)" : String(claimed)}
+          ok={within}
+        />
+        <DiffCell
+          label="recomputed · ground truth"
+          value={recomputed === undefined ? "—" : String(recomputed)}
+          ok={within}
+          highlight
+        />
       </div>
-      <p className={styles.hint} style={{ marginTop: -6 }}>
+      <p className={styles.mono} style={{ fontSize: 13, margin: "0 0 6px" }}>
+        {delta !== undefined && <>Δ {delta > 0 ? "+" : ""}{Number(delta.toFixed(8))}{"  ·  "}</>}
+        |diff| {r.abs_diff ?? "—"}{"  ·  "}within tolerance: {r.within_tolerance === undefined ? "—" : within ? "yes" : "no"}
+      </p>
+      <p className={styles.hint}>
         Calma diffs the recomputed value against the claim under the recipe&apos;s calibrated tolerance —
         a pass means they agree within that band, not that they&apos;re bit-identical.
       </p>
 
+      {proof && (
+        <div className={styles.section}>
+          <p className={styles.sectionTitle}>Proof signature</p>
+          <div className={`${styles.proofCard} ${signed ? (sigVerified ? styles.proofOk : styles.proofBad) : styles.proofIdle}`}>
+            {signed ? (sigVerified ? <FiCheckCircle /> : <FiAlertTriangle />) : <FiShield />}
+            <div>
+              <strong>
+                {signed
+                  ? sigVerified ? "Signature verified in your browser" : "Signature did not verify"
+                  : "Unsigned proof"}
+              </strong>
+              <p>
+                {signed
+                  ? sigVerified
+                    ? <>Signed by Calma&apos;s published key (<code>{sigAlgo}</code> · keyid <code>{sigKeyid}</code>). That proves this proof was signed by Calma&apos;s key — not just that the envelope claims a signature. It&apos;s a self-contained DSSE envelope; anyone can re-verify it offline with <code>calma proof verify</code>.</>
+                    : <>Did NOT verify against Calma&apos;s published keys (keyid <code>{sigKeyid}</code>) — do not trust this proof.</>
+                  : "This deployment has no signing key configured."}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {v.reason && (
         <div className={styles.section}>
-          <div className={styles.sectionTitle}>Reason</div>
+          <p className={styles.sectionTitle}>Reason</p>
           <div className={styles.pre}>{v.reason}</div>
         </div>
       )}
 
       <div className={styles.section}>
-        <div className={styles.sectionTitle}>Execution</div>
+        <p className={styles.sectionTitle}>Execution</p>
         <div className={styles.detailGrid}>
           {([
             ["isolation_tier", ex.isolation_tier || "—"],
@@ -199,31 +236,16 @@ export default async function Detail({ params }: { params: Promise<{ id: string 
 
       {v.validity && Object.keys(v.validity).length > 0 && (
         <div className={styles.section}>
-          <div className={styles.sectionTitle}>Validity</div>
+          <p className={styles.sectionTitle}>Validity</p>
           <div className={styles.pre}>{JSON.stringify(v.validity, null, 2)}</div>
         </div>
       )}
 
       {proof && (
         <div className={styles.section}>
-          <div className={styles.sectionTitle}>Proof signature</div>
-          <div className={styles.pre}>
-            {signed
-              ? (sigVerified
-                  ? `✓ Verified in your browser against Calma's published signing key (${sigAlgo} · keyid ${sigKeyid}).\n` +
-                    `That proves this proof was signed by Calma's key — not just that the envelope claims a signature.\n` +
-                    `It's a self-contained DSSE envelope: anyone can re-verify it offline with the open-source verifier (control_plane/verify_proof.py).`
-                  : `✗ Signature did NOT verify against Calma's published keys (keyid ${sigKeyid}) — do not trust this proof.`)
-              : "unsigned — this deployment has no signing key configured"}
-          </div>
-        </div>
-      )}
-
-      {proof && (
-        <div className={styles.section}>
-          <div className={styles.sectionTitle}>Evidence bundle</div>
+          <p className={styles.sectionTitle}>Evidence bundle</p>
           <details>
-            <summary className={styles.mono} style={{ cursor: "pointer", color: "#77776e" }}>
+            <summary className={styles.mono} style={{ cursor: "pointer", color: "var(--ink-3)" }}>
               {v.proof?.uri || "view"}
             </summary>
             <div className={styles.pre} style={{ marginTop: 8 }}>{JSON.stringify(evidence, null, 2)}</div>

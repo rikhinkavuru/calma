@@ -30,3 +30,18 @@ export function TableSkeleton({ rows = 5 }: { rows?: number }) {
     </div>
   );
 }
+
+/* Overview home skeleton: header + the 5 stat cards + the recent table. Mirrors
+   the real layout so the page doesn't reflow when data streams in. */
+export function OverviewSkeleton() {
+  return (
+    <div className={styles.main} aria-busy="true" aria-label="Loading">
+      <HeaderSkeleton />
+      <div className={styles.panelGrid} style={{ marginTop: 4 }}>
+        <div className={`${styles.skel} ${styles.skelPanel}`} />
+        <div className={`${styles.skel} ${styles.skelPanel}`} />
+      </div>
+      <TableSkeleton />
+    </div>
+  );
+}

@@ -1,93 +1,55 @@
-"use client";
-
-import { useEffect, useRef, useState } from "react";
-import dynamic from "next/dynamic";
-import { Atmo, Reveal } from "./chrome";
-import { ErrorBoundary } from "./site/ErrorBoundary";
-
-/* WebGL / window-touching decorations — client-only, and guarded so a machine
-   without WebGL degrades to the existing atmosphere instead of blanking. */
-const GradientBlinds = dynamic(() => import("./GradientBlinds"), { ssr: false });
+// Hero — a SERVER component. The headline, lead, CTAs, and video poster are server-rendered HTML, so
+// they paint together on first load with no hydration wait and no staggered reveal. Only the two
+// genuinely interactive pieces are client islands: the WebGL backdrop and the lazy video.
+import Link from "next/link";
+import { HeroBackdrop } from "./hero/HeroBackdrop";
+import { HeroVideo } from "./hero/HeroVideo";
 
 export function Hero() {
-  const heroRef = useRef<HTMLElement>(null);
-  const [blindsPaused, setBlindsPaused] = useState(false);
-
-  /* pause the WebGL loop once the hero scrolls out of view — no GPU cost while
-     reading the rest of the page. */
-  useEffect(() => {
-    const el = heroRef.current;
-    if (!el) return;
-    const io = new IntersectionObserver(([e]) => setBlindsPaused(!e.isIntersecting), {
-      threshold: 0,
-    });
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-
   return (
-    <section className="hero" id="top" ref={heroRef}>
-      <Atmo />
+    <section className="hero" id="top">
+      {/* atmosphere — CSS only, server-rendered */}
+      <div className="atmo" aria-hidden="true">
+        <i className="glow-blue" />
+        <i className="glow-teal" />
+        <i className="glow-amber" />
+      </div>
 
-      {/* added: gradient blinds behind the hero, with a grain overlay on top */}
+      {/* gradient blinds (client island) + grain overlay */}
       <div className="hero__blinds" aria-hidden="true">
-        <ErrorBoundary fallback={null}>
-          <GradientBlinds
-            gradientColors={["#2e4f6d", "#7fb89e", "#e89a5d", "#ffb36b"]}
-            angle={20}
-            blindCount={16}
-            blindMinWidth={55}
-            noise={0.25}
-            spotlightRadius={2.5}
-            spotlightSoftness={0.8}
-            spotlightOpacity={0.5}
-            mouseDampening={0.15}
-            dpr={1}
-            paused={blindsPaused}
-            mixBlendMode="lighten"
-          />
-        </ErrorBoundary>
+        <HeroBackdrop />
         <div className="hero__grain" />
       </div>
 
       <div className="wrap hero__inner hero__inner--center">
-        <Reveal>
+        <div>
           <h1 className="h1">AI did the work. Calma checks it.</h1>
-        </Reveal>
+        </div>
 
-        <Reveal delay={200}>
+        <div>
           <p className="lead hero__lead">
             Everyone else reads the diff or trusts the score. <b>Calma re-runs the work and
             recomputes the number</b> — from the raw outputs, never the one your agent reported —
             and blocks the wrong one before it ships.
           </p>
-        </Reveal>
+        </div>
 
-        <Reveal delay={300}>
+        <div>
           <div className="hero__cta">
             <a className="btn-primary" href="/install">Install the CLI</a>
-            <a className="btn-ghost" href="/dashboard">
+            {/* prefetch off: /dashboard is auth-gated, no point pre-rendering the login for every
+                landing visitor. Still a Link for fast client-side navigation on click. */}
+            <Link className="btn-ghost" href="/dashboard" prefetch={false}>
               Open the dashboard <span className="arrow" aria-hidden="true">→</span>
-            </a>
+            </Link>
           </div>
-        </Reveal>
+        </div>
 
-        <Reveal delay={400} className="hero__fill">
+        <div className="hero__fill">
           <div className="hero__demo">
-            <figure className="hero__movie">
-              <video
-                src="/video/hero-demo.mp4"
-                autoPlay
-                muted
-                loop
-                playsInline
-                controls
-                preload="metadata"
-                aria-label="Screen recording: an AI agent reports an inflated backtest return; calma blocks the turn, refutes the number, and the agent corrects itself"
-              />
-            </figure>
+            <HeroVideo />
           </div>
-        </Reveal>
+        </div>
       </div>
     </section>
   );
