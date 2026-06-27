@@ -4,7 +4,6 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { calma } from "@/lib/calma";
 import { getSession } from "@/lib/session";
-import { DEMO_BUNDLE } from "./submit/demoBundle";
 
 // Upload bundle bytes to R2 (server-side presigned PUT, no browser CORS) and submit a verification.
 // Shared by the real upload form and the one-click demo so both travel the exact same proven path.
@@ -55,24 +54,14 @@ export async function submitAction(formData: FormData) {
   redirect(`/dashboard/v/${v.verification_id}`);
 }
 
-// One-click demo: run a REAL verification on a bundled sample backtest, so a first-time user sees the
-// whole loop (re-execute offline → recompute from raw outputs → verdict + signed proof) without first
-// authoring a verify.yaml or building a tar.gz. Reuses the exact upload+submit path as the real form.
+// One-click demo: replay a PRE-RECORDED real verification of the sample backtest instead of re-booting a
+// ~50s e2b microVM on every click. The demo bundle is fixed and its result is deterministic, so the baked-in
+// fixture (web/app/dashboard/v/[id]/demoFixture.ts — a genuine past e2b run + its signed proof) shows the
+// exact same re-execute → recompute → signed-proof loop, instantly. The real form below still runs live.
 export async function submitDemoAction() {
   const s = await getSession();
   if (!s) throw new Error("no session");
-  const bytes = Buffer.from(DEMO_BUNDLE.base64, "base64");
-  const v = await uploadAndSubmit(s.tenantId, bytes, {
-    recipeId: DEMO_BUNDLE.recipeId,
-    recipeVersion: DEMO_BUNDLE.recipeVersion,
-    entrypoint: DEMO_BUNDLE.entrypoint,
-    // own-code is truthful here: these are Calma's OWN fixed sample bytes (shipped in demoBundle.ts),
-    // not tenant-controlled input. On a host that requires verified isolation it still runs only under
-    // a verified tier (e.g. the e2b microVM) and is otherwise refused — never an unwrapped host run.
-    trust: "own-code",
-    claim: { metric: DEMO_BUNDLE.metric, value: DEMO_BUNDLE.claimedValue },
-  });
-  redirect(`/dashboard/v/${v.verification_id}`);
+  redirect("/dashboard/v/demo");
 }
 
 export async function createKeyAction(environment: string) {

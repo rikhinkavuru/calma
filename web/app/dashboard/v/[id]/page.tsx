@@ -3,6 +3,7 @@ import Link from "next/link";
 import { calma, type Verification } from "@/lib/calma";
 import { getSession } from "@/lib/session";
 import { StatusBadge, VerdictBadge } from "../../Badge";
+import { DEMO_VERIFICATION, DEMO_PROOF } from "./demoFixture";
 import styles from "../../dashboard.module.css";
 
 export const dynamic = "force-dynamic";
@@ -78,14 +79,22 @@ export default async function Detail({ params }: { params: Promise<{ id: string 
   const { id } = await params;
   const s = await getSession();
   if (!s) return null; // unauthenticated: the layout renders the sign-in gate
+  const isDemo = id === "demo";
   let v: Verification | null = null;
   let proof: Record<string, unknown> | null = null;
   let error: string | null = null;
-  try {
-    v = await calma.getVerification(s.tenantId, id);
-    try { proof = await calma.getProof(s.tenantId, id); } catch { /* proof may not exist yet */ }
-  } catch (e) {
-    error = e instanceof Error ? e.message : String(e);
+  if (isDemo) {
+    // Pre-recorded sample: a REAL past e2b run + its signed proof, baked in and replayed instantly so the
+    // one-click demo never re-boots a ~50s microVM. No API call, no per-tenant data; the proof still verifies.
+    v = DEMO_VERIFICATION;
+    proof = DEMO_PROOF;
+  } else {
+    try {
+      v = await calma.getVerification(s.tenantId, id);
+      try { proof = await calma.getProof(s.tenantId, id); } catch { /* proof may not exist yet */ }
+    } catch (e) {
+      error = e instanceof Error ? e.message : String(e);
+    }
   }
 
   if (error || !v) {
@@ -118,6 +127,13 @@ export default async function Detail({ params }: { params: Promise<{ id: string 
   return (
     <div className={styles.main}>
       <Link href="/dashboard" className={styles.back}>← Verifications</Link>
+      {isDemo && (
+        <div className={`${styles.notice} ${styles.noticeOk}`} style={{ marginTop: 12 }}>
+          <strong>Pre-recorded sample.</strong> A real past verification of the demo backtest — re-executed in
+          the e2b microVM, recomputed host-side, and signed — replayed here instantly. The proof below still
+          verifies in your browser. <Link href="/dashboard/submit">Run your own →</Link>
+        </div>
+      )}
       <div className={styles.row} style={{ marginTop: 14 }}>
         <div>
           <h1 className={styles.h1}>{v.recipe.id} <span className={styles.muted}>@{v.recipe.version}</span></h1>
