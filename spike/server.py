@@ -30,9 +30,10 @@ sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "capture"))
 
 from fastapi import FastAPI, HTTPException  # noqa: E402
-from fastapi.responses import FileResponse, JSONResponse  # noqa: E402
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
+from connect import github_app as GH  # noqa: E402  — the GitHub App connector (anyone connects their repos)
 from core import diff as D  # noqa: E402
 from core import leakage as LEAK  # noqa: E402  — data-validity (train/test leakage, no re-run)
 from core import verdict as VD  # noqa: E402
@@ -45,6 +46,7 @@ from synth import store as SYNTH_STORE  # noqa: E402
 app = FastAPI(title="Calma — the correctness layer")
 
 JOBS: dict[str, dict] = {}
+INSTALLATIONS: dict[str, dict] = {}    # installation_id ↔ tenant (in-memory MVP); real = the control plane
 _LOCK = threading.Lock()
 _WORKDIR = os.path.join(tempfile.gettempdir(), "calma_web_repos")
 _VENVS = os.path.join(_WORKDIR, ".venvs")
@@ -62,6 +64,7 @@ class VerifyReq(BaseModel):
     discover: bool = True
     claims: list[dict] | None = None
     k: int = 2
+    installation_id: str | None = None   # clone via this GitHub App installation's short-lived token
 
 
 def _set(job, **kw):
@@ -76,8 +79,9 @@ def _log(job, msg):
         job["updated"] = time.time()
 
 
-def _clone(repo: str, dest: str, job) -> str:
-    """Clone via gh (handles private + auth) with a git fallback; or use a local path as-is."""
+def _clone(repo: str, dest: str, job, installation_id=None) -> str:
+    """Clone a repo. Order: a GitHub App installation token (anyone's connected private repos) → gh (the
+    operator's auth) → plain git. Or use a local path as-is."""
     if os.path.isdir(repo):
         return repo
     slug = repo.strip()
@@ -89,6 +93,16 @@ def _clone(repo: str, dest: str, job) -> str:
         import shutil
         shutil.rmtree(dest, ignore_errors=True)
     _log(job, "cloning %s" % slug)
+    if installation_id and GH.configured():           # the connected-via-GitHub-App path (short-lived token)
+        try:
+            tok = GH.installation_token_for(installation_id)
+            ri = subprocess.run(["git", "clone", "--quiet", "--depth", "1", GH.clone_url(tok, slug), dest],
+                                capture_output=True, text=True, timeout=240)
+            if ri.returncode == 0:
+                return dest
+            _log(job, "installation-token clone failed, falling back: %s" % (ri.stderr or "")[-120:])
+        except Exception as e:  # noqa: BLE001
+            _log(job, "installation token error: %s" % str(e)[:120])
     r = subprocess.run(["gh", "repo", "clone", slug, dest, "--", "--depth", "1"],
                        capture_output=True, text=True, timeout=240)
     if r.returncode != 0:
@@ -184,7 +198,7 @@ def run_job(job, req: VerifyReq):
     try:
         _set(job, status="running", stage="cloning")
         dest = os.path.join(_WORKDIR, job["id"])
-        repo_dir = _clone(req.repo, dest, job)
+        repo_dir = _clone(req.repo, dest, job, req.installation_id)
 
         # deep verify RUNS FIRST so discovery can read the entrypoint's generated results.json + stdout.
         # auto-detect the entrypoint (README run-cmd / common script) when the user didn't name one.
@@ -298,7 +312,51 @@ def _internal() -> bool:
 
 @app.get("/api/config")
 def config():
-    return {"internal": _internal()}
+    return {"internal": _internal(),
+            "github": {"configured": GH.configured(), "connected": len(INSTALLATIONS) > 0}}
+
+
+_GH_SETUP_HTML = """<!doctype html><html><body style="font-family:system-ui;max-width:640px;margin:60px auto;
+color:#1a1a18;line-height:1.6"><h2>Connect GitHub — one-time setup</h2><p>The GitHub App isn't configured
+yet. Register it (once), then anyone can connect their repos:</p><ol>
+<li>Open <a href="https://github.com/settings/apps/new?manifest">github.com/settings/apps/new?manifest</a>
+and paste <code>spike/connect/app-manifest.yml</code> (set the webhook URL to this server first).</li>
+<li>GitHub returns an <b>App ID</b>, a <b>private key</b> (.pem), and the <b>app slug</b>.</li>
+<li>Set <code>CALMA_GH_APP_ID</code>, <code>CALMA_GH_PRIVATE_KEY</code> (the .pem path),
+<code>CALMA_GH_APP_SLUG</code> and restart <code>./spike/web.sh</code>.</li></ol>
+<p>Full steps: <code>spike/connect/CONNECT.md</code>. <a href="/">← back</a></p></body></html>"""
+
+
+@app.get("/connect/github")
+def connect_github():
+    """Step 1: send the user to install the GitHub App (or show setup if it isn't registered yet)."""
+    if not GH.configured():
+        return HTMLResponse(_GH_SETUP_HTML)
+    return RedirectResponse(GH.install_url())
+
+
+@app.get("/connect/github/setup")
+def github_setup(installation_id: str = "", setup_action: str = ""):
+    """Step 2: GitHub redirects here after install with the installation_id. Store it ↔ the tenant."""
+    if installation_id:
+        with _LOCK:
+            INSTALLATIONS[installation_id] = {"installation_id": installation_id, "action": setup_action}
+    return RedirectResponse("/?connected=" + installation_id)
+
+
+@app.get("/api/installations")
+def installations():
+    with _LOCK:
+        return list(INSTALLATIONS.values())
+
+
+@app.get("/api/gh/repos")
+def gh_repos(installation_id: str):
+    """The repos this installation granted — listed via a short-lived installation token."""
+    try:
+        return GH.list_installation_repos(GH.installation_token_for(installation_id))
+    except Exception as e:  # noqa: BLE001
+        return JSONResponse({"error": str(e)[:200]}, status_code=500)
 
 
 @app.get("/api/catalog")

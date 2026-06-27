@@ -1,0 +1,30 @@
+# Calma — GitHub App manifest (one-click registration).
+#
+# Register: open  https://github.com/settings/apps/new?manifest  (or an org's
+# /organizations/<org>/settings/apps/new?manifest), set the webhook URL below to this server's public
+# host, paste this manifest. GitHub returns the App ID + a generated private key (.pem) + the app slug —
+# set them as CALMA_GH_APP_ID / CALMA_GH_PRIVATE_KEY (the .pem path) / CALMA_GH_APP_SLUG. See CONNECT.md.
+#
+# LEAST PRIVILEGE: verifying numbers only needs to READ the repo (clone) + post a check/comment on a PR.
+# It NEVER needs write access to code, secrets, or actions. Do not widen these.
+name: Calma
+description: >-
+  The correctness layer. Connect a repo and Calma re-runs the work, recomputes every number it reports
+  from the raw outputs, and tells you which hold up — CONFIRMED / REFUTED / INVALIDATED — plus data-leakage
+  checks. Verify the result, not just the claim.
+url: https://calma.dev
+public: true                       # anyone can install it on their repos
+default_events:
+  - pull_request                   # verify-on-PR (later): re-verify changed numbers
+  - push
+default_permissions:
+  contents: read                   # clone the repo at the pinned commit to re-run + recompute
+  metadata: read                   # required baseline
+  pull_requests: write             # post the verification summary on a PR (verify-on-PR)
+  checks: write                    # post the verdict as a required Check Run (the merge gate)
+hook_attributes:
+  url: https://REPLACE_WITH_PUBLIC_HOST/connect/github/webhook   # set before registering (or omit for no webhooks)
+  active: true
+# After install, GitHub redirects the user to the setup_url with ?installation_id=… :
+setup_url: https://REPLACE_WITH_PUBLIC_HOST/connect/github/setup
+redirect_url: https://REPLACE_WITH_PUBLIC_HOST/connect/github/setup

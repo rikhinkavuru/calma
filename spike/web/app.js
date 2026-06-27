@@ -9,7 +9,7 @@ const CLEAN = ["CONFIRMED", "REPRODUCED-ONLY"];
 const sumc = (counts, vs) => vs.reduce((a, v) => a + (counts[v] || 0), 0);
 const defaultFilter = (job) => (sumc(job.counts || {}, [...PROBLEMS, ...CLEAN, "INCONCLUSIVE"]) > 0 ? "PROBLEMS" : "ALL");
 
-let POLL = null, FILTER = "ALL";
+let POLL = null, FILTER = "ALL", INSTALL = null;   // INSTALL = the GitHub App installation_id, when a connected repo is picked
 
 // ---- deep-verify options show/hide ----
 $("#deep").addEventListener("change", e => $("#deepopts").classList.toggle("hidden", !e.target.checked));
@@ -38,7 +38,7 @@ async function loadRepos() {
           <div><span class="tag ${r.visibility === "PRIVATE" ? "priv" : ""}">${esc(r.visibility.toLowerCase())}</span>
                <span class="tag">${esc(r.language || "?")}</span></div>
         </div>`).join("")}</div>`;
-    box.addEventListener("click", e => { const it = e.target.closest(".repoitem"); if (it) { $("#repo").value = it.dataset.slug; window.scrollTo({ top: 0, behavior: "smooth" }); } });
+    box.addEventListener("click", e => { const it = e.target.closest(".repoitem"); if (it) { $("#repo").value = it.dataset.slug; INSTALL = null; window.scrollTo({ top: 0, behavior: "smooth" }); } });
     $("#repos").appendChild(box);
   } catch (_) { }
 }
@@ -56,6 +56,7 @@ async function start() {
     repo, discover: $("#discover").checked, deep: $("#deep").checked,
     runner: $("#runner").value, entry: $("#entry").value.trim() || null,
     pip_install: $("#pip").value.trim() ? $("#pip").value.trim().split(/\s+/) : null,
+    installation_id: INSTALL,   // clone via the GitHub App token when a connected repo is picked
   };
   const { id } = await (await fetch("/api/verify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })).json();
   POLL = setInterval(() => poll(id), 1100);
@@ -227,11 +228,39 @@ function catCard(m) {
   </div>`;
 }
 
-// the catalog (our trusted formulas) is internal-only — hide the nav unless the server says we're admin
+$("#repo").addEventListener("input", () => { INSTALL = null; });   // manual input ≠ an installation repo
+
 (async () => {
-  let internal = false;
-  try { internal = (await (await fetch("/api/config")).json()).internal; } catch (_) {}
-  if (!internal) $("#nav-catalog").style.display = "none";
+  let cfg = {};
+  try { cfg = await (await fetch("/api/config")).json(); } catch (_) { }
+  if (!cfg.internal) $("#nav-catalog").style.display = "none";   // catalog is internal-only
+  renderGhConnect(cfg.github || {});
 })();
+
+function renderGhConnect(gh) {
+  const box = $("#ghconnect");
+  if (!box) return;
+  const icon = '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style="vertical-align:-2px;margin-right:5px"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.69-.01-1.36-2.22.48-2.69-1.07-2.69-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.05-.49.05-.49.81.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 014 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>';
+  box.innerHTML = `<a class="btn ghost" href="/connect/github" style="font-size:13px">${icon}${gh.connected ? "GitHub connected — add repos" : "Connect GitHub"}${gh.configured ? "" : " (setup)"}</a>
+    <span class="muted" style="font-size:12px;margin-left:8px">${gh.connected ? "pick a repo below" : (gh.configured ? "install on your repos" : "one-time App registration — see CONNECT.md")}</span>`;
+  if (gh.connected) loadInstallationRepos();
+}
+
+async function loadInstallationRepos() {
+  try {
+    const insts = await (await fetch("/api/installations")).json();
+    if (!insts.length) return;
+    const id = insts[0].installation_id;
+    const repos = await (await fetch("/api/gh/repos?installation_id=" + encodeURIComponent(id))).json();
+    if (!Array.isArray(repos) || !repos.length) return;
+    const box = document.createElement("div");
+    box.innerHTML = `<label class="f" style="margin-top:14px">Your connected repositories</label>
+      <div class="repolist">${repos.map(r => `<div class="repoitem" data-slug="${esc(r.slug)}">
+        <div><b>${esc(r.name)}</b> <span class="muted" style="font-size:12px">${esc(r.description).slice(0, 70)}</span></div>
+        <div><span class="tag ${r.visibility === "private" ? "priv" : ""}">${esc(r.visibility)}</span></div></div>`).join("")}</div>`;
+    box.addEventListener("click", e => { const it = e.target.closest(".repoitem"); if (it) { $("#repo").value = it.dataset.slug; INSTALL = id; window.scrollTo({ top: 0, behavior: "smooth" }); } });
+    $("#repos").appendChild(box);
+  } catch (_) { }
+}
 
 loadRepos();
