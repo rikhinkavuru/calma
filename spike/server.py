@@ -247,10 +247,23 @@ def repos():
         return JSONResponse([], status_code=200)
 
 
+def _internal() -> bool:
+    """The catalog (our trusted formulas) is IP/moat + a gameable surface — INTERNAL only. Exposed only
+    when CALMA_INTERNAL is set (admin/dev); never to end users of the product."""
+    return bool(os.environ.get("CALMA_INTERNAL"))
+
+
+@app.get("/api/config")
+def config():
+    return {"internal": _internal()}
+
+
 @app.get("/api/catalog")
 def catalog_view():
-    """Everything Calma can recompute: the curated trusted catalog + the formulas the flywheel has
-    synthesized, validated, and banked (the store / HelixDB). The banked set grows as repos are verified."""
+    """INTERNAL: everything Calma can recompute (curated + flywheel-banked). 404 to non-internal callers so
+    the trusted formulas (and how to game them) are never exposed to users."""
+    if not _internal():
+        raise HTTPException(404, "not found")
     from core import catalog as C
     curated = {m: {"metric": m, "aliases": [], "kind": "curated", "source": "trusted catalog",
                    "inputs": [], "validation": {"method": "curated + validated vs sklearn/scipy"}}
@@ -267,9 +280,16 @@ def catalog_view():
                            "validation": r.validation})
     except Exception:  # noqa: BLE001
         pass
-    return {"curated": list(curated.values()), "banked": banked,
-            "counts": {"curated": len(curated), "banked": len(banked),
-                       "total": len(curated) + len(banked)},
+    recipe_ids = []
+    try:
+        from recipes import adapter as RA
+        reg = RA._recipes()
+        recipe_ids = sorted(reg.list_ids() if hasattr(reg, "list_ids") else reg._REGISTRY)
+    except Exception:  # noqa: BLE001
+        pass
+    return {"curated": list(curated.values()), "banked": banked, "recipes": recipe_ids,
+            "counts": {"curated": len(curated), "banked": len(banked), "recipes": len(recipe_ids),
+                       "total": len(curated) + len(banked) + len(recipe_ids)},
             "store": getattr(store, "name", "local")}
 
 

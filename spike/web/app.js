@@ -162,6 +162,7 @@ function renderTable(claims, g) {
 function provenanceTag(p) {
   if (!p || p === "catalog") return "";
   if (p === "synth") return '<div class="prov synth">✦ synthesized + validated</div>';
+  if (p === "recipe") return '<div class="prov bank">✦ recipe catalog</div>';
   if (p && p.indexOf("store") === 0) return '<div class="prov bank">✦ banked formula</div>';
   return "";
 }
@@ -190,10 +191,14 @@ async function loadCatalog() {
     <p class="sub">Everything Calma can recompute — the curated trusted catalog plus formulas the flywheel synthesized, validated, and banked (store: <b>${esc(data.store)}</b>). The banked set grows every time a repo reports a metric we haven't seen.</p>
     <div class="sumgrid">
       <div class="sum"><div class="n">${c.total}</div><div class="l">metrics</div></div>
-      <div class="sum"><div class="n">${c.curated}</div><div class="l">curated</div></div>
+      <div class="sum"><div class="n">${c.recipes || 0}</div><div class="l">lifted recipes</div></div>
+      <div class="sum"><div class="n">${c.curated}</div><div class="l">curated (clean)</div></div>
       <div class="sum"><div class="n" style="color:var(--purple)">${c.banked}</div><div class="l">✦ synthesized + banked</div></div>
     </div>
-    <div class="catgrid">${all.map(catCard).join("")}</div>`;
+    <div class="catgrid">${all.map(catCard).join("")}</div>
+    ${(data.recipes && data.recipes.length) ? `<h2 style="margin:32px 0 2px;font-size:16px">Lifted recipe catalog (${data.recipes.length})</h2>
+      <p class="muted" style="margin:0 0 12px">The previous engine's trusted math, bound to captured inputs — quant risk, derivatives, credit, retrieval, forecasting, analytics, and more.</p>
+      <div class="chips">${data.recipes.map(r => `<span class="tag">${esc(r)}</span>`).join(" ")}</div>` : ""}`;
 }
 
 function catCard(m) {
@@ -212,5 +217,12 @@ function catCard(m) {
     ${m.source && m.source !== "trusted catalog" ? `<div class="muted mono" style="font-size:10.5px;margin-top:4px">${esc(m.source)}</div>` : ""}
   </div>`;
 }
+
+// the catalog (our trusted formulas) is internal-only — hide the nav unless the server says we're admin
+(async () => {
+  let internal = false;
+  try { internal = (await (await fetch("/api/config")).json()).internal; } catch (_) {}
+  if (!internal) $("#nav-catalog").style.display = "none";
+})();
 
 loadRepos();

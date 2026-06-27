@@ -248,6 +248,14 @@ def recompute_any(metric: str, inputs: dict, kwargs: dict | None = None, store=N
         r["provenance"] = "catalog"
         r.setdefault("formula", cid)
         return r
+    # the lifted 626-recipe catalog (the previous engine's trusted math)
+    try:
+        from recipes import adapter as RA  # noqa: PLC0415 - lazy; recipes is a top-level spike package
+        rr = RA.recompute_recipe(metric, inputs, kwargs)
+        if rr is not None and not rr.get("degenerate"):
+            return rr
+    except Exception:  # noqa: BLE001 - recipes unavailable → fall through to the flywheel
+        pass
     store = store or S.get_store()
     hit = store.lookup(metric, text=metric)
     if hit:

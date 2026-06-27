@@ -195,9 +195,13 @@ _SKLEARN_ADAPTERS = {
     "root_mean_squared_error": _ad_reg("rmse"),
     "mean_absolute_error": _ad_reg("mae"),
     "r2_score": _ad_reg("r2"),
-    # metrics not in the curated catalog — captured here, recomputed via the synth/store flywheel:
+    # metrics not in the curated catalog — captured here, recomputed via the recipes / synth flywheel:
     "matthews_corrcoef": _ad_classify("mcc"),
     "cohen_kappa_score": _ad_classify("cohen_kappa"),
+    "log_loss": lambda a, k: ("log_loss", {"y_true": _get(a, k, 0, "y_true"),
+                                           "y_score": _get(a, k, 1, "y_pred")}, {}),
+    "brier_score_loss": lambda a, k: ("brier", {"y_true": _get(a, k, 0, "y_true"),
+                                                "y_score": _get(a, k, 1, "y_prob")}, {}),
 }
 
 
