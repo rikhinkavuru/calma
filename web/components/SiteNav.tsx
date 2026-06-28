@@ -8,6 +8,9 @@ import { GITHUB_URL } from "./contact";
    the landing and all subpages carry the same chrome. */
 const CardNav = dynamic(() => import("./CardNav"), { ssr: false });
 
+// the verify dashboard is a separate app (spike/server.py). dev = localhost:8787; prod = set this env.
+const DASHBOARD_URL = process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:8787";
+
 const NAV_ITEMS: CardNavItem[] = [
   {
     label: "Explore",
@@ -20,14 +23,12 @@ const NAV_ITEMS: CardNavItem[] = [
     ],
   },
   {
-    label: "Resources",
+    label: "Product",
     bgColor: "#1a1610",
     textColor: "#e9ddc4",
     links: [
-      { label: "Dashboard", href: "/dashboard", ariaLabel: "Dashboard — verifications console" },
-      { label: "Recipes", href: "/recipes", ariaLabel: "Recipes" },
-      { label: "Registry", href: "/registry", ariaLabel: "Registry" },
-      { label: "The lab", href: "/lab", ariaLabel: "The lab" },
+      { label: "Verify a repo", href: DASHBOARD_URL, ariaLabel: "Open the verify dashboard" },
+      { label: "Connect GitHub", href: DASHBOARD_URL + "/connect/github", ariaLabel: "Connect your repos" },
     ],
   },
   {
