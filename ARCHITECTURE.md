@@ -53,6 +53,27 @@ reports ~thousands of rows, but they're **3 metrics** (accuracy, AUROC, MCC) × 
 - The genuinely expensive bit is **sandbox execution** (re-running the code) — metered as sandbox-minutes in
   the pricing model — not the formulas.
 
+## Formula acquisition — the cost ladder (Exa is the fallback, not the default)
+
+The worry "Exa-search a formula for every claim" assumes the *source* of the formula must be a web search.
+It doesn't — and **trust comes from validation, not from the source**, so always take the cheapest source:
+
+1. **Catalog + 626 recipes** — free. Covers the overwhelming majority of real metrics.
+2. **The LLM already knows it** — ~1 cheap call, no web search. A model knows MCC/Brier/NDCG/Sortino/… and
+   writes the implementation from its own weights. The workhorse for novel metrics — *not* Exa.
+3. **The repo defines it** — free. A genuinely-novel metric is defined in the cloned repo (function +
+   docstring/paper). Extract the definition locally, re-implement independently.
+4. **The repo's tests** — free golden vectors to validate the implementation (`assert metric(x)==y`).
+5. **Exa** — the rare fallback for a metric even the LLM doesn't know and the repo doesn't define. Banked in
+   Helix once, globally — reused for $0 forever.
+
+Plus two that need **no formula at all**:
+- **Identity checks:** repo reports P, R, *and* F1 → check `F1 = 2PR/(P+R)` instead of looking F1 up.
+- **Computation fingerprint:** recognize a metric from its captured dataflow when the name is unknown.
+
+Per repo, after deduping to *distinct* metrics, formula resolution is ~$0. Exa is the tail. Meta-principle:
+**dedupe → cheapest source → validate independently → bank once.**
+
 ## On the two options you floated
 
 - **Option A (Exa every calculation):** right idea, wrong scope. Gate it behind catalog→recipes→Helix
