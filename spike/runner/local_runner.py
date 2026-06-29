@@ -27,6 +27,11 @@ def run_local(repo_dir, entry, *, k=2, python=None, hooks="sklearn", targets=Non
         with tempfile.NamedTemporaryFile(prefix="calma_cap_", suffix=".jsonl", delete=False) as tf:
             out_path = tf.name
         base = dict(os.environ)
+        # Headless by default: a verification sandbox has no display, so matplotlib must use the non-
+        # interactive Agg backend — otherwise a stray plt.show() blocks the run until the timeout (a real
+        # hang we hit on a curated repo). setdefault so an explicit operator override still wins; before
+        # env_extra so callers can override too.
+        base.setdefault("MPLBACKEND", "Agg")
         if env_extra:
             base.update(env_extra)
         base["CALMA_RUN_INDEX"] = str(i)  # lets a fixture simulate run-to-run drift deterministically
