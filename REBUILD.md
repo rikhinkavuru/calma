@@ -71,13 +71,17 @@ apps/mcp            ← mcp/            (keep thin — the one client surface wo
 
 ## Next steps (in order)
 
-1. **Curate the real corpus** — ~15–20 self-contained CPU repos with a clear claimed number, into
-   `spike/repos.yaml`; run the spike; record the real reproduction + binding rate → the go/no-go memo.
+1. **Curate the real corpus** — ✅ DONE (2026-06-29). 10 real repos run; **GO** memo at
+   `spike/results/GO-NO-GO-corpus-2026-06-29.md`. Result: reproduction 80%, 11 auto-discovered claims,
+   binding 58%, **false-confirm = 0**. Binding is the bottleneck (every miss fails closed) → step 3 is now
+   the critical path. (More repos can still be added to lift the graded set above n=1.)
 2. **Discovery (TDMR)** — ✅ first version built (`spike/discovery/extract.py`: results.json + README +
    stdout → claims, mapped to the catalog). Next: notebook outputs, wandb/mlflow logs, and invest in the
    VALUE parser (SOTA's weak spot). Free = auto-discover; paid = user states the claim.
-3. **Build auto-binding** — dataflow/provenance tracing to replace the hand-specified bind hints (the
-   remaining stubbed piece; the spike binds by metric identity + manual hints today).
+3. **Build auto-binding** — ⭐ NOW THE CRITICAL PATH (the corpus proved it). Dataflow/provenance tracing to
+   disambiguate multi-candidate cases (GridSearchCV's many accuracy calls, multi-model scripts → bind the
+   held-out/test computation) + a value-recompute fallback for hand-rolled metrics with no library call to
+   hook. Replaces the metric-identity + manual-hint binding today. Target: binding ≥ 85%.
 4. **Grow the catalog** — port the proven metric corpus into `packages/core`; add the CEGIS synth-and-
    validate path for novel metrics.
 5. **Product scaffold** — `apps/api` durable job model (`queued → mapping → triaging → verifying → done`),
