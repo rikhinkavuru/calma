@@ -3,6 +3,33 @@
 How a repo becomes verified numbers, designed so **cost-per-scan stays low even on repos with thousands of
 claims.** This answers the "won't this be 1000s of Exa calls?" worry head-on.
 
+## Architecture At A Glance
+
+```mermaid
+flowchart LR
+  A[Repo] --> B[Discover claims]
+  B --> C{Need deep verify?}
+  C -- no --> D[Static findings only]
+  C -- yes --> E[Run in sandbox]
+  E --> F[Capture real metric inputs]
+  F --> G{Known metric?}
+  G -- yes --> H[Trusted catalog]
+  G -- no --> I[Legacy recipe adapter]
+  I --> J{Found?}
+  J -- yes --> K[Validated formula store]
+  J -- no --> L[Repo-grounded synth]
+  L --> M[Validate against reference vectors]
+  M -- pass --> K
+  M -- fail --> N[Fail closed]
+  H --> O[Three-way diff]
+  K --> O
+  O --> P[Validity overlays]
+  P --> Q[Verdict + warnings]
+  Q --> R[Store provenance / HelixDB]
+```
+
+The important design rule is: **Exa is a fallback for the novel tail, not the default path**.
+
 ## The reframe: two orthogonal problems (don't conflate them)
 
 The two options on the table each solve a *different* problem:
@@ -35,8 +62,9 @@ reports ~thousands of rows, but they're **3 metrics** (accuracy, AUROC, MCC) × 
    (Option B, cached)        requirements.txt + run-plan (Repo2Run; 86% on Python repos).
                              cache by stack signature → reproduction flywheel ($0 next time)
 4. RESOLVE NOVEL FORMULA     Helix vector lookup (seen before? → reuse, $0)
-   (Option A, gated)         → else Exa the definition → LLM synthesizes code
-                             → VALIDATE vs golden vectors → bank in Helix (global, forever)
+   (Option A, gated)         → else repo-local definition / tests / fingerprints / aliases
+                             → only then Exa for the truly missing tail
+                             → LLM synthesizes code → VALIDATE vs golden vectors → bank in Helix
 5. CAPTURE / RECOMPUTE       committed predictions → recompute directly (no re-run);
                              else re-run + capture. Recompute ALL claims (free). Three-way diff.
 ```
@@ -59,26 +87,28 @@ The worry "Exa-search a formula for every claim" assumes the *source* of the for
 It doesn't — and **trust comes from validation, not from the source**, so always take the cheapest source:
 
 1. **Catalog + 626 recipes** — free. Covers the overwhelming majority of real metrics.
-2. **The LLM already knows it** — ~1 cheap call, no web search. A model knows MCC/Brier/NDCG/Sortino/… and
-   writes the implementation from its own weights. The workhorse for novel metrics — *not* Exa.
-3. **The repo defines it** — free. A genuinely-novel metric is defined in the cloned repo (function +
+2. **Alias / dedupe / fingerprints** — free. Most “new” names are rebrands of a known metric, or repeated
+   calls to the same metric under different splits.
+3. **The LLM already knows it** — ~1 cheap call, no web search. A model knows MCC/Brier/NDCG/Sortino/… and
+   writes the implementation from its own weights. The workhorse for the long tail — *not* Exa.
+4. **The repo defines it** — free. A genuinely-novel metric is often defined in the cloned repo (function +
    docstring/paper). Extract the definition locally, re-implement independently.
-4. **The repo's tests** — free golden vectors to validate the implementation (`assert metric(x)==y`).
-5. **Exa** — the rare fallback for a metric even the LLM doesn't know and the repo doesn't define. Banked in
+5. **The repo's tests** — free golden vectors to validate the implementation (`assert metric(x)==y`).
+6. **Exa** — the rare fallback for a metric even the LLM doesn't know and the repo doesn't define. Banked in
    Helix once, globally — reused for $0 forever.
 
 Plus two that need **no formula at all**:
 - **Identity checks:** repo reports P, R, *and* F1 → check `F1 = 2PR/(P+R)` instead of looking F1 up.
 - **Computation fingerprint:** recognize a metric from its captured dataflow when the name is unknown.
 
-Per repo, after deduping to *distinct* metrics, formula resolution is ~$0. Exa is the tail. Meta-principle:
-**dedupe → cheapest source → validate independently → bank once.**
+Per repo, after deduping to *distinct* metrics, formula resolution is ~$0 in the common case. Exa is the
+tail, not the default. Meta-principle: **dedupe → cheapest source → validate independently → bank once**.
 
 ## On the two options you floated
 
 - **Option A (Exa every calculation):** right idea, wrong scope. Gate it behind catalog→recipes→Helix
   (steps 2 + 4). Exa only for the novel tail. The router already does this (`recompute_any`); the addition
-  is the **classify-before-Exa** step.
+  is the **classify-before-Exa** step plus repo-grounded synthesis before web search.
 - **Option B (LLM writes its own requirements.txt):** yes — this is make-runnable (step 3) for repos without
   env files. Your genomic repo *has* `requirements.txt`, so it's used directly; the agent only writes one
   when the repo lacks it. Cache it.

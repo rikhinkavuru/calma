@@ -1,0 +1,128 @@
+{
+  "repo": "/Users/rikhinkavuru/calma/spike/results/repos/ml-in-10-lines",
+  "counts": {
+    "REFUTED": 1,
+    "CONFIRMED": 1
+  },
+  "run": {
+    "ran": true,
+    "calls": 2,
+    "entry": "iris.py",
+    "error": ""
+  },
+  "leakage": [],
+  "trace": [
+    {
+      "stage": "initializing",
+      "detail": "starting verification",
+      "t": 1782668484.5879328
+    },
+    {
+      "stage": "building",
+      "detail": "preparing runnable environment",
+      "t": 1782668484.587938
+    },
+    {
+      "stage": "note",
+      "detail": "env: harness python",
+      "t": 1782668484.587945
+    },
+    {
+      "stage": "running",
+      "detail": "running iris.py",
+      "t": 1782668484.587946
+    },
+    {
+      "stage": "note",
+      "detail": "captured 2 computation(s)",
+      "t": 1782668486.700333
+    },
+    {
+      "stage": "discovering",
+      "detail": "discovering reported numbers",
+      "t": 1782668486.7003362
+    },
+    {
+      "stage": "note",
+      "detail": "discovered 2 claim(s)",
+      "t": 1782668486.7020931
+    },
+    {
+      "stage": "checking data",
+      "detail": "checking committed splits and prediction artifacts",
+      "t": 1782668486.702094
+    },
+    {
+      "stage": "diffing",
+      "detail": "comparing claimed vs produced vs recomputed",
+      "t": 1782668486.702219
+    },
+    {
+      "stage": "done",
+      "detail": "verification complete",
+      "t": 1782668486.702327
+    }
+  ],
+  "claims": [
+    {
+      "id": "d0_accuracy",
+      "metric": "accuracy",
+      "claimed": "96.67%",
+      "context": "",
+      "location": "README.md",
+      "source": "text",
+      "confidence": 0.765,
+      "verdict": "REFUTED",
+      "reason": "the reported value '96.67%' is not what the code produced (1); \u0394=0.0333",
+      "diff": {
+        "claimed": "96.67%",
+        "produced": 1.0,
+        "recomputed": 1.0,
+        "claim_match": {
+          "claimed_value": 0.9667,
+          "decimals": 4,
+          "kind": "percent",
+          "tol": 5.00019667e-05,
+          "delta": 0.033299999999999996
+        }
+      },
+      "provenance": null
+    },
+    {
+      "id": "d1_accuracy",
+      "metric": "accuracy",
+      "claimed": "100.00%",
+      "context": "",
+      "location": "stdout",
+      "source": "text",
+      "confidence": 0.765,
+      "verdict": "CONFIRMED",
+      "reason": "claim == runtime value == independent recompute, deterministic",
+      "diff": {
+        "claimed": "100.00%",
+        "produced": 1.0,
+        "recomputed": 1.0,
+        "claim_match": {
+          "claimed_value": 1.0,
+          "decimals": 4,
+          "kind": "percent",
+          "tol": 5.000200000000001e-05,
+          "delta": 0.0
+        }
+      },
+      "provenance": null
+    }
+  ],
+  "logs": [
+    "starting verification",
+    "preparing runnable environment",
+    "env: harness python",
+    "running iris.py",
+    "captured 2 computation(s)",
+    "discovering reported numbers",
+    "discovered 2 claim(s)",
+    "checking committed splits and prediction artifacts",
+    "comparing claimed vs produced vs recomputed",
+    "verification complete"
+  ]
+}

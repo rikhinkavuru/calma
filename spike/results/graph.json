@@ -1,0 +1,7553 @@
+{
+  "store": {
+    "name": "local",
+    "available": true,
+    "detail": "local json store"
+  },
+  "counts": {
+    "catalog": 2,
+    "store": 1,
+    "formula": 642,
+    "alias": 42
+  },
+  "nodes": [
+    {
+      "id": "catalog:curated",
+      "label": "Curated catalog",
+      "kind": "catalog"
+    },
+    {
+      "id": "catalog:recipes",
+      "label": "Lifted recipe catalog",
+      "kind": "catalog"
+    },
+    {
+      "id": "store:local",
+      "label": "local formula store",
+      "kind": "store"
+    },
+    {
+      "id": "formula:catalog:accuracy",
+      "label": "accuracy",
+      "kind": "formula",
+      "source": "catalog"
+    },
+    {
+      "id": "formula:catalog:balanced_accuracy",
+      "label": "balanced_accuracy",
+      "kind": "formula",
+      "source": "catalog"
+    },
+    {
+      "id": "formula:catalog:f1",
+      "label": "f1",
+      "kind": "formula",
+      "source": "catalog"
+    },
+    {
+      "id": "formula:catalog:mae",
+      "label": "mae",
+      "kind": "formula",
+      "source": "catalog"
+    },
+    {
+      "id": "formula:catalog:mean",
+      "label": "mean",
+      "kind": "formula",
+      "source": "catalog"
+    },
+    {
+      "id": "formula:catalog:mse",
+      "label": "mse",
+      "kind": "formula",
+      "source": "catalog"
+    },
+    {
+      "id": "formula:catalog:precision",
+      "label": "precision",
+      "kind": "formula",
+      "source": "catalog"
+    },
+    {
+      "id": "formula:catalog:r2",
+      "label": "r2",
+      "kind": "formula",
+      "source": "catalog"
+    },
+    {
+      "id": "formula:catalog:recall",
+      "label": "recall",
+      "kind": "formula",
+      "source": "catalog"
+    },
+    {
+      "id": "formula:catalog:rmse",
+      "label": "rmse",
+      "kind": "formula",
+      "source": "catalog"
+    },
+    {
+      "id": "formula:catalog:roc_auc",
+      "label": "roc_auc",
+      "kind": "formula",
+      "source": "catalog"
+    },
+    {
+      "id": "formula:catalog:sharpe",
+      "label": "sharpe",
+      "kind": "formula",
+      "source": "catalog"
+    },
+    {
+      "id": "formula:catalog:sum",
+      "label": "sum",
+      "kind": "formula",
+      "source": "catalog"
+    },
+    {
+      "id": "alias:acc",
+      "label": "acc",
+      "kind": "alias"
+    },
+    {
+      "id": "alias:accuracy_score",
+      "label": "accuracy_score",
+      "kind": "alias"
+    },
+    {
+      "id": "alias:auc",
+      "label": "auc",
+      "kind": "alias"
+    },
+    {
+      "id": "alias:auc_roc",
+      "label": "auc_roc",
+      "kind": "alias"
+    },
+    {
+      "id": "alias:auroc",
+      "label": "auroc",
+      "kind": "alias"
+    },
+    {
+      "id": "alias:average",
+      "label": "average",
+      "kind": "alias"
+    },
+    {
+      "id": "alias:avg",
+      "label": "avg",
+      "kind": "alias"
+    },
+    {
+      "id": "alias:bacc",
+      "label": "bacc",
+      "kind": "alias"
+    },
+    {
+      "id": "alias:balanced_accuracy_score",
+      "label": "balanced_accuracy_score",
+      "kind": "alias"
+    },
+    {
+      "id": "alias:f1-score",
+      "label": "f1-score",
+      "kind": "alias"
+    },
+    {
+      "id": "alias:f1_score",
+      "label": "f1_score",
+      "kind": "alias"
+    },
+    {
+      "id": "alias:f_score",
+      "label": "f_score",
+      "kind": "alias"
+    },
+    {
+      "id": "alias:fscore",
+      "label": "fscore",
+      "kind": "alias"
+    },
+    {
+      "id": "alias:mean_absolute_error",
+      "label": "mean_absolute_error",
+      "kind": "alias"
+    },
+    {
+      "id": "alias:mean_squared_error",
+      "label": "mean_squared_error",
+      "kind": "alias"
+    },
+    {
+      "id": "alias:precision_score",
+      "label": "precision_score",
+      "kind": "alias"
+    },
+    {
+      "id": "alias:r2_score",
+      "label": "r2_score",
+      "kind": "alias"
+    },
+    {
+      "id": "alias:r^2",
+      "label": "r^2",
+      "kind": "alias"
+    },
+    {
+      "id": "alias:r_squared",
+      "label": "r_squared",
+      "kind": "alias"
+    },
+    {
+      "id": "alias:recall_score",
+      "label": "recall_score",
+      "kind": "alias"
+    },
+    {
+      "id": "alias:roc_auc_score",
+      "label": "roc_auc_score",
+      "kind": "alias"
+    },
+    {
+      "id": "alias:root_mean_squared_error",
+      "label": "root_mean_squared_error",
+      "kind": "alias"
+    },
+    {
+      "id": "alias:rsquared",
+      "label": "rsquared",
+      "kind": "alias"
+    },
+    {
+      "id": "alias:sharpe_ratio",
+      "label": "sharpe_ratio",
+      "kind": "alias"
+    },
+    {
+      "id": "alias:sr",
+      "label": "sr",
+      "kind": "alias"
+    },
+    {
+      "id": "alias:top-1",
+      "label": "top-1",
+      "kind": "alias"
+    },
+    {
+      "id": "alias:top1",
+      "label": "top1",
+      "kind": "alias"
+    },
+    {
+      "id": "formula:recipe:abdi_ranaldo_spread",
+      "label": "abdi_ranaldo_spread",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:accuracy",
+      "label": "accuracy",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:accuracy_parity_difference",
+      "label": "accuracy_parity_difference",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:acerbi_szekely_z1",
+      "label": "acerbi_szekely_z1",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:acerbi_szekely_z2",
+      "label": "acerbi_szekely_z2",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:active_return",
+      "label": "active_return",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:active_share",
+      "label": "active_share",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:adaptive_calibration_error",
+      "label": "adaptive_calibration_error",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:adjusted_r2",
+      "label": "adjusted_r2",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:adjusted_rand_index",
+      "label": "adjusted_rand_index",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:adjusted_sharpe_ratio",
+      "label": "adjusted_sharpe_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:aic",
+      "label": "aic",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:aicc",
+      "label": "aicc",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:alpha",
+      "label": "alpha",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:alpha_tstat",
+      "label": "alpha_tstat",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:altman_z",
+      "label": "altman_z",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:altman_z_double_prime",
+      "label": "altman_z_double_prime",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:altman_z_prime",
+      "label": "altman_z_prime",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:amihud_illiquidity",
+      "label": "amihud_illiquidity",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:amivest_liquidity",
+      "label": "amivest_liquidity",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:anderson_darling",
+      "label": "anderson_darling",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:annuity_factor",
+      "label": "annuity_factor",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:anova",
+      "label": "anova",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:ansari_bradley",
+      "label": "ansari_bradley",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:apdex",
+      "label": "apdex",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:appraisal_ratio",
+      "label": "appraisal_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:arch_lm",
+      "label": "arch_lm",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:arhr_at_k",
+      "label": "arhr_at_k",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:arrival_slippage",
+      "label": "arrival_slippage",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:asrf_capital_requirement",
+      "label": "asrf_capital_requirement",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:asrf_rwa",
+      "label": "asrf_rwa",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:asset_turnover",
+      "label": "asset_turnover",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:atkinson_index",
+      "label": "atkinson_index",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:auc",
+      "label": "auc",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:autocorrelation",
+      "label": "autocorrelation",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:availability",
+      "label": "availability",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:average_abs_odds_difference",
+      "label": "average_abs_odds_difference",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:average_treatment_effect",
+      "label": "average_treatment_effect",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:balanced_accuracy",
+      "label": "balanced_accuracy",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:balanced_accuracy_adjusted",
+      "label": "balanced_accuracy_adjusted",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:balanced_accuracy_parity_difference",
+      "label": "balanced_accuracy_parity_difference",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:bartlett",
+      "label": "bartlett",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:basel_traffic_light",
+      "label": "basel_traffic_light",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:batting_average",
+      "label": "batting_average",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:bcubed_f1",
+      "label": "bcubed_f1",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:bcubed_precision",
+      "label": "bcubed_precision",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:bcubed_recall",
+      "label": "bcubed_recall",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:bear_beta",
+      "label": "bear_beta",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:benjamini_yekutieli",
+      "label": "benjamini_yekutieli",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:berger_parker",
+      "label": "berger_parker",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:beta",
+      "label": "beta",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:beta_tstat",
+      "label": "beta_tstat",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:bh_rejections",
+      "label": "bh_rejections",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:bhattacharyya_distance",
+      "label": "bhattacharyya_distance",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:bias_ratio",
+      "label": "bias_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:bic",
+      "label": "bic",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:bipower_variation",
+      "label": "bipower_variation",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:blomqvist_beta",
+      "label": "blomqvist_beta",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:bond_price",
+      "label": "bond_price",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:bonferroni_rejections",
+      "label": "bonferroni_rejections",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:bowley_skewness",
+      "label": "bowley_skewness",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:box_pierce",
+      "label": "box_pierce",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:braycurtis_distance",
+      "label": "braycurtis_distance",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:brennan_prediger",
+      "label": "brennan_prediger",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:breusch_pagan_fstat",
+      "label": "breusch_pagan_fstat",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:breusch_pagan_lm",
+      "label": "breusch_pagan_lm",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:brier",
+      "label": "brier",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:brier_reliability",
+      "label": "brier_reliability",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:brier_resolution",
+      "label": "brier_resolution",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:brier_skill_score",
+      "label": "brier_skill_score",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:brinson_allocation",
+      "label": "brinson_allocation",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:brinson_fachler_allocation",
+      "label": "brinson_fachler_allocation",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:brinson_interaction",
+      "label": "brinson_interaction",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:brinson_selection",
+      "label": "brinson_selection",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:brinson_total_active",
+      "label": "brinson_total_active",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:brunner_munzel",
+      "label": "brunner_munzel",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:bs_charm",
+      "label": "bs_charm",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:bs_color",
+      "label": "bs_color",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:bs_delta",
+      "label": "bs_delta",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:bs_gamma",
+      "label": "bs_gamma",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:bs_implied_vol",
+      "label": "bs_implied_vol",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:bs_lambda",
+      "label": "bs_lambda",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:bs_rho",
+      "label": "bs_rho",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:bs_speed",
+      "label": "bs_speed",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:bs_theta",
+      "label": "bs_theta",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:bs_ultima",
+      "label": "bs_ultima",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:bs_value",
+      "label": "bs_value",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:bs_vanna",
+      "label": "bs_vanna",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:bs_vega",
+      "label": "bs_vega",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:bs_veta",
+      "label": "bs_veta",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:bs_volga",
+      "label": "bs_volga",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:bs_zomma",
+      "label": "bs_zomma",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:bull_beta",
+      "label": "bull_beta",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:burke_ratio",
+      "label": "burke_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:cache_hit_rate",
+      "label": "cache_hit_rate",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:cagr",
+      "label": "cagr",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:calibration_in_the_large",
+      "label": "calibration_in_the_large",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:called_pct",
+      "label": "called_pct",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:calmar",
+      "label": "calmar",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:canberra_distance",
+      "label": "canberra_distance",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:capital_adequacy_ratio",
+      "label": "capital_adequacy_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:capture_ratio",
+      "label": "capture_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:carried_interest",
+      "label": "carried_interest",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:cash_conversion_cycle",
+      "label": "cash_conversion_cycle",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:cdar",
+      "label": "cdar",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:cds_implied_hazard",
+      "label": "cds_implied_hazard",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:chatterjee_xi",
+      "label": "chatterjee_xi",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:chebyshev_distance",
+      "label": "chebyshev_distance",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:chi_square",
+      "label": "chi_square",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:chi_square_distance",
+      "label": "chi_square_distance",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:christoffersen_cc",
+      "label": "christoffersen_cc",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:christoffersen_independence",
+      "label": "christoffersen_independence",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:churn_rate",
+      "label": "churn_rate",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:cliffs_delta",
+      "label": "cliffs_delta",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:cohen_kappa",
+      "label": "cohen_kappa",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:cohen_kappa_linear",
+      "label": "cohen_kappa_linear",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:cohen_kappa_quadratic",
+      "label": "cohen_kappa_quadratic",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:cohens_f",
+      "label": "cohens_f",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:cohens_h",
+      "label": "cohens_h",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:cohens_w",
+      "label": "cohens_w",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:column_max",
+      "label": "column_max",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:column_mean",
+      "label": "column_mean",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:column_median",
+      "label": "column_median",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:column_min",
+      "label": "column_min",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:column_std",
+      "label": "column_std",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:column_sum",
+      "label": "column_sum",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:common_language_effect_size",
+      "label": "common_language_effect_size",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:common_sense_ratio",
+      "label": "common_sense_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:completeness_score",
+      "label": "completeness_score",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:comprehensive_concentration_index",
+      "label": "comprehensive_concentration_index",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:compression_ratio",
+      "label": "compression_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:concentration_ratio",
+      "label": "concentration_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:concordance_correlation",
+      "label": "concordance_correlation",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:concordance_index",
+      "label": "concordance_index",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:conditional_entropy",
+      "label": "conditional_entropy",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:confidence_interval",
+      "label": "confidence_interval",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:convexity",
+      "label": "convexity",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:cornish_fisher_var",
+      "label": "cornish_fisher_var",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:correlation",
+      "label": "correlation",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:correlation_distance",
+      "label": "correlation_distance",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:corwin_schultz_spread",
+      "label": "corwin_schultz_spread",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:cosine_distance",
+      "label": "cosine_distance",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:covariance",
+      "label": "covariance",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:coverage_deviation",
+      "label": "coverage_deviation",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:cramers_v",
+      "label": "cramers_v",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:cumulative_forecast_error",
+      "label": "cumulative_forecast_error",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:cuped_ate",
+      "label": "cuped_ate",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:current_ratio",
+      "label": "current_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:curve_pv",
+      "label": "curve_pv",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:cvar",
+      "label": "cvar",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:d2_absolute_error",
+      "label": "d2_absolute_error",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:d2_log_loss_score",
+      "label": "d2_log_loss_score",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:d2_pinball_score",
+      "label": "d2_pinball_score",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:d2_tweedie_score",
+      "label": "d2_tweedie_score",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:days_inventory_outstanding",
+      "label": "days_inventory_outstanding",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:days_payable_outstanding",
+      "label": "days_payable_outstanding",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:days_sales_outstanding",
+      "label": "days_sales_outstanding",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:debt_to_ebitda",
+      "label": "debt_to_ebitda",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:debt_to_equity",
+      "label": "debt_to_equity",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:defect_density",
+      "label": "defect_density",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:deflated_sharpe",
+      "label": "deflated_sharpe",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:demographic_parity_difference",
+      "label": "demographic_parity_difference",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:demographic_parity_ratio",
+      "label": "demographic_parity_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:diagnostic_odds_ratio",
+      "label": "diagnostic_odds_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:dice_distance",
+      "label": "dice_distance",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:differential_entropy",
+      "label": "differential_entropy",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:direct_alpha",
+      "label": "direct_alpha",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:distance_correlation",
+      "label": "distance_correlation",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:distinct_count",
+      "label": "distinct_count",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:dividend_payout_ratio",
+      "label": "dividend_payout_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:down_capture_ratio",
+      "label": "down_capture_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:downside_deviation",
+      "label": "downside_deviation",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:downside_potential",
+      "label": "downside_potential",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:dpi",
+      "label": "dpi",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:dpmo",
+      "label": "dpmo",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:drawdown_at_risk",
+      "label": "drawdown_at_risk",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:drawdown_deviation",
+      "label": "drawdown_deviation",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:duplicate_count",
+      "label": "duplicate_count",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:durbin_watson",
+      "label": "durbin_watson",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:dv01",
+      "label": "dv01",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:ebitda_margin",
+      "label": "ebitda_margin",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:ece",
+      "label": "ece",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:effect_size",
+      "label": "effect_size",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:effective_convexity",
+      "label": "effective_convexity",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:effective_duration",
+      "label": "effective_duration",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:effective_number_of_bets",
+      "label": "effective_number_of_bets",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:effective_spread_bps",
+      "label": "effective_spread_bps",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:energy_distance",
+      "label": "energy_distance",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:entropy",
+      "label": "entropy",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:epsilon_squared",
+      "label": "epsilon_squared",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:equal_opportunity_difference",
+      "label": "equal_opportunity_difference",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:equalized_odds_difference",
+      "label": "equalized_odds_difference",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:equalized_odds_ratio",
+      "label": "equalized_odds_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:equivalent_annual_annuity",
+      "label": "equivalent_annual_annuity",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:err_at_k",
+      "label": "err_at_k",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:error_budget_burn",
+      "label": "error_budget_burn",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:error_rate",
+      "label": "error_rate",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:es_backtest_ratio",
+      "label": "es_backtest_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:eta_squared",
+      "label": "eta_squared",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:euclidean_distance",
+      "label": "euclidean_distance",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:exact_match",
+      "label": "exact_match",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:expected_exceedance",
+      "label": "expected_exceedance",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:expected_loss",
+      "label": "expected_loss",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:expected_loss_rate",
+      "label": "expected_loss_rate",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:explained_variance",
+      "label": "explained_variance",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:exponential_loss",
+      "label": "exponential_loss",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:exposure_weighted_maturity",
+      "label": "exposure_weighted_maturity",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:exposure_weighted_pd",
+      "label": "exposure_weighted_pd",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:f1",
+      "label": "f1",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:f1_at_k",
+      "label": "f1_at_k",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:failure_rate",
+      "label": "failure_rate",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:fallout_at_k",
+      "label": "fallout_at_k",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:false_discovery_rate",
+      "label": "false_discovery_rate",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:false_negative_rate",
+      "label": "false_negative_rate",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:false_positive_rate",
+      "label": "false_positive_rate",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:fbeta",
+      "label": "fbeta",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:fdr_parity_difference",
+      "label": "fdr_parity_difference",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:feature_neutral_corr",
+      "label": "feature_neutral_corr",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:first_pass_yield",
+      "label": "first_pass_yield",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:fisher_exact",
+      "label": "fisher_exact",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:fixed_charge_coverage",
+      "label": "fixed_charge_coverage",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:fligner",
+      "label": "fligner",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:for_parity_difference",
+      "label": "for_parity_difference",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:forecast_bias",
+      "label": "forecast_bias",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:forward_rate",
+      "label": "forward_rate",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:fowlkes_mallows",
+      "label": "fowlkes_mallows",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:fowlkes_mallows_clustering",
+      "label": "fowlkes_mallows_clustering",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:fpr_parity_difference",
+      "label": "fpr_parity_difference",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:fractional_bias",
+      "label": "fractional_bias",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:free_cash_flow_margin",
+      "label": "free_cash_flow_margin",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:g_mean",
+      "label": "g_mean",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:g_test",
+      "label": "g_test",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:gain_loss_ratio",
+      "label": "gain_loss_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:gain_to_pain_ratio",
+      "label": "gain_to_pain_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:gamma_deviance",
+      "label": "gamma_deviance",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:garman_klass_volatility",
+      "label": "garman_klass_volatility",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:gastwirth_location",
+      "label": "gastwirth_location",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:gaussian_rank_correlation",
+      "label": "gaussian_rank_correlation",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:generalized_entropy_error",
+      "label": "generalized_entropy_error",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:generalized_entropy_index",
+      "label": "generalized_entropy_index",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:geometric_excess_return",
+      "label": "geometric_excess_return",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:geometric_mean",
+      "label": "geometric_mean",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:geometric_mean_absolute_error",
+      "label": "geometric_mean_absolute_error",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:geometric_std",
+      "label": "geometric_std",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:gini_coefficient",
+      "label": "gini_coefficient",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:gini_mean_difference",
+      "label": "gini_mean_difference",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:gini_norm",
+      "label": "gini_norm",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:glass_delta",
+      "label": "glass_delta",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:goldfeld_quandt_fstat",
+      "label": "goldfeld_quandt_fstat",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:goodman_kruskal_gamma",
+      "label": "goodman_kruskal_gamma",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:gross_exposure",
+      "label": "gross_exposure",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:groupby_aggregate",
+      "label": "groupby_aggregate",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:growth_rate",
+      "label": "growth_rate",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:gwet_ac1",
+      "label": "gwet_ac1",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:hamming_distance",
+      "label": "hamming_distance",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:harmonic_mean",
+      "label": "harmonic_mean",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:hedges_g",
+      "label": "hedges_g",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:hellinger_distance",
+      "label": "hellinger_distance",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:hhi",
+      "label": "hhi",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:hill_estimator",
+      "label": "hill_estimator",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:hill_number",
+      "label": "hill_number",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:hinge_loss",
+      "label": "hinge_loss",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:hjorth_complexity",
+      "label": "hjorth_complexity",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:hjorth_mobility",
+      "label": "hjorth_mobility",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:hochberg_rejections",
+      "label": "hochberg_rejections",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:hodges_lehmann_estimator",
+      "label": "hodges_lehmann_estimator",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:holm_rejections",
+      "label": "holm_rejections",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:holm_sidak_rejections",
+      "label": "holm_sidak_rejections",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:homogeneity_score",
+      "label": "homogeneity_score",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:hoover_index",
+      "label": "hoover_index",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:hqic",
+      "label": "hqic",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:huber_loss",
+      "label": "huber_loss",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:hurst_rs",
+      "label": "hurst_rs",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:idiosyncratic_volatility",
+      "label": "idiosyncratic_volatility",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:implementation_shortfall",
+      "label": "implementation_shortfall",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:indel_similarity",
+      "label": "indel_similarity",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:index_of_dispersion",
+      "label": "index_of_dispersion",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:information_ratio",
+      "label": "information_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:information_value",
+      "label": "information_value",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:interest_coverage",
+      "label": "interest_coverage",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:interval_coverage",
+      "label": "interval_coverage",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:iqr",
+      "label": "iqr",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:irr",
+      "label": "irr",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:jaccard",
+      "label": "jaccard",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:jaccard_macro",
+      "label": "jaccard_macro",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:jaro_similarity",
+      "label": "jaro_similarity",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:jaro_winkler_similarity",
+      "label": "jaro_winkler_similarity",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:jarque_bera",
+      "label": "jarque_bera",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:jeffreys_divergence",
+      "label": "jeffreys_divergence",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:jitter",
+      "label": "jitter",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:join_row_loss",
+      "label": "join_row_loss",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:joint_entropy",
+      "label": "joint_entropy",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:js_divergence",
+      "label": "js_divergence",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:jump_variation",
+      "label": "jump_variation",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:kappa_three",
+      "label": "kappa_three",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:kelly_criterion",
+      "label": "kelly_criterion",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:kendall_tau",
+      "label": "kendall_tau",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:kl_divergence",
+      "label": "kl_divergence",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:kling_gupta_efficiency",
+      "label": "kling_gupta_efficiency",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:km_median_survival",
+      "label": "km_median_survival",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:km_survival_at",
+      "label": "km_survival_at",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:kruskal_wallis",
+      "label": "kruskal_wallis",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:ks_2samp",
+      "label": "ks_2samp",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:ks_pme",
+      "label": "ks_pme",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:ks_statistic",
+      "label": "ks_statistic",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:ks_test",
+      "label": "ks_test",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:kstat_fourth",
+      "label": "kstat_fourth",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:kstat_third",
+      "label": "kstat_third",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:kupiec_pof",
+      "label": "kupiec_pof",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:kurtosis",
+      "label": "kurtosis",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:kurtosistest",
+      "label": "kurtosistest",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:kyle_lambda",
+      "label": "kyle_lambda",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:l_cv",
+      "label": "l_cv",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:l_kurtosis",
+      "label": "l_kurtosis",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:l_scale",
+      "label": "l_scale",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:l_skewness",
+      "label": "l_skewness",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:largest_position",
+      "label": "largest_position",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:latency_p50",
+      "label": "latency_p50",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:latency_p75",
+      "label": "latency_p75",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:latency_p90",
+      "label": "latency_p90",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:latency_p95",
+      "label": "latency_p95",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:latency_p99",
+      "label": "latency_p99",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:latency_p999",
+      "label": "latency_p999",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:latency_stddev",
+      "label": "latency_stddev",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:legates_mccabe_efficiency",
+      "label": "legates_mccabe_efficiency",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:lehmer_mean",
+      "label": "lehmer_mean",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:levene",
+      "label": "levene",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:levenshtein_similarity",
+      "label": "levenshtein_similarity",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:lift",
+      "label": "lift",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:linregress_intercept_stderr",
+      "label": "linregress_intercept_stderr",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:linregress_slope_stderr",
+      "label": "linregress_slope_stderr",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:liquidity_coverage",
+      "label": "liquidity_coverage",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:ljung_box",
+      "label": "ljung_box",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:log_likelihood_gaussian",
+      "label": "log_likelihood_gaussian",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:log_loss",
+      "label": "log_loss",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:log_nash_sutcliffe",
+      "label": "log_nash_sutcliffe",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:long_exposure",
+      "label": "long_exposure",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:long_short_ratio",
+      "label": "long_short_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:longest_common_subsequence",
+      "label": "longest_common_subsequence",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:m2_measure",
+      "label": "m2_measure",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:macaulay_duration",
+      "label": "macaulay_duration",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:macro_f1",
+      "label": "macro_f1",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:mae",
+      "label": "mae",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:manhattan_distance",
+      "label": "manhattan_distance",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:mann_whitney",
+      "label": "mann_whitney",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:map_at_k",
+      "label": "map_at_k",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:mape",
+      "label": "mape",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:margalef_richness",
+      "label": "margalef_richness",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:margin_pct",
+      "label": "margin_pct",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:markedness",
+      "label": "markedness",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:martin_ratio",
+      "label": "martin_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:mase",
+      "label": "mase",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:max_consecutive_losses",
+      "label": "max_consecutive_losses",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:max_drawdown",
+      "label": "max_drawdown",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:max_drawdown_duration",
+      "label": "max_drawdown_duration",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:max_error",
+      "label": "max_error",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:max_feature_exposure",
+      "label": "max_feature_exposure",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:max_to_sum_ratio",
+      "label": "max_to_sum_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:maximum_calibration_error",
+      "label": "maximum_calibration_error",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:mcc",
+      "label": "mcc",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:mcintosh_diversity",
+      "label": "mcintosh_diversity",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:mcnemar",
+      "label": "mcnemar",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:mean_abs_deviation",
+      "label": "mean_abs_deviation",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:mean_absolute_change",
+      "label": "mean_absolute_change",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:mean_arctangent_ape",
+      "label": "mean_arctangent_ape",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:mean_average_precision",
+      "label": "mean_average_precision",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:mean_bias_error",
+      "label": "mean_bias_error",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:mean_directional_accuracy",
+      "label": "mean_directional_accuracy",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:mean_interval_width",
+      "label": "mean_interval_width",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:mean_log_deviation",
+      "label": "mean_log_deviation",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:mean_percentage_error",
+      "label": "mean_percentage_error",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:mean_squared_error",
+      "label": "mean_squared_error",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:mean_time_to_failure",
+      "label": "mean_time_to_failure",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:mean_time_to_repair",
+      "label": "mean_time_to_repair",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:mean_tweedie_deviance",
+      "label": "mean_tweedie_deviance",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:medae",
+      "label": "medae",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:median_abs_deviation",
+      "label": "median_abs_deviation",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:median_absolute_percentage_error",
+      "label": "median_absolute_percentage_error",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:menhinick_richness",
+      "label": "menhinick_richness",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:merton_distance_to_default",
+      "label": "merton_distance_to_default",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:merton_pd",
+      "label": "merton_pd",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:micro_f1",
+      "label": "micro_f1",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:midhinge",
+      "label": "midhinge",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:minkowski_distance",
+      "label": "minkowski_distance",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:mmc",
+      "label": "mmc",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:mode_share",
+      "label": "mode_share",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:modified_duration",
+      "label": "modified_duration",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:modified_irr",
+      "label": "modified_irr",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:modified_sharpe_ratio",
+      "label": "modified_sharpe_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:mood_median_test",
+      "label": "mood_median_test",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:mood_test",
+      "label": "mood_test",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:moors_kurtosis",
+      "label": "moors_kurtosis",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:mrr",
+      "label": "mrr",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:msle",
+      "label": "msle",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:mtbf",
+      "label": "mtbf",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:mutual_info_score",
+      "label": "mutual_info_score",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:nash_sutcliffe_efficiency",
+      "label": "nash_sutcliffe_efficiency",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:ndcg_at_k",
+      "label": "ndcg_at_k",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:negative_likelihood_ratio",
+      "label": "negative_likelihood_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:negative_predictive_value",
+      "label": "negative_predictive_value",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:nelson_aalen_cumhaz",
+      "label": "nelson_aalen_cumhaz",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:net_benefit",
+      "label": "net_benefit",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:net_debt_to_ebitda",
+      "label": "net_debt_to_ebitda",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:net_exposure",
+      "label": "net_exposure",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:net_margin",
+      "label": "net_margin",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:normalized_hhi",
+      "label": "normalized_hhi",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:normalized_mutual_info",
+      "label": "normalized_mutual_info",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:normalized_variation_of_information",
+      "label": "normalized_variation_of_information",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:normaltest",
+      "label": "normaltest",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:npv",
+      "label": "npv",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:nrmse",
+      "label": "nrmse",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:null_fraction",
+      "label": "null_fraction",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:number_needed_to_treat",
+      "label": "number_needed_to_treat",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:numerai_corr",
+      "label": "numerai_corr",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:numerai_sharpe",
+      "label": "numerai_sharpe",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:odds_ratio",
+      "label": "odds_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:ols_intercept",
+      "label": "ols_intercept",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:ols_slope",
+      "label": "ols_slope",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:omega_ratio",
+      "label": "omega_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:omega_sharpe_ratio",
+      "label": "omega_sharpe_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:omega_squared",
+      "label": "omega_squared",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:operating_margin",
+      "label": "operating_margin",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:order_flow_imbalance",
+      "label": "order_flow_imbalance",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:outlier_count",
+      "label": "outlier_count",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:p_value",
+      "label": "p_value",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:pabak",
+      "label": "pabak",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:pain_index",
+      "label": "pain_index",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:pain_ratio",
+      "label": "pain_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:par_yield",
+      "label": "par_yield",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:parametric_es",
+      "label": "parametric_es",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:parametric_var",
+      "label": "parametric_var",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:parkinson_volatility",
+      "label": "parkinson_volatility",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:partial_autocorrelation",
+      "label": "partial_autocorrelation",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:participation_rate",
+      "label": "participation_rate",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:pass_at_k",
+      "label": "pass_at_k",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:peak_memory",
+      "label": "peak_memory",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:pearson_contingency_coefficient",
+      "label": "pearson_contingency_coefficient",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:pearson_median_skewness",
+      "label": "pearson_median_skewness",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:percentage_agreement",
+      "label": "percentage_agreement",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:percentile",
+      "label": "percentile",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:percentile_ratio",
+      "label": "percentile_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:permutation_entropy",
+      "label": "permutation_entropy",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:perplexity",
+      "label": "perplexity",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:pickands_estimator",
+      "label": "pickands_estimator",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:pielou_evenness",
+      "label": "pielou_evenness",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:pinball_loss",
+      "label": "pinball_loss",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:pme_plus_lambda",
+      "label": "pme_plus_lambda",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:point_biserial",
+      "label": "point_biserial",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:poisson_deviance",
+      "label": "poisson_deviance",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:portfolio_turnover",
+      "label": "portfolio_turnover",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:positive_likelihood_ratio",
+      "label": "positive_likelihood_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:power_mean",
+      "label": "power_mean",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:pr_auc",
+      "label": "pr_auc",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:precision",
+      "label": "precision",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:precision_at_k",
+      "label": "precision_at_k",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:predictive_parity_difference",
+      "label": "predictive_parity_difference",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:prevalence_threshold",
+      "label": "prevalence_threshold",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:price_impact_bps",
+      "label": "price_impact_bps",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:probabilistic_sharpe_ratio",
+      "label": "probabilistic_sharpe_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:profit_factor",
+      "label": "profit_factor",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:profitability_index",
+      "label": "profitability_index",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:proportion_z",
+      "label": "proportion_z",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:provision_coverage_ratio",
+      "label": "provision_coverage_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:psi",
+      "label": "psi",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:purity",
+      "label": "purity",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:quartile_coefficient_dispersion",
+      "label": "quartile_coefficient_dispersion",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:quick_ratio",
+      "label": "quick_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:r2",
+      "label": "r2",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:r_precision",
+      "label": "r_precision",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:r_squared",
+      "label": "r_squared",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:rachev_ratio",
+      "label": "rachev_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:rand_index",
+      "label": "rand_index",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:range_value",
+      "label": "range_value",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:rank_biserial",
+      "label": "rank_biserial",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:ratio_share",
+      "label": "ratio_share",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:rbp",
+      "label": "rbp",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:realization_ratio",
+      "label": "realization_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:realized_shortfall",
+      "label": "realized_shortfall",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:realized_spread_bps",
+      "label": "realized_spread_bps",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:realized_variance",
+      "label": "realized_variance",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:realized_volatility",
+      "label": "realized_volatility",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:recall",
+      "label": "recall",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:recall_at_k",
+      "label": "recall_at_k",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:reconciliation_total",
+      "label": "reconciliation_total",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:recovery_factor",
+      "label": "recovery_factor",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:recovery_rate",
+      "label": "recovery_rate",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:refined_willmott_index",
+      "label": "refined_willmott_index",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:regression_f_statistic",
+      "label": "regression_f_statistic",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:regression_t_statistic",
+      "label": "regression_t_statistic",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:relative_absolute_error",
+      "label": "relative_absolute_error",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:relative_mean_deviation",
+      "label": "relative_mean_deviation",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:relative_mean_difference",
+      "label": "relative_mean_difference",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:relative_risk",
+      "label": "relative_risk",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:relative_risk_reduction",
+      "label": "relative_risk_reduction",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:relative_spread",
+      "label": "relative_spread",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:relative_squared_error",
+      "label": "relative_squared_error",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:renyi_entropy",
+      "label": "renyi_entropy",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:rescaled_range",
+      "label": "rescaled_range",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:residual_standard_error",
+      "label": "residual_standard_error",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:restricted_mean_survival_time",
+      "label": "restricted_mean_survival_time",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:return_on_assets",
+      "label": "return_on_assets",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:return_on_equity",
+      "label": "return_on_equity",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:return_on_invested_capital",
+      "label": "return_on_invested_capital",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:reward_to_var_ratio",
+      "label": "reward_to_var_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:risk_difference",
+      "label": "risk_difference",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:rms_calibration_error",
+      "label": "rms_calibration_error",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:rms_successive_differences",
+      "label": "rms_successive_differences",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:rmse",
+      "label": "rmse",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:rmsle",
+      "label": "rmsle",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:rmsse",
+      "label": "rmsse",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:rogers_satchell_volatility",
+      "label": "rogers_satchell_volatility",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:rogers_tanimoto_distance",
+      "label": "rogers_tanimoto_distance",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:roll_spread",
+      "label": "roll_spread",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:rolled_throughput_yield",
+      "label": "rolled_throughput_yield",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:root_mean_square",
+      "label": "root_mean_square",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:root_mean_square_percentage_error",
+      "label": "root_mean_square_percentage_error",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:rosenbluth_index",
+      "label": "rosenbluth_index",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:row_count",
+      "label": "row_count",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:runs_test",
+      "label": "runs_test",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:russell_rao_distance",
+      "label": "russell_rao_distance",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:rvpi",
+      "label": "rvpi",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:scott_pi",
+      "label": "scott_pi",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:sen_welfare",
+      "label": "sen_welfare",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:shannon_diversity",
+      "label": "shannon_diversity",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:share_turnover",
+      "label": "share_turnover",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:sharpe",
+      "label": "sharpe",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:sharpness",
+      "label": "sharpness",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:short_exposure",
+      "label": "short_exposure",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:sidak_rejections",
+      "label": "sidak_rejections",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:siegel_slope",
+      "label": "siegel_slope",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:simpson_evenness",
+      "label": "simpson_evenness",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:skewness",
+      "label": "skewness",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:skewtest",
+      "label": "skewtest",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:slo_attainment",
+      "label": "slo_attainment",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:sokal_sneath_distance",
+      "label": "sokal_sneath_distance",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:somers_d",
+      "label": "somers_d",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:sortino",
+      "label": "sortino",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:specificity",
+      "label": "specificity",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:speedup_ratio",
+      "label": "speedup_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:spiegelhalter_z",
+      "label": "spiegelhalter_z",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:spread_duration",
+      "label": "spread_duration",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:spread_dv01",
+      "label": "spread_dv01",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:springate_score",
+      "label": "springate_score",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:squared_euclidean_distance",
+      "label": "squared_euclidean_distance",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:squared_hinge_loss",
+      "label": "squared_hinge_loss",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:srm_pvalue",
+      "label": "srm_pvalue",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:standardized_mean_difference",
+      "label": "standardized_mean_difference",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:starr_ratio",
+      "label": "starr_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:sterling_ratio",
+      "label": "sterling_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:studentized_range",
+      "label": "studentized_range",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:success_at_k",
+      "label": "success_at_k",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:symmetric_uncertainty",
+      "label": "symmetric_uncertainty",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:tail_latency_ratio",
+      "label": "tail_latency_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:tail_ratio",
+      "label": "tail_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:test_coverage",
+      "label": "test_coverage",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:theil_index",
+      "label": "theil_index",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:theil_sen_slope",
+      "label": "theil_sen_slope",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:theil_u1",
+      "label": "theil_u1",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:theil_u2",
+      "label": "theil_u2",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:threat_score",
+      "label": "threat_score",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:throughput",
+      "label": "throughput",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:tier1_leverage_ratio",
+      "label": "tier1_leverage_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:time_underwater",
+      "label": "time_underwater",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:token_dice",
+      "label": "token_dice",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:token_f1",
+      "label": "token_f1",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:token_jaccard",
+      "label": "token_jaccard",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:top_k_accuracy",
+      "label": "top_k_accuracy",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:total_return",
+      "label": "total_return",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:total_variation_distance",
+      "label": "total_variation_distance",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:tracking_error",
+      "label": "tracking_error",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:tracking_signal",
+      "label": "tracking_signal",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:treatment_equality_difference",
+      "label": "treatment_equality_difference",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:treynor_ratio",
+      "label": "treynor_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:trimean",
+      "label": "trimean",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:trimmed_mean",
+      "label": "trimmed_mean",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:trimmed_std",
+      "label": "trimmed_std",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:tsallis_entropy",
+      "label": "tsallis_entropy",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:tschuprow_t",
+      "label": "tschuprow_t",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:turning_point_rate",
+      "label": "turning_point_rate",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:tvpi",
+      "label": "tvpi",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:ulcer_index",
+      "label": "ulcer_index",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:uncertainty_coefficient",
+      "label": "uncertainty_coefficient",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:unexpected_loss",
+      "label": "unexpected_loss",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:uniqueness_ratio",
+      "label": "uniqueness_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:up_capture_ratio",
+      "label": "up_capture_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:up_down_beta_ratio",
+      "label": "up_down_beta_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:upside_deviation",
+      "label": "upside_deviation",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:upside_potential",
+      "label": "upside_potential",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:upside_potential_ratio",
+      "label": "upside_potential_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:uptime_pct",
+      "label": "uptime_pct",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:v_measure_score",
+      "label": "v_measure_score",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:value_at_risk",
+      "label": "value_at_risk",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:var_breach_rate",
+      "label": "var_breach_rate",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:variance",
+      "label": "variance",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:variance_ratio",
+      "label": "variance_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:variance_reduction_cuped",
+      "label": "variance_reduction_cuped",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:variation_of_information",
+      "label": "variation_of_information",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:vasicek_conditional_pd",
+      "label": "vasicek_conditional_pd",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:volatility",
+      "label": "volatility",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:vwap",
+      "label": "vwap",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:vwap_slippage",
+      "label": "vwap_slippage",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:wape",
+      "label": "wape",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:wasserstein_1d",
+      "label": "wasserstein_1d",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:weighted_average_life",
+      "label": "weighted_average_life",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:weighted_f1",
+      "label": "weighted_f1",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:weighted_lgd",
+      "label": "weighted_lgd",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:weighted_mean",
+      "label": "weighted_mean",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:wer",
+      "label": "wer",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:white_lm",
+      "label": "white_lm",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:wilcoxon_rank_sum",
+      "label": "wilcoxon_rank_sum",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:wilcoxon_signed_rank",
+      "label": "wilcoxon_signed_rank",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:willmott_index",
+      "label": "willmott_index",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:wilson_lower",
+      "label": "wilson_lower",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:wilson_upper",
+      "label": "wilson_upper",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:win_loss_ratio",
+      "label": "win_loss_ratio",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:win_rate",
+      "label": "win_rate",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:winkler_score",
+      "label": "winkler_score",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:winsorized_mean",
+      "label": "winsorized_mean",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:winsorized_std",
+      "label": "winsorized_std",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:yang_zhang_volatility",
+      "label": "yang_zhang_volatility",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:yield_to_maturity",
+      "label": "yield_to_maturity",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:youden_j",
+      "label": "youden_j",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:yule_distance",
+      "label": "yule_distance",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:z_spread",
+      "label": "z_spread",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:zero_crossing_rate",
+      "label": "zero_crossing_rate",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:recipe:zmijewski_score",
+      "label": "zmijewski_score",
+      "kind": "formula",
+      "source": "recipe"
+    },
+    {
+      "id": "formula:banked:mcc",
+      "label": "mcc",
+      "kind": "formula",
+      "source": "local",
+      "aliases": [
+        "mcc",
+        "matthews_corrcoef",
+        "matthews correlation coefficient",
+        "phi coefficient",
+        "matthews correlation"
+      ],
+      "validation": {
+        "method": "cross-checked vs reference oracle",
+        "trials": 40,
+        "max_err": 0.0
+      },
+      "definition": "Matthews correlation coefficient: (TP\u00b7TN \u2212 FP\u00b7FN) / sqrt((TP+FP)(TP+FN)(TN+FP)(TN+FN)); generalised via the R_k confusion-matrix form. Range [-1, 1]."
+    },
+    {
+      "id": "alias:mcc",
+      "label": "mcc",
+      "kind": "alias"
+    },
+    {
+      "id": "alias:matthews_corrcoef",
+      "label": "matthews_corrcoef",
+      "kind": "alias"
+    },
+    {
+      "id": "alias:matthews correlation coefficient",
+      "label": "matthews correlation coefficient",
+      "kind": "alias"
+    },
+    {
+      "id": "alias:phi coefficient",
+      "label": "phi coefficient",
+      "kind": "alias"
+    },
+    {
+      "id": "alias:matthews correlation",
+      "label": "matthews correlation",
+      "kind": "alias"
+    },
+    {
+      "id": "formula:banked:cohen_kappa",
+      "label": "cohen_kappa",
+      "kind": "formula",
+      "source": "local",
+      "aliases": [
+        "cohen_kappa",
+        "cohen_kappa_score",
+        "cohen's kappa",
+        "kappa",
+        "cohens kappa"
+      ],
+      "validation": {
+        "method": "cross-checked vs reference oracle",
+        "trials": 40,
+        "max_err": 2.3592239273284576e-16
+      },
+      "definition": "Cohen's kappa: (p_o \u2212 p_e) / (1 \u2212 p_e), agreement corrected for chance, where p_o is observed agreement and p_e the expected-by-chance agreement."
+    },
+    {
+      "id": "alias:cohen_kappa",
+      "label": "cohen_kappa",
+      "kind": "alias"
+    },
+    {
+      "id": "alias:cohen_kappa_score",
+      "label": "cohen_kappa_score",
+      "kind": "alias"
+    },
+    {
+      "id": "alias:cohen's kappa",
+      "label": "cohen's kappa",
+      "kind": "alias"
+    },
+    {
+      "id": "alias:kappa",
+      "label": "kappa",
+      "kind": "alias"
+    },
+    {
+      "id": "alias:cohens kappa",
+      "label": "cohens kappa",
+      "kind": "alias"
+    },
+    {
+      "id": "formula:banked:spearman",
+      "label": "spearman",
+      "kind": "formula",
+      "source": "local",
+      "aliases": [
+        "spearman",
+        "spearmanr",
+        "spearman correlation",
+        "spearman rank correlation",
+        "rho"
+      ],
+      "validation": {
+        "method": "cross-checked vs reference oracle",
+        "trials": 40,
+        "max_err": 4.163336342344337e-17
+      },
+      "definition": "Spearman rank correlation: Pearson correlation of the rank variables (average ranks for ties)."
+    },
+    {
+      "id": "alias:spearman",
+      "label": "spearman",
+      "kind": "alias"
+    },
+    {
+      "id": "alias:spearmanr",
+      "label": "spearmanr",
+      "kind": "alias"
+    },
+    {
+      "id": "alias:spearman correlation",
+      "label": "spearman correlation",
+      "kind": "alias"
+    },
+    {
+      "id": "alias:spearman rank correlation",
+      "label": "spearman rank correlation",
+      "kind": "alias"
+    },
+    {
+      "id": "alias:rho",
+      "label": "rho",
+      "kind": "alias"
+    }
+  ],
+  "edges": [
+    {
+      "source": "catalog:curated",
+      "target": "formula:catalog:accuracy",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:curated",
+      "target": "formula:catalog:balanced_accuracy",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:curated",
+      "target": "formula:catalog:f1",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:curated",
+      "target": "formula:catalog:mae",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:curated",
+      "target": "formula:catalog:mean",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:curated",
+      "target": "formula:catalog:mse",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:curated",
+      "target": "formula:catalog:precision",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:curated",
+      "target": "formula:catalog:r2",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:curated",
+      "target": "formula:catalog:recall",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:curated",
+      "target": "formula:catalog:rmse",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:curated",
+      "target": "formula:catalog:roc_auc",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:curated",
+      "target": "formula:catalog:sharpe",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:curated",
+      "target": "formula:catalog:sum",
+      "label": "contains"
+    },
+    {
+      "source": "alias:acc",
+      "target": "formula:catalog:accuracy",
+      "label": "aliases"
+    },
+    {
+      "source": "alias:accuracy_score",
+      "target": "formula:catalog:accuracy",
+      "label": "aliases"
+    },
+    {
+      "source": "alias:auc",
+      "target": "formula:catalog:roc_auc",
+      "label": "aliases"
+    },
+    {
+      "source": "alias:auc_roc",
+      "target": "formula:catalog:roc_auc",
+      "label": "aliases"
+    },
+    {
+      "source": "alias:auroc",
+      "target": "formula:catalog:roc_auc",
+      "label": "aliases"
+    },
+    {
+      "source": "alias:average",
+      "target": "formula:catalog:mean",
+      "label": "aliases"
+    },
+    {
+      "source": "alias:avg",
+      "target": "formula:catalog:mean",
+      "label": "aliases"
+    },
+    {
+      "source": "alias:bacc",
+      "target": "formula:catalog:balanced_accuracy",
+      "label": "aliases"
+    },
+    {
+      "source": "alias:balanced_accuracy_score",
+      "target": "formula:catalog:balanced_accuracy",
+      "label": "aliases"
+    },
+    {
+      "source": "alias:f1-score",
+      "target": "formula:catalog:f1",
+      "label": "aliases"
+    },
+    {
+      "source": "alias:f1_score",
+      "target": "formula:catalog:f1",
+      "label": "aliases"
+    },
+    {
+      "source": "alias:f_score",
+      "target": "formula:catalog:f1",
+      "label": "aliases"
+    },
+    {
+      "source": "alias:fscore",
+      "target": "formula:catalog:f1",
+      "label": "aliases"
+    },
+    {
+      "source": "alias:mean_absolute_error",
+      "target": "formula:catalog:mae",
+      "label": "aliases"
+    },
+    {
+      "source": "alias:mean_squared_error",
+      "target": "formula:catalog:mse",
+      "label": "aliases"
+    },
+    {
+      "source": "alias:precision_score",
+      "target": "formula:catalog:precision",
+      "label": "aliases"
+    },
+    {
+      "source": "alias:r2_score",
+      "target": "formula:catalog:r2",
+      "label": "aliases"
+    },
+    {
+      "source": "alias:r^2",
+      "target": "formula:catalog:r2",
+      "label": "aliases"
+    },
+    {
+      "source": "alias:r_squared",
+      "target": "formula:catalog:r2",
+      "label": "aliases"
+    },
+    {
+      "source": "alias:recall_score",
+      "target": "formula:catalog:recall",
+      "label": "aliases"
+    },
+    {
+      "source": "alias:roc_auc_score",
+      "target": "formula:catalog:roc_auc",
+      "label": "aliases"
+    },
+    {
+      "source": "alias:root_mean_squared_error",
+      "target": "formula:catalog:rmse",
+      "label": "aliases"
+    },
+    {
+      "source": "alias:rsquared",
+      "target": "formula:catalog:r2",
+      "label": "aliases"
+    },
+    {
+      "source": "alias:sharpe_ratio",
+      "target": "formula:catalog:sharpe",
+      "label": "aliases"
+    },
+    {
+      "source": "alias:sr",
+      "target": "formula:catalog:sharpe",
+      "label": "aliases"
+    },
+    {
+      "source": "alias:top-1",
+      "target": "formula:catalog:accuracy",
+      "label": "aliases"
+    },
+    {
+      "source": "alias:top1",
+      "target": "formula:catalog:accuracy",
+      "label": "aliases"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:abdi_ranaldo_spread",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:accuracy",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:accuracy_parity_difference",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:acerbi_szekely_z1",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:acerbi_szekely_z2",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:active_return",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:active_share",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:adaptive_calibration_error",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:adjusted_r2",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:adjusted_rand_index",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:adjusted_sharpe_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:aic",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:aicc",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:alpha",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:alpha_tstat",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:altman_z",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:altman_z_double_prime",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:altman_z_prime",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:amihud_illiquidity",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:amivest_liquidity",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:anderson_darling",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:annuity_factor",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:anova",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:ansari_bradley",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:apdex",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:appraisal_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:arch_lm",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:arhr_at_k",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:arrival_slippage",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:asrf_capital_requirement",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:asrf_rwa",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:asset_turnover",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:atkinson_index",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:auc",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:autocorrelation",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:availability",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:average_abs_odds_difference",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:average_treatment_effect",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:balanced_accuracy",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:balanced_accuracy_adjusted",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:balanced_accuracy_parity_difference",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:bartlett",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:basel_traffic_light",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:batting_average",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:bcubed_f1",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:bcubed_precision",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:bcubed_recall",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:bear_beta",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:benjamini_yekutieli",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:berger_parker",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:beta",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:beta_tstat",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:bh_rejections",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:bhattacharyya_distance",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:bias_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:bic",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:bipower_variation",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:blomqvist_beta",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:bond_price",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:bonferroni_rejections",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:bowley_skewness",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:box_pierce",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:braycurtis_distance",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:brennan_prediger",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:breusch_pagan_fstat",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:breusch_pagan_lm",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:brier",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:brier_reliability",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:brier_resolution",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:brier_skill_score",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:brinson_allocation",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:brinson_fachler_allocation",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:brinson_interaction",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:brinson_selection",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:brinson_total_active",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:brunner_munzel",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:bs_charm",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:bs_color",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:bs_delta",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:bs_gamma",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:bs_implied_vol",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:bs_lambda",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:bs_rho",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:bs_speed",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:bs_theta",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:bs_ultima",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:bs_value",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:bs_vanna",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:bs_vega",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:bs_veta",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:bs_volga",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:bs_zomma",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:bull_beta",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:burke_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:cache_hit_rate",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:cagr",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:calibration_in_the_large",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:called_pct",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:calmar",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:canberra_distance",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:capital_adequacy_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:capture_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:carried_interest",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:cash_conversion_cycle",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:cdar",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:cds_implied_hazard",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:chatterjee_xi",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:chebyshev_distance",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:chi_square",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:chi_square_distance",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:christoffersen_cc",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:christoffersen_independence",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:churn_rate",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:cliffs_delta",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:cohen_kappa",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:cohen_kappa_linear",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:cohen_kappa_quadratic",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:cohens_f",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:cohens_h",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:cohens_w",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:column_max",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:column_mean",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:column_median",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:column_min",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:column_std",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:column_sum",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:common_language_effect_size",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:common_sense_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:completeness_score",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:comprehensive_concentration_index",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:compression_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:concentration_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:concordance_correlation",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:concordance_index",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:conditional_entropy",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:confidence_interval",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:convexity",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:cornish_fisher_var",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:correlation",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:correlation_distance",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:corwin_schultz_spread",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:cosine_distance",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:covariance",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:coverage_deviation",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:cramers_v",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:cumulative_forecast_error",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:cuped_ate",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:current_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:curve_pv",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:cvar",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:d2_absolute_error",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:d2_log_loss_score",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:d2_pinball_score",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:d2_tweedie_score",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:days_inventory_outstanding",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:days_payable_outstanding",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:days_sales_outstanding",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:debt_to_ebitda",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:debt_to_equity",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:defect_density",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:deflated_sharpe",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:demographic_parity_difference",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:demographic_parity_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:diagnostic_odds_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:dice_distance",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:differential_entropy",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:direct_alpha",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:distance_correlation",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:distinct_count",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:dividend_payout_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:down_capture_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:downside_deviation",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:downside_potential",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:dpi",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:dpmo",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:drawdown_at_risk",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:drawdown_deviation",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:duplicate_count",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:durbin_watson",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:dv01",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:ebitda_margin",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:ece",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:effect_size",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:effective_convexity",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:effective_duration",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:effective_number_of_bets",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:effective_spread_bps",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:energy_distance",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:entropy",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:epsilon_squared",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:equal_opportunity_difference",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:equalized_odds_difference",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:equalized_odds_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:equivalent_annual_annuity",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:err_at_k",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:error_budget_burn",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:error_rate",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:es_backtest_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:eta_squared",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:euclidean_distance",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:exact_match",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:expected_exceedance",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:expected_loss",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:expected_loss_rate",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:explained_variance",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:exponential_loss",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:exposure_weighted_maturity",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:exposure_weighted_pd",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:f1",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:f1_at_k",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:failure_rate",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:fallout_at_k",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:false_discovery_rate",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:false_negative_rate",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:false_positive_rate",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:fbeta",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:fdr_parity_difference",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:feature_neutral_corr",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:first_pass_yield",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:fisher_exact",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:fixed_charge_coverage",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:fligner",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:for_parity_difference",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:forecast_bias",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:forward_rate",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:fowlkes_mallows",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:fowlkes_mallows_clustering",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:fpr_parity_difference",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:fractional_bias",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:free_cash_flow_margin",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:g_mean",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:g_test",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:gain_loss_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:gain_to_pain_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:gamma_deviance",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:garman_klass_volatility",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:gastwirth_location",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:gaussian_rank_correlation",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:generalized_entropy_error",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:generalized_entropy_index",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:geometric_excess_return",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:geometric_mean",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:geometric_mean_absolute_error",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:geometric_std",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:gini_coefficient",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:gini_mean_difference",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:gini_norm",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:glass_delta",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:goldfeld_quandt_fstat",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:goodman_kruskal_gamma",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:gross_exposure",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:groupby_aggregate",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:growth_rate",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:gwet_ac1",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:hamming_distance",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:harmonic_mean",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:hedges_g",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:hellinger_distance",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:hhi",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:hill_estimator",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:hill_number",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:hinge_loss",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:hjorth_complexity",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:hjorth_mobility",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:hochberg_rejections",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:hodges_lehmann_estimator",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:holm_rejections",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:holm_sidak_rejections",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:homogeneity_score",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:hoover_index",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:hqic",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:huber_loss",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:hurst_rs",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:idiosyncratic_volatility",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:implementation_shortfall",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:indel_similarity",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:index_of_dispersion",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:information_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:information_value",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:interest_coverage",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:interval_coverage",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:iqr",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:irr",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:jaccard",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:jaccard_macro",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:jaro_similarity",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:jaro_winkler_similarity",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:jarque_bera",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:jeffreys_divergence",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:jitter",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:join_row_loss",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:joint_entropy",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:js_divergence",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:jump_variation",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:kappa_three",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:kelly_criterion",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:kendall_tau",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:kl_divergence",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:kling_gupta_efficiency",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:km_median_survival",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:km_survival_at",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:kruskal_wallis",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:ks_2samp",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:ks_pme",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:ks_statistic",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:ks_test",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:kstat_fourth",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:kstat_third",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:kupiec_pof",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:kurtosis",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:kurtosistest",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:kyle_lambda",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:l_cv",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:l_kurtosis",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:l_scale",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:l_skewness",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:largest_position",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:latency_p50",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:latency_p75",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:latency_p90",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:latency_p95",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:latency_p99",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:latency_p999",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:latency_stddev",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:legates_mccabe_efficiency",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:lehmer_mean",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:levene",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:levenshtein_similarity",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:lift",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:linregress_intercept_stderr",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:linregress_slope_stderr",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:liquidity_coverage",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:ljung_box",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:log_likelihood_gaussian",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:log_loss",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:log_nash_sutcliffe",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:long_exposure",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:long_short_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:longest_common_subsequence",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:m2_measure",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:macaulay_duration",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:macro_f1",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:mae",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:manhattan_distance",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:mann_whitney",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:map_at_k",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:mape",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:margalef_richness",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:margin_pct",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:markedness",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:martin_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:mase",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:max_consecutive_losses",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:max_drawdown",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:max_drawdown_duration",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:max_error",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:max_feature_exposure",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:max_to_sum_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:maximum_calibration_error",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:mcc",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:mcintosh_diversity",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:mcnemar",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:mean_abs_deviation",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:mean_absolute_change",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:mean_arctangent_ape",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:mean_average_precision",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:mean_bias_error",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:mean_directional_accuracy",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:mean_interval_width",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:mean_log_deviation",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:mean_percentage_error",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:mean_squared_error",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:mean_time_to_failure",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:mean_time_to_repair",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:mean_tweedie_deviance",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:medae",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:median_abs_deviation",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:median_absolute_percentage_error",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:menhinick_richness",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:merton_distance_to_default",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:merton_pd",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:micro_f1",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:midhinge",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:minkowski_distance",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:mmc",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:mode_share",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:modified_duration",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:modified_irr",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:modified_sharpe_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:mood_median_test",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:mood_test",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:moors_kurtosis",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:mrr",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:msle",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:mtbf",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:mutual_info_score",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:nash_sutcliffe_efficiency",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:ndcg_at_k",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:negative_likelihood_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:negative_predictive_value",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:nelson_aalen_cumhaz",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:net_benefit",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:net_debt_to_ebitda",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:net_exposure",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:net_margin",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:normalized_hhi",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:normalized_mutual_info",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:normalized_variation_of_information",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:normaltest",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:npv",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:nrmse",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:null_fraction",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:number_needed_to_treat",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:numerai_corr",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:numerai_sharpe",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:odds_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:ols_intercept",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:ols_slope",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:omega_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:omega_sharpe_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:omega_squared",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:operating_margin",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:order_flow_imbalance",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:outlier_count",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:p_value",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:pabak",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:pain_index",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:pain_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:par_yield",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:parametric_es",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:parametric_var",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:parkinson_volatility",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:partial_autocorrelation",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:participation_rate",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:pass_at_k",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:peak_memory",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:pearson_contingency_coefficient",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:pearson_median_skewness",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:percentage_agreement",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:percentile",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:percentile_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:permutation_entropy",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:perplexity",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:pickands_estimator",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:pielou_evenness",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:pinball_loss",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:pme_plus_lambda",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:point_biserial",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:poisson_deviance",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:portfolio_turnover",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:positive_likelihood_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:power_mean",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:pr_auc",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:precision",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:precision_at_k",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:predictive_parity_difference",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:prevalence_threshold",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:price_impact_bps",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:probabilistic_sharpe_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:profit_factor",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:profitability_index",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:proportion_z",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:provision_coverage_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:psi",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:purity",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:quartile_coefficient_dispersion",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:quick_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:r2",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:r_precision",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:r_squared",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:rachev_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:rand_index",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:range_value",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:rank_biserial",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:ratio_share",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:rbp",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:realization_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:realized_shortfall",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:realized_spread_bps",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:realized_variance",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:realized_volatility",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:recall",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:recall_at_k",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:reconciliation_total",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:recovery_factor",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:recovery_rate",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:refined_willmott_index",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:regression_f_statistic",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:regression_t_statistic",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:relative_absolute_error",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:relative_mean_deviation",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:relative_mean_difference",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:relative_risk",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:relative_risk_reduction",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:relative_spread",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:relative_squared_error",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:renyi_entropy",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:rescaled_range",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:residual_standard_error",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:restricted_mean_survival_time",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:return_on_assets",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:return_on_equity",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:return_on_invested_capital",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:reward_to_var_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:risk_difference",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:rms_calibration_error",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:rms_successive_differences",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:rmse",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:rmsle",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:rmsse",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:rogers_satchell_volatility",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:rogers_tanimoto_distance",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:roll_spread",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:rolled_throughput_yield",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:root_mean_square",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:root_mean_square_percentage_error",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:rosenbluth_index",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:row_count",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:runs_test",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:russell_rao_distance",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:rvpi",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:scott_pi",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:sen_welfare",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:shannon_diversity",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:share_turnover",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:sharpe",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:sharpness",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:short_exposure",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:sidak_rejections",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:siegel_slope",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:simpson_evenness",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:skewness",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:skewtest",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:slo_attainment",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:sokal_sneath_distance",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:somers_d",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:sortino",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:specificity",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:speedup_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:spiegelhalter_z",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:spread_duration",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:spread_dv01",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:springate_score",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:squared_euclidean_distance",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:squared_hinge_loss",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:srm_pvalue",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:standardized_mean_difference",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:starr_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:sterling_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:studentized_range",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:success_at_k",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:symmetric_uncertainty",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:tail_latency_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:tail_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:test_coverage",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:theil_index",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:theil_sen_slope",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:theil_u1",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:theil_u2",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:threat_score",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:throughput",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:tier1_leverage_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:time_underwater",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:token_dice",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:token_f1",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:token_jaccard",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:top_k_accuracy",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:total_return",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:total_variation_distance",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:tracking_error",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:tracking_signal",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:treatment_equality_difference",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:treynor_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:trimean",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:trimmed_mean",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:trimmed_std",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:tsallis_entropy",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:tschuprow_t",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:turning_point_rate",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:tvpi",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:ulcer_index",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:uncertainty_coefficient",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:unexpected_loss",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:uniqueness_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:up_capture_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:up_down_beta_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:upside_deviation",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:upside_potential",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:upside_potential_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:uptime_pct",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:v_measure_score",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:value_at_risk",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:var_breach_rate",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:variance",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:variance_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:variance_reduction_cuped",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:variation_of_information",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:vasicek_conditional_pd",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:volatility",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:vwap",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:vwap_slippage",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:wape",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:wasserstein_1d",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:weighted_average_life",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:weighted_f1",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:weighted_lgd",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:weighted_mean",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:wer",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:white_lm",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:wilcoxon_rank_sum",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:wilcoxon_signed_rank",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:willmott_index",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:wilson_lower",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:wilson_upper",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:win_loss_ratio",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:win_rate",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:winkler_score",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:winsorized_mean",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:winsorized_std",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:yang_zhang_volatility",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:yield_to_maturity",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:youden_j",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:yule_distance",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:z_spread",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:zero_crossing_rate",
+      "label": "contains"
+    },
+    {
+      "source": "catalog:recipes",
+      "target": "formula:recipe:zmijewski_score",
+      "label": "contains"
+    },
+    {
+      "source": "store:local",
+      "target": "formula:banked:mcc",
+      "label": "stores"
+    },
+    {
+      "source": "alias:mcc",
+      "target": "formula:banked:mcc",
+      "label": "aliases"
+    },
+    {
+      "source": "alias:matthews_corrcoef",
+      "target": "formula:banked:mcc",
+      "label": "aliases"
+    },
+    {
+      "source": "alias:matthews correlation coefficient",
+      "target": "formula:banked:mcc",
+      "label": "aliases"
+    },
+    {
+      "source": "alias:phi coefficient",
+      "target": "formula:banked:mcc",
+      "label": "aliases"
+    },
+    {
+      "source": "alias:matthews correlation",
+      "target": "formula:banked:mcc",
+      "label": "aliases"
+    },
+    {
+      "source": "store:local",
+      "target": "formula:banked:cohen_kappa",
+      "label": "stores"
+    },
+    {
+      "source": "alias:cohen_kappa",
+      "target": "formula:banked:cohen_kappa",
+      "label": "aliases"
+    },
+    {
+      "source": "alias:cohen_kappa_score",
+      "target": "formula:banked:cohen_kappa",
+      "label": "aliases"
+    },
+    {
+      "source": "alias:cohen's kappa",
+      "target": "formula:banked:cohen_kappa",
+      "label": "aliases"
+    },
+    {
+      "source": "alias:kappa",
+      "target": "formula:banked:cohen_kappa",
+      "label": "aliases"
+    },
+    {
+      "source": "alias:cohens kappa",
+      "target": "formula:banked:cohen_kappa",
+      "label": "aliases"
+    },
+    {
+      "source": "store:local",
+      "target": "formula:banked:spearman",
+      "label": "stores"
+    },
+    {
+      "source": "alias:spearman",
+      "target": "formula:banked:spearman",
+      "label": "aliases"
+    },
+    {
+      "source": "alias:spearmanr",
+      "target": "formula:banked:spearman",
+      "label": "aliases"
+    },
+    {
+      "source": "alias:spearman correlation",
+      "target": "formula:banked:spearman",
+      "label": "aliases"
+    },
+    {
+      "source": "alias:spearman rank correlation",
+      "target": "formula:banked:spearman",
+      "label": "aliases"
+    },
+    {
+      "source": "alias:rho",
+      "target": "formula:banked:spearman",
+      "label": "aliases"
+    }
+  ]
+}

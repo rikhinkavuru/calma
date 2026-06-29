@@ -38,6 +38,8 @@ from core import diff as D  # noqa: E402
 from core import leakage as LEAK  # noqa: E402  — data-validity (train/test leakage, no re-run)
 from core import verdict as VD  # noqa: E402
 from discovery import extract as DISC  # noqa: E402
+import graph as GRAPH  # noqa: E402
+import pipeline as PIPE  # noqa: E402
 from runner import build  # noqa: E402
 from runner.local_runner import run_local  # noqa: E402
 from synth import formula as SYNTH  # noqa: E402  — the catalog flywheel (store → Exa-synth → validate)
@@ -199,54 +201,27 @@ def run_job(job, req: VerifyReq):
         _set(job, status="running", stage="cloning")
         dest = os.path.join(_WORKDIR, job["id"])
         repo_dir = _clone(req.repo, dest, job, req.installation_id)
-
-        # deep verify RUNS FIRST so discovery can read the entrypoint's generated results.json + stdout.
-        # auto-detect the entrypoint (README run-cmd / common script) when the user didn't name one.
-        entry = req.entry
-        if req.deep and not entry:
-            entry = " ".join(build.detect_entrypoint(repo_dir) or [])
-            if entry:
-                _log(job, "auto-detected entrypoint: %s" % entry)
-        r = _run_repo(repo_dir, req.runner, entry, req.pip_install, req.k, job) if req.deep else None
-
-        claims = list(req.claims or [])
-        if req.discover:
-            _set(job, stage="discovering")
-            stdout0 = r["meta"][0].get("stdout_tail", "") if (r and r.get("meta")) else ""
-            discovered = DISC.discover(repo_dir, stdout_text=stdout0)
-            _log(job, "discovered %d claim(s)" % len(discovered))
-            claims = claims + discovered
-        job["n_claims"] = len(claims)
-
-        # data-validity: train/test leakage + homology contamination on committed splits (no re-run)
-        _set(job, stage="checking data")
-        try:
-            lk = LEAK.from_committed_splits(repo_dir)
-            job["leakage"] = [r for r in lk if r["findings"]]
-            if job["leakage"]:
-                _log(job, "⚠ data leakage detected in %d dataset(s)" % len(job["leakage"]))
-        except Exception:  # noqa: BLE001
-            job["leakage"] = []
-
-        # cheapest path: recompute from committed predictions (no re-run). Real verdicts with zero sandbox.
-        artifacts = _artifact_verify(repo_dir, claims) if claims else {}
-        if artifacts:
-            _log(job, "recomputed %d claim(s) from committed predictions" % len(artifacts))
-        if req.deep and r:
-            records = _diff_claims(claims, r, job)
-            # for claims the run didn't recompute, fall back to a committed-artifact verdict if we have one
-            records = [artifacts.get(rec["id"], rec) if rec["verdict"] == DISCOVERED else rec for rec in records]
-        else:
-            records = [artifacts.get(c.get("id")) or _claim_out(
-                c, DISCOVERED, "discovered in %s — provide an entrypoint or committed predictions to verify"
-                % c.get("source", "the repo"), {}) for c in claims]
-
-        counts: dict[str, int] = {}
-        for rec in records:
-            counts[rec["verdict"]] = counts.get(rec["verdict"], 0) + 1
-        _set(job, status="done", stage="done", claims=records, counts=counts,
-             finished=time.time())
-        _log(job, "done — %s" % ", ".join("%s:%d" % (k, v) for k, v in counts.items()))
+        result = PIPE.verify_repo(
+            repo_dir,
+            PIPE.VerifyOptions(
+                runner=req.runner,
+                deep=req.deep,
+                entry=req.entry,
+                pip_install=req.pip_install,
+                discover=req.discover,
+                claims=list(req.claims or []),
+                k=req.k,
+                job_id=job["id"],
+                venvs_dir=_VENVS,
+                base_python=VENV_PY,
+            ),
+            update=lambda **kw: _set(job, **kw),
+            log=lambda msg: _log(job, msg),
+        )
+        _set(job, status="done", stage="done", claims=result["claims"], counts=result["counts"],
+             n_claims=result["n_claims"], leakage=result["leakage"], run=result["run"],
+             trace=result["trace"], finished=time.time())
+        _log(job, "done — %s" % ", ".join("%s:%d" % (k, v) for k, v in result["counts"].items()))
     except Exception as e:  # noqa: BLE001
         _set(job, status="error", stage="error", error="%s: %s" % (type(e).__name__, str(e)[:300]),
              finished=time.time())
@@ -314,6 +289,17 @@ def _internal() -> bool:
 def config():
     return {"internal": _internal(),
             "github": {"configured": GH.configured(), "connected": len(INSTALLATIONS) > 0}}
+
+
+@app.get("/api/graph")
+def graph_view_json():
+    """Formula + provenance graph: curated catalog, recipes, banked formulas, and recent verification jobs."""
+    return GRAPH.build_graph(JOBS.values())
+
+
+@app.get("/graph")
+def graph_view_html():
+    return HTMLResponse(GRAPH.html(GRAPH.build_graph(JOBS.values())))
 
 
 _GH_SETUP_HTML = """<!doctype html><html><body style="font-family:system-ui;max-width:640px;margin:60px auto;
