@@ -4,12 +4,16 @@
 // (/api/verify), polls the job, and renders the three-way verdict per claim + the data-validity layer
 // (leakage) — the same loop as the spike SPA, but first-party and behind login.
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Claim, Job } from "@/lib/verify";
+import type { Claim, GithubConfig, Job, Repo } from "@/lib/verify";
 import dash from "./dashboard.module.css";
 import s from "./verify.module.css";
 
 const PROBLEMS = ["REFUTED", "INVALIDATED", "NON-DETERMINISTIC"];
 const ORDER = ["REFUTED", "INVALIDATED", "CONFIRMED", "NON-DETERMINISTIC", "REPRODUCED-ONLY", "INCONCLUSIVE", "DISCOVERED"];
+
+// Browser-facing URL of the verification service's GitHub-App install flow (an interactive redirect, so it
+// can't be proxied). dev = the local spike server; prod = the deployed verify service.
+const CONNECT_URL = process.env.NEXT_PUBLIC_VERIFY_CONNECT_URL || "http://localhost:8787/connect/github";
 
 function pillClass(verdict: string): string {
   if (verdict === "CONFIRMED") return s.ok;
@@ -30,6 +34,45 @@ export function VerifyClient() {
   const [busy, setBusy] = useState(false);
   const [filter, setFilter] = useState<"PROBLEMS" | "ALL">("ALL");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // GitHub connect + repo picker
+  const [cfg, setCfg] = useState<GithubConfig["github"] | null>(null);
+  const [ghRepos, setGhRepos] = useState<Repo[]>([]);          // installation repos (GitHub App)
+  const [ghInstId, setGhInstId] = useState<string | null>(null);   // the installation those repos belong to
+  const [myRepos, setMyRepos] = useState<Repo[]>([]);          // the operator's `gh` repos (local dev)
+  const [installationId, setInstallationId] = useState<string | null>(null);
+  const [reposErr, setReposErr] = useState<string | null>(null);
+
+  // pick a repo: fill the field, and remember the installation when it's an App-connected repo (clears on
+  // manual typing) so the backend clones via the short-lived installation token.
+  function pick(slug: string, iid: string | null) {
+    setRepo(slug);
+    setInstallationId(iid);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const c: GithubConfig = await (await fetch("/api/github?kind=config", { cache: "no-store" })).json();
+        if (alive) setCfg(c.github);
+        if (c.github?.connected) {
+          const insts = await (await fetch("/api/github?kind=installations", { cache: "no-store" })).json();
+          const iid = Array.isArray(insts) && insts[0]?.installation_id;
+          if (iid) {
+            const r = await (await fetch(`/api/github?kind=gh-repos&installation_id=${encodeURIComponent(iid)}`, { cache: "no-store" })).json();
+            if (alive && Array.isArray(r)) { setGhRepos(r); setGhInstId(iid); }
+          }
+        }
+      } catch { /* config/connect is best-effort */ }
+      try {
+        const mine = await (await fetch("/api/github?kind=repos", { cache: "no-store" })).json();
+        if (alive && Array.isArray(mine)) setMyRepos(mine);
+      } catch (e) { if (alive) setReposErr(e instanceof Error ? e.message : String(e)); }
+    })();
+    return () => { alive = false; };
+  }, []);
 
   const poll = useCallback(async (id: string) => {
     try {
@@ -62,7 +105,7 @@ export function VerifyClient() {
       const res = await fetch("/api/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ repo: repo.trim(), deep, entry: entry.trim() || null }),
+        body: JSON.stringify({ repo: repo.trim(), deep, entry: entry.trim() || null, installation_id: installationId }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || `status ${res.status}`);
@@ -97,7 +140,7 @@ export function VerifyClient() {
           className={`${dash.input} ${s.repo}`}
           placeholder="owner/name, a GitHub URL, or a local path"
           value={repo}
-          onChange={(e) => setRepo(e.target.value)}
+          onChange={(e) => { setRepo(e.target.value); setInstallationId(null); }}
           spellCheck={false}
           autoCapitalize="off"
         />
@@ -120,6 +163,44 @@ export function VerifyClient() {
           />
         )}
       </div>
+
+      {/* GitHub connect: install the App (interactive redirect to the verify service) + state hint */}
+      <div className={s.connect}>
+        <a className={`${dash.btn} ${dash.btnGhost ?? ""} ${s.ghBtn}`} href={CONNECT_URL}>
+          <GithubMark />
+          {cfg?.connected ? "GitHub connected — add repos" : "Connect GitHub"}
+          {cfg && !cfg.configured ? " (setup)" : ""}
+        </a>
+        <span className={dash.muted} style={{ fontSize: 12 }}>
+          {cfg?.connected
+            ? "pick a connected repo below"
+            : cfg?.configured
+              ? "install the Calma App on your repos"
+              : "one-time App registration (see spike/connect/CONNECT.md) — or paste a repo / local path above"}
+        </span>
+      </div>
+
+      {ghRepos.length > 0 && (
+        <RepoList
+          title="Your connected repositories"
+          repos={ghRepos}
+          selected={repo}
+          onPick={(slug) => pick(slug, ghInstId)}
+        />
+      )}
+      {myRepos.length > 0 && (
+        <RepoList
+          title={ghRepos.length ? "Other repositories" : "Or pick one of your repositories"}
+          repos={myRepos}
+          selected={repo}
+          onPick={(slug) => pick(slug, null)}
+        />
+      )}
+      {reposErr && ghRepos.length === 0 && myRepos.length === 0 && (
+        <p className={dash.muted} style={{ fontSize: 12 }}>
+          Couldn’t list repos ({reposErr}). Paste a repo or local path above.
+        </p>
+      )}
 
       {err && <div className={`${dash.notice} ${dash.noticeErr}`}>{err}</div>}
 
@@ -240,5 +321,46 @@ export function VerifyClient() {
         </>
       )}
     </div>
+  );
+}
+
+function RepoList({ title, repos, selected, onPick }: {
+  title: string; repos: Repo[]; selected: string; onPick: (slug: string) => void;
+}) {
+  return (
+    <div className={s.repos}>
+      <div className={s.reposHead}>{title}</div>
+      <div className={s.repoList}>
+        {repos.slice(0, 60).map((r) => (
+          <button
+            type="button"
+            key={r.slug}
+            className={`${s.repoItem} ${selected === r.slug ? s.repoItemOn : ""}`}
+            onClick={() => onPick(r.slug)}
+          >
+            <span className={s.repoName}>
+              <b>{r.name}</b>
+              {r.description ? <span className={s.repoDesc}>{r.description.slice(0, 80)}</span> : null}
+            </span>
+            <span className={s.repoTags}>
+              {r.visibility ? (
+                <span className={`${s.tag} ${/priv/i.test(r.visibility) ? s.tagPriv : ""}`}>
+                  {r.visibility.toLowerCase()}
+                </span>
+              ) : null}
+              {r.language ? <span className={s.tag}>{r.language}</span> : null}
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function GithubMark() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" style={{ verticalAlign: -2, marginRight: 6 }} aria-hidden="true">
+      <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.69-.01-1.36-2.22.48-2.69-1.07-2.69-1.07-.36-.92-.89-1.17-.89-1.17-.73-.5.05-.49.05-.49.81.06 1.23.83 1.23.83.72 1.23 1.88.87 2.34.67.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.6 7.6 0 014 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z" />
+    </svg>
   );
 }

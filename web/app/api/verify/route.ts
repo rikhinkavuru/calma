@@ -25,6 +25,7 @@ export async function POST(req: Request) {
       entry: typeof body.entry === "string" ? body.entry : null,
       discover: body.discover !== false,
       pip_install: Array.isArray(body.pip_install) ? body.pip_install : null,
+      installation_id: typeof body.installation_id === "string" ? body.installation_id : null,
     });
     return NextResponse.json(out);
   } catch (e) {

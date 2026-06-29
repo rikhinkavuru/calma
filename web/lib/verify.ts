@@ -33,7 +33,19 @@ export type VerifySubmit = {
   entry?: string | null;
   discover?: boolean;
   pip_install?: string[] | null;
+  installation_id?: string | null;
 };
+
+export type Repo = {
+  name: string;
+  slug: string;
+  visibility: string;
+  description?: string;
+  language?: string;
+};
+
+export type GithubConfig = { internal: boolean; github: { configured: boolean; connected: boolean } };
+export type Installation = { installation_id: string; action?: string };
 
 // the per-claim record the pipeline returns (see spike/pipeline.py _claim_out)
 export type Claim = {
@@ -76,8 +88,18 @@ export const verifyApi = {
         entry: body.entry || null,
         discover: body.discover !== false,
         pip_install: Array.isArray(body.pip_install) ? body.pip_install : null,
+        installation_id: body.installation_id || null,
         k: 2,
       }),
     }),
   job: (id: string): Promise<Job> => call(`/api/jobs/${encodeURIComponent(id)}`),
+};
+
+// Read-only GitHub/repo surfaces for the connect + repo-picker UX (proxied through /api/github).
+export const githubApi = {
+  config: (): Promise<GithubConfig> => call("/api/config"),
+  repos: (): Promise<Repo[]> => call("/api/repos"),
+  installations: (): Promise<Installation[]> => call("/api/installations"),
+  ghRepos: (installationId: string): Promise<Repo[]> =>
+    call(`/api/gh/repos?installation_id=${encodeURIComponent(installationId)}`),
 };

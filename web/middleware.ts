@@ -8,5 +8,5 @@ export default authkitMiddleware();
 
 export const config = {
   // the verify proxy routes call withAuth() and so need the authkit middleware to populate the session
-  matcher: ["/dashboard", "/dashboard/:path*", "/callback", "/api/verify", "/api/verify/:path*"],
+  matcher: ["/dashboard", "/dashboard/:path*", "/callback", "/api/verify", "/api/verify/:path*", "/api/github"],
 };

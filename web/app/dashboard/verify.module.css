@@ -65,6 +65,27 @@
 .bad { background: var(--bad-bg); color: var(--bad-fg); }
 .idle { background: var(--idle-bg); color: var(--idle-fg); }
 
+.connect { display: flex; gap: 12px; align-items: center; margin: 4px 0 14px; flex-wrap: wrap; }
+.ghBtn { display: inline-flex; align-items: center; font-size: 13px; }
+
+.repos { margin: 10px 0 4px; }
+.reposHead { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted-fg, #8a8a82); margin-bottom: 8px; }
+.repoList { display: flex; flex-direction: column; gap: 6px; max-height: 320px; overflow: auto; }
+.repoItem {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  width: 100%; text-align: left; cursor: pointer;
+  padding: 9px 12px; border-radius: 8px;
+  border: 1px solid var(--border, #2a2620); background: var(--card-bg, #15130f);
+  color: var(--text, #e9ddc4); font: inherit;
+}
+.repoItem:hover { border-color: color-mix(in srgb, var(--text, #e9ddc4) 28%, transparent); }
+.repoItemOn { border-color: var(--ok-fg); background: var(--ok-bg); }
+.repoName { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.repoDesc { color: var(--muted-fg, #8a8a82); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.repoTags { display: flex; gap: 6px; flex-shrink: 0; }
+.tag { font-size: 11px; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--border, #2a2620); color: var(--muted-fg, #8a8a82); }
+.tagPriv { color: var(--idle-fg, #c2a86a); border-color: color-mix(in srgb, var(--idle-fg, #c2a86a) 35%, transparent); }
+
 .filters { display: flex; gap: 8px; margin: 8px 0; flex-wrap: wrap; }
 .filter { font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border, #2a2620); background: transparent; color: var(--muted-fg, #8a8a82); cursor: pointer; }
 .filterOn { background: var(--card-bg, #221d15); color: var(--text, #e9ddc4); border-color: color-mix(in srgb, var(--text, #e9ddc4) 30%, transparent); }
