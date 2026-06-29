@@ -19,9 +19,23 @@ The spike proves the new core loop end to end — **instrument-capture the raw i
 recompute independently → three-way diff → fail-closed verdict** — on a synthetic suite (one repo per
 verdict path), a realistic sklearn repo built from its own `requirements.txt`, and a real E2B Firecracker
 microVM. Current gates: **false-confirm = 0**, 100% verdict accuracy (13/13), 92% binding (the one miss is
-an intentionally-ambiguous claim → correctly INCONCLUSIVE), catalog validated vs sklearn to 1e-9 (289
+an intentionally-ambiguous claim → correctly INCONCLUSIVE), catalog validated vs sklearn to 1e-9 (324
 tests). The remaining Phase-0 question — the reproduction + binding *rate on real external repos* — needs
 the corpus curated (the harness is ready; fill the `# real:` section of `spike/repos.yaml`).
+
+**Since the spike (product hardening, 2026-06-29):**
+- The verify loop is one reusable module (`spike/pipeline.py`); the FastAPI server + tests share it.
+- **Validity is wired into the per-claim verdict, not just a banner.** Dataset-level leakage (committed
+  train/test splits, no re-run) is folded back onto every claim attributed to that dataset — a reproducible
+  accuracy on a leaked split is now **INVALIDATED**, not CONFIRMED. Every claim record carries its validity
+  findings. (This is the validity moat made real on the product surface.)
+- Run failures surface the **actual exception** (e.g. `ModuleNotFoundError: No module named …`) instead of
+  a generic "entrypoint failed to run".
+- **Auth: "Verify a repo" routes through the WorkOS-gated Next dashboard** (`/dashboard/verify`), which
+  proxies to the verification API server-side with a service token (`/api/verify[/id]`). The spike API
+  (`/api/verify`, `/api/jobs`) is now token-gated — fail-closed when `CALMA_VERIFY_TOKEN` is set
+  (first-party-only), open for the local-first operator when unset. Prod still needs the verification
+  service deployed + `CALMA_VERIFY_API_URL` pointed at it (Vercel can't reach a laptop's localhost).
 
 ---
 
