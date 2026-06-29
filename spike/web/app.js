@@ -100,7 +100,7 @@ function renderResults(job) {
   const run = job.run;
   const banner = run ? `<div class="banner ${run.ran ? "ok" : "warn"}">${run.ran
       ? `Re-ran <code>${esc(run.entry)}</code> · captured ${run.calls} computation(s) · <b>${g.problems} need attention</b>, ${g.clean} hold up.`
-      : `Tried to re-run <code>${esc(run.entry)}</code> but it didn't execute${run.error ? `: <span class="mono">${esc(run.error).slice(0, 150)}</span>` : ""}.<br/>Showing the ${claims.length} numbers Calma found — give it a runnable entrypoint (and any data/deps) to deep-verify them.`}</div>` : "";
+      : `Tried to re-run <code>${esc(run.entry)}</code> but it didn't execute${run.error ? ` — <span class="mono">${esc(run.error)}</span>` : ""}.${run.error_full && run.error_full !== run.error ? `<details style="margin-top:6px"><summary class="muted" style="cursor:pointer;font-size:12px">full error output</summary><pre class="mono" style="white-space:pre-wrap;font-size:11px;margin:6px 0 0;max-height:200px;overflow:auto">${esc(run.error_full)}</pre></details>` : ""}<br/>Showing the ${claims.length} numbers Calma found — give it a runnable entrypoint (and any data/deps) to deep-verify them.`}</div>` : "";
 
   // grouped summary: problems first, then clean / couldn't-verify / found
   const card = (n, label, color) => n ? `<div class="sum"><div class="n" style="color:${color}">${n}</div><div class="l">${label}</div></div>` : "";
@@ -156,13 +156,19 @@ function renderTable(claims, g) {
       const recomp = d.recomputed != null ? (+d.recomputed).toPrecision(5) : (d.produced != null ? (+d.produced).toPrecision(5) : "—");
       const where = esc(c.context || c.location || c.source || "");
       const prov = provenanceTag(c.provenance);
+      // validity-layer results, shown alongside the number: advisory findings (thin margin, barely above
+      // chance) that don't change the verdict but qualify the claim. Invalidating findings already drive
+      // the verdict + reason, so we only surface the advisory ones here.
+      const adv = (c.validity && c.validity.advisory) || [];
+      const advHtml = adv.length
+        ? `<div class="muted" style="font-size:11px;margin-top:3px">⚠ validity: ${esc(adv.join("; "))}</div>` : "";
       return `<tr>
         <td><b>${esc(c.metric)}</b></td>
         <td class="mono">${esc(c.claimed)}</td>
         <td class="mono">${recomp}${prov}</td>
         <td><span class="pill ${PILL[c.verdict] || "INCONCLUSIVE"}">${esc(c.verdict)}</span></td>
         <td class="muted" style="font-size:12px;max-width:230px">${where.slice(0, 90)}</td>
-        <td class="reason">${esc(c.reason || "")}</td>
+        <td class="reason">${esc(c.reason || "")}${advHtml}</td>
       </tr>`;
     }).join("")}</tbody></table>
     ${rows.length === 300 ? '<div class="empty" style="padding:14px">Showing first 300.</div>' : ""}`;

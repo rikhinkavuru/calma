@@ -7,6 +7,7 @@ both call this module so the architecture is exercised outside the web UI.
 from __future__ import annotations
 
 import os
+import re
 import sys
 import time
 from dataclasses import dataclass, field
@@ -65,7 +66,84 @@ def _claim_out(claim, verdict, reason, diff, provenance=None):
         "reason": reason,
         "diff": diff,
         "provenance": provenance,
+        # always present so the API returns a validity assessment alongside the number, never just the
+        # numeric verdict. diff_claim() fills this for deep-verified claims; the leakage overlay (below)
+        # adds dataset-level findings; everyone else gets the empty-but-explicit shape.
+        "validity": {"invalidating": [], "advisory": []},
     }
+
+
+_EXC_RE = re.compile(r"^([A-Za-z_][\w.]*(?:Error|Exception|Warning|Interrupt))\b.*")
+
+
+def _error_summary(stderr: str) -> str:
+    """Pull the one informative line out of a captured stderr tail: the final exception (e.g.
+    'ModuleNotFoundError: No module named genomic_benchmarks'), not the top of the traceback. Falls back to
+    the last non-empty line. This is what tells a user WHY the re-run failed instead of a generic message."""
+    lines = [ln.strip() for ln in (stderr or "").splitlines() if ln.strip()]
+    if not lines:
+        return ""
+    for ln in reversed(lines):                       # the exception is at the bottom of a traceback
+        if _EXC_RE.match(ln):
+            return ln[:240]
+    return lines[-1][:240]
+
+
+def _norm_ds(s) -> str:
+    """Normalise a dataset name for matching (lowercase, alphanumerics only)."""
+    return re.sub(r"[^a-z0-9]", "", str(s or "").lower())
+
+
+# context/location tokens that name the dataset a claim is about, e.g. "dataset=human_nontata_promoters"
+_DS_KEY_RE = re.compile(r"(?:dataset|data|task|name|split_source)\s*=\s*([A-Za-z0-9_\-./]+)")
+
+
+def _claim_dataset_tokens(rec) -> set[str]:
+    """The dataset name(s) a claim record is attributed to (from its context / location label)."""
+    toks: set[str] = set()
+    for fieldval in (rec.get("context", ""), rec.get("location", "")):
+        for m in _DS_KEY_RE.finditer(fieldval or ""):
+            toks.add(_norm_ds(m.group(1)))
+    return {t for t in toks if t}
+
+
+def _apply_leakage_overlay(records: list[dict], leakage: list[dict]) -> None:
+    """Tie dataset-level leakage findings into the PER-CLAIM verdict (in place).
+
+    The validity moat (guide §4.6): a number can reproduce and recompute perfectly yet be INVALID because
+    the held-out evaluation leaked. Leakage is detected on committed train/test splits independently of any
+    re-run, so we fold it back onto every claim attributed to a contaminated dataset — a CONFIRMED accuracy
+    on a leaked split is not correct, it is INVALIDATED. We only downgrade on an explicit dataset match (the
+    claim's `dataset=…` label equals the leaked split's name) so we never mis-attribute one dataset's leak to
+    another; the job-level banner still warns about unattributable leakage.
+    """
+    leaky: dict[str, list[dict]] = {}
+    for d in leakage or []:
+        inv = [f for f in d.get("findings", []) if f.get("invalidating")]
+        if inv:
+            leaky[_norm_ds(d.get("dataset"))] = inv
+    if not leaky:
+        return
+    for rec in records:
+        hits = [f for ds, finds in leaky.items() if ds in _claim_dataset_tokens(rec) for f in finds]
+        if not hits:
+            continue
+        rec.setdefault("validity", {"invalidating": [], "advisory": []})
+        notes = [f["detail"] for f in hits]
+        rec["validity"]["invalidating"].extend(notes)
+        # REFUTED (the number itself is misreported) is already the strongest "not correct" — keep it, but
+        # annotate. Everything else (CONFIRMED / REPRODUCED-ONLY / DISCOVERED / INCONCLUSIVE / NON-DET) is
+        # invalidated by the contaminated evaluation, regardless of whether we recomputed the number.
+        if rec["verdict"] == VD.REFUTED:
+            rec["reason"] = (rec.get("reason", "") + " — and the evaluation is contaminated: %s" % notes[0]).strip(" —")
+            continue
+        was = rec["verdict"]
+        rec["verdict"] = VD.INVALIDATED
+        if was == DISCOVERED:
+            rec["reason"] = ("the held-out evaluation is contaminated — %s. The number itself was not "
+                             "recomputed, but data leakage invalidates the claim regardless." % notes[0])
+        else:
+            rec["reason"] = "reproducible but invalid: %s" % "; ".join(notes)
 
 
 class Trace:
@@ -167,7 +245,11 @@ def _diff_claims(claims: list[dict], run_result: dict, job_run: dict) -> list[di
                 "the re-run did not recompute this number"
                 + (" (the entrypoint failed to run)" if not job_run.get("ran") else " - point Calma at the script/args that compute it")
             )
-        records.append(_claim_out(claim, verdict, reason, rec.get("diff", {}), provenance=rec.get("recompute_provenance")))
+        out = _claim_out(claim, verdict, reason, rec.get("diff", {}), provenance=rec.get("recompute_provenance"))
+        # carry the always-on validity overlay (trivial-baseline / degenerate-distribution / chance-level)
+        # through to the UI — it is what flipped a would-be CONFIRMED to INVALIDATED.
+        out["validity"] = rec.get("validity", out["validity"])
+        records.append(out)
     return records
 
 
@@ -189,12 +271,14 @@ def verify_repo(
     if opts.deep:
         run_result, entry = _run_repo(repo_dir, opts, trace)
         total_calls = sum(len(run) for run in run_result.get("runs", []))
-        err = ""
+        err, err_full = "", ""
         if not run_result.get("ran_ok"):
-            err = (" ".join(m.get("stderr_tail", "") for m in run_result.get("meta", [])).strip())[-260:]
-            trace.note("run failed: %s" % err[-200:])
+            err_full = (" ".join(m.get("stderr_tail", "") for m in run_result.get("meta", [])).strip())[-1200:]
+            err = _error_summary(err_full)            # the actual exception, not the top of the traceback
+            trace.note("run failed: %s" % (err or "entrypoint did not execute"))
         trace.note("captured %d computation(s)" % total_calls)
-        job_run = {"ran": run_result.get("ran_ok"), "calls": total_calls, "entry": " ".join(entry), "error": err}
+        job_run = {"ran": run_result.get("ran_ok"), "calls": total_calls, "entry": " ".join(entry),
+                   "error": err, "error_full": err_full}
 
     claims = list(opts.claims or [])
     if opts.discover:
@@ -231,6 +315,10 @@ def verify_repo(
             )
             for c in claims
         ]
+
+    # fold dataset-level leakage back onto each attributed claim's verdict (the validity moat): a number
+    # that reproduces perfectly is still INVALIDATED if its held-out split leaked.
+    _apply_leakage_overlay(records, leakage)
 
     counts: dict[str, int] = {}
     for rec in records:

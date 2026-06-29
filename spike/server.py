@@ -34,14 +34,8 @@ from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Redirect
 from pydantic import BaseModel  # noqa: E402
 
 from connect import github_app as GH  # noqa: E402  — the GitHub App connector (anyone connects their repos)
-from core import diff as D  # noqa: E402
-from core import leakage as LEAK  # noqa: E402  — data-validity (train/test leakage, no re-run)
-from core import verdict as VD  # noqa: E402
-from discovery import extract as DISC  # noqa: E402
 import graph as GRAPH  # noqa: E402
-import pipeline as PIPE  # noqa: E402
-from runner import build  # noqa: E402
-from runner.local_runner import run_local  # noqa: E402
+import pipeline as PIPE  # noqa: E402  — the verification orchestration (discover → run → diff → validity)
 from synth import formula as SYNTH  # noqa: E402  — the catalog flywheel (store → Exa-synth → validate)
 from synth import store as SYNTH_STORE  # noqa: E402
 
@@ -53,8 +47,6 @@ _LOCK = threading.Lock()
 _WORKDIR = os.path.join(tempfile.gettempdir(), "calma_web_repos")
 _VENVS = os.path.join(_WORKDIR, ".venvs")
 VENV_PY = sys.executable  # the harness venv (has numpy/sklearn) — used for fixture-class repos
-
-DISCOVERED = "DISCOVERED"  # a claim we found but did not deep-verify (static layer)
 
 
 class VerifyReq(BaseModel):
@@ -114,86 +106,6 @@ def _clone(repo: str, dest: str, job, installation_id=None) -> str:
         if r2.returncode != 0:
             raise RuntimeError("clone failed: %s" % (r.stderr or r2.stderr or "unknown")[:300])
     return dest
-
-
-def _run_repo(repo_dir, runner, entry, pip_install, k, job):
-    """Run the entrypoint k× with capture armed (the deep step). Sets job['run']; returns the run result.
-    Runs BEFORE discovery so the entrypoint's generated results.json + stdout feed claim discovery."""
-    entry_argv = entry.split() if entry else ["eval.py"]
-    _set(job, stage="building")
-    if runner == "e2b":
-        from runner.e2b_runner import run_e2b
-        _set(job, stage="running")
-        r = run_e2b(repo_dir, entry_argv, k=k, pip_install=pip_install, timeout=600)
-    else:
-        python, note = build.ensure_venv(job["id"], pip_install, _VENVS, base_python=VENV_PY)
-        _log(job, "env: %s" % note)
-        _set(job, stage="running")
-        r = run_local(repo_dir, entry_argv, k=k, python=python, timeout=600)
-    ran_ok = r["ran_ok"]
-    total_calls = sum(len(run) for run in r.get("runs", []))
-    err = ""
-    if not ran_ok:
-        err = (" ".join(m.get("stderr_tail", "") for m in r.get("meta", [])).strip())[-260:]
-        _log(job, "run failed: %s" % err[-200:])
-    _log(job, "captured %d computation(s)" % total_calls)
-    job["run"] = {"ran": ran_ok, "calls": total_calls, "entry": " ".join(entry_argv), "error": err}
-    return r
-
-
-def _diff_claims(claims, r, job):
-    """Three-way diff each claim against the captured runs, via the flywheel resolver. A metric the run
-    never recomputed stays DISCOVERED (not re-run) rather than a misleading INCONCLUSIVE."""
-    _set(job, stage="diffing")
-    records = []
-    for claim in claims:
-        if not r["runs"]:
-            records.append(_claim_out(claim, DISCOVERED, "deep verify could not run the entrypoint", {}))
-            continue
-        rec = D.diff_claim(claim, r["runs"], resolver=SYNTH.recompute_any)   # catalog → store → Exa-synth
-        v, reason = rec["verdict"], rec.get("reason", "")
-        if v == VD.INCONCLUSIVE and "no captured computation" in reason:
-            v = DISCOVERED
-            reason = ("the re-run did not recompute this number"
-                      + (" (the entrypoint failed to run)" if not job["run"]["ran"]
-                         else " — point Calma at the script/args that compute it"))
-        records.append(_claim_out(claim, v, reason, rec.get("diff", {}),
-                                  provenance=rec.get("recompute_provenance")))
-    return records
-
-
-def _artifact_verify(repo_dir, claims):
-    """Recompute claims directly from COMMITTED predictions (no re-run) — the cheapest verify path.
-    Returns {claim_id: verdict record}. Two-way: claimed vs recompute-from-committed-data."""
-    from core import artifacts as A
-    from core import tolerance as T
-    files = A.find_prediction_files(repo_dir)
-    out = {}
-    if not files:
-        return out
-    for claim in claims:
-        for path, cols in files:
-            res = A.recompute_from_cols(cols, claim.get("metric"), SYNTH.recompute_any)
-            if not res:
-                continue
-            recomputed = res["value"]
-            ok, _ = T.claim_close(claim.get("value"), recomputed)
-            fname = os.path.basename(path)
-            reason = (("claim matches the committed predictions (%s · recomputed %.5g)" % (fname, recomputed))
-                      if ok else ("claim %r ≠ recompute from committed predictions (%s = %.5g)"
-                                  % (claim.get("value"), fname, recomputed)))
-            out[claim.get("id")] = _claim_out(claim, VD.CONFIRMED if ok else VD.REFUTED, reason,
-                                              {"claimed": claim.get("value"), "recomputed": recomputed},
-                                              provenance="artifact:" + (res.get("provenance") or "recipe"))
-            break
-    return out
-
-
-def _claim_out(claim, verdict, reason, diff, provenance=None):
-    return {"id": claim.get("id"), "metric": claim.get("metric"), "claimed": claim.get("value"),
-            "context": claim.get("context", ""), "location": claim.get("location", ""),
-            "source": claim.get("source", "stated"), "confidence": claim.get("confidence"),
-            "verdict": verdict, "reason": reason, "diff": diff, "provenance": provenance}
 
 
 def run_job(job, req: VerifyReq):
