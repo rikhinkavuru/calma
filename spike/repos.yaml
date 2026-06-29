@@ -96,4 +96,62 @@ repos:
     pip_install: [scikit-learn]
     claims:
       - {id: acc, metric: accuracy, value: "96.67%", expect: REFUTED}   # version drift; 1.0 in a fresh env
-  # ... ~15-20 more self-contained CPU repos to curate here (the Phase-0 rate measurement).
+
+  # Real external repos, curated 2026-06-29 (verified by fetching each entrypoint + README from GitHub and
+  # confirming the HEAD SHA via the API). All CPU-only, sklearn built-in / committed / seaborn datasets, a
+  # single run-and-print entrypoint. `discover: true` (no hand-grade): the Phase-0 measurement here is the
+  # objective reproduction + binding rate on code we didn't author — the false-confirm gate stays proven on
+  # the synthetic graded suite. Flags called out inline.
+  - name: breast-cancer-rf
+    source: {kind: git, url: https://github.com/Yukti-09/Breast_Cancer.git, commit: d089a1c1c79a18be26f5bd3332b77b658ef5dd0a}
+    entry: [model.py]
+    pip_install: [scikit-learn]
+    discover: true              # README "97.37%"; RF is UNSEEDED → expect non-deterministic, not a clean CONFIRMED
+
+  - name: iris-algos-compare
+    source: {kind: git, url: https://github.com/danish008-dan/Iris_Algorithms_Comparisons-.git, commit: 467d2bfe49b60c0afd160ca988af8949a1305540}
+    entry: [iris_classification.py]
+    pip_install: [scikit-learn, pandas]
+    discover: true              # README table LR 97% / KNN 100% / DT 97% / RF 100%; committed Iris.csv; seeded
+
+  - name: iris-logreg
+    source: {kind: git, url: https://github.com/sroiis/iris-ml-classifier.git, commit: 9c317aedc652c7c06c742b8b555642f1a2ae21ab}
+    entry: [iris_classifier.py]
+    pip_install: [scikit-learn, matplotlib]
+    discover: true              # prints "Model Accuracy: 1.00"; load_iris + LogisticRegression seed 42
+
+  - name: iris-svm
+    source: {kind: git, url: https://github.com/grandhibhoomika-cloud/iris-svm-classification.git, commit: ddffeef6a3d89add26d37d0f182ad8b439ec65d1}
+    entry: [iris-svm.py]
+    pip_install: [scikit-learn, pandas]
+    discover: true              # README "Accuracy: 100%"; load_iris + SVC(linear) seed 42
+
+  - name: iris-naive-bayes
+    source: {kind: git, url: https://github.com/grandhibhoomika-cloud/iris-naive-bayes-classification.git, commit: 4f5f7df964b9326871e1d5eb55815b40ce754b71}
+    entry: [naive_bayes_iris.py]
+    pip_install: [scikit-learn, pandas]
+    discover: true              # README "Accuracy: 100%"; load_iris + GaussianNB seed 42
+
+  - name: iris-codealpha
+    source: {kind: git, url: https://github.com/dinutanwar/CodeAlpha_IrisClassification.git, commit: f11b298af0665531066df5a21dfe56f6add0c865}
+    entry: [iris_classification.py]
+    pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn]
+    discover: true              # README "Final Accuracy 96.67%"; load_iris, fully seeded incl. GridSearchCV
+
+  - name: digits-softmax
+    source: {kind: git, url: https://github.com/kaushu42/digit-classification.git, commit: 250b2d23af8c01cdf28ac42af50f147e99819a65}
+    entry: [classify.py]
+    pip_install: [scikit-learn, numpy, matplotlib]
+    discover: true              # README "95%"; load_digits + from-scratch numpy softmax, np.random.seed(1)
+
+  - name: titanic-seaborn
+    source: {kind: git, url: https://github.com/khwahishcodes05/titanic-ml-project.git, commit: c9192d1d8e591603afd524ebe95623d533ff3f47}
+    entry: [titanic_ml_project.py]
+    pip_install: [scikit-learn, pandas, numpy, seaborn, matplotlib]
+    discover: true              # README LR 81% / 79% / 78%; sns.load_dataset("titanic") (fetches CSV on first use)
+
+  - name: iris-multimodel
+    source: {kind: git, url: https://github.com/DivyaSajjan01/iris-flower-classification.git, commit: 051b985dc64bd27270ec42326046ea5a4bf5332f}
+    entry: [untitled14.py]
+    pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn]
+    discover: true              # no written number; prints "Accuracy: {x:.4f}" per model; load_iris seed 42
