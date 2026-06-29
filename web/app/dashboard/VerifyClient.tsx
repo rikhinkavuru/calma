@@ -11,9 +11,8 @@ import s from "./verify.module.css";
 const PROBLEMS = ["REFUTED", "INVALIDATED", "NON-DETERMINISTIC"];
 const ORDER = ["REFUTED", "INVALIDATED", "CONFIRMED", "NON-DETERMINISTIC", "REPRODUCED-ONLY", "INCONCLUSIVE", "DISCOVERED"];
 
-// Browser-facing URL of the verification service's GitHub-App install flow (an interactive redirect, so it
-// can't be proxied). dev = the local spike server; prod = the deployed verify service.
-const CONNECT_URL = process.env.NEXT_PUBLIC_VERIFY_CONNECT_URL || "http://localhost:8787/connect/github";
+// Same-origin connect route → 302s to GitHub's install URL. No hardcoded host, so it works on any deploy.
+const CONNECT_URL = "/api/github/connect";
 
 function pillClass(verdict: string): string {
   if (verdict === "CONFIRMED") return s.ok;
@@ -51,19 +50,33 @@ export function VerifyClient() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  const loadInstallationRepos = useCallback(async (iid: string) => {
+    setGhInstId(iid);
+    try {
+      const r = await (await fetch(`/api/github?kind=gh-repos&installation_id=${encodeURIComponent(iid)}`, { cache: "no-store" })).json();
+      if (Array.isArray(r)) setGhRepos(r);
+    } catch { /* needs the verify backend reachable */ }
+  }, []);
+
   useEffect(() => {
     let alive = true;
+    // Just installed the App? GitHub redirected here with ?installation_id=… — adopt it directly (works even
+    // before the backend has recorded it) and tidy the URL.
+    const params = new URLSearchParams(window.location.search);
+    const fromInstall = params.get("installation_id");
+    if (fromInstall) {
+      setInstallationId(fromInstall);
+      loadInstallationRepos(fromInstall);
+      window.history.replaceState({}, "", "/dashboard");
+    }
     (async () => {
       try {
         const c: GithubConfig = await (await fetch("/api/github?kind=config", { cache: "no-store" })).json();
         if (alive) setCfg(c.github);
-        if (c.github?.connected) {
+        if (!fromInstall && c.github?.connected) {
           const insts = await (await fetch("/api/github?kind=installations", { cache: "no-store" })).json();
           const iid = Array.isArray(insts) && insts[0]?.installation_id;
-          if (iid) {
-            const r = await (await fetch(`/api/github?kind=gh-repos&installation_id=${encodeURIComponent(iid)}`, { cache: "no-store" })).json();
-            if (alive && Array.isArray(r)) { setGhRepos(r); setGhInstId(iid); }
-          }
+          if (iid && alive) loadInstallationRepos(iid);
         }
       } catch { /* config/connect is best-effort */ }
       try {
@@ -72,7 +85,7 @@ export function VerifyClient() {
       } catch (e) { if (alive) setReposErr(e instanceof Error ? e.message : String(e)); }
     })();
     return () => { alive = false; };
-  }, []);
+  }, [loadInstallationRepos]);
 
   const poll = useCallback(async (id: string) => {
     try {

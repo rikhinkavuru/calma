@@ -23,8 +23,10 @@ default_permissions:
   pull_requests: write             # post the verification summary on a PR (verify-on-PR)
   checks: write                    # post the verdict as a required Check Run (the merge gate)
 hook_attributes:
-  url: https://REPLACE_WITH_PUBLIC_HOST/connect/github/webhook   # set before registering (or omit for no webhooks)
+  url: https://REPLACE_WITH_BACKEND_HOST/connect/github/webhook   # the deployed VERIFY SERVICE host (or omit for no webhooks)
   active: true
-# After install, GitHub redirects the user to the setup_url with ?installation_id=… :
-setup_url: https://REPLACE_WITH_PUBLIC_HOST/connect/github/setup
-redirect_url: https://REPLACE_WITH_PUBLIC_HOST/connect/github/setup
+# After install, GitHub redirects the user to setup_url with ?installation_id=… . Point this at the
+# DASHBOARD origin (NOT the backend) so installs land back on the app the user is using, e.g.
+# https://calma1.vercel.app/api/github/setup — that route records the installation and returns to /dashboard.
+setup_url: https://REPLACE_WITH_DASHBOARD_HOST/api/github/setup
+redirect_url: https://REPLACE_WITH_DASHBOARD_HOST/api/github/setup

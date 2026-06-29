@@ -4,31 +4,47 @@ Calma uses a **GitHub App** (not OAuth) — per-repo selection, short-lived scop
 PR checks (rebuild guide §7). The code is built (`github_app.py` + the `/connect/github*` endpoints); it
 goes live once the App is registered and the server is publicly reachable.
 
+## Two hosts (important)
+
+The dashboard (Next, e.g. `https://calma1.vercel.app`) and the verification backend (`spike/server.py`,
+the host that clones + runs repos) are **separate origins**. The install flow must land users back on the
+**dashboard**, and the dashboard proxies repo/verify calls to the **backend**. So:
+
+- **App `setup_url` / `redirect_url`** → the **dashboard** origin: `https://<dashboard>/api/github/setup`
+  (records the installation, then returns to `/dashboard`). *This is the fix for the "install sent me to a
+  localhost link" problem — never point setup_url at the backend/localhost.*
+- **App `hook_attributes.url`** (webhooks) → the **backend** origin: `https://<backend>/connect/github/webhook`.
+- The dashboard's "Connect GitHub" button is same-origin (`/api/github/connect`) and 302s to GitHub using
+  the app slug — no hardcoded host.
+
 ## One-time setup (founder)
 
 1. **Register the App** (one click): open
-   [`github.com/settings/apps/new?manifest`](https://github.com/settings/apps/new?manifest), set the
-   `hook_attributes.url` / `setup_url` / `redirect_url` in `app-manifest.yml` to your public host, then
-   paste the manifest. GitHub creates the App and hands back:
-   - **App ID**, a generated **private key** (`.pem`), and the **app slug** (the `name`, slugified).
-2. **Set env + restart:**
+   [`github.com/settings/apps/new?manifest`](https://github.com/settings/apps/new?manifest), fill the
+   `REPLACE_WITH_DASHBOARD_HOST` (setup/redirect) and `REPLACE_WITH_BACKEND_HOST` (webhook) placeholders in
+   `app-manifest.yml`, then paste it. GitHub hands back the **App ID**, a **private key** (`.pem`), and the
+   **app slug**. *(Already registered with a localhost setup_url? Just edit the App's "Setup URL" + "Callback
+   URL" in its GitHub settings to `https://<dashboard>/api/github/setup` — no re-register needed.)*
+2. **Backend env** (`spike/server.py`):
    ```bash
    export CALMA_GH_APP_ID=<app id>
    export CALMA_GH_PRIVATE_KEY=/path/to/app-private-key.pem   # path or the PEM string
    export CALMA_GH_APP_SLUG=<app slug>
-   ./spike/web.sh
    ```
    (No PyJWT/cryptography needed — RS256 is signed via `openssl`.)
-3. **Public host for webhooks/redirects:** the App's `setup_url` must reach this server. Locally use a
-   tunnel (`cloudflared tunnel --url http://localhost:8787` or ngrok); in prod, the deployed URL.
+3. **Dashboard env** (Vercel): set `NEXT_PUBLIC_GITHUB_APP_SLUG=<app slug>` (so the Connect button knows the
+   install URL) and `CALMA_VERIFY_API_URL` + `CALMA_VERIFY_TOKEN` pointed at the deployed backend.
+4. **Deploy the backend** somewhere reachable from Vercel (a container/VM — it clones + builds venvs +
+   executes, so not Vercel functions). Until then the connect flow lands correctly but repo-listing/verify
+   need the backend up.
 
-## The flow (already wired)
+## The flow
 
 ```
-user clicks "Connect GitHub"  → GET /connect/github          → redirect to github.com/apps/<slug>/installations/new
-user picks repos + installs   → GitHub → GET /connect/github/setup?installation_id=…  → stored
-"verify"                       → POST /api/verify {repo, installation_id}  → clone via a 1-hour installation token
-list a tenant's repos          → GET /api/gh/repos?installation_id=…
+"Connect GitHub" (dashboard)  → GET /api/github/connect       → 302 github.com/apps/<slug>/installations/new
+user picks repos + installs   → GitHub → GET <dashboard>/api/github/setup?installation_id=…  → recorded → /dashboard
+"verify"                       → POST /api/verify {repo, installation_id}  → backend clones via a 1-hour token
+list connected repos           → GET /api/github?kind=gh-repos&installation_id=…  (proxied to the backend)
 ```
 
 - Tokens are **short-lived (1h) + scoped** to the selected repos; the App private key stays in a secret
