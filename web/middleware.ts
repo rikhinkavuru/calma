@@ -7,5 +7,6 @@ import { authkitMiddleware } from "@workos-inc/authkit-nextjs";
 export default authkitMiddleware();
 
 export const config = {
-  matcher: ["/dashboard", "/dashboard/:path*", "/callback"],
+  // the verify proxy routes call withAuth() and so need the authkit middleware to populate the session
+  matcher: ["/dashboard", "/dashboard/:path*", "/callback", "/api/verify", "/api/verify/:path*"],
 };

@@ -35,10 +35,9 @@ export function Hero() {
 
         <div>
           <div className="hero__cta">
-            {/* primary CTA → the verify dashboard (the new product). Env-configurable so prod points at the
-                deployed app; defaults to the local dashboard for `cd web && npm run dev` + `./spike/web.sh`. */}
-            <a className="btn-primary"
-               href={process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:8787"}>
+            {/* primary CTA → the verify flow inside the WorkOS-gated dashboard. Anonymous users hit the
+                sign-in card first; the dashboard proxies submissions to the verification API server-side. */}
+            <a className="btn-primary" href="/dashboard/verify">
               Verify a repo <span className="arrow" aria-hidden="true">→</span>
             </a>
             <a className="btn-ghost" href="/install">Install the CLI</a>

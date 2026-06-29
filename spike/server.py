@@ -29,7 +29,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "capture"))
 
-from fastapi import FastAPI, HTTPException  # noqa: E402
+from fastapi import Depends, FastAPI, Header, HTTPException  # noqa: E402
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
@@ -40,6 +40,19 @@ from synth import formula as SYNTH  # noqa: E402  — the catalog flywheel (stor
 from synth import store as SYNTH_STORE  # noqa: E402
 
 app = FastAPI(title="Calma — the correctness layer")
+
+# Service-token gate for the verification API. The WorkOS-gated Next dashboard is the only first-party
+# caller: it holds this token server-side and proxies authenticated user submissions here. When the token is
+# SET we fail closed (the API is backend-only, never hit directly by a browser); when it is UNSET the API
+# stays open for the local-first operator flow (your own machine, your own E2B keys). The SPA at "/" is a
+# local dev/admin surface and is not token-gated.
+_VERIFY_TOKEN = (os.environ.get("CALMA_VERIFY_TOKEN") or os.environ.get("CALMA_SERVICE_TOKEN") or "").strip()
+
+
+def require_service_token(x_calma_service_token: str | None = Header(default=None)):
+    if _VERIFY_TOKEN and x_calma_service_token != _VERIFY_TOKEN:
+        raise HTTPException(401, "unauthorized — the verification API is first-party only")
+
 
 JOBS: dict[str, dict] = {}
 INSTALLATIONS: dict[str, dict] = {}    # installation_id ↔ tenant (in-memory MVP); real = the control plane
@@ -140,7 +153,7 @@ def run_job(job, req: VerifyReq):
         _log(job, "error: %s" % str(e)[:300])
 
 
-@app.post("/api/verify")
+@app.post("/api/verify", dependencies=[Depends(require_service_token)])
 def verify(req: VerifyReq):
     job_id = uuid.uuid4().hex[:12]
     job = {"id": job_id, "repo": req.repo, "runner": req.runner, "deep": req.deep,
@@ -152,7 +165,7 @@ def verify(req: VerifyReq):
     return {"id": job_id}
 
 
-@app.get("/api/jobs")
+@app.get("/api/jobs", dependencies=[Depends(require_service_token)])
 def list_jobs():
     with _LOCK:
         return [{"id": j["id"], "repo": j["repo"], "status": j["status"], "stage": j["stage"],
@@ -160,7 +173,7 @@ def list_jobs():
                 for j in sorted(JOBS.values(), key=lambda j: -j["created"])]
 
 
-@app.get("/api/jobs/{job_id}")
+@app.get("/api/jobs/{job_id}", dependencies=[Depends(require_service_token)])
 def get_job(job_id: str):
     with _LOCK:
         job = JOBS.get(job_id)
