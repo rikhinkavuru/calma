@@ -5,7 +5,7 @@
 // (leakage) — the same loop as the spike SPA, but first-party and behind login.
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Claim, Job } from "@/lib/verify";
-import dash from "../dashboard.module.css";
+import dash from "./dashboard.module.css";
 import s from "./verify.module.css";
 
 const PROBLEMS = ["REFUTED", "INVALIDATED", "NON-DETERMINISTIC"];

@@ -24,8 +24,7 @@ const NAV_ITEMS: CardNavItem[] = [
     bgColor: "#1a1610",
     textColor: "#e9ddc4",
     links: [
-      { label: "Verify a repo", href: "/dashboard/verify", ariaLabel: "Open the verify dashboard" },
-      { label: "Dashboard", href: "/dashboard", ariaLabel: "Open your dashboard" },
+      { label: "Verify a repo", href: "/dashboard", ariaLabel: "Open the verify dashboard" },
     ],
   },
   {

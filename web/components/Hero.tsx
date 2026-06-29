@@ -37,7 +37,7 @@ export function Hero() {
           <div className="hero__cta">
             {/* primary CTA → the verify flow inside the WorkOS-gated dashboard. Anonymous users hit the
                 sign-in card first; the dashboard proxies submissions to the verification API server-side. */}
-            <a className="btn-primary" href="/dashboard/verify">
+            <a className="btn-primary" href="/dashboard">
               Verify a repo <span className="arrow" aria-hidden="true">→</span>
             </a>
             <a className="btn-ghost" href="/install">Install the CLI</a>

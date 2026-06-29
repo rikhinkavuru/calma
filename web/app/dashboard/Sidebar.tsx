@@ -3,8 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
-  FiGrid, FiUploadCloud, FiKey, FiBookOpen, FiFileText, FiList,
-  FiSearch, FiLogOut, FiExternalLink,
+  FiBookOpen, FiFileText, FiList, FiSearch, FiLogOut, FiExternalLink, FiCheckCircle,
 } from "react-icons/fi";
 import styles from "./dashboard.module.css";
 
@@ -13,20 +12,13 @@ type NavGroup = { head?: string; items: NavItem[] };
 
 const GROUPS: NavGroup[] = [
   {
-    items: [
-      { href: "/dashboard", label: "Overview", icon: <FiGrid /> },
-      { href: "/dashboard/submit", label: "Submit", icon: <FiUploadCloud /> },
-    ],
-  },
-  {
-    head: "Developer",
-    items: [{ href: "/dashboard/keys", label: "API keys", icon: <FiKey /> }],
+    items: [{ href: "/dashboard", label: "Verify a repo", icon: <FiCheckCircle /> }],
   },
   {
     head: "Resources",
     items: [
-      { href: "/recipes", label: "Recipes", icon: <FiBookOpen />, external: true },
       { href: "/install", label: "Docs", icon: <FiFileText />, external: true },
+      { href: "/recipes", label: "Recipes", icon: <FiBookOpen />, external: true },
       { href: "/registry", label: "Registry", icon: <FiList />, external: true },
     ],
   },
