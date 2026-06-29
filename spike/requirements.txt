@@ -1,0 +1,11 @@
+# Calma verification backend (spike/server.py). Pinned to the proven local venv (~/.calma/spike-venv).
+# Pure-stdlib core does the trusted recompute; numpy/sklearn/scipy back the validation + flywheel synth.
+# The GitHub App connector is stdlib + openssl (no PyJWT/cryptography). Untrusted code runs in E2B, not here.
+fastapi==0.138.1
+uvicorn[standard]==0.49.0
+numpy==2.5.0
+scikit-learn==1.9.0
+scipy==1.18.0
+pandas==3.0.3
+PyYAML==6.0.3
+e2b==2.30.0

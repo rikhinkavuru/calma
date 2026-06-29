@@ -13,10 +13,9 @@ export async function GET(req: Request) {
   const origin = new URL(req.url).origin;
   if (!user && !devTenant) return NextResponse.redirect(new URL("/dashboard", origin));
 
-  const slug = process.env.GITHUB_APP_SLUG || process.env.NEXT_PUBLIC_GITHUB_APP_SLUG || "";
-  if (!slug) {
-    // App not registered / slug not configured — bounce back with a hint instead of a broken link.
-    return NextResponse.redirect(new URL("/dashboard?github=unconfigured", origin));
-  }
+  // The app slug is PUBLIC (it's the github.com/apps/<slug> install URL) and stable, so it defaults to the
+  // registered Calma App — no env config needed for the connect button to work on any deploy. Override via
+  // GITHUB_APP_SLUG if the App is ever re-registered under a different slug.
+  const slug = process.env.GITHUB_APP_SLUG || process.env.NEXT_PUBLIC_GITHUB_APP_SLUG || "calma-verify";
   return NextResponse.redirect(`https://github.com/apps/${slug}/installations/new`);
 }

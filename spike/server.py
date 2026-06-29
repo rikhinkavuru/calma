@@ -48,6 +48,12 @@ app = FastAPI(title="Calma — the correctness layer")
 # local dev/admin surface and is not token-gated.
 _VERIFY_TOKEN = (os.environ.get("CALMA_VERIFY_TOKEN") or os.environ.get("CALMA_SERVICE_TOKEN") or "").strip()
 
+# SAFETY: a PUBLIC backend runs code from repos that strangers submit. The local runner executes that code as
+# a host subprocess (no isolation) — only safe for your own machine / curated repos. On any shared/public
+# deployment set CALMA_FORCE_E2B=1: every run is forced into the E2B Firecracker microVM (network-denied,
+# ephemeral), and a `local` request is refused. Fail-closed is the rule.
+_FORCE_E2B = os.environ.get("CALMA_FORCE_E2B", "").strip().lower() not in ("", "0", "false", "no")
+
 
 def require_service_token(x_calma_service_token: str | None = Header(default=None)):
     if _VERIFY_TOKEN and x_calma_service_token != _VERIFY_TOKEN:
@@ -155,6 +161,9 @@ def run_job(job, req: VerifyReq):
 
 @app.post("/api/verify", dependencies=[Depends(require_service_token)])
 def verify(req: VerifyReq):
+    # On a public deployment, never run untrusted code on the host — force the isolated E2B path.
+    if _FORCE_E2B:
+        req.runner = "e2b"
     job_id = uuid.uuid4().hex[:12]
     job = {"id": job_id, "repo": req.repo, "runner": req.runner, "deep": req.deep,
            "status": "queued", "stage": "queued", "created": time.time(), "updated": time.time(),

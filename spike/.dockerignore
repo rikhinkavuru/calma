@@ -1,0 +1,10 @@
+# keep the image lean: ship the engine, not the test/scratch/output artifacts
+tests/
+results/repos/
+results/.venvs/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+web.sh
+helix/
+*.pem
