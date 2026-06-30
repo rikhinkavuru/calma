@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import threading
 
 _LOCK = threading.Lock()
@@ -105,6 +106,50 @@ def _result_scalar(r):
         return None
 
 
+# ---- call-site provenance (the binding signal) ----------------------------------------------------
+_PREFIXES = tuple(p for p in {sys.prefix, sys.base_prefix} if p)
+
+
+def _call_site():
+    """Walk past this shim's own frames to the real caller. Returns (site, user_site): site = file:line of
+    the call; user_site = True when the call originates in the REPO's own code, False when it comes from
+    inside a library (sklearn's GridSearchCV / CV scorers live in site-packages). This is what lets the
+    binder collapse a metric's 31 library-internal computations down to the one the repo's code computed —
+    the headline number — without ever looking at the value."""
+    try:
+        f = sys._getframe(1)
+    except Exception:  # noqa: BLE001
+        return None, True
+    while f is not None:
+        fn = f.f_code.co_filename
+        if fn.endswith("calma_capture.py"):
+            f = f.f_back
+            continue
+        is_lib = ("site-packages" in fn or "dist-packages" in fn
+                  or any(fn.startswith(p) for p in _PREFIXES) or fn.startswith("<"))
+        base = fn.rsplit("/", 1)[-1]
+        return "%s:%d" % (base, f.f_lineno), (not is_lib)
+    return None, True
+
+
+def _nsamples(inputs):
+    """Size of the evaluation (n samples) — for the held-out/train split heuristic. Cheap len of the first
+    array-like input (prefer y_true)."""
+    for key in ("y_true", "y_score", "y_pred"):
+        v = inputs.get(key)
+        if v is not None:
+            try:
+                return int(len(v))
+            except (TypeError, ValueError):
+                pass
+    for v in inputs.values():
+        try:
+            return int(len(v))
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
 # ---- the JSONL sink -------------------------------------------------------------------------------
 def record(metric, value, *, sink="explicit", label=None, kwargs=None, **inputs):
     """Public explicit-capture API (and the internal recorder). Records one captured computation."""
@@ -120,8 +165,10 @@ def record(metric, value, *, sink="explicit", label=None, kwargs=None, **inputs)
             full = False
         else:
             ser_inputs[k] = sv
+    site, user_site = _call_site()
     entry = {"sink": sink, "metric": metric, "kwargs": _safe_kwargs(kwargs),
-             "result": _result_scalar(value), "captured_full": full}
+             "result": _result_scalar(value), "captured_full": full,
+             "site": site, "user_site": user_site, "n": _nsamples(inputs)}
     if full:
         entry["inputs"] = ser_inputs
     if label is not None:

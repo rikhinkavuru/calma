@@ -38,9 +38,13 @@ def _finite_float(x):
     return f if (f == f and f not in (float("inf"), float("-inf"))) else None
 
 
-def _bind(claim, calls) -> dict:
-    """Select the captured call this claim refers to. Returns
-    {"bound","ambiguous","reason","selector","call"} where selector = (kind, key) replays across runs."""
+# split tokens that name a HELD-OUT evaluation vs the training set (for size-based disambiguation)
+_HELDOUT = ("test", "testing", "val", "valid", "validation", "holdout", "heldout", "dev", "oos", "eval")
+_TRAIN = ("train", "training")
+
+
+def _candidates(claim, calls):
+    """Calls matching the claim's metric, after any explicit sink/label hint. (raw, cid, list, hint)."""
     cid, raw = _claim_cid(claim)
     cands = [c for c in calls if _matches(c, cid, raw)]
     hint = claim.get("bind") or {}
@@ -48,31 +52,52 @@ def _bind(claim, calls) -> dict:
         cands = [c for c in cands if hint["sink"] in (c.get("sink") or "")]
     if hint.get("label"):
         cands = [c for c in cands if c.get("label") == hint["label"]]
+    return cid, raw, cands, hint
+
+
+def _bound_call(claim, calls):
+    """Pick the ONE captured call a claim refers to — identically across runs (so the determinism replay is
+    consistent). Disambiguation order, NONE of which looks at the value (that would hide a REFUTED):
+      1. explicit occurrence hint;
+      2. collapse library-internal calls — prefer the repo's OWN computation (GridSearchCV / CV scorers run
+         the metric dozens of times inside sklearn; the headline is the one the repo's code computed);
+      3. split-by-size — a held-out split is the smaller eval, train the larger (size, not value; worst case
+         is a false REFUTED, never a false CONFIRMED).
+    Returns (call | None, status, reason) with status in {bound, ambiguous, unbound}."""
+    cid, raw, cands, hint = _candidates(claim, calls)
     if not cands:
-        return {"bound": False, "ambiguous": False,
-                "reason": "no captured computation of %r%s" % (raw, " matching the hint" if hint else "")}
+        return None, "unbound", "no captured computation of %r%s" % (raw, " matching the hint" if hint else "")
+
     occ = hint.get("occurrence")
     if occ is not None:
-        cands_sorted = sorted(cands, key=lambda c: c.get("seq", 0))
-        if 0 <= occ < len(cands_sorted):
-            call = cands_sorted[occ]
-            return {"bound": True, "ambiguous": False, "reason": "hint occurrence %d" % occ,
-                    "selector": ("occ", cid, raw, occ), "call": call}
-        return {"bound": False, "ambiguous": False,
-                "reason": "hint occurrence %d out of range (%d candidates)" % (occ, len(cands_sorted))}
+        s = sorted(cands, key=lambda c: c.get("seq", 0))
+        if 0 <= occ < len(s):
+            return s[occ], "bound", "hint occurrence %d" % occ
+        return None, "unbound", "hint occurrence %d out of range (%d candidates)" % (occ, len(s))
+
     if len(cands) == 1:
-        return {"bound": True, "ambiguous": False, "reason": "unique candidate",
-                "selector": ("occ", cid, raw, 0), "call": cands[0]}
+        return cands[0], "bound", "unique candidate"
+
+    pfx = ""
+    user = [c for c in cands if c.get("user_site")]
+    if user and len(user) < len(cands):
+        pfx = "bound to the repo's own computation (collapsed %d library-internal call(s)); " % (len(cands) - len(user))
+        cands = user
+        if len(cands) == 1:
+            return cands[0], "bound", pfx + "unique repo-code candidate"
+
+    split = (claim.get("split") or "").lower()
+    sizes = [c.get("n") for c in cands]
+    if split and all(isinstance(n, int) for n in sizes) and len(set(sizes)) == len(sizes):
+        s = sorted(cands, key=lambda c: c.get("n"))
+        if split in _HELDOUT:
+            return s[0], "bound", pfx + "split=%s → the smaller held-out computation (n=%d)" % (split, s[0].get("n"))
+        if split in _TRAIN:
+            return s[-1], "bound", pfx + "split=%s → the larger training computation (n=%d)" % (split, s[-1].get("n"))
+
     sinks = sorted({c.get("sink") or "?" for c in cands})
-    return {"bound": False, "ambiguous": True,
-            "reason": "%d candidate computations of %r (%s)" % (len(cands), raw, ", ".join(sinks))}
-
-
-def _select(calls, selector):
-    """Replay a binding selector against another run's calls (for the determinism check)."""
-    kind, cid, raw, occ = selector
-    cands = sorted([c for c in calls if _matches(c, cid, raw)], key=lambda c: c.get("seq", 0))
-    return cands[occ] if 0 <= occ < len(cands) else None
+    return None, "ambiguous", pfx + "%d candidate computations of %r (%s) — scope the claim (split/occurrence)" % (
+        len(cands), raw, ", ".join(sinks))
 
 
 def diff_claim(claim, runs, resolver=None) -> dict:
@@ -82,10 +107,11 @@ def diff_claim(claim, runs, resolver=None) -> dict:
     catalog doesn't know (the synth/store flywheel). Keeping it injected leaves core pure-stdlib."""
     cid, raw = _claim_cid(claim)
     base_calls = runs[0] if runs else []
-    binding = _bind(claim, base_calls)
-    rec = {"claim": claim, "binding": {k: binding[k] for k in ("bound", "ambiguous", "reason")}}
+    call, status, reason = _bound_call(claim, base_calls)
+    binding = {"bound": status == "bound", "ambiguous": status == "ambiguous", "reason": reason}
+    rec = {"claim": claim, "binding": dict(binding)}
 
-    if not binding.get("bound"):
+    if status != "bound":
         v = VD.decide(claimed_raw=claim.get("value"), produced=None, recomputed=None,
                       recompute_known=cid is not None, binding=binding,
                       determinism={"tested": False, "stable": False, "spread": 0.0, "k": len(runs)},
@@ -93,7 +119,6 @@ def diff_claim(claim, runs, resolver=None) -> dict:
         rec.update(v)
         return rec
 
-    call = binding["call"]
     produced = _finite_float(call.get("result"))
     inputs = call.get("inputs") if call.get("captured_full", True) else None
 
@@ -116,12 +141,12 @@ def diff_claim(claim, runs, resolver=None) -> dict:
     # validity overlay on the captured inputs
     validity = V.check(raw, inputs, produced) if inputs is not None else {"invalidating": [], "advisory": []}
 
-    # determinism: is the produced value stable across runs?
-    sel = binding["selector"]
+    # determinism: is the produced value stable across runs? Reapply the SAME binding logic to each run
+    # (same code → same call structure → the corresponding computation), so we compare like with like.
     produced_each = []
     for r in runs:
-        c = _select(r, sel)
-        pv = _finite_float(c.get("result")) if c else None
+        c, st, _ = _bound_call(claim, r)
+        pv = _finite_float(c.get("result")) if (st == "bound" and c) else None
         if pv is not None:
             produced_each.append(pv)
     if len(produced_each) >= 2:
