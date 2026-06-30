@@ -18,6 +18,10 @@ _ENTRY_NAMES = ("reproduce.py", "run.py", "main.py", "eval.py", "evaluate.py", "
 _RUN_RE = re.compile(r"python3?\s+(-m\s+[\w.]+|[\w./-]+\.py)(?:\s+[^\n`]*)?", re.I)
 # packaging/scaffolding scripts that are never the headline entrypoint
 _NOT_ENTRY = {"setup.py", "conftest.py", "__init__.py", "_version.py", "version.py", "setup_helpers.py"}
+# `python -m <module>` README commands that are ENV SETUP, not the eval entrypoint — a README routinely shows
+# `python -m venv ...` / `python -m pip install ...` BEFORE the real run command; picking those breaks the
+# run (e.g. `python -m venv` with no target dir). Skip them and keep scanning for the actual entrypoint.
+_SETUP_MODULES = {"venv", "virtualenv", "pip", "ensurepip", "pipenv", "poetry", "build", "twine", "uv", "conda"}
 
 
 def _root_scripts(repo_dir):
@@ -45,6 +49,9 @@ def detect_entrypoint(repo_dir):
         for m in _RUN_RE.finditer(text):
             tok = m.group(1)
             if tok.startswith("-m"):
+                mod = (tok.split() + [""])[1].split(".")[0]
+                if mod in _SETUP_MODULES:
+                    continue                            # env setup (venv/pip/...), not the eval entrypoint
                 return tok.split()                      # python -m pkg.mod
             if os.path.isfile(os.path.join(repo_dir, os.path.basename(tok))):
                 return [os.path.basename(tok)]

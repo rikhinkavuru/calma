@@ -30,6 +30,18 @@ def test_detect_ignores_setup_py(tmp_path):
     assert build.detect_entrypoint(str(tmp_path)) == ["run.py"]
 
 
+def test_detect_skips_readme_env_setup_commands(tmp_path):
+    # A README routinely shows `python -m venv ...` / `python -m pip ...` (env setup) BEFORE the real run
+    # command. Picking the setup module produced `python -m venv` with no target dir and broke the run on
+    # real repos (e.g. ml-in-10-lines). Skip setup modules, keep scanning for the actual entrypoint.
+    (tmp_path / "iris.py").write_text("print(1)\n")
+    (tmp_path / "helpers.py").write_text("x = 1\n")    # >1 script so the README is the disambiguator
+    (tmp_path / "README.md").write_text(
+        "## setup\npython3 -m venv iris-venv\npython -m pip install -r requirements.txt\n"
+        "## run\npython iris.py\n")
+    assert build.detect_entrypoint(str(tmp_path)) == ["iris.py"]
+
+
 def test_infer_requirements_txt_wins(tmp_path):
     (tmp_path / "requirements.txt").write_text("scikit-learn==1.3.0\nnumpy  # pinned later\n-r other.txt\n\n")
     (tmp_path / "m.py").write_text("import torch\n")    # ignored: declared deps win

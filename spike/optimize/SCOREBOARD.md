@@ -165,3 +165,18 @@ main work — flag for the founder).
   the hard repos and correctly fail closed; a denominator effect, FCR still 0. The 2 non-runs are real repo
   bugs (classifier-on-continuous; NaN-to-estimator) → env-pinning territory (concurrent session). **The loop
   is now validated on REAL code, not just synthetics: FCR=0, correct verdicts, correct fail-closure.**
+
+## Phase 2 — real-repo tooling (post-loop, 2026-06-30, on main)
+- **CI fixed (was red on EVERY commit):** `fastapi`+`httpx` were missing from `.github/workflows/ci.yml`,
+  so test_server_auth errored. Now green — the 7 franchise gates run in CI on every push/PR.
+- **`optimize/corpus_run.py`** — low-friction live runner: a BARE repo URL → clone HEAD → detect entrypoint
+  → infer deps → discover → verify. The harness for "test on tons of random repos." Local + `--e2b`.
+- **Notebook support (pure-stdlib `.ipynb`→`.py`)** — most real ML repos are notebooks, not scripts; this
+  is the make-runnable unlock. Validated: a real breast-cancer notebook materialized + ran + produced verdicts.
+- **Make-runnable bug FIXED:** `detect_entrypoint` matched README env-setup commands (`python -m venv …`)
+  as the entrypoint → broke the run. Now skips setup modules (`runner/build.py` + test). +14% reproduction.
+- **Batch-1 (7 repos): reproduction 57%, binding 100%, FCR 0, verdict-accuracy 1.0** (3/3 graded). Non-runs
+  are real externalities: external Colab/Kaggle data ("connect your data" need), sklearn version-drift
+  (`plot_roc_curve` removed — env-pinning territory), a notebook that ran but reported no recognizable metric.
+- **Known edge (deferred):** one repo hit RecursionError under the auto-runner yet still produced the correct
+  CONFIRMED verdict (FCR-safe). Corpus curation to n=50-100 is the founder's "test on tons of repos" phase.

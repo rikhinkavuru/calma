@@ -1,0 +1,10 @@
+# Seed live corpus for optimize/corpus_run.py. One repo URL per line; optional expected headline verdict.
+# graded .py controls — validate the auto-runner + FCR on repos we already know
+https://github.com/sroiis/iris-ml-classifier.git                       CONFIRMED
+https://github.com/sanjaynela/ml-in-10-lines.git                       REFUTED
+https://github.com/grandhibhoomika-cloud/iris-svm-classification.git   CONFIRMED
+# NOTEBOOK repos — the real-world majority; validate the .ipynb->.py materialization
+https://github.com/Usama-Amjad/BreastCancer-Prediction-SkLearn
+https://github.com/GrzegorzWitkowski1/Heart-Disease-classification-sklearn
+https://github.com/pratzie100/Digits_Classification_Sklearn
+https://github.com/aemanashrah/Breast-Cancer-Prediction-SKLEARN
