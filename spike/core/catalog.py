@@ -216,6 +216,80 @@ def roc_auc(inputs, kwargs) -> dict:
     return result(auc, pos_label=pos, n_pos=n_pos, n_neg=n_neg)
 
 
+def _confusion(yt, yp):
+    """(K labels, K×K matrix C[true][pred], n). Labels = sorted union of y_true ∪ y_pred."""
+    labels = sorted(set(yt) | set(yp), key=lambda x: (str(type(x)), str(x)))
+    idx = {lab: i for i, lab in enumerate(labels)}
+    K = len(labels)
+    C = [[0] * K for _ in range(K)]
+    for a, b in zip(yt, yp):
+        C[idx[a]][idx[b]] += 1
+    return labels, C, len(yt)
+
+
+def mcc(inputs, kwargs) -> dict:
+    """Matthews correlation coefficient (binary + multiclass), == sklearn.metrics.matthews_corrcoef.
+    Multiclass via the Gorodkin confusion-matrix identity. Degenerate when a marginal is zero (a class
+    absent from y_true or y_pred → the denominator vanishes; MCC undefined)."""
+    try:
+        yt, yp = _pair(inputs)
+        yt, yp = _as_labels(yt), _as_labels(yp)
+    except ValueError as e:
+        return _degenerate(str(e))
+    _labels, C, n = _confusion(yt, yp)
+    K = len(_labels)
+    correct = sum(C[k][k] for k in range(K))
+    t = [sum(C[k]) for k in range(K)]                       # row sums  (true totals)
+    p = [sum(C[r][k] for r in range(K)) for k in range(K)]  # col sums  (pred totals)
+    num = correct * n - sum(p[k] * t[k] for k in range(K))
+    den = math.sqrt((n * n - sum(x * x for x in p)) * (n * n - sum(x * x for x in t)))
+    if den == 0.0:
+        return _degenerate("MCC denominator is zero (a class is absent in y_true or y_pred)")
+    return result(num / den, n=n)
+
+
+def cohen_kappa(inputs, kwargs) -> dict:
+    """Cohen's kappa (unweighted) = (po - pe)/(1 - pe), == sklearn.metrics.cohen_kappa_score."""
+    try:
+        yt, yp = _pair(inputs)
+        yt, yp = _as_labels(yt), _as_labels(yp)
+    except ValueError as e:
+        return _degenerate(str(e))
+    _labels, C, n = _confusion(yt, yp)
+    K = len(_labels)
+    po = sum(C[k][k] for k in range(K)) / n
+    t = [sum(C[k]) / n for k in range(K)]
+    p = [sum(C[r][k] for r in range(K)) / n for k in range(K)]
+    pe = sum(t[k] * p[k] for k in range(K))
+    if abs(1.0 - pe) < 1e-15:
+        return _degenerate("Cohen's kappa undefined (expected agreement == 1)")
+    return result((po - pe) / (1.0 - pe), n=n)
+
+
+def brier(inputs, kwargs) -> dict:
+    """Brier score (binary) = mean((p - y)^2) with y = 1[label == positive], == sklearn.brier_score_loss.
+    The shim already captures it (brier_score_loss); this makes it first-class instead of reproduced-only."""
+    yt = inputs.get("y_true")
+    yp = inputs.get("y_score", inputs.get("y_pred"))
+    if yt is None or yp is None:
+        return _degenerate("missing y_true/y_score")
+    if len(yt) != len(yp):
+        return _degenerate("length mismatch")
+    if len(yt) == 0:
+        return _degenerate("empty input")
+    labs = _as_labels(yt)
+    classes = sorted(set(labs), key=lambda x: (str(type(x)), str(x)))
+    if len(classes) > 2:
+        return _degenerate("Brier score is binary")
+    try:
+        p = _as_floats(yp)
+    except ValueError as e:
+        return _degenerate(str(e))
+    pos = classes[-1]                                   # sklearn pos_label default = the greater label
+    y = [1.0 if lab == pos else 0.0 for lab in labs]
+    return result(math.fsum((pi - yi) ** 2 for pi, yi in zip(p, y)) / len(y), n=len(y))
+
+
 # ---- regression -----------------------------------------------------------------------------------
 def _reg(inputs):
     yt, yp = _pair(inputs)
@@ -328,6 +402,9 @@ CATALOG: dict[str, Callable[[dict, dict], dict]] = {
     "recall": _prf_metric("recall"),
     "f1": _prf_metric("f1"),
     "roc_auc": roc_auc,
+    "mcc": mcc,
+    "cohen_kappa": cohen_kappa,
+    "brier": brier,
     "mse": mse,
     "rmse": rmse,
     "mae": mae,
@@ -347,6 +424,9 @@ ALIASES = {
     "mean_squared_error": "mse", "root_mean_squared_error": "rmse",
     "mean_absolute_error": "mae", "r2_score": "r2", "r^2": "r2", "rsquared": "r2", "r_squared": "r2",
     "average": "mean", "avg": "mean", "sharpe_ratio": "sharpe", "sr": "sharpe",
+    "matthews_corrcoef": "mcc", "matthews": "mcc", "mcc_score": "mcc",
+    "cohen_kappa_score": "cohen_kappa", "kappa": "cohen_kappa", "cohens_kappa": "cohen_kappa",
+    "brier_score": "brier", "brier_score_loss": "brier",
 }
 
 

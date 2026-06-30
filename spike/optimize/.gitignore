@@ -1,0 +1,3 @@
+# generated meta-eval outputs — regenerate with the instruments (capture_fixtures.py, measure.py, ...)
+*.json
+captures/

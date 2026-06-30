@@ -38,7 +38,7 @@ _KEYWORDS = [
     (("r2",), "r2"), (("rsquared",), "r2"),
     (("sharpe",), "sharpe"),
     # metrics outside the curated catalog — discoverable, then verified via the synth/store flywheel
-    (("mcc",), "mcc"), (("matthews",), "mcc"),
+    (("mcc",), "mcc"), (("matthews",), "mcc"), (("brier",), "brier"),
     (("cohen", "kappa"), "cohen_kappa"), (("kappa",), "cohen_kappa"), (("spearman",), "spearman"),
     # NB: mean/sum/average are intentionally NOT greedy keywords — they over-match column names like
     # "auroc_mean"/"peak_ram_mb_mean". They stay reachable via an exact alias (a column literally "mean").
@@ -118,6 +118,19 @@ _KV_RE = re.compile(r"([A-Za-z][A-Za-z0-9 _\-/]{1,40}?)\s*[:=]\s*([-+]?\d*\.?\d+
 # markdown table row: | Accuracy | 0.83 |
 _ROW_RE = re.compile(r"\|\s*([A-Za-z][A-Za-z0-9 _\-/]{1,40}?)\s*\|\s*([-+]?\d*\.?\d+%?)\s*\|")
 
+# PROSE forms the "Metric: value" patterns miss (the SOTA value-parse weak spot): a metric word and a nearby
+# number, in either order. map_metric() is the precision gate — only a span that maps to a real catalog
+# metric becomes a claim — so the patterns can be generous. Lower-confidence than structured.
+_MW = (r"(balanced[\s_-]*accuracy|accuracy|acc|auroc|roc[\s_-]*auc|auc|f1[\s_-]*score|f1|f-score|"
+       r"matthews|mcc|kappa|rmse|mae|mse|r\^?2|r[\s_-]?squared|precision|recall|sharpe)")
+_VAL = r"([-+]?\d*\.?\d+\s*%?)"
+_SPLIT_W = (r"(?:test|testing|val|valid|validation|holdout|held[\s-]*out|train|training|overall|final|"
+            r"mean|average|macro|micro|weighted)")
+# value then metric: "96.67% accuracy", "0.88 AUROC", "95% test accuracy"
+_PROSE_VM = re.compile(_VAL + r"[\s-]+(?:" + _SPLIT_W + r"[\s-]+){0,2}" + _MW, re.I)
+# metric then value via a connector: "F1 score of 0.72", "accuracy of 0.83", "AUC was 0.91", "came out to 95%"
+_PROSE_MV = re.compile(_MW + r"[\w\s,'\-]{0,25}?(?:\bof\b|\bwas\b|\bis\b|\bto\b|[:=])\s*" + _VAL, re.I)
+
 
 def from_text(text, location="text") -> list[dict]:
     if not text:
@@ -135,6 +148,22 @@ def from_text(text, location="text") -> list[dict]:
             seen.add(key)
             claim = {"metric": cid, "value": val.strip(), "location": location,
                      "source": src, "confidence": conf * (1.0 if src == "table" else 0.85)}
+            if split:
+                claim["split"] = split
+            claims.append(claim)
+    # prose pass (metric↔value in either order); structured matches already in `seen` win
+    for rx, mi, vi in ((_PROSE_MV, 1, 2), (_PROSE_VM, 2, 1)):
+        for m in rx.finditer(text):
+            name, val = m.group(mi), m.group(vi).replace(" ", "")
+            cid, split, conf = map_metric(name)
+            if not cid:
+                continue
+            key = (cid, val)
+            if key in seen:
+                continue
+            seen.add(key)
+            claim = {"metric": cid, "value": val.strip(), "location": location,
+                     "source": "prose", "confidence": conf * 0.7}
             if split:
                 claim["split"] = split
             claims.append(claim)

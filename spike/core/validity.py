@@ -34,14 +34,21 @@ def check(metric: str, inputs: dict, produced: float) -> dict:
             else:
                 counts = {c: labs.count(c) for c in classes}
                 majority = max(counts.values()) / len(labs)
-                if cid in ("accuracy", "balanced_accuracy") and produced is not None \
-                        and produced <= majority + 1e-9:
-                    inv.append("accuracy %.4g is at or below the majority-class baseline %.4g — a constant "
-                               "predictor matches it (no signal)" % (produced, majority))
-                elif cid in ("accuracy", "balanced_accuracy") and produced is not None \
-                        and produced <= majority + 0.02:
-                    adv.append("only %.2g above the %.4g majority-class baseline — thin margin"
-                               % (produced - majority, majority))
+                # The score a CONSTANT predictor achieves differs by metric, so the trivial-baseline
+                # threshold must too: raw accuracy → the majority-class fraction; balanced_accuracy →
+                # 1/n_classes (its mean-recall of a constant predictor is 1/n_classes, NOT the majority
+                # fraction). Using `majority` for balanced_accuracy false-INVALIDATES an honest score that
+                # sits between 1/n_classes and the majority fraction.
+                if cid in ("accuracy", "balanced_accuracy") and produced is not None:
+                    base = majority if cid == "accuracy" else 1.0 / len(classes)
+                    desc = ("majority-class baseline %.4g" % base if cid == "accuracy"
+                            else "constant-predictor baseline %.4g (1/%d classes)" % (base, len(classes)))
+                    if produced <= base + 1e-9:
+                        inv.append("%s %.4g is at or below the %s — a constant predictor matches it "
+                                   "(no signal)" % (cid, produced, desc))
+                    elif produced <= base + 0.02:
+                        adv.append("%s %.4g is only %.2g above the %s — thin margin"
+                                   % (cid, produced, produced - base, desc))
     elif cid == "roc_auc":
         if produced is not None and produced <= 0.5 + 1e-9:
             inv.append("ROC-AUC %.4g is at or below chance (0.5) — no discriminative signal" % produced)

@@ -66,20 +66,22 @@ def test_restricted_exec_blocks_imports_and_io():
 
 
 def test_diff_resolves_unknown_metric_to_confirmed(tmp_path):
+    # spearman is NOT in the core catalog (unlike mcc/cohen_kappa, now ported to it), so it is the metric
+    # that genuinely exercises the flywheel-through-diff path: synthesize/recipe → validate → CONFIRMED.
     store = LocalStore(path=str(tmp_path / "s.json"))
     resolver = lambda m, i, k: F.recompute_any(m, i, k, store=store)  # noqa: E731
     rng = random.Random(7)
-    yt = [rng.randint(0, 1) for _ in range(160)]
-    yp = [rng.randint(0, 1) for _ in range(160)]
-    val = float(matthews_corrcoef(yt, yp))
-    call = {"seq": 0, "sink": "sklearn.metrics.matthews_corrcoef", "metric": "mcc",
-            "inputs": {"y_true": yt, "y_pred": yp}, "kwargs": {}, "result": val, "captured_full": True}
+    x = [rng.random() for _ in range(160)]
+    y = [xi * 2.0 + rng.random() * 0.3 for xi in x]      # strongly (monotonically) correlated
+    val = float(spearmanr(x, y)[0])
+    call = {"seq": 0, "sink": "scipy.stats.spearmanr", "metric": "spearmanr",
+            "inputs": {"x": x, "y": y}, "kwargs": {}, "result": val, "captured_full": True}
     runs = [[dict(call)], [dict(call)]]
-    rec = D.diff_claim({"id": "m", "metric": "mcc", "value": "%.4f" % val}, runs, resolver=resolver)
+    rec = D.diff_claim({"id": "m", "metric": "spearmanr", "value": "%.4f" % val}, runs, resolver=resolver)
     assert rec["verdict"] == VD.CONFIRMED, rec
-    # mcc now resolves via the lifted recipe catalog (recipe takes precedence over re-synthesis)
+    # not in the core catalog → resolved through the flywheel (recipe / synth / banked store)
     assert rec["recompute_provenance"] in ("recipe", "synth", "store:local")
 
-    # a misreported MCC -> REFUTED (the flywheel makes it checkable, so it can be broken too)
-    rec2 = D.diff_claim({"id": "m", "metric": "mcc", "value": "%.4f" % (val + 0.2)}, runs, resolver=resolver)
+    # a misreported value -> REFUTED (the flywheel makes it checkable, so it can be broken too)
+    rec2 = D.diff_claim({"id": "m", "metric": "spearmanr", "value": "%.4f" % (val - 0.3)}, runs, resolver=resolver)
     assert rec2["verdict"] == VD.REFUTED, rec2

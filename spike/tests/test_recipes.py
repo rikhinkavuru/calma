@@ -16,7 +16,8 @@ def test_brier_and_logloss_match_sklearn():
     yt = [rng.randint(0, 1) for _ in range(150)]
     ys = [min(max(rng.random(), 0.02), 0.98) for _ in range(150)]
     rb = F.recompute_any("brier_score_loss", {"y_true": yt, "y_score": ys}, {})
-    assert rb["provenance"] == "recipe" and abs(rb["value"] - brier_score_loss(yt, ys)) < 1e-9
+    # brier is now ported to the pure-stdlib CORE catalog (which recompute_any prefers over a recipe)
+    assert rb["provenance"] in ("catalog", "recipe") and abs(rb["value"] - brier_score_loss(yt, ys)) < 1e-9
     rl = F.recompute_any("log_loss", {"y_true": yt, "y_score": ys}, {})
     assert rl["provenance"] == "recipe" and abs(rl["value"] - log_loss(yt, ys)) < 1e-6
 

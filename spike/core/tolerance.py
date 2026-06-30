@@ -77,6 +77,15 @@ def claim_close(claimed_raw, produced: float, kind_hint: str | None = None) -> t
     if val is None or produced is None or not (produced == produced):
         return (False, {"claimed_value": val, "reason": "unparseable claim or non-finite value"})
     if decimals is not None:
+        # A bounded [0,1]-style quantity written as a BARE INTEGER ("1" / "0") means exactly that — not
+        # ±0.5. The half-ULP-of-the-units-digit model (right for counts like "1000 samples") is implausibly
+        # loose here: it would let a claimed "1" swallow a produced 0.9667 (an over-claimed perfect score) —
+        # a FALSE CONFIRM. Use a tight relative check for that case. Large-magnitude integer claims keep
+        # half-ULP. (Found by optimize/corpus_synth.py on a binary recall scenario.)
+        if decimals == 0 and abs(val) <= 1.0:
+            ok = close(val, produced, rtol=5e-4, atol=1e-9)
+            return (ok, {"claimed_value": val, "kind": kind, "tol": "rel5e-4 (bounded integer)",
+                         "delta": abs(val - produced)})
         # half-ULP of the last printed digit, + a small epsilon for float noise in the producer
         tol = 0.5 * (10 ** (-decimals)) + 1e-9 + 1e-9 * abs(val)
         ok = abs(val - produced) <= tol
