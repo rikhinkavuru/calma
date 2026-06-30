@@ -95,15 +95,19 @@ def _imported_roots(py_path):
 
 
 def _local_module_names(repo_dir):
+    """Every name importable from WITHIN the repo — so we never try to pip-install the repo's own modules.
+    Walk the whole tree (not just the root): a top-level `import model` resolves to a `model.py` or `model/`
+    that may live in any source dir. Misclassifying these as PyPI packages is what made `pip install model`
+    abort the whole env build."""
     names = set()
     if not os.path.isdir(repo_dir):
         return names
-    for fn in os.listdir(repo_dir):
-        p = os.path.join(repo_dir, fn)
-        if fn.endswith(".py"):
-            names.add(fn[:-3])
-        elif os.path.isdir(p) and os.path.isfile(os.path.join(p, "__init__.py")):
-            names.add(fn)
+    for root, dirs, files in os.walk(repo_dir):
+        dirs[:] = [d for d in dirs if d not in (".git", "node_modules", "__pycache__", ".venv", "venv", "env")]
+        names.add(os.path.basename(root.rstrip("/")))        # the dir itself = a package candidate
+        for fn in files:
+            if fn.endswith(".py"):
+                names.add(fn[:-3])
     return names
 
 

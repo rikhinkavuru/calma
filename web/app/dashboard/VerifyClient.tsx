@@ -51,36 +51,50 @@ export function VerifyClient() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
-  const loadInstallationRepos = useCallback(async (iid: string) => {
+  // /api/gh/repos works from the App credentials + the installation_id alone — it does NOT depend on the
+  // backend remembering the install (its in-memory map is wiped on every redeploy). So we persist the id
+  // client-side and treat it as the source of truth: repos load on return visits, and the connected state
+  // sticks. Returns whether repos came back (lets us drop a stale/revoked id).
+  const loadInstallationRepos = useCallback(async (iid: string): Promise<boolean> => {
     setGhInstId(iid);
     try {
-      const r = await (await fetch(`/api/github?kind=gh-repos&installation_id=${encodeURIComponent(iid)}`, { cache: "no-store" })).json();
-      if (Array.isArray(r)) setGhRepos(r);
+      const res = await fetch(`/api/github?kind=gh-repos&installation_id=${encodeURIComponent(iid)}`, { cache: "no-store" });
+      const r = await res.json();
+      if (res.ok && Array.isArray(r)) { setGhRepos(r); return r.length > 0; }
     } catch { /* needs the verify backend reachable */ }
+    return false;
   }, []);
 
   useEffect(() => {
     let alive = true;
-    // Just installed the App? GitHub redirected here with ?installation_id=… — adopt it directly (works even
-    // before the backend has recorded it) and tidy the URL.
+    const LS_KEY = "calma_gh_installation_id";
+    // 1) just installed? GitHub redirected here with ?installation_id=… — adopt + remember it, tidy the URL.
     const params = new URLSearchParams(window.location.search);
-    const fromInstall = params.get("installation_id");
-    if (fromInstall) {
-      setInstallationId(fromInstall);
-      loadInstallationRepos(fromInstall);
+    let iid = params.get("installation_id");
+    if (iid) {
+      try { localStorage.setItem(LS_KEY, iid); } catch { /* private mode */ }
       window.history.replaceState({}, "", "/dashboard");
+    }
+    // 2) else reuse a remembered install (survives backend redeploys).
+    if (!iid) { try { iid = localStorage.getItem(LS_KEY); } catch { iid = null; } }
+    if (iid) {
+      setInstallationId(iid);
+      const adopted = iid;
+      loadInstallationRepos(adopted).then((ok) => {
+        if (!ok) { try { localStorage.removeItem(LS_KEY); } catch { /**/ } }  // stale/revoked → forget it
+      });
     }
     (async () => {
       try {
         const c: GithubConfig = await (await fetch("/api/github?kind=config", { cache: "no-store" })).json();
         if (alive) setCfg(c.github);
-        if (!fromInstall && c.github?.connected) {
+        if (!iid && c.github?.connected) {                 // backend still remembers an install
           const insts = await (await fetch("/api/github?kind=installations", { cache: "no-store" })).json();
-          const iid = Array.isArray(insts) && insts[0]?.installation_id;
-          if (iid && alive) loadInstallationRepos(iid);
+          const bid = Array.isArray(insts) && insts[0]?.installation_id;
+          if (bid && alive) { setInstallationId(bid); loadInstallationRepos(bid); }
         }
-      } catch { /* config/connect is best-effort */ }
-      try {
+      } catch { /* config is best-effort */ }
+      try {                                                 // operator's gh repos (local dev only; [] in prod)
         const mine = await (await fetch("/api/github?kind=repos", { cache: "no-store" })).json();
         if (alive && Array.isArray(mine)) setMyRepos(mine);
       } catch (e) { if (alive) setReposErr(e instanceof Error ? e.message : String(e)); }
@@ -140,6 +154,7 @@ export function VerifyClient() {
   const problems = PROBLEMS.reduce((n, v) => n + (counts[v] || 0), 0);
   const clean = counts.CONFIRMED || 0;
   const leak = job?.leakage || [];
+  const connected = !!installationId || !!cfg?.connected;   // a known install (client-remembered or backend)
 
   const claims: Claim[] = (job?.claims || [])
     .filter((c) => (filter === "PROBLEMS" ? PROBLEMS.includes(c.verdict) : true))
@@ -171,41 +186,52 @@ export function VerifyClient() {
       <div className={s.opts}>
         <label>
           <input type="checkbox" checked={deep} onChange={(e) => setDeep(e.target.checked)} />
-          Deep verify (re-run the entrypoint)
+          Deep verify (re-run the code to recompute the numbers)
         </label>
-        {deep && (
-          <>
-            <input
-              className={`${dash.input} ${s.entry}`}
-              placeholder="entrypoint, e.g. eval.py (auto-detected)"
-              value={entry}
-              onChange={(e) => setEntry(e.target.value)}
-              spellCheck={false}
-            />
-            <input
-              className={`${dash.input} ${s.entry}`}
-              placeholder="extra deps, e.g. scikit-learn pandas (auto-inferred)"
-              value={pip}
-              onChange={(e) => setPip(e.target.value)}
-              spellCheck={false}
-            />
-          </>
-        )}
       </div>
 
-      {/* GitHub connect: install the App (interactive redirect to the verify service) + state hint */}
+      {/* Advanced: entrypoint + deps are auto-detected/inferred; this is the manual override. */}
+      {deep && (
+        <details className={s.advanced}>
+          <summary className={s.advancedSummary}>Advanced settings</summary>
+          <div className={s.advancedBody}>
+            <label className={s.advField}>
+              <span>Entrypoint</span>
+              <input
+                className={`${dash.input} ${s.entry}`}
+                placeholder="auto-detected, e.g. eval.py"
+                value={entry}
+                onChange={(e) => setEntry(e.target.value)}
+                spellCheck={false}
+              />
+            </label>
+            <label className={s.advField}>
+              <span>Extra dependencies</span>
+              <input
+                className={`${dash.input} ${s.entry}`}
+                placeholder="auto-inferred, e.g. scikit-learn pandas"
+                value={pip}
+                onChange={(e) => setPip(e.target.value)}
+                spellCheck={false}
+              />
+            </label>
+          </div>
+        </details>
+      )}
+
+      {/* GitHub connect: install the App (interactive redirect) + state hint */}
       <div className={s.connect}>
         <a className={`${dash.btn} ${dash.btnGhost ?? ""} ${s.ghBtn}`} href={CONNECT_URL}>
           <GithubMark />
-          {cfg?.connected ? "GitHub connected — add repos" : "Connect GitHub"}
+          {connected ? "GitHub connected — add repos" : "Connect GitHub"}
           {cfg && !cfg.configured ? " (setup)" : ""}
         </a>
         <span className={dash.muted} style={{ fontSize: 12 }}>
-          {cfg?.connected
+          {connected
             ? "pick a connected repo below"
-            : cfg?.configured
-              ? "install the Calma App on your repos"
-              : "one-time App registration (see spike/connect/CONNECT.md) — or paste a repo / local path above"}
+            : cfg?.configured === false
+              ? "one-time App registration (see spike/connect/CONNECT.md) — or paste a repo / local path above"
+              : "install the Calma App on your repos — or paste a repo / local path above"}
         </span>
       </div>
 

@@ -55,3 +55,18 @@ def test_infer_from_imports_maps_and_filters(tmp_path):
     assert "numpy" in reqs
     assert "os" not in reqs and "sys" not in reqs and "json" not in reqs   # stdlib dropped
     assert "helpers" not in reqs                                            # local dropped
+
+
+def test_infer_excludes_local_modules_in_subdirs(tmp_path):
+    """The DRIFT bug: local modules living in subdirs (imported as top-level on sys.path) must NOT be
+    treated as PyPI packages — `pip install model` aborted the whole env build."""
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "model.py").write_text("class M: pass\n")
+    (src / "dataset.py").write_text("data = []\n")
+    (tmp_path / "embed").mkdir()
+    (tmp_path / "embed" / "__init__.py").write_text("")
+    (src / "run.py").write_text("import model\nimport dataset\nimport embed\nimport torch\nimport numpy\n")
+    reqs, src_note = build.infer_requirements(str(tmp_path))
+    assert "model" not in reqs and "dataset" not in reqs and "embed" not in reqs   # local, excluded
+    assert "torch" in reqs and "numpy" in reqs                                      # real deps kept

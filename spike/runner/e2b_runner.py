@@ -18,6 +18,7 @@ Two network postures:
 from __future__ import annotations
 
 import json
+import shlex
 import os
 import tempfile
 import time
@@ -86,7 +87,7 @@ def _upload_dir(sbx, local_dir, dest):
 
 
 def run_e2b(repo_dir, entry, *, k=2, hooks="sklearn", targets=None, timeout=600,
-            allow_internet=False, pip_install=None, cfg=None, max_elems=None):
+            allow_internet=False, pip_install=None, pip_strict=True, cfg=None, max_elems=None):
     cfg = cfg or e2b_config(os.path.join(os.path.dirname(CAPTURE_DIR), os.pardir, ".env"))
     if not cfg.get("api_key"):
         return {"runs": [], "meta": [], "ran_ok": False, "error": "no E2B api key configured",
@@ -106,7 +107,17 @@ def run_e2b(repo_dir, entry, *, k=2, hooks="sklearn", targets=None, timeout=600,
                     sbx.files.write("/capture/" + fn, fh.read())
             _upload_dir(sbx, repo_dir, "/work")
             if pip_install:
-                sbx.commands.run("pip install -q " + " ".join(pip_install), timeout=timeout)
+                if pip_strict:
+                    # declared deps (requirements.txt) — a failure is real, let it surface
+                    sbx.commands.run("pip install -q " + " ".join(pip_install), timeout=timeout)
+                else:
+                    # INFERRED deps — install per-package, tolerating misses, so one wrong guess doesn't
+                    # abort the whole env (the run then fails clearly on a genuinely-missing import).
+                    for pkg in pip_install:
+                        try:
+                            sbx.commands.run("pip install -q %s" % shlex.quote(pkg), timeout=timeout)
+                        except Exception:  # noqa: BLE001
+                            pass
             envs = {"PYTHONPATH": "/capture", "CALMA_CAPTURE_OUT": "/capture/calls.jsonl",
                     "CALMA_CAPTURE_HOOKS": hooks, "CALMA_RUN_INDEX": str(i)}
             if targets:

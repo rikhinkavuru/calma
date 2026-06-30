@@ -181,9 +181,10 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace):
         # The E2B sandbox starts clean, so deps must be installed. If the caller didn't list them, infer:
         # requirements.txt, else the repo's actual imports. (Local runs use the harness python, which already
         # has the scientific stack — so we only auto-infer here, keeping local dev/tests offline + fast.)
-        pip = opts.pip_install
+        pip, strict = opts.pip_install, True
         if not pip:
             pip, why = build.infer_requirements(repo_dir)
+            strict = (why == "requirements.txt")          # inferred deps install tolerantly (best-effort)
             if pip:
                 trace.note("auto-deps (%s): %s" % (why, " ".join(pip)[:160]))
             else:
@@ -196,6 +197,7 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace):
             hooks=opts.hooks,
             targets=opts.targets,
             pip_install=pip,
+            pip_strict=strict,
             timeout=opts.timeout,
         ), entry
 
