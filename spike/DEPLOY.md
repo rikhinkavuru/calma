@@ -20,22 +20,25 @@ flyctl auth login
 
 cd spike
 
-# 2. create the app (uses fly.toml; don't let it overwrite the file or deploy yet)
-flyctl apps create calma-verify    # or `flyctl launch --no-deploy --copy-config`
+# 2. create the app (note: Fly's abuse filter blocks names containing "verify", hence calma-engine)
+flyctl apps create calma-engine
 
-# 3. secrets (NOT in fly.toml). The verify token must MATCH CALMA_VERIFY_TOKEN on Vercel.
-flyctl secrets set \
+# 3. secrets (NOT in fly.toml). The verify token must MATCH CALMA_VERIFY_TOKEN on the Vercel web project.
+#    E2B vars are CALMA_E2B_* (what runner/e2b_runner.py reads), not E2B_API_KEY.
+flyctl secrets set -a calma-engine \
   CALMA_VERIFY_TOKEN="$(openssl rand -hex 32)" \
-  E2B_API_KEY="<your e2b key>" \
+  CALMA_E2B_API_KEY="<your e2b key>" \
+  CALMA_E2B_ENDPOINT="e2b.dev" \
+  CALMA_E2B_TEMPLATE="base" \
   CALMA_GH_APP_ID="4163291" \
   CALMA_GH_APP_SLUG="calma-verify" \
-  CALMA_GH_PRIVATE_KEY="$(cat /path/to/calma-verify.private-key.pem)"
+  CALMA_GH_PRIVATE_KEY="$(cat /path/to/calma-verify.pem)"
 
-# 4. ship it
-flyctl deploy
+# 4. ship it (single machine — jobs are in-memory)
+flyctl deploy --ha=false -a calma-engine
 
-# 5. health check (replace with your app URL)
-curl -s https://calma-verify.fly.dev/api/config   # -> {"internal":false,"github":{"configured":true,...}}
+# 5. health check
+curl -s https://calma-engine.fly.dev/api/config   # -> {"internal":false,"github":{"configured":true,...}}
 ```
 
 ## Point the dashboard + GitHub App at it
@@ -43,14 +46,14 @@ curl -s https://calma-verify.fly.dev/api/config   # -> {"internal":false,"github
 On the **Vercel web project** (calma1), set and redeploy:
 
 ```
-CALMA_VERIFY_API_URL = https://calma-verify.fly.dev
+CALMA_VERIFY_API_URL = https://calma-engine.fly.dev
 CALMA_VERIFY_TOKEN   = <the same token you set on Fly in step 3>
 ```
 
 In the **GitHub App** settings, set the webhook host to the backend:
 
 ```
-Webhook URL → https://calma-verify.fly.dev/connect/github/webhook
+Webhook URL → https://calma-engine.fly.dev/connect/github/webhook
 ```
 
 (The App's Setup/Callback URL stays on the dashboard: `https://calma1.vercel.app/api/github/setup`.)

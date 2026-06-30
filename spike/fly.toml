@@ -1,6 +1,6 @@
 # Calma verification backend on Fly.io. A persistent single instance (jobs are in-memory MVP, so don't
 # scale to zero mid-run). Secrets are set via `flyctl secrets set` (see DEPLOY.md), never committed here.
-app = "calma-verify"
+app = "calma-engine"   # the verification backend ("verify"/"calma-verify" is blocked by Fly's abuse filter)
 primary_region = "sjc"
 
 [build]
