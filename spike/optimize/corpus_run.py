@@ -107,8 +107,10 @@ def run_one(url, expect, args):
     n_nb = materialize_notebooks(repo_dir)              # notebooks → .py so they become runnable
     deps, why = build.infer_requirements(repo_dir)
     era = None
-    if why == "inferred from imports" and not args.no_era:
-        deps, era = build.era_pin(deps, repo_dir)       # pin inferred deps to the repo's era (version-drift fix)
+    if why == "inferred from imports" and not args.no_era and args.e2b:
+        # era packages need an era PYTHON (provisioned via uv in the E2B path) — old wheels don't exist for
+        # the local runner's bleeding-edge Python, so era-pin only when sandboxed.
+        deps, era = build.era_pin(deps, repo_dir)
     opts = VerifyOptions(runner=("e2b" if args.e2b else "local"), deep=True, discover=True,
                          pip_install=(None if args.e2b else deps), k=args.k, job_id=spec["name"],
                          venvs_dir=os.path.join(args.out, ".venvs"), timeout=args.timeout)
