@@ -36,6 +36,7 @@ from pydantic import BaseModel  # noqa: E402
 from connect import github_app as GH  # noqa: E402  — the GitHub App connector (anyone connects their repos)
 import graph as GRAPH  # noqa: E402
 import pipeline as PIPE  # noqa: E402  — the verification orchestration (discover → run → diff → validity)
+from runner import supervisor as SUP  # noqa: E402  — process-isolation: heavy work runs in a capped child
 from synth import formula as SYNTH  # noqa: E402  — the catalog flywheel (store → Exa-synth → validate)
 from synth import store as SYNTH_STORE  # noqa: E402
 
@@ -53,6 +54,13 @@ _VERIFY_TOKEN = (os.environ.get("CALMA_VERIFY_TOKEN") or os.environ.get("CALMA_S
 # deployment set CALMA_FORCE_E2B=1: every run is forced into the E2B Firecracker microVM (network-denied,
 # ephemeral), and a `local` request is refused. Fail-closed is the rule.
 _FORCE_E2B = os.environ.get("CALMA_FORCE_E2B", "").strip().lower() not in ("", "0", "false", "no")
+
+# CRASH SAFETY: run the heavy in-process work (discovery / leakage / diff / E2B orchestration) in a disposable,
+# resource-capped CHILD process instead of an API thread (runner/supervisor.py). A thread shares the API's
+# memory and fate — one repo that OOMs or segfaults during that work would take down the whole API and every
+# job with it (the 502). Process isolation makes the worst case ONE job ending cleanly as "exceeded budget"
+# while the API stays up. On by default; CALMA_ISOLATE=0 reverts to the legacy in-thread path (dev only).
+_ISOLATE = os.environ.get("CALMA_ISOLATE", "1").strip().lower() not in ("0", "false", "no")
 
 
 def require_service_token(x_calma_service_token: str | None = Header(default=None)):
@@ -138,29 +146,40 @@ def run_job(job, req: VerifyReq):
     try:
         _set(job, status="running", stage="cloning")
         dest = os.path.join(_WORKDIR, job["id"])
-        repo_dir = _clone(req.repo, dest, job, req.installation_id)
-        result = PIPE.verify_repo(
-            repo_dir,
-            PIPE.VerifyOptions(
-                runner=req.runner,
-                deep=req.deep,
-                entry=req.entry,
-                pip_install=req.pip_install,
-                discover=req.discover,
-                claims=list(req.claims or []),
-                k=req.k,
-                fetch_data=req.fetch_data,
-                job_id=job["id"],
-                venvs_dir=_VENVS,
-                base_python=VENV_PY,
-            ),
-            update=lambda **kw: _set(job, **kw),
-            log=lambda msg: _log(job, msg),
+        repo_dir = _clone(req.repo, dest, job, req.installation_id)   # bounded git subprocess — stays here
+        opts = PIPE.VerifyOptions(
+            runner=req.runner,
+            deep=req.deep,
+            entry=req.entry,
+            pip_install=req.pip_install,
+            discover=req.discover,
+            claims=list(req.claims or []),
+            k=req.k,
+            fetch_data=req.fetch_data,
+            job_id=job["id"],
+            venvs_dir=_VENVS,
+            base_python=VENV_PY,
         )
+        update = lambda **kw: _set(job, **kw)            # noqa: E731 — stage updates from the (possibly child) run
+        logf = lambda msg: _log(job, msg)                # noqa: E731
+        # The heavy work runs isolated by default so a pathological repo can crash its own child, never the
+        # API. The supervisor streams the same stage/log events back, so the result + UX are identical.
+        if _ISOLATE:
+            result = SUP.run_isolated(repo_dir, opts, update=update, log=logf)
+        else:
+            result = PIPE.verify_repo(repo_dir, opts, update=update, log=logf)
         _set(job, status="done", stage="done", claims=result["claims"], counts=result["counts"],
              n_claims=result["n_claims"], leakage=result["leakage"], run=result["run"],
              trace=result["trace"], finished=time.time())
         _log(job, "done — %s" % ", ".join("%s:%d" % (k, v) for k, v in result["counts"].items()))
+    except SUP.BudgetExceeded as e:
+        # The isolated child was killed or died (OOM / timeout / CPU / crash). The job ends cleanly with a
+        # specific reason; the API is untouched — that's the whole guarantee.
+        _set(job, status="error", stage="exceeded budget", error=str(e), failure_kind=e.kind,
+             finished=time.time())
+        _log(job, "stopped: %s" % str(e))
+        if e.detail and e.detail.strip():
+            _log(job, "  detail: %s" % e.detail.strip().splitlines()[-1][:200])
     except Exception as e:  # noqa: BLE001
         _set(job, status="error", stage="error", error="%s: %s" % (type(e).__name__, str(e)[:300]),
              finished=time.time())

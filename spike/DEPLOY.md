@@ -11,6 +11,19 @@ This is the piece that makes "anybody can verify a repo on calma1.vercel.app" ac
 (network-denied, ephemeral), never as a host subprocess. A `runner: local` request is overridden to E2B.
 Do not unset this on a public deployment.
 
+**Crash isolation (on by default).** The heavy in-process work (discovery / leakage / diff / E2B
+orchestration) runs in a disposable, resource-capped **child process** supervised by the API
+(`runner/supervisor.py`), so a repo that OOMs, segfaults, hangs, or runs away kills only its own child — the
+API and every other job stay up. All knobs auto-size from the container's memory; override only to tune:
+
+| env | default | meaning |
+|---|---|---|
+| `CALMA_ISOLATE` | `1` | run verification in the isolated child (set `0` only for local debugging) |
+| `CALMA_VERIFY_MEM_MB` | ~container×split | per-child resident-memory cap (RSS); child is killed above it |
+| `CALMA_VERIFY_CONCURRENCY` | fits the box | max children at once, sized so they collectively fit (1 on the 1 GB VM) |
+| `CALMA_VERIFY_CPU_SECONDS` | run timeout +120 | child CPU-seconds limit (runaway-loop guard) |
+| `CALMA_VERIFY_WALL_SECONDS` | run timeout +300 | child wall-clock deadline (hang guard) |
+
 ## Deploy to Fly.io
 
 ```bash
