@@ -118,11 +118,31 @@ def _mem_budget_mb() -> int:
     return 700  # uncontained dev default
 
 
+# A heavy-deps E2B build (torch/genomics/…) is allowed up to ~30 min to install before the first run; see
+# e2b_runner._install / build.deps_are_heavy. The child's wall + CPU budgets MUST cover that, or a legitimate
+# install gets killed mid-stream (the gb_kmer "exceeded the time budget (>900s)" — the old wall of
+# timeout+300 was far shorter than the install allowance, so a real install never got to finish).
+_HEAVY_BUILD_S = 1800
+
+
+def _default_wall(opts) -> int:
+    """The child's wall-clock deadline. For a deep verify it must fit a (possibly heavy) build + k runs, not
+    just one run — otherwise a slow install reads as a hang and gets killed. Generous on purpose: the E2B
+    per-command timeouts bound each phase, so this is only the last-resort guard against a true hang."""
+    t = int(getattr(opts, "timeout", 600) or 600)
+    if getattr(opts, "deep", False):
+        k = int(getattr(opts, "k", 2) or 2)
+        return _HEAVY_BUILD_S + k * t + 300
+    return t + 300
+
+
 def _limits(opts) -> dict:
     """The OS limits handed to the child. Memory (RSS) is enforced by the parent monitor; here we compute the
     child-side CPU limit and a HIGH virtual-address backstop (see isolated_verify._apply_limits)."""
     mem_mb = _mem_budget_mb()
-    cpu = _int_env("CALMA_VERIFY_CPU_SECONDS", getattr(opts, "timeout", 600) + 120)
+    # CPU budget mirrors the wall budget's reasoning: a heavy build burns real CPU, so it must clear the same
+    # bar as the wall, or RLIMIT_CPU would kill a legitimate long install/run.
+    cpu = _int_env("CALMA_VERIFY_CPU_SECONDS", _default_wall(opts))
     # RLIMIT_AS is a backstop for absurd single allocations, NOT the real cap — keep it well above any
     # legitimate VIRT footprint (numpy/BLAS reserve a lot) so it never breaks startup or stalls BLAS.
     as_mb = _int_env("CALMA_VERIFY_AS_MB", max(4096, mem_mb * 5))
@@ -189,7 +209,7 @@ def run_isolated(
     """
     limits = _limits(opts)
     mem_cap = limits["mem_mb"]
-    wall = wall_seconds or _int_env("CALMA_VERIFY_WALL_SECONDS", getattr(opts, "timeout", 600) + 300)
+    wall = wall_seconds or _int_env("CALMA_VERIFY_WALL_SECONDS", _default_wall(opts))
 
     import dataclasses
     opts_dict = dataclasses.asdict(opts) if dataclasses.is_dataclass(opts) else dict(opts)
@@ -272,12 +292,18 @@ def run_isolated(
         _GATE.release()
 
 
+_HEARTBEAT_S = 15   # how often the supervisor emits a "still working" pulse with elapsed + child memory
+
+
 def _supervise(proc, mem_cap: int, wall: int, log) -> str | None:
-    """The watchdog loop. Every ~50 ms, checks child liveness + resident memory + the wall clock. Returns the
-    kill reason ("memory"/"timeout") if WE killed it, or None if it exited on its own. RSS is read every
-    iteration — on Linux that's a near-free /proc read — so even a fast allocator is caught within one tick,
-    keeping the overshoot small enough that the kill lands before the cgroup OOM-killer would fire."""
-    deadline = time.monotonic() + wall
+    """The watchdog loop. Every ~50 ms, checks child liveness + resident memory + the wall clock, and every
+    ~15 s emits a heartbeat so the e2e log shows steady progress (and time climbing toward the budget) even
+    during a long silent phase like a heavy pip install. Returns the kill reason ("memory"/"timeout") if WE
+    killed it, or None if it exited on its own. RSS is read every iteration — on Linux a near-free /proc read
+    — so even a fast allocator is caught within one tick, before the cgroup OOM-killer would fire."""
+    start = time.monotonic()
+    deadline = start + wall
+    last_beat = start
     while True:
         if proc.poll() is not None:
             return None                              # child exited on its own (success or its own failure)
@@ -287,7 +313,12 @@ def _supervise(proc, mem_cap: int, wall: int, log) -> str | None:
                 log("memory budget exceeded (%.0fMB > %dMB) — killing the isolated job" % (rss, mem_cap))
             _kill_tree(proc)
             return "memory"
-        if time.monotonic() > deadline:
+        now = time.monotonic()
+        if log and now - last_beat >= _HEARTBEAT_S:
+            last_beat = now
+            mem = (" · child %.0fMB/%dMB" % (rss, mem_cap)) if rss is not None else ""
+            log("… still working — %ds elapsed / %ds budget%s" % (now - start, wall, mem))
+        if now > deadline:
             if log:
                 log("wall-clock budget exceeded (%ds) — killing the isolated job" % wall)
             _kill_tree(proc)

@@ -26,10 +26,12 @@ class _Cmds:
     def __init__(self, log):
         self.log = log
 
-    def run(self, cmd, **kw):
+    def run(self, cmd, on_stdout=None, on_stderr=None, **kw):
         self.log.setdefault("cmds", []).append(cmd)
         if self.log.get("fail_on") and self.log["fail_on"] in cmd:
             raise RuntimeError("simulated failure: " + cmd)
+        if on_stdout:                                          # live-stream a line so tests can see forwarding
+            on_stdout("line-from-" + cmd.split()[0])
         return types.SimpleNamespace(exit_code=0, stdout="", stderr="")
 
 
@@ -110,6 +112,30 @@ def test_provisions_declared_python_version(tmp_path, monkeypatch):
     assert any(c.startswith("/pyenv/bin/python ") for c in cmds)        # ran under the provisioned interp
     assert any("uv pip install" in c and "/pyenv/bin/python" in c for c in cmds)  # installed into it
     assert res["cost"]["python"] == "3.11"
+
+
+def test_run_emits_phase_logs_and_streams_output(tmp_path, monkeypatch):
+    """e2e observability: with a log callback, each phase is announced and the sandbox's live output is
+    forwarded — so a long install/run is visible, not a silent stall (the gb_kmer black box)."""
+    _install_fake_e2b(monkeypatch)
+    (tmp_path / "eval.py").write_text("print('hi')\n")
+    cfg = {"api_key": "x", "domain": None, "template": None}
+    logs = []
+    e2b_runner.run_e2b(str(tmp_path), ["eval.py"], k=1, pip_install=["numpy"], pip_strict=False,
+                       cfg=cfg, log=logs.append)
+    text = "\n".join(logs)
+    for phase in ("creating microVM", "installing 1 dep", "environment ready", "running `eval.py`", "run 1/1 done"):
+        assert phase in text, "missing phase log: %s" % phase
+    assert "line-from-" in text                                 # the sandbox's live stdout was forwarded
+
+
+def test_logging_is_optional(tmp_path, monkeypatch):
+    """No log callback → no streaming kwargs, plain runs (the path the existing cost tests exercise)."""
+    _install_fake_e2b(monkeypatch)
+    (tmp_path / "eval.py").write_text("print('hi')\n")
+    cfg = {"api_key": "x", "domain": None, "template": None}
+    res = e2b_runner.run_e2b(str(tmp_path), ["eval.py"], k=1, pip_install=["numpy"], cfg=cfg)
+    assert res["ran_ok"]
 
 
 def test_python_provision_falls_back_gracefully(tmp_path, monkeypatch):

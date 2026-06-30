@@ -195,6 +195,33 @@ def test_concurrency_env_override(monkeypatch):
     assert SUP._concurrency() == 5
 
 
+# ── budget covers a heavy build (the gb_kmer timeout fix) + heartbeat observability ─────────────────────────
+
+def test_deep_wall_budget_covers_heavy_build():
+    """A deep verify's wall budget must clear the heavy-deps install allowance + k runs — not just one run.
+    The old timeout+300 (=900s) killed gb_kmer mid-install; the budget must now be far larger."""
+    deep = PIPE.VerifyOptions(deep=True, timeout=600, k=2)
+    shallow = PIPE.VerifyOptions(deep=False, timeout=600)
+    assert SUP._default_wall(deep) >= SUP._HEAVY_BUILD_S + 2 * 600    # build + k runs
+    assert SUP._default_wall(deep) > 900                              # strictly more than the old budget
+    assert SUP._default_wall(shallow) == 900                          # no run → tight is fine
+    # the CPU budget must clear the same bar, or RLIMIT_CPU would kill a legit long build
+    assert SUP._limits(deep)["cpu_seconds"] >= SUP._HEAVY_BUILD_S
+
+
+def test_heartbeat_emits_progress(monkeypatch):
+    """The supervisor pulses a 'still working' line so a long silent phase (a heavy install) shows life and
+    time climbing toward the budget — not a frozen UI."""
+    monkeypatch.setattr(SUP, "_HEARTBEAT_S", 1)
+    logs = []
+    p = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(3)"], start_new_session=True)
+    SUP._supervise(p, mem_cap=4096, wall=30, log=logs.append)
+    SUP._reap(p)
+    beats = [m for m in logs if "still working" in m]
+    assert len(beats) >= 2
+    assert "elapsed" in beats[0] and "budget" in beats[0]
+
+
 def test_rss_probe_reads_self():
     rss = SUP._rss_mb(os.getpid())
     assert rss is not None and rss > 0

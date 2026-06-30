@@ -21,8 +21,11 @@ API and every other job stay up. All knobs auto-size from the container's memory
 | `CALMA_ISOLATE` | `1` | run verification in the isolated child (set `0` only for local debugging) |
 | `CALMA_VERIFY_MEM_MB` | ~container×split | per-child resident-memory cap (RSS); child is killed above it |
 | `CALMA_VERIFY_CONCURRENCY` | fits the box | max children at once, sized so they collectively fit (1 on the 1 GB VM) |
-| `CALMA_VERIFY_CPU_SECONDS` | run timeout +120 | child CPU-seconds limit (runaway-loop guard) |
-| `CALMA_VERIFY_WALL_SECONDS` | run timeout +300 | child wall-clock deadline (hang guard) |
+| `CALMA_VERIFY_CPU_SECONDS` | = wall budget | child CPU-seconds limit (runaway-loop guard) |
+| `CALMA_VERIFY_WALL_SECONDS` | deep: heavy-build + k·runs (~55m); shallow: +300s | child wall-clock deadline (hang guard) — sized to fit a heavy deps install so a slow build isn't killed mid-stream |
+
+Every job streams a timestamped e2e log (clone → build → install → run → recompute, with the sandbox's live
+output): the dashboard shows it in a live console, and `GET /api/jobs/{id}/logs` returns it as plaintext.
 
 ## Deploy to Fly.io
 

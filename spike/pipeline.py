@@ -218,7 +218,8 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace):
 
         def _e2b(p):
             return run_e2b(repo_dir, entry, k=opts.k, hooks=opts.hooks, targets=opts.targets,
-                           pip_install=p, pip_strict=strict, python_version=pyver, timeout=opts.timeout)
+                           pip_install=p, pip_strict=strict, python_version=pyver, timeout=opts.timeout,
+                           log=trace.note)
         result = _e2b(pip)
         for _ in range(2 if opts.heal_deps else 0):       # self-heal a dep the imports didn't reveal
             if result.get("ran_ok"):

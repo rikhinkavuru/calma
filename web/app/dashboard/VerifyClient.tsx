@@ -295,13 +295,15 @@ export function VerifyClient() {
       {err && <div className={`${dash.notice} ${dash.noticeErr}`}>{err}</div>}
 
       {busy && !job && <p className={dash.muted}>Cloning and preparing the repo…</p>}
-      {job && job.status !== "done" && job.status !== "error" && (
-        <p className={dash.muted}>
-          {job.stage}… <span className={dash.mono}>{job.repo}</span>
-        </p>
-      )}
       {job?.status === "error" && (
         <div className={`${dash.notice} ${dash.noticeErr}`}>{job.error || "verification failed"}</div>
+      )}
+
+      {/* Live e2e log: every step from clone → build → run → recompute, streamed as it happens. This is the
+          window into a long deep verify (a heavy install, the run's own output) — and the post-mortem when a
+          job is stopped for a budget. */}
+      {job && (job.status === "running" || job.status === "queued" || (job.logs?.length ?? 0) > 0) && (
+        <LogConsole job={job} />
       )}
 
       {job?.status === "done" && (
@@ -412,6 +414,57 @@ export function VerifyClient() {
       )}
     </div>
   );
+}
+
+// The live console. Renders the job's timestamped log lines, auto-following the tail unless the user has
+// scrolled up (so they can read back without being yanked to the bottom on every poll). Streamed sandbox
+// output (`| …`) and pip lines (`pip| …`) are tinted so the repo's own output stands out from Calma's steps.
+function LogConsole({ job }: { job: Job }) {
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+  const follow = useRef(true);
+  const logs = job.logs || [];
+  const running = job.status === "running" || job.status === "queued";
+
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (el && follow.current) el.scrollTop = el.scrollHeight;
+  }, [logs.length]);
+
+  function onScroll() {
+    const el = bodyRef.current;
+    if (el) follow.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
+  }
+
+  const dotClass = running ? s.dotLive : job.status === "error" ? s.dotErr : s.dotDone;
+  return (
+    <div className={s.console}>
+      <div className={s.consoleHead}>
+        <span className={s.consoleHeadL}>
+          <span className={`${s.dot} ${dotClass}`} />
+          <span className={s.consoleStage}>{running ? `${job.stage}…` : job.status}</span>
+        </span>
+        <a className={s.consoleRaw} href={`/api/verify/${job.id}/logs`} target="_blank" rel="noreferrer">
+          {logs.length} lines · raw ↗
+        </a>
+      </div>
+      <div className={s.consoleBody} ref={bodyRef} onScroll={onScroll}>
+        {logs.length === 0 ? (
+          <div className={s.consoleEmpty}>starting…</div>
+        ) : (
+          logs.map((l, i) => <div key={i} className={logLineClass(l)}>{l}</div>)
+        )}
+      </div>
+    </div>
+  );
+}
+
+// tint by line kind: the run's own streamed stdout (`| `), pip/install output (`pip| ` / `! `), and the
+// budget/kill/error lines that explain a stopped job.
+function logLineClass(l: string): string {
+  if (/]\s+\|\s/.test(l)) return s.logStream;
+  if (/]\s+(pip\||!\s)/.test(l)) return s.logPip;
+  if (/(exceeded|killed|stopped|failed|error|crash)/i.test(l)) return s.logWarn;
+  return "";
 }
 
 function RepoList({ title, repos, selected, onPick }: {

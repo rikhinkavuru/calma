@@ -74,6 +74,7 @@ export type Job = {
   run: { ran: boolean; calls: number; entry: string; error?: string; error_full?: string } | null;
   logs: string[];
   error: string | null;
+  failure_kind?: string;        // memory | timeout | cpu | crashed | error — why an isolated job was stopped
   truncated?: number;
 };
 
@@ -93,6 +94,15 @@ export const verifyApi = {
       }),
     }),
   job: (id: string): Promise<Job> => call(`/api/jobs/${encodeURIComponent(id)}`),
+  // the full e2e log as plaintext (the backend's /api/jobs/{id}/logs) — for the "raw ↗" view.
+  logsText: async (id: string): Promise<string> => {
+    const res = await fetch(`${API}/api/jobs/${encodeURIComponent(id)}/logs`, {
+      headers: { "X-Calma-Service-Token": SVC },
+      cache: "no-store",
+    });
+    if (!res.ok) throw new Error(`verify API ${res.status} on logs`);
+    return res.text();
+  },
 };
 
 // Read-only GitHub/repo surfaces for the connect + repo-picker UX (proxied through /api/github).

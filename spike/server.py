@@ -97,7 +97,11 @@ def _set(job, **kw):
 
 def _log(job, msg):
     with _LOCK:
-        job["logs"].append(msg)
+        # stamp every line with elapsed-since-submit so the timeline is readable e2e (where did the time go?)
+        t = time.time() - job.get("created", time.time())
+        job["logs"].append("[+%6.1fs] %s" % (t, msg))
+        if len(job["logs"]) > 4000:                 # bound the in-memory log (a chatty run can stream a lot)
+            job["logs"] = job["logs"][-4000:]
         job["updated"] = time.time()
 
 
@@ -220,6 +224,21 @@ def get_job(job_id: str):
         if len(out["claims"]) > 500:
             out = dict(out, claims=out["claims"][:500], truncated=len(job["claims"]))
         return out
+
+
+@app.get("/api/jobs/{job_id}/logs", dependencies=[Depends(require_service_token)])
+def get_job_logs(job_id: str):
+    """The full, timestamped e2e log for one job as plaintext — easy to read in a browser, `curl`, or tail.
+    The same lines stream into the dashboard's live console; this is the raw view (and survives the UI)."""
+    with _LOCK:
+        job = JOBS.get(job_id)
+        if not job:
+            raise HTTPException(404, "no such job")
+        lines = list(job.get("logs", []))
+        header = "# calma verify %s — repo=%s status=%s stage=%s\n" % (
+            job_id, job.get("repo"), job.get("status"), job.get("stage"))
+    from fastapi.responses import PlainTextResponse
+    return PlainTextResponse(header + "\n".join(lines) + "\n")
 
 
 @app.get("/api/repos")

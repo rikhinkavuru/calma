@@ -97,21 +97,24 @@ def _pull_capture(sbx, remote):
         return tf.name
 
 
-def _install(sbx, pip_install, pip_strict, timeout, pip_cmd="pip install -q"):
+def _install(sbx, pip_install, pip_strict, timeout, pip_cmd="pip install -q", log=None):
     """Install deps ONCE. Strict (requirements.txt) → one command, failure surfaces, deps respected as pinned
     (faithful repro). Tolerant (inferred) → per-package, ignore misses so one bad guess can't abort the env,
-    and swap heavy packages for their CPU wheels (avoids multi-GB CUDA downloads on the CPU tier)."""
+    and swap heavy packages for their CPU wheels (avoids multi-GB CUDA downloads on the CPU tier). Streams
+    install output (warnings/build logs) live, so a slow install is visible rather than a silent stall."""
     if not pip_install:
         return
     if pip_strict:
-        sbx.commands.run(pip_cmd + " " + " ".join(pip_install), timeout=timeout)
+        _cmd_run(sbx, pip_cmd + " " + " ".join(pip_install), timeout=timeout, log=log, prefix="  pip| ", stream=True)
     else:
         for pkg in pip_install:
             try:
                 args = build.cpu_pip_args(pkg)               # torch → CPU wheel, etc.
-                sbx.commands.run(pip_cmd + " " + " ".join(shlex.quote(a) for a in args), timeout=timeout)
+                _note(log, "  installing %s…" % pkg)
+                _cmd_run(sbx, pip_cmd + " " + " ".join(shlex.quote(a) for a in args),
+                         timeout=timeout, log=log, prefix="  pip| ", stream=True)
             except Exception:  # noqa: BLE001
-                pass
+                _note(log, "  (skipped %s — install failed, best-effort)" % pkg)
 
 
 def _provision_python(sbx, version, timeout):
@@ -131,9 +134,50 @@ def _provision_python(sbx, version, timeout):
         return default
 
 
+def _note(log, msg):
+    """Forward one progress line to the job log, never letting a logging hiccup break a run."""
+    if log:
+        try:
+            log(msg)
+        except Exception:  # noqa: BLE001
+            pass
+
+
+def _streamer(log, prefix, cap=200):
+    """An on_stdout/on_stderr callback that forwards the sandbox's LIVE output into the job log (capped, so a
+    chatty training run can't flood it — the full tail is still captured for the final view)."""
+    state = {"n": 0}
+
+    def on_line(line):
+        if not log:
+            return
+        s = (line or "").rstrip()
+        if not s:
+            return
+        if state["n"] < cap:
+            _note(log, prefix + s[:300])
+        elif state["n"] == cap:
+            _note(log, prefix + "… (live output truncated — full tail shown on completion)")
+        state["n"] += 1
+
+    return on_line
+
+
+def _cmd_run(sbx, cmd, *, log=None, prefix="  | ", stream=False, **kw):
+    """sbx.commands.run, optionally streaming the command's output into the job log live. Tolerant of SDK
+    variants that don't accept on_stdout/on_stderr — falls back to a plain (still-captured) run."""
+    if stream and log:
+        try:
+            return sbx.commands.run(cmd, on_stdout=_streamer(log, prefix),
+                                    on_stderr=_streamer(log, prefix.rstrip()[:-1] + "! "), **kw)
+        except TypeError:
+            pass
+    return sbx.commands.run(cmd, **kw)
+
+
 def run_e2b(repo_dir, entry, *, k=2, hooks="sklearn", targets=None, timeout=600,
             allow_internet=False, pip_install=None, pip_strict=True, python_version=None,
-            cfg=None, max_elems=None):
+            cfg=None, max_elems=None, log=None):
     """ONE sandbox: stage + install ONCE, then run the entrypoint k× inside it (each a fresh process with its
     own capture file). Reusing the sandbox across the determinism runs is the big cost lever — the dominant
     `pip install` is paid once, not k×, and it's MORE correct for determinism (identical env across runs, so
@@ -150,18 +194,29 @@ def run_e2b(repo_dir, entry, *, k=2, hooks="sklearn", targets=None, timeout=600,
     t_start = time.time()
     build_seconds = 0.0
     try:
+        _note(log, "E2B: creating microVM…")
         sbx = _create_sandbox(cfg, timeout, allow_internet or bool(pip_install) or bool(python_version))
+        _note(log, "E2B: microVM up (%.1fs) — uploading repo + capture shim" % (time.time() - t_start))
         for fn in _SHIM_FILES:                                   # stage the capture shim + the repo (once)
             with open(os.path.join(CAPTURE_DIR, fn), "rb") as fh:
                 sbx.files.write("/capture/" + fn, fh.read())
         _upload_dir(sbx, repo_dir, "/work")
         # heavy deps (torch/tf/…) need a much bigger install budget than the run timeout
-        inst_timeout = max(timeout, 1800) if build.deps_are_heavy(pip_install) else timeout
+        heavy = build.deps_are_heavy(pip_install)
+        inst_timeout = max(timeout, 1800) if heavy else timeout
         pybin, pip_cmd, python_used = _provision_python(sbx, python_version, inst_timeout)  # declared py (or default)
-        _install(sbx, pip_install, pip_strict, inst_timeout, pip_cmd)  # install (once)
+        if python_used:
+            _note(log, "E2B: provisioned declared Python %s" % python_used)
+        if pip_install:
+            _note(log, "E2B: installing %d dep(s)%s — %s" % (
+                len(pip_install), " [heavy: up to %dm]" % (inst_timeout // 60) if heavy else "",
+                " ".join(pip_install)[:200]))
+        _install(sbx, pip_install, pip_strict, inst_timeout, pip_cmd, log=log)  # install (once)
         build_seconds = time.time() - t_start
+        _note(log, "E2B: environment ready (%.0fs total)" % build_seconds)
     except Exception as e:  # noqa: BLE001 — setup failed → every run fails identically
         build_seconds = time.time() - t_start
+        _note(log, "E2B: setup failed after %.0fs — %s" % (build_seconds, str(e)[:200]))
         if sbx is not None:
             try:
                 sbx.kill()
@@ -180,6 +235,7 @@ def run_e2b(repo_dir, entry, *, k=2, hooks="sklearn", targets=None, timeout=600,
         for i in range(max(1, k)):
             out_remote = "/capture/calls_%d.jsonl" % i           # fresh capture file per run
             t0 = time.time()
+            _note(log, "E2B: running `%s` (run %d/%d)…" % (" ".join(entry), i + 1, max(1, k)))
             try:
                 envs = {"PYTHONPATH": "/capture", "CALMA_CAPTURE_OUT": out_remote,
                         "CALMA_CAPTURE_HOOKS": hooks, "CALMA_RUN_INDEX": str(i)}
@@ -187,7 +243,10 @@ def run_e2b(repo_dir, entry, *, k=2, hooks="sklearn", targets=None, timeout=600,
                     envs["CALMA_CAPTURE_TARGETS"] = json.dumps(targets)
                 if max_elems:
                     envs["CALMA_CAPTURE_MAX_ELEMS"] = str(max_elems)
-                r = sbx.commands.run(pybin + " " + " ".join(entry), cwd="/work", envs=envs, timeout=timeout)
+                # stream the run's stdout/stderr LIVE into the job log — the repo's own prints are the best
+                # signal for "what is it actually doing" during a long run.
+                r = _cmd_run(sbx, pybin + " " + " ".join(entry), cwd="/work", envs=envs, timeout=timeout,
+                             log=log, prefix="  | ", stream=True)
                 rc = getattr(r, "exit_code", 0) or 0
                 out, err, killed = getattr(r, "stdout", "") or "", getattr(r, "stderr", "") or "", False
                 out_local = _pull_capture(sbx, out_remote)
@@ -201,7 +260,10 @@ def run_e2b(repo_dir, entry, *, k=2, hooks="sklearn", targets=None, timeout=600,
                 rc, out, err, killed, out_local = -9, "", "e2b error: %s" % e, "timeout" in str(e).lower(), None
             dt = time.time() - t0
             run_seconds += dt
-            runs.append(parse_capture(out_local) if out_local else [])
+            parsed = parse_capture(out_local) if out_local else []
+            _note(log, "E2B: run %d/%d done — %.0fs, exit %d, %d computation(s) captured%s"
+                  % (i + 1, max(1, k), dt, rc, len(parsed), " [killed: timeout]" if killed else ""))
+            runs.append(parsed)
             if out_local:
                 try:
                     os.remove(out_local)

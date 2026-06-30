@@ -92,6 +92,25 @@
 .tag { font-size: 11px; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--border, #2a2620); color: var(--muted-fg, #8a8a82); }
 .tagPriv { color: var(--idle-fg, #c2a86a); border-color: color-mix(in srgb, var(--idle-fg, #c2a86a) 35%, transparent); }
 
+/* live e2e log console — what's actually happening through clone → build → run → recompute */
+.console { margin: 14px 0; border: 1px solid var(--border, #2a2620); border-radius: 10px; background: #0e0c09; overflow: hidden; }
+.consoleHead { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted-fg, #8a8a82); border-bottom: 1px solid var(--border, #2a2620); }
+.consoleHeadL { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.consoleStage { color: var(--text, #e9ddc4); text-transform: none; letter-spacing: 0; font-family: var(--mono, ui-monospace, monospace); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.consoleRaw { color: var(--muted-fg, #8a8a82); text-decoration: none; font-size: 11px; white-space: nowrap; }
+.consoleRaw:hover { color: var(--text, #e9ddc4); }
+.dot { width: 8px; height: 8px; border-radius: 999px; display: inline-block; flex-shrink: 0; }
+.dotLive { background: var(--idle-fg, #c2a86a); box-shadow: 0 0 0 0 color-mix(in srgb, var(--idle-fg, #c2a86a) 70%, transparent); animation: pulse 1.4s ease-out infinite; }
+.dotDone { background: var(--ok-fg, #6a9a5a); }
+.dotErr { background: var(--bad-fg, #c46a6a); }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--idle-fg, #c2a86a) 60%, transparent); } 70% { box-shadow: 0 0 0 7px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+.consoleBody { font-family: var(--mono, ui-monospace, monospace); font-size: 11.5px; line-height: 1.55; padding: 10px 12px; max-height: 340px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+.consoleBody > div { color: var(--text, #e9ddc4); opacity: .82; }
+.logStream { color: #86a7c4 !important; opacity: 1 !important; }   /* the repo's own live stdout (| …) */
+.logPip { color: #93a86a !important; opacity: .9 !important; }      /* pip / install output */
+.logWarn { color: var(--bad-fg, #c46a6a) !important; opacity: 1 !important; }
+.consoleEmpty { color: var(--muted-fg, #8a8a82); opacity: .7; }
+
 .filters { display: flex; gap: 8px; margin: 8px 0; flex-wrap: wrap; }
 .filter { font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border, #2a2620); background: transparent; color: var(--muted-fg, #8a8a82); cursor: pointer; }
 .filterOn { background: var(--card-bg, #221d15); color: var(--text, #e9ddc4); border-color: color-mix(in srgb, var(--text, #e9ddc4) 30%, transparent); }
