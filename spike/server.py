@@ -225,6 +225,19 @@ def _internal() -> bool:
     return bool(os.environ.get("CALMA_INTERNAL"))
 
 
+@app.get("/api/cost", dependencies=[Depends(require_service_token)])
+def cost():
+    """Operational cost telemetry: Exa calls this process + sandbox-seconds across jobs (the COGS meter)."""
+    with _LOCK:
+        jobs = list(JOBS.values())
+    sandbox_seconds = sum((j.get("run") or {}).get("cost", {}).get("sandbox_seconds", 0) or 0 for j in jobs)
+    deep = [j for j in jobs if (j.get("run") or {}).get("cost", {}).get("sandbox_seconds")]
+    return {"exa_calls": SYNTH.exa_call_count(),
+            "jobs_total": len(jobs), "deep_verifies": len(deep),
+            "sandbox_seconds_total": round(sandbox_seconds, 1),
+            "sandbox_seconds_avg": round(sandbox_seconds / len(deep), 1) if deep else 0.0}
+
+
 @app.get("/api/config")
 def config():
     return {"internal": _internal(),

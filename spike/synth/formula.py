@@ -192,6 +192,15 @@ def _validate_synth(metric: str, code: str, trials: int = 40, tol: float = 1e-9)
     return True, {"method": "cross-checked vs reference oracle", "trials": trials, "max_err": max_err}
 
 
+# cost telemetry: how many times the Exa fallback actually hit the network this process (cache hits don't
+# count). Banked formulas mean a metric is Exa'd at most once ever, but this tracks the live spend.
+EXA_CALLS = 0
+
+
+def exa_call_count() -> int:
+    return EXA_CALLS
+
+
 def _exa_define(metric: str):
     """Fetch a metric's canonical definition via the Exa API when EXA_API_KEY is set (production path).
     Returns a definition string or None. In the prototype the registry already carries Exa-confirmed
@@ -199,6 +208,8 @@ def _exa_define(metric: str):
     key = os.environ.get("EXA_API_KEY")
     if not key:
         return None
+    global EXA_CALLS
+    EXA_CALLS += 1                                    # a real (paid) Exa request is about to fire
     try:
         import json
         import urllib.request  # noqa: PLC0415

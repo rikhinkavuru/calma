@@ -289,8 +289,12 @@ def verify_repo(
             err = _error_summary(err_full)            # the actual exception, not the top of the traceback
             trace.note("run failed: %s" % (err or "entrypoint did not execute"))
         trace.note("captured %d computation(s)" % total_calls)
+        cost = run_result.get("cost", {})
+        if cost.get("sandbox_seconds"):
+            trace.note("sandbox: %.1fs (build %.1fs + %d run(s)) — one sandbox reused"
+                       % (cost.get("sandbox_seconds", 0), cost.get("build_seconds", 0), cost.get("runs", 0)))
         job_run = {"ran": run_result.get("ran_ok"), "calls": total_calls, "entry": " ".join(entry),
-                   "error": err, "error_full": err_full}
+                   "error": err, "error_full": err_full, "cost": cost}
 
     claims = list(opts.claims or [])
     if opts.discover:

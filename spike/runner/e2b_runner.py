@@ -86,80 +86,114 @@ def _upload_dir(sbx, local_dir, dest):
                 pass
 
 
+def _pull_capture(sbx, remote):
+    """Read a capture JSONL out of the sandbox into a temp file; return its local path or None."""
+    try:
+        data = sbx.files.read(remote)
+    except Exception:  # noqa: BLE001 — no calls captured (file may not exist)
+        return None
+    with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as tf:
+        tf.write(data if isinstance(data, str) else data.decode("utf-8", "replace"))
+        return tf.name
+
+
+def _install(sbx, pip_install, pip_strict, timeout):
+    """Install deps ONCE. Strict (requirements.txt) → one command, failure surfaces. Tolerant (inferred) →
+    per-package, ignore misses so one bad guess can't abort the env."""
+    if not pip_install:
+        return
+    if pip_strict:
+        sbx.commands.run("pip install -q " + " ".join(pip_install), timeout=timeout)
+    else:
+        for pkg in pip_install:
+            try:
+                sbx.commands.run("pip install -q %s" % shlex.quote(pkg), timeout=timeout)
+            except Exception:  # noqa: BLE001
+                pass
+
+
 def run_e2b(repo_dir, entry, *, k=2, hooks="sklearn", targets=None, timeout=600,
             allow_internet=False, pip_install=None, pip_strict=True, cfg=None, max_elems=None):
+    """ONE sandbox: stage + install ONCE, then run the entrypoint k× inside it (each a fresh process with its
+    own capture file). Reusing the sandbox across the determinism runs is the big cost lever — the dominant
+    `pip install` is paid once, not k×, and it's MORE correct for determinism (identical env across runs, so
+    only code-level nondeterminism shows). Returns the runner-agnostic shape + cost telemetry."""
     cfg = cfg or e2b_config(os.path.join(os.path.dirname(CAPTURE_DIR), os.pardir, ".env"))
     if not cfg.get("api_key"):
         return {"runs": [], "meta": [], "ran_ok": False, "error": "no E2B api key configured",
-                "hooks_armed": None, "n_calls": []}
+                "hooks_armed": None, "n_calls": [], "cost": {}}
     entry = list(entry)
     runs, meta = [], []
     hooks_armed = None
-    for i in range(max(1, k)):
-        out_local = None
-        sbx = None
-        t0 = time.time()
-        try:
-            sbx = _create_sandbox(cfg, timeout, allow_internet or bool(pip_install))
-            # stage the capture shim + the repo
-            for fn in _SHIM_FILES:
-                with open(os.path.join(CAPTURE_DIR, fn), "rb") as fh:
-                    sbx.files.write("/capture/" + fn, fh.read())
-            _upload_dir(sbx, repo_dir, "/work")
-            if pip_install:
-                if pip_strict:
-                    # declared deps (requirements.txt) — a failure is real, let it surface
-                    sbx.commands.run("pip install -q " + " ".join(pip_install), timeout=timeout)
-                else:
-                    # INFERRED deps — install per-package, tolerating misses, so one wrong guess doesn't
-                    # abort the whole env (the run then fails clearly on a genuinely-missing import).
-                    for pkg in pip_install:
-                        try:
-                            sbx.commands.run("pip install -q %s" % shlex.quote(pkg), timeout=timeout)
-                        except Exception:  # noqa: BLE001
-                            pass
-            envs = {"PYTHONPATH": "/capture", "CALMA_CAPTURE_OUT": "/capture/calls.jsonl",
-                    "CALMA_CAPTURE_HOOKS": hooks, "CALMA_RUN_INDEX": str(i)}
-            if targets:
-                envs["CALMA_CAPTURE_TARGETS"] = json.dumps(targets)
-            if max_elems:
-                envs["CALMA_CAPTURE_MAX_ELEMS"] = str(max_elems)
-            cmd = "python " + " ".join(entry)
-            r = sbx.commands.run(cmd, cwd="/work", envs=envs, timeout=timeout)
-            rc = getattr(r, "exit_code", 0) or 0
-            out, err = getattr(r, "stdout", "") or "", getattr(r, "stderr", "") or ""
-            killed = False
-            # pull the capture JSONL
+    sbx = None
+    t_start = time.time()
+    build_seconds = 0.0
+    try:
+        sbx = _create_sandbox(cfg, timeout, allow_internet or bool(pip_install))
+        for fn in _SHIM_FILES:                                   # stage the capture shim + the repo (once)
+            with open(os.path.join(CAPTURE_DIR, fn), "rb") as fh:
+                sbx.files.write("/capture/" + fn, fh.read())
+        _upload_dir(sbx, repo_dir, "/work")
+        _install(sbx, pip_install, pip_strict, timeout)          # install (once)
+        build_seconds = time.time() - t_start
+    except Exception as e:  # noqa: BLE001 — setup failed → every run fails identically
+        build_seconds = time.time() - t_start
+        if sbx is not None:
             try:
-                data = sbx.files.read("/capture/calls.jsonl")
-                with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as tf:
-                    tf.write(data if isinstance(data, str) else data.decode("utf-8", "replace"))
-                    out_local = tf.name
-            except Exception:  # noqa: BLE001 — no calls captured (empty file may not exist)
-                out_local = None
-            if hooks_armed is None:
-                try:
-                    h = sbx.files.read("/capture/calls.jsonl.hooks")
-                    hooks_armed = json.loads(h if isinstance(h, str) else h.decode())
-                except Exception:  # noqa: BLE001
-                    pass
-        except Exception as e:  # noqa: BLE001 — boot/exec error -> this run failed, never a crash
-            rc, out, err, killed = -9, "", "e2b error: %s" % e, "timeout" in str(e).lower()
-        finally:
-            if sbx is not None:
-                try:
-                    sbx.kill()
-                except Exception:  # noqa: BLE001
-                    pass
-        dt = time.time() - t0
-        runs.append(parse_capture(out_local) if out_local else [])
-        if out_local:
-            try:
-                os.remove(out_local)
-            except OSError:
+                sbx.kill()
+            except Exception:  # noqa: BLE001
                 pass
-        meta.append({"returncode": rc, "killed": killed, "seconds": dt,
-                     "stdout_tail": (out or "")[-2000:], "stderr_tail": (err or "")[-2000:]})
-    ran_ok = all(m["returncode"] == 0 for m in meta)
+        err = "e2b error: %s" % e
+        meta = [{"returncode": -9, "killed": "timeout" in str(e).lower(), "seconds": 0.0,
+                 "stdout_tail": "", "stderr_tail": err} for _ in range(max(1, k))]
+        return {"runs": [[] for _ in range(max(1, k))], "meta": meta, "ran_ok": False,
+                "hooks_armed": None, "n_calls": [], "error": err,
+                "cost": {"sandbox_seconds": round(build_seconds, 2), "build_seconds": round(build_seconds, 2),
+                         "runs": 0, "reused_sandbox": True}}
+
+    run_seconds = 0.0
+    try:
+        for i in range(max(1, k)):
+            out_remote = "/capture/calls_%d.jsonl" % i           # fresh capture file per run
+            t0 = time.time()
+            try:
+                envs = {"PYTHONPATH": "/capture", "CALMA_CAPTURE_OUT": out_remote,
+                        "CALMA_CAPTURE_HOOKS": hooks, "CALMA_RUN_INDEX": str(i)}
+                if targets:
+                    envs["CALMA_CAPTURE_TARGETS"] = json.dumps(targets)
+                if max_elems:
+                    envs["CALMA_CAPTURE_MAX_ELEMS"] = str(max_elems)
+                r = sbx.commands.run("python " + " ".join(entry), cwd="/work", envs=envs, timeout=timeout)
+                rc = getattr(r, "exit_code", 0) or 0
+                out, err, killed = getattr(r, "stdout", "") or "", getattr(r, "stderr", "") or "", False
+                out_local = _pull_capture(sbx, out_remote)
+                if hooks_armed is None:
+                    try:
+                        h = sbx.files.read(out_remote + ".hooks")
+                        hooks_armed = json.loads(h if isinstance(h, str) else h.decode())
+                    except Exception:  # noqa: BLE001
+                        pass
+            except Exception as e:  # noqa: BLE001 — this run errored; others may still succeed
+                rc, out, err, killed, out_local = -9, "", "e2b error: %s" % e, "timeout" in str(e).lower(), None
+            dt = time.time() - t0
+            run_seconds += dt
+            runs.append(parse_capture(out_local) if out_local else [])
+            if out_local:
+                try:
+                    os.remove(out_local)
+                except OSError:
+                    pass
+            meta.append({"returncode": rc, "killed": killed, "seconds": dt,
+                         "stdout_tail": (out or "")[-2000:], "stderr_tail": (err or "")[-2000:]})
+    finally:
+        if sbx is not None:
+            try:
+                sbx.kill()
+            except Exception:  # noqa: BLE001
+                pass
+    ran_ok = bool(meta) and all(m["returncode"] == 0 for m in meta)
     return {"runs": runs, "meta": meta, "ran_ok": ran_ok, "hooks_armed": hooks_armed,
-            "n_calls": [len(r) for r in runs]}
+            "n_calls": [len(r) for r in runs],
+            "cost": {"sandbox_seconds": round(build_seconds + run_seconds, 2),
+                     "build_seconds": round(build_seconds, 2), "run_seconds": round(run_seconds, 2),
+                     "runs": len(meta), "reused_sandbox": True}}
