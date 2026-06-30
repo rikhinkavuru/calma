@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import re
+import subprocess
 import sys
 import time
 from dataclasses import dataclass, field
@@ -44,6 +45,7 @@ class VerifyOptions:
     venvs_dir: str | None = None
     base_python: str | None = None
     fetch_data: bool = False        # opt-in: on a "missing input file" failure, fetch the data via Exa + retry
+    heal_deps: bool = True          # self-heal: pip-install a dep the imports didn't reveal (openpyxl) + retry
 
 
 def _argv(entry) -> list[str]:
@@ -166,6 +168,21 @@ class Trace:
         self.events.append({"stage": "note", "detail": msg, "t": time.time()})
 
 
+# a dep a run says is missing — plain ModuleNotFoundError + pandas' optional-dep messages ("Missing optional
+# dependency 'openpyxl'", "`Import openpyxl` failed"). Lets a run SELF-HEAL deps the imports don't reveal.
+_MODERR_RE = re.compile(r"No module named '([\w.]+)'|Missing optional dependency '([\w.]+)'|Import\W+([\w.]+)\W+failed")
+
+
+def _missing_module_from(run_result):
+    """The top-level missing module in a run's stderr, if it's a plausible PyPI package (not a private
+    C-extension like _tkinter, not the repo's own module). None → nothing safe to auto-install."""
+    err = " ".join(m.get("stderr_tail", "") for m in (run_result.get("meta") or []))
+    m = _MODERR_RE.search(err)
+    name = next((g for g in m.groups() if g), None) if m else None
+    top = name.split(".")[0] if name else None
+    return top if (top and not top.startswith("_")) else None
+
+
 def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace):
     entry = _argv(opts.entry)
     if opts.deep and not entry:
@@ -198,31 +215,45 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace):
         if pyver:
             trace.note("declared Python %s — provisioning it for a faithful repro" % pyver)
         trace.stage("running", "running in E2B microVM")
-        return run_e2b(
-            repo_dir,
-            entry,
-            k=opts.k,
-            hooks=opts.hooks,
-            targets=opts.targets,
-            pip_install=pip,
-            pip_strict=strict,
-            python_version=pyver,
-            timeout=opts.timeout,
-        ), entry
+
+        def _e2b(p):
+            return run_e2b(repo_dir, entry, k=opts.k, hooks=opts.hooks, targets=opts.targets,
+                           pip_install=p, pip_strict=strict, python_version=pyver, timeout=opts.timeout)
+        result = _e2b(pip)
+        for _ in range(2 if opts.heal_deps else 0):       # self-heal a dep the imports didn't reveal
+            if result.get("ran_ok"):
+                break
+            mod = _missing_module_from(result)
+            if not mod:
+                break
+            pip = (pip or []) + [build._PKG_ALIASES.get(mod, mod)]
+            trace.note("missing dep %s — installing + retrying" % mod)
+            result = _e2b(pip)
+        return result, entry
 
     venvs_dir = opts.venvs_dir or os.path.join(os.path.dirname(repo_dir), ".venvs")
-    python, note = build.ensure_venv(opts.job_id, opts.pip_install, venvs_dir, base_python=opts.base_python or sys.executable)
+    base_py = opts.base_python or sys.executable
+    python, note = build.ensure_venv(opts.job_id, opts.pip_install, venvs_dir, base_python=base_py)
     trace.note("env: %s" % note)
     trace.stage("running", "running %s" % " ".join(entry))
-    return run_local(
-        repo_dir,
-        entry,
-        k=opts.k,
-        python=python,
-        hooks=opts.hooks,
-        targets=opts.targets,
-        timeout=opts.timeout,
-    ), entry
+
+    def _local():
+        return run_local(repo_dir, entry, k=opts.k, python=python, hooks=opts.hooks, targets=opts.targets,
+                         timeout=opts.timeout)
+    result = _local()
+    # self-heal a missing runtime dep (openpyxl etc.) — ONLY into a dedicated per-repo venv, never the shared
+    # harness/base python (installing there would pollute it for every later run).
+    for _ in range(2 if (opts.heal_deps and python != base_py) else 0):
+        if result.get("ran_ok"):
+            break
+        mod = _missing_module_from(result)
+        if not mod:
+            break
+        trace.note("missing dep %s — installing + retrying" % mod)
+        subprocess.run([python, "-m", "pip", "install", "-q", build._PKG_ALIASES.get(mod, mod)],
+                       timeout=300, check=False)
+        result = _local()
+    return result, entry
 
 
 def _artifact_verify(repo_dir: str, claims: list[dict]) -> dict:

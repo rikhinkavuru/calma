@@ -59,7 +59,8 @@ def test_failed_run_surfaces_real_error(tmp_path):
         fh.write("import genomic_benchmarks  # not installed\n")
     with open(os.path.join(repo, "results.json"), "w") as fh:
         fh.write('{"accuracy": 0.89}\n')
-    result = verify_repo(repo, VerifyOptions(deep=True, entry="eval.py", discover=True, k=1))
+    # heal_deps=False: verify the RAW error surfaces (with self-heal on, a real missing pkg would be installed)
+    result = verify_repo(repo, VerifyOptions(deep=True, entry="eval.py", discover=True, k=1, heal_deps=False))
     assert result["run"]["ran"] is False
     assert "ModuleNotFoundError" in result["run"]["error"]
     assert "genomic_benchmarks" in result["run"]["error"]
