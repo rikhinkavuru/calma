@@ -28,6 +28,7 @@ export function VerifyClient() {
   const [repo, setRepo] = useState("");
   const [deep, setDeep] = useState(true);
   const [entry, setEntry] = useState("");
+  const [pip, setPip] = useState("");
   const [job, setJob] = useState<Job | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -118,7 +119,13 @@ export function VerifyClient() {
       const res = await fetch("/api/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ repo: repo.trim(), deep, entry: entry.trim() || null, installation_id: installationId }),
+        body: JSON.stringify({
+          repo: repo.trim(),
+          deep,
+          entry: entry.trim() || null,
+          pip_install: pip.trim() ? pip.trim().split(/\s+/) : null,
+          installation_id: installationId,
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || `status ${res.status}`);
@@ -167,13 +174,22 @@ export function VerifyClient() {
           Deep verify (re-run the entrypoint)
         </label>
         {deep && (
-          <input
-            className={`${dash.input} ${s.entry}`}
-            placeholder="entrypoint, e.g. eval.py (optional)"
-            value={entry}
-            onChange={(e) => setEntry(e.target.value)}
-            spellCheck={false}
-          />
+          <>
+            <input
+              className={`${dash.input} ${s.entry}`}
+              placeholder="entrypoint, e.g. eval.py (auto-detected)"
+              value={entry}
+              onChange={(e) => setEntry(e.target.value)}
+              spellCheck={false}
+            />
+            <input
+              className={`${dash.input} ${s.entry}`}
+              placeholder="extra deps, e.g. scikit-learn pandas (auto-inferred)"
+              value={pip}
+              onChange={(e) => setPip(e.target.value)}
+              spellCheck={false}
+            />
+          </>
         )}
       </div>
 

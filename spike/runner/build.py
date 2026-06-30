@@ -5,6 +5,7 @@ env-synthesis (Repo2Run; cache the synthesized env per repo — the reproduction
 """
 from __future__ import annotations
 
+import ast
 import os
 import re
 import subprocess
@@ -15,12 +16,23 @@ _ENTRY_NAMES = ("reproduce.py", "run.py", "main.py", "eval.py", "evaluate.py", "
                 "benchmark.py", "run_benchmark.py", "experiment.py", "demo.py", "train.py", "test.py")
 # a README run command: ```python foo.py``` / `python3 foo.py` / `python -m pkg.mod`
 _RUN_RE = re.compile(r"python3?\s+(-m\s+[\w.]+|[\w./-]+\.py)(?:\s+[^\n`]*)?", re.I)
+# packaging/scaffolding scripts that are never the headline entrypoint
+_NOT_ENTRY = {"setup.py", "conftest.py", "__init__.py", "_version.py", "version.py", "setup_helpers.py"}
+
+
+def _root_scripts(repo_dir):
+    if not os.path.isdir(repo_dir):
+        return []
+    return sorted(f for f in os.listdir(repo_dir)
+                  if f.endswith(".py") and f not in _NOT_ENTRY
+                  and os.path.isfile(os.path.join(repo_dir, f)))
 
 
 def detect_entrypoint(repo_dir):
     """Best-effort: find the script that produces the headline numbers, so deep verify works without the
-    user naming it. Prefers a runnable command from the README, then a known entrypoint filename that
-    exists. Returns an argv list (e.g. ['run_benchmark.py']) or None. (Part of make-runnable, guide §5.)"""
+    user naming it. README run-command → a known entrypoint name → a single root script → a repo-name match
+    → a script with a __main__ guard. Returns an argv list (e.g. ['iris-svm.py']) or None. (make-runnable,
+    guide §5.)"""
     # 1) a run command in the README that points at a file present in the repo
     for fn in ("README.md", "README.rst", "README.txt", "readme.md", "REPRODUCE.md", "REPRODUCIBILITY.md"):
         p = os.path.join(repo_dir, fn)
@@ -40,7 +52,101 @@ def detect_entrypoint(repo_dir):
     for name in _ENTRY_NAMES:
         if os.path.isfile(os.path.join(repo_dir, name)):
             return [name]
+    # 3) heuristics over the root scripts (the README/known-name paths missed it)
+    roots = _root_scripts(repo_dir)
+    if len(roots) == 1:                                  # the only script — almost certainly it
+        return [roots[0]]
+    base = re.sub(r"[^a-z0-9]", "", os.path.basename(repo_dir.rstrip("/")).lower())
+    for f in roots:                                      # a script whose name matches the repo (iris-svm.py)
+        stem = re.sub(r"[^a-z0-9]", "", f[:-3].lower())
+        if stem and len(stem) >= 4 and (stem in base or base in stem):
+            return [f]
+    for f in roots:                                      # a script with an `if __name__ == "__main__"` guard
+        try:
+            if "__main__" in open(os.path.join(repo_dir, f), errors="replace").read():
+                return [f]
+        except OSError:
+            continue
     return None
+
+
+# import name → PyPI package, where they differ (otherwise the import name is the package name)
+_PKG_ALIASES = {
+    "sklearn": "scikit-learn", "cv2": "opencv-python-headless", "PIL": "pillow", "yaml": "pyyaml",
+    "bs4": "beautifulsoup4", "skimage": "scikit-image", "Bio": "biopython", "dotenv": "python-dotenv",
+    "dateutil": "python-dateutil", "attr": "attrs", "OpenSSL": "pyOpenSSL", "yaml_": "pyyaml",
+    "matplotlib": "matplotlib", "mpl_toolkits": "matplotlib", "google": "google-api-python-client",
+}
+
+
+def _imported_roots(py_path):
+    try:
+        tree = ast.parse(open(py_path, errors="replace").read())
+    except (OSError, SyntaxError, ValueError):
+        return set()
+    roots = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for n in node.names:
+                roots.add(n.name.split(".")[0])
+        elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+            roots.add(node.module.split(".")[0])        # level>0 = a relative (local) import — skip
+    return roots
+
+
+def _local_module_names(repo_dir):
+    names = set()
+    if not os.path.isdir(repo_dir):
+        return names
+    for fn in os.listdir(repo_dir):
+        p = os.path.join(repo_dir, fn)
+        if fn.endswith(".py"):
+            names.add(fn[:-3])
+        elif os.path.isdir(p) and os.path.isfile(os.path.join(p, "__init__.py")):
+            names.add(fn)
+    return names
+
+
+def infer_requirements(repo_dir, max_files=120):
+    """Resolve the pip deps to install so a repo runs in a clean sandbox, WITHOUT the user listing them.
+    Declared deps win (requirements.txt); otherwise infer from the actual imports — map import roots to PyPI
+    names and drop the standard library + the repo's own modules. Returns (pip_args, source_note). This is
+    the make-runnable / 'agentic env build' step kept deliberately simple."""
+    req = os.path.join(repo_dir, "requirements.txt")
+    if os.path.isfile(req):
+        out = []
+        try:
+            for line in open(req, errors="replace"):
+                line = line.split("#")[0].strip()
+                if line and not line.startswith("-"):
+                    out.append(line)
+        except OSError:
+            out = []
+        if out:
+            return out[:100], "requirements.txt"
+
+    stdlib = set(getattr(sys, "stdlib_module_names", ())) | {"__future__"}
+    local = _local_module_names(repo_dir)
+    found, n = set(), 0
+    for root, dirs, files in os.walk(repo_dir):
+        dirs[:] = [d for d in dirs if d not in (".git", "node_modules", "__pycache__", ".venv", "venv", "env")]
+        for fn in files:
+            if fn.endswith(".py"):
+                n += 1
+                if n > max_files:
+                    break
+                found |= _imported_roots(os.path.join(root, fn))
+        if n > max_files:
+            break
+    pkgs, seen = [], set()
+    for m in sorted(found):
+        if not m or m.startswith("_") or m in stdlib or m in local:
+            continue
+        pkg = _PKG_ALIASES.get(m, m)
+        if pkg not in seen:
+            seen.add(pkg)
+            pkgs.append(pkg)
+    return pkgs, ("inferred from imports" if pkgs else "no deps detected")
 
 
 def ensure_repo(spec, workdir):

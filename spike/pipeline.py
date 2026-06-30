@@ -178,6 +178,16 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace):
     if opts.runner == "e2b":
         from runner.e2b_runner import run_e2b
 
+        # The E2B sandbox starts clean, so deps must be installed. If the caller didn't list them, infer:
+        # requirements.txt, else the repo's actual imports. (Local runs use the harness python, which already
+        # has the scientific stack — so we only auto-infer here, keeping local dev/tests offline + fast.)
+        pip = opts.pip_install
+        if not pip:
+            pip, why = build.infer_requirements(repo_dir)
+            if pip:
+                trace.note("auto-deps (%s): %s" % (why, " ".join(pip)[:160]))
+            else:
+                trace.note("no deps detected (%s)" % why)
         trace.stage("running", "running in E2B microVM")
         return run_e2b(
             repo_dir,
@@ -185,7 +195,7 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace):
             k=opts.k,
             hooks=opts.hooks,
             targets=opts.targets,
-            pip_install=opts.pip_install,
+            pip_install=pip,
             timeout=opts.timeout,
         ), entry
 
