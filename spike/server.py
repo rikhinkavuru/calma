@@ -278,10 +278,18 @@ def connect_github():
 
 @app.get("/connect/github/setup")
 def github_setup(installation_id: str = "", setup_action: str = ""):
-    """Step 2: GitHub redirects here after install with the installation_id. Store it ↔ the tenant."""
+    """Step 2: GitHub redirects here after install with the installation_id. Store it, then FORWARD to the
+    first-party dashboard (if CALMA_DASHBOARD_URL is set) so its UI adopts the install and lists the repos —
+    otherwise land on the local SPA. (Best: set the App's Setup URL straight to <dashboard>/api/github/setup
+    and skip this hop; this forward is the fallback so a misconfigured Setup URL still works.)"""
     if installation_id:
         with _LOCK:
             INSTALLATIONS[installation_id] = {"installation_id": installation_id, "action": setup_action}
+    dash = (os.environ.get("CALMA_DASHBOARD_URL") or "").rstrip("/")
+    if dash:
+        from urllib.parse import quote
+        return RedirectResponse("%s/api/github/setup?installation_id=%s&setup_action=%s"
+                                % (dash, quote(installation_id), quote(setup_action)))
     return RedirectResponse("/?connected=" + installation_id)
 
 
