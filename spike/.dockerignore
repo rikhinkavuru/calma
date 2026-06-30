@@ -1,7 +1,13 @@
-# keep the image lean: ship the engine, not the test/scratch/output artifacts
+# keep the image lean: ship the engine, not the test/scratch/output artifacts.
+# NOTE: .dockerignore has NO inline comments — a trailing "# ..." becomes part of the pattern. Comments
+# must be on their own line, like these.
 tests/
-results/repos/
-results/.venvs/
+# all local run output (≈10 GB of cloned repos + per-repo venvs) — never a runtime dep
+results/
+# any nested per-repo virtualenv (results/*/.venvs escaped the old top-level-anchored rule)
+**/.venvs/
+# local operator state
+.calma/
 **/__pycache__/
 *.pyc
 .pytest_cache/
