@@ -67,3 +67,26 @@ def test_local_runner_allowed_when_not_forced(monkeypatch, _cleanup):
     c = TestClient(srv.app)
     jid = c.post("/api/verify", json={"repo": "x/y", "runner": "local"}).json()["id"]
     assert c.get(f"/api/jobs/{jid}").json()["runner"] == "local"
+
+
+def test_clone_falls_back_to_git_when_gh_missing(monkeypatch, _cleanup):
+    """On a server (no `gh` binary) a missing gh must fall through to plain git, not crash the job."""
+    import subprocess as sp
+    srv = _load_server(monkeypatch, None)
+    calls = []
+
+    class _R:
+        def __init__(self, rc): self.returncode = rc; self.stderr = ""
+
+    def fake_run(argv, *a, **k):
+        calls.append(argv[0])
+        if argv[0] == "gh":
+            raise FileNotFoundError("gh")           # not installed
+        return _R(0)                                  # git clone succeeds
+    monkeypatch.setattr(srv.subprocess, "run", fake_run)
+    monkeypatch.setattr(srv.GH, "configured", lambda: False)
+
+    job = {"logs": [], "updated": 0.0}
+    dest = srv._clone("owner/name", "/tmp/calma_clone_test_dest", job)
+    assert dest == "/tmp/calma_clone_test_dest"
+    assert "gh" in calls and "git" in calls          # tried gh, fell back to git

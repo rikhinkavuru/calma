@@ -116,14 +116,20 @@ def _clone(repo: str, dest: str, job, installation_id=None) -> str:
             _log(job, "installation-token clone failed, falling back: %s" % (ri.stderr or "")[-120:])
         except Exception as e:  # noqa: BLE001
             _log(job, "installation token error: %s" % str(e)[:120])
-    r = subprocess.run(["gh", "repo", "clone", slug, dest, "--", "--depth", "1"],
-                       capture_output=True, text=True, timeout=240)
-    if r.returncode != 0:
-        r2 = subprocess.run(["git", "clone", "--quiet", "--depth", "1",
-                             "https://github.com/%s.git" % slug, dest], capture_output=True, text=True,
-                            timeout=240)
-        if r2.returncode != 0:
-            raise RuntimeError("clone failed: %s" % (r.stderr or r2.stderr or "unknown")[:300])
+    gh_err = ""
+    try:                                              # gh = the operator's local auth (not present on a server)
+        r = subprocess.run(["gh", "repo", "clone", slug, dest, "--", "--depth", "1"],
+                           capture_output=True, text=True, timeout=240)
+        if r.returncode == 0:
+            return dest
+        gh_err = r.stderr or ""
+    except FileNotFoundError:                          # no gh in this env → fall straight through to plain git
+        gh_err = "gh not installed"
+    r2 = subprocess.run(["git", "clone", "--quiet", "--depth", "1",
+                         "https://github.com/%s.git" % slug, dest], capture_output=True, text=True,
+                        timeout=240)
+    if r2.returncode != 0:
+        raise RuntimeError("clone failed: %s" % (gh_err or r2.stderr or "unknown")[:300])
     return dest
 
 
