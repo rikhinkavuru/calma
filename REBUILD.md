@@ -78,10 +78,13 @@ apps/mcp            ← mcp/            (keep thin — the one client surface wo
 2. **Discovery (TDMR)** — ✅ first version built (`spike/discovery/extract.py`: results.json + README +
    stdout → claims, mapped to the catalog). Next: notebook outputs, wandb/mlflow logs, and invest in the
    VALUE parser (SOTA's weak spot). Free = auto-discover; paid = user states the claim.
-3. **Build auto-binding** — ⭐ NOW THE CRITICAL PATH (the corpus proved it). Dataflow/provenance tracing to
-   disambiguate multi-candidate cases (GridSearchCV's many accuracy calls, multi-model scripts → bind the
-   held-out/test computation) + a value-recompute fallback for hand-rolled metrics with no library call to
-   hook. Replaces the metric-identity + manual-hint binding today. Target: binding ≥ 85%.
+3. **Build auto-binding** — ✅ DONE (2026-06-30). Capture records call-site provenance (user_site) + input
+   size; the binder collapses library-internal calls (GridSearchCV's per-fold .score) → the repo's own
+   computation, then disambiguates held-out-vs-train by size — never by value (would hide REFUTEDs). Heavy
+   adversarial tests; live: collapsed 25 internal calls on a real GridSearchCV repo. Remaining gap is
+   capture/disambiguation COVERAGE (unlabeled multi-model stdout → correct fail-closed), not the logic.
+   Also shipped same day: E2B install-once cost fix + telemetry, pinned envs (uv), heavy/GPU (CPU wheels +
+   failure taxonomy). See [`spike/results/`] and the memory.
 4. **Grow the catalog** — port the proven metric corpus into `packages/core`; add the CEGIS synth-and-
    validate path for novel metrics.
 5. **Product scaffold** — `apps/api` durable job model (`queued → mapping → triaging → verifying → done`),
