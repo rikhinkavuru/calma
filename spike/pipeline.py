@@ -266,6 +266,9 @@ def _diff_claims(claims: list[dict], run_result: dict, job_run: dict) -> list[di
         # carry the always-on validity overlay (trivial-baseline / degenerate-distribution / chance-level)
         # through to the UI — it is what flipped a would-be CONFIRMED to INVALIDATED.
         out["validity"] = rec.get("validity", out["validity"])
+        cands = (rec.get("binding") or {}).get("candidates")
+        if cands:
+            out["scope_options"] = cands       # the scope-the-claim choices the UI offers for an ambiguous bind
         records.append(out)
     return records
 

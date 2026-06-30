@@ -50,6 +50,8 @@ def _candidates(claim, calls):
     hint = claim.get("bind") or {}
     if hint.get("sink"):
         cands = [c for c in cands if hint["sink"] in (c.get("sink") or "")]
+    if hint.get("site"):
+        cands = [c for c in cands if c.get("site") == hint["site"]]
     if hint.get("label"):
         cands = [c for c in cands if c.get("label") == hint["label"]]
     return cid, raw, cands, hint
@@ -100,6 +102,29 @@ def _bound_call(claim, calls):
         len(cands), raw, ", ".join(sinks))
 
 
+def scope_options(claim, calls):
+    """The distinguishable computations a user can SCOPE an ambiguously-bound claim to — by SEMANTIC identity
+    (call site, sink, sample size), NEVER by value. Offering the values would let a misreport be "confirmed"
+    by picking whichever computation happens to match — the binding hole we proved unsafe. The user picks the
+    computation their claim is ABOUT (e.g. the held-out eval at model.py:42); re-verifying with
+    bind={"site": ...} binds exactly that one and the value is revealed only in the resulting verdict.
+    Returns [] when no scoping is needed (a unique binding already exists)."""
+    cid, raw, cands, _hint = _candidates(claim, calls)
+    if len(cands) <= 1:
+        return []
+    user = [c for c in cands if c.get("user_site")]
+    pool = user if (user and len(user) < len(cands)) else cands   # the headline computations, same as binding
+    seen, opts = set(), []
+    for c in sorted(pool, key=lambda c: c.get("seq", 0)):
+        site = c.get("site")
+        if site in seen:                          # one option per distinct call site
+            continue
+        seen.add(site)
+        opts.append({"site": site, "sink": c.get("sink"), "n": c.get("n"),
+                     "user_site": bool(c.get("user_site"))})
+    return opts if len(opts) > 1 else []
+
+
 def diff_claim(claim, runs, resolver=None) -> dict:
     """Three-way diff for one claim across `runs` (a list of capture-call lists; runs[0] is authoritative).
 
@@ -109,6 +134,8 @@ def diff_claim(claim, runs, resolver=None) -> dict:
     base_calls = runs[0] if runs else []
     call, status, reason = _bound_call(claim, base_calls)
     binding = {"bound": status == "bound", "ambiguous": status == "ambiguous", "reason": reason}
+    if status == "ambiguous":
+        binding["candidates"] = scope_options(claim, base_calls)   # the choices for the scope-the-claim UX
     rec = {"claim": claim, "binding": dict(binding)}
 
     if status != "bound":
