@@ -111,6 +111,123 @@ def _local_module_names(repo_dir):
     return names
 
 
+# heavy / accelerator-bound deps. We can still TRY them on CPU (and prefer CPU wheels), but they need a
+# bigger install budget and often want a GPU at runtime.
+_HEAVY = frozenset({"torch", "torchvision", "torchaudio", "tensorflow", "tensorflow-gpu", "jax", "jaxlib",
+                    "transformers", "accelerate", "deepspeed", "xgboost", "lightgbm", "catboost",
+                    "vllm", "flash-attn", "bitsandbytes", "cupy", "rapids", "detectron2"})
+# install args that pull the CPU build instead of the multi-GB CUDA wheel (inferred deps only — a repo's
+# pinned requirements.txt is respected as-is for faithful repro).
+_CPU_WHEELS = {
+    "torch": ["torch", "--index-url", "https://download.pytorch.org/whl/cpu"],
+    "torchvision": ["torchvision", "--index-url", "https://download.pytorch.org/whl/cpu"],
+    "torchaudio": ["torchaudio", "--index-url", "https://download.pytorch.org/whl/cpu"],
+    "tensorflow": ["tensorflow-cpu"],
+    "tensorflow-gpu": ["tensorflow-cpu"],
+}
+
+
+def cpu_pip_args(pkg):
+    """For an INFERRED heavy dep, the args that fetch the CPU wheel (avoids a giant CUDA download). Returns a
+    list of pip args; default is just [pkg]."""
+    base = re.split(r"[<>=!~ ]", pkg, maxsplit=1)[0].strip().lower()
+    return list(_CPU_WHEELS.get(base, [pkg]))
+
+
+def deps_are_heavy(pkgs):
+    """True if any dep is a heavy/accelerator package → use a larger install budget."""
+    for p in pkgs or []:
+        base = re.split(r"[<>=!~ ]", p, maxsplit=1)[0].strip().lower()
+        if base in _HEAVY:
+            return True
+    return False
+
+
+# stderr signature → (kind, user-facing hint). The honest couldn't-reproduce taxonomy: tell the user WHY the
+# re-run didn't produce a number, instead of a raw stack trace.
+_FAILURE_TAXONOMY = [
+    ("CUDA", ("needs-gpu", "the code requires a GPU (CUDA) — not available on the CPU tier")),
+    ("cuda", ("needs-gpu", "the code requires a GPU (CUDA) — not available on the CPU tier")),
+    ("No CUDA GPUs are available", ("needs-gpu", "the code requires a GPU (CUDA) — not available on the CPU tier")),
+    ("nvidia", ("needs-gpu", "the code requires NVIDIA/GPU support — not available on the CPU tier")),
+    ("out of memory", ("too-heavy", "ran out of memory — needs a larger tier")),
+    ("Killed", ("too-heavy", "the process was killed (likely out of memory) — needs a larger tier")),
+    ("MemoryError", ("too-heavy", "ran out of memory — needs a larger tier")),
+    ("[timeout]", ("too-slow", "exceeded the time budget — scope the run or raise the timeout")),
+    ("ModuleNotFoundError", ("missing-dep", "a dependency could not be installed/resolved")),
+    ("No matching distribution", ("missing-dep", "a dependency could not be installed/resolved")),
+    ("FileNotFoundError", ("missing-data", "an input file/dataset is missing — connect the data")),
+    ("No such file or directory", ("missing-data", "an input file/dataset is missing — connect the data")),
+    ("HTTPError", ("needs-network", "a runtime download failed — the dataset/model isn't bundled")),
+    ("ConnectionError", ("needs-network", "a runtime download failed — the dataset/model isn't bundled")),
+    ("URLError", ("needs-network", "a runtime download failed — the dataset/model isn't bundled")),
+]
+
+
+def classify_failure(stderr):
+    """Map a captured stderr to (kind, hint). Returns ('errored', generic) when nothing matches."""
+    s = stderr or ""
+    for sig, (kind, hint) in _FAILURE_TAXONOMY:
+        if sig in s:
+            return {"kind": kind, "hint": hint}
+    return {"kind": "errored", "hint": "the entrypoint errored — see the full output"}
+
+
+_PYVER_RE = re.compile(r"(\d+)\.(\d+)(?:\.\d+)?")
+
+
+def detect_python_version(repo_dir):
+    """The Python version the repo was written for — so a faithful repro runs under it (not just whatever the
+    sandbox ships), turning version-drift REFUTEDs into CONFIRMEDs under the original interpreter. Reads, in
+    intent order, .python-version → runtime.txt → pyproject requires-python / poetry python → setup.py/cfg
+    python_requires. Returns 'X.Y' or None."""
+    def first_xy(text):
+        m = _PYVER_RE.search(text or "")
+        return "%s.%s" % (m.group(1), m.group(2)) if m else None
+
+    p = os.path.join(repo_dir, ".python-version")
+    if os.path.isfile(p):
+        try:
+            xy = first_xy(open(p, errors="replace").read())
+            if xy:
+                return xy
+        except OSError:
+            pass
+    p = os.path.join(repo_dir, "runtime.txt")          # e.g. Heroku-style "python-3.11.5"
+    if os.path.isfile(p):
+        try:
+            xy = first_xy(open(p, errors="replace").read())
+            if xy:
+                return xy
+        except OSError:
+            pass
+    p = os.path.join(repo_dir, "pyproject.toml")
+    if os.path.isfile(p):
+        try:
+            txt = open(p, errors="replace").read()
+        except OSError:
+            txt = ""
+        for key in ("requires-python", "python"):       # PEP 621 + poetry
+            m = re.search(key + r'\s*=\s*["\']([^"\']+)["\']', txt)
+            if m:
+                xy = first_xy(m.group(1))               # lower bound / pinned of ">=3.9", "^3.10", "==3.11"
+                if xy:
+                    return xy
+    for fn in ("setup.py", "setup.cfg"):
+        p = os.path.join(repo_dir, fn)
+        if os.path.isfile(p):
+            try:
+                txt = open(p, errors="replace").read()
+            except OSError:
+                continue
+            m = re.search(r"python_requires\s*=\s*[\"']([^\"']+)[\"']", txt)
+            if m:
+                xy = first_xy(m.group(1))
+                if xy:
+                    return xy
+    return None
+
+
 def infer_requirements(repo_dir, max_files=120):
     """Resolve the pip deps to install so a repo runs in a clean sandbox, WITHOUT the user listing them.
     Declared deps win (requirements.txt); otherwise infer from the actual imports — map import roots to PyPI

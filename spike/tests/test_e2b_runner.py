@@ -28,6 +28,8 @@ class _Cmds:
 
     def run(self, cmd, **kw):
         self.log.setdefault("cmds", []).append(cmd)
+        if self.log.get("fail_on") and self.log["fail_on"] in cmd:
+            raise RuntimeError("simulated failure: " + cmd)
         return types.SimpleNamespace(exit_code=0, stdout="", stderr="")
 
 
@@ -84,3 +86,39 @@ def test_tolerant_install_for_inferred_deps(tmp_path, monkeypatch):
                        pip_strict=False, cfg=cfg)
     installs = [c for c in _LOG.get("cmds", []) if "pip install" in c]
     assert len(installs) == 2                                   # one command per package
+
+
+def test_inferred_heavy_dep_uses_cpu_wheel(tmp_path, monkeypatch):
+    _install_fake_e2b(monkeypatch)
+    (tmp_path / "eval.py").write_text("print('hi')\n")
+    cfg = {"api_key": "x", "domain": None, "template": None}
+    e2b_runner.run_e2b(str(tmp_path), ["eval.py"], k=1, pip_install=["torch", "numpy"],
+                       pip_strict=False, cfg=cfg)
+    cmds = _LOG.get("cmds", [])
+    assert any("download.pytorch.org/whl/cpu" in c for c in cmds)   # torch → CPU wheel, no CUDA download
+
+
+def test_provisions_declared_python_version(tmp_path, monkeypatch):
+    _install_fake_e2b(monkeypatch)
+    (tmp_path / "eval.py").write_text("print('hi')\n")
+    cfg = {"api_key": "x", "domain": None, "template": None}
+    res = e2b_runner.run_e2b(str(tmp_path), ["eval.py"], k=1, pip_install=["numpy"],
+                             python_version="3.11", cfg=cfg)
+    cmds = _LOG.get("cmds", [])
+    assert any("uv python install 3.11" in c for c in cmds)
+    assert any("uv venv --python 3.11 /pyenv" in c for c in cmds)
+    assert any(c.startswith("/pyenv/bin/python ") for c in cmds)        # ran under the provisioned interp
+    assert any("uv pip install" in c and "/pyenv/bin/python" in c for c in cmds)  # installed into it
+    assert res["cost"]["python"] == "3.11"
+
+
+def test_python_provision_falls_back_gracefully(tmp_path, monkeypatch):
+    _install_fake_e2b(monkeypatch)
+    _LOG["fail_on"] = "uv python install"                       # provisioning unavailable
+    (tmp_path / "eval.py").write_text("print('hi')\n")
+    cfg = {"api_key": "x", "domain": None, "template": None}
+    res = e2b_runner.run_e2b(str(tmp_path), ["eval.py"], k=1, pip_install=["numpy"],
+                             python_version="3.11", cfg=cfg)
+    cmds = _LOG.get("cmds", [])
+    assert any(c.startswith("python ") for c in cmds)            # fell back to the sandbox python
+    assert res["cost"]["python"] == "sandbox-default" and res["ran_ok"]

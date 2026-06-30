@@ -57,6 +57,61 @@ def test_infer_from_imports_maps_and_filters(tmp_path):
     assert "helpers" not in reqs                                            # local dropped
 
 
+def test_detect_python_version_dotfile(tmp_path):
+    (tmp_path / ".python-version").write_text("3.11.5\n")
+    assert build.detect_python_version(str(tmp_path)) == "3.11"
+
+
+def test_detect_python_version_runtime_txt(tmp_path):
+    (tmp_path / "runtime.txt").write_text("python-3.10.2\n")
+    assert build.detect_python_version(str(tmp_path)) == "3.10"
+
+
+def test_detect_python_version_pyproject(tmp_path):
+    (tmp_path / "pyproject.toml").write_text('[project]\nrequires-python = ">=3.9,<3.12"\n')
+    assert build.detect_python_version(str(tmp_path)) == "3.9"
+
+
+def test_detect_python_version_poetry_caret(tmp_path):
+    (tmp_path / "pyproject.toml").write_text('[tool.poetry.dependencies]\npython = "^3.10"\n')
+    assert build.detect_python_version(str(tmp_path)) == "3.10"
+
+
+def test_detect_python_version_setup_py(tmp_path):
+    (tmp_path / "setup.py").write_text('setup(python_requires=">=3.8")\n')
+    assert build.detect_python_version(str(tmp_path)) == "3.8"
+
+
+def test_detect_python_version_priority_and_none(tmp_path):
+    (tmp_path / ".python-version").write_text("3.12\n")
+    (tmp_path / "pyproject.toml").write_text('requires-python = ">=3.8"\n')
+    assert build.detect_python_version(str(tmp_path)) == "3.12"   # .python-version wins
+    assert build.detect_python_version(str(tmp_path / "nope")) is None
+
+
+def test_cpu_pip_args_swaps_heavy_wheels():
+    assert build.cpu_pip_args("torch") == ["torch", "--index-url", "https://download.pytorch.org/whl/cpu"]
+    assert build.cpu_pip_args("tensorflow") == ["tensorflow-cpu"]
+    assert build.cpu_pip_args("tensorflow==2.15") == ["tensorflow-cpu"]
+    assert build.cpu_pip_args("numpy") == ["numpy"]               # ordinary dep untouched
+
+
+def test_deps_are_heavy():
+    assert build.deps_are_heavy(["numpy", "torch"]) is True
+    assert build.deps_are_heavy(["scikit-learn", "pandas"]) is False
+
+
+def test_classify_failure_taxonomy():
+    assert build.classify_failure("RuntimeError: No CUDA GPUs are available")["kind"] == "needs-gpu"
+    assert build.classify_failure("...\nKilled")["kind"] == "too-heavy"
+    assert build.classify_failure("MemoryError")["kind"] == "too-heavy"
+    assert build.classify_failure("urllib HTTPError 403")["kind"] == "needs-network"
+    assert build.classify_failure("FileNotFoundError: data/x.csv")["kind"] == "missing-data"
+    assert build.classify_failure("ModuleNotFoundError: No module named 'x'")["kind"] == "missing-dep"
+    assert build.classify_failure("\n[timeout]")["kind"] == "too-slow"
+    assert build.classify_failure("some random traceback")["kind"] == "errored"
+
+
 def test_infer_excludes_local_modules_in_subdirs(tmp_path):
     """The DRIFT bug: local modules living in subdirs (imported as top-level on sys.path) must NOT be
     treated as PyPI packages — `pip install model` aborted the whole env build."""

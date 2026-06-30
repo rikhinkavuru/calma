@@ -189,6 +189,9 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace):
                 trace.note("auto-deps (%s): %s" % (why, " ".join(pip)[:160]))
             else:
                 trace.note("no deps detected (%s)" % why)
+        pyver = build.detect_python_version(repo_dir)     # faithful repro under the declared interpreter
+        if pyver:
+            trace.note("declared Python %s — provisioning it for a faithful repro" % pyver)
         trace.stage("running", "running in E2B microVM")
         return run_e2b(
             repo_dir,
@@ -198,6 +201,7 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace):
             targets=opts.targets,
             pip_install=pip,
             pip_strict=strict,
+            python_version=pyver,
             timeout=opts.timeout,
         ), entry
 
@@ -253,10 +257,11 @@ def _diff_claims(claims: list[dict], run_result: dict, job_run: dict) -> list[di
         verdict, reason = rec["verdict"], rec.get("reason", "")
         if verdict == VD.INCONCLUSIVE and "no captured computation" in reason:
             verdict = DISCOVERED
-            reason = (
-                "the re-run did not recompute this number"
-                + (" (the entrypoint failed to run)" if not job_run.get("ran") else " - point Calma at the script/args that compute it")
-            )
+            if not job_run.get("ran"):
+                fail = job_run.get("failure") or {}
+                reason = "the re-run did not recompute this number — " + (fail.get("hint") or "the entrypoint failed to run")
+            else:
+                reason = "the re-run did not recompute this number — point Calma at the script/args that compute it"
         out = _claim_out(claim, verdict, reason, rec.get("diff", {}), provenance=rec.get("recompute_provenance"))
         # carry the always-on validity overlay (trivial-baseline / degenerate-distribution / chance-level)
         # through to the UI — it is what flipped a would-be CONFIRMED to INVALIDATED.
@@ -283,18 +288,19 @@ def verify_repo(
     if opts.deep:
         run_result, entry = _run_repo(repo_dir, opts, trace)
         total_calls = sum(len(run) for run in run_result.get("runs", []))
-        err, err_full = "", ""
+        err, err_full, failure = "", "", None
         if not run_result.get("ran_ok"):
             err_full = (" ".join(m.get("stderr_tail", "") for m in run_result.get("meta", [])).strip())[-1200:]
             err = _error_summary(err_full)            # the actual exception, not the top of the traceback
-            trace.note("run failed: %s" % (err or "entrypoint did not execute"))
+            failure = build.classify_failure(err_full)   # needs-gpu / too-heavy / missing-data / …
+            trace.note("run failed (%s): %s" % (failure["kind"], err or failure["hint"]))
         trace.note("captured %d computation(s)" % total_calls)
         cost = run_result.get("cost", {})
         if cost.get("sandbox_seconds"):
             trace.note("sandbox: %.1fs (build %.1fs + %d run(s)) — one sandbox reused"
                        % (cost.get("sandbox_seconds", 0), cost.get("build_seconds", 0), cost.get("runs", 0)))
         job_run = {"ran": run_result.get("ran_ok"), "calls": total_calls, "entry": " ".join(entry),
-                   "error": err, "error_full": err_full, "cost": cost}
+                   "error": err, "error_full": err_full, "failure": failure, "cost": cost}
 
     claims = list(opts.claims or [])
     if opts.discover:

@@ -23,7 +23,7 @@ import os
 import tempfile
 import time
 
-from . import CAPTURE_DIR, parse_capture
+from . import CAPTURE_DIR, build, parse_capture
 
 _SHIM_FILES = ("calma_capture.py", "sitecustomize.py")
 
@@ -97,23 +97,43 @@ def _pull_capture(sbx, remote):
         return tf.name
 
 
-def _install(sbx, pip_install, pip_strict, timeout):
-    """Install deps ONCE. Strict (requirements.txt) → one command, failure surfaces. Tolerant (inferred) →
-    per-package, ignore misses so one bad guess can't abort the env."""
+def _install(sbx, pip_install, pip_strict, timeout, pip_cmd="pip install -q"):
+    """Install deps ONCE. Strict (requirements.txt) → one command, failure surfaces, deps respected as pinned
+    (faithful repro). Tolerant (inferred) → per-package, ignore misses so one bad guess can't abort the env,
+    and swap heavy packages for their CPU wheels (avoids multi-GB CUDA downloads on the CPU tier)."""
     if not pip_install:
         return
     if pip_strict:
-        sbx.commands.run("pip install -q " + " ".join(pip_install), timeout=timeout)
+        sbx.commands.run(pip_cmd + " " + " ".join(pip_install), timeout=timeout)
     else:
         for pkg in pip_install:
             try:
-                sbx.commands.run("pip install -q %s" % shlex.quote(pkg), timeout=timeout)
+                args = build.cpu_pip_args(pkg)               # torch → CPU wheel, etc.
+                sbx.commands.run(pip_cmd + " " + " ".join(shlex.quote(a) for a in args), timeout=timeout)
             except Exception:  # noqa: BLE001
                 pass
 
 
+def _provision_python(sbx, version, timeout):
+    """Faithful repro: provision the repo's DECLARED Python via uv, instead of running on whatever the sandbox
+    ships. Returns (python_exe, pip_cmd, version_used) — falls back to the sandbox python if uv/the build
+    can't provide it (graceful: an honest run on the default interpreter beats no run)."""
+    default = ("python", "pip install -q", None)
+    if not version:
+        return default
+    try:
+        sbx.commands.run("pip install -q uv", timeout=timeout)
+        sbx.commands.run("uv python install %s" % shlex.quote(version), timeout=timeout)
+        sbx.commands.run("uv venv --python %s /pyenv" % shlex.quote(version), timeout=timeout)
+        py = "/pyenv/bin/python"
+        return py, "uv pip install -q --python %s" % py, version
+    except Exception:  # noqa: BLE001 — version not provisionable → run on the sandbox's python
+        return default
+
+
 def run_e2b(repo_dir, entry, *, k=2, hooks="sklearn", targets=None, timeout=600,
-            allow_internet=False, pip_install=None, pip_strict=True, cfg=None, max_elems=None):
+            allow_internet=False, pip_install=None, pip_strict=True, python_version=None,
+            cfg=None, max_elems=None):
     """ONE sandbox: stage + install ONCE, then run the entrypoint k× inside it (each a fresh process with its
     own capture file). Reusing the sandbox across the determinism runs is the big cost lever — the dominant
     `pip install` is paid once, not k×, and it's MORE correct for determinism (identical env across runs, so
@@ -126,15 +146,19 @@ def run_e2b(repo_dir, entry, *, k=2, hooks="sklearn", targets=None, timeout=600,
     runs, meta = [], []
     hooks_armed = None
     sbx = None
+    pybin, python_used = "python", None
     t_start = time.time()
     build_seconds = 0.0
     try:
-        sbx = _create_sandbox(cfg, timeout, allow_internet or bool(pip_install))
+        sbx = _create_sandbox(cfg, timeout, allow_internet or bool(pip_install) or bool(python_version))
         for fn in _SHIM_FILES:                                   # stage the capture shim + the repo (once)
             with open(os.path.join(CAPTURE_DIR, fn), "rb") as fh:
                 sbx.files.write("/capture/" + fn, fh.read())
         _upload_dir(sbx, repo_dir, "/work")
-        _install(sbx, pip_install, pip_strict, timeout)          # install (once)
+        # heavy deps (torch/tf/…) need a much bigger install budget than the run timeout
+        inst_timeout = max(timeout, 1800) if build.deps_are_heavy(pip_install) else timeout
+        pybin, pip_cmd, python_used = _provision_python(sbx, python_version, inst_timeout)  # declared py (or default)
+        _install(sbx, pip_install, pip_strict, inst_timeout, pip_cmd)  # install (once)
         build_seconds = time.time() - t_start
     except Exception as e:  # noqa: BLE001 — setup failed → every run fails identically
         build_seconds = time.time() - t_start
@@ -163,7 +187,7 @@ def run_e2b(repo_dir, entry, *, k=2, hooks="sklearn", targets=None, timeout=600,
                     envs["CALMA_CAPTURE_TARGETS"] = json.dumps(targets)
                 if max_elems:
                     envs["CALMA_CAPTURE_MAX_ELEMS"] = str(max_elems)
-                r = sbx.commands.run("python " + " ".join(entry), cwd="/work", envs=envs, timeout=timeout)
+                r = sbx.commands.run(pybin + " " + " ".join(entry), cwd="/work", envs=envs, timeout=timeout)
                 rc = getattr(r, "exit_code", 0) or 0
                 out, err, killed = getattr(r, "stdout", "") or "", getattr(r, "stderr", "") or "", False
                 out_local = _pull_capture(sbx, out_remote)
@@ -196,4 +220,4 @@ def run_e2b(repo_dir, entry, *, k=2, hooks="sklearn", targets=None, timeout=600,
             "n_calls": [len(r) for r in runs],
             "cost": {"sandbox_seconds": round(build_seconds + run_seconds, 2),
                      "build_seconds": round(build_seconds, 2), "run_seconds": round(run_seconds, 2),
-                     "runs": len(meta), "reused_sandbox": True}}
+                     "runs": len(meta), "reused_sandbox": True, "python": python_used or "sandbox-default"}}
