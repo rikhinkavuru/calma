@@ -77,6 +77,7 @@ class VerifyReq(BaseModel):
     discover: bool = True
     claims: list[dict] | None = None
     k: int = 2
+    fetch_data: bool = False             # opt-in: fetch missing external data via Exa, then retry (paid-tier)
     installation_id: str | None = None   # clone via this GitHub App installation's short-lived token
 
 
@@ -148,6 +149,7 @@ def run_job(job, req: VerifyReq):
                 discover=req.discover,
                 claims=list(req.claims or []),
                 k=req.k,
+                fetch_data=req.fetch_data,
                 job_id=job["id"],
                 venvs_dir=_VENVS,
                 base_python=VENV_PY,

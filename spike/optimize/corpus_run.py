@@ -33,17 +33,6 @@ from pipeline import VerifyOptions, verify_repo  # noqa: E402
 from runner import build  # noqa: E402
 from runner import data_resolver as DR  # noqa: E402
 
-# the file the code tried to open in a "missing input file" failure (only data files are fetchable)
-_MISSING_RE = re.compile(r"No such file or directory:?\s*'([^']+)'|FileNotFoundError[^']*'([^']+)'")
-
-
-def _missing_data_path(err):
-    if not err:
-        return None
-    m = _MISSING_RE.search(err)
-    p = (m.group(1) or m.group(2)) if m else None
-    return p if (p and p.lower().endswith(DR._DATA_EXT)) else None
-
 # verdicts that mean "the claim was bound to a runtime computation" (vs unbound/ambiguous/undiscovered)
 _BOUND = (VD.CONFIRMED, VD.REFUTED, VD.INVALIDATED, VD.REPRODUCED_ONLY, VD.NON_DETERMINISTIC)
 
@@ -132,7 +121,7 @@ def run_one(url, expect, args):
     run = res.get("run") or {}
     fetch_note = None
     if args.fetch_data and not run.get("ran"):          # opt-in: grab missing external data via Exa, then retry
-        miss = _missing_data_path(run.get("error_full") or run.get("error"))
+        miss = DR.missing_data_path(run.get("error_full") or run.get("error"))
         if miss:
             ok, fetch_note = DR.resolve_missing_data(repo_dir, miss)
             if ok:

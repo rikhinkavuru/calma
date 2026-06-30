@@ -21,6 +21,17 @@ _EXA_SEARCH = "https://api.exa.ai/search"
 _DATA_EXT = (".csv", ".tsv", ".data", ".json", ".txt", ".parquet", ".xlsx")
 # kaggle slugs / dataset references in code+README that tell us WHAT data the repo wants
 _KAGGLE_RE = re.compile(r"(?:datasets download -d\s+|kaggle\.com/datasets/)([\w.-]+/[\w.-]+)")
+# the file a "missing input" failure tried to open
+_MISSING_RE = re.compile(r"No such file or directory:?\s*'([^']+)'|FileNotFoundError[^']*'([^']+)'")
+
+
+def missing_data_path(err):
+    """The DATA file a 'missing input' failure tried to open (only data extensions are fetchable), else None."""
+    if not err:
+        return None
+    m = _MISSING_RE.search(err)
+    p = (m.group(1) or m.group(2)) if m else None
+    return p if (p and p.lower().endswith(_DATA_EXT)) else None
 
 
 def dataset_hints(repo_dir):

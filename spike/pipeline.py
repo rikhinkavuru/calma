@@ -43,6 +43,7 @@ class VerifyOptions:
     job_id: str = "pipeline"
     venvs_dir: str | None = None
     base_python: str | None = None
+    fetch_data: bool = False        # opt-in: on a "missing input file" failure, fetch the data via Exa + retry
 
 
 def _argv(entry) -> list[str]:
@@ -294,6 +295,14 @@ def verify_repo(
     job_run = None
     if opts.deep:
         run_result, entry = _run_repo(repo_dir, opts, trace)
+        if not run_result.get("ran_ok") and opts.fetch_data:    # opt-in: grab missing external data, then retry
+            from runner import data_resolver as _DR
+            miss = _DR.missing_data_path(" ".join(m.get("stderr_tail", "") for m in run_result.get("meta", [])))
+            if miss:
+                ok, note = _DR.resolve_missing_data(repo_dir, miss)
+                trace.note("data-fetch: %s" % note)
+                if ok:
+                    run_result, entry = _run_repo(repo_dir, opts, trace)
         total_calls = sum(len(run) for run in run_result.get("runs", []))
         err, err_full, failure = "", "", None
         if not run_result.get("ran_ok"):
