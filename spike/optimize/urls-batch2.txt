@@ -1,0 +1,8 @@
+# Batch-2: diverse SELF-CONTAINED repos (sklearn built-in datasets — no external data) found via Exa.
+# Mix of scripts + notebooks (notebook support exercised). Ungraded → measures coverage + FCR (spot-check).
+https://github.com/wolfecameron/MachineLearning                          # load_breast_cancer, RF (multi-file)
+https://github.com/ShamsRupak/ML-Image-Classifier                        # load_digits, SVM, classifier.py
+https://github.com/rishavgiri6/DigiEnabler                               # load_digits, SVM/DT/RF
+https://github.com/DhivyaRenuka/Predicting-the-digits-dataset-using-SVM  # load_digits, SVM (notebook)
+https://github.com/VaibhaVSharmaVvs/Digits-Classification-with-SVM       # load_digits, SVM (notebook)
+https://github.com/NiyatiMalik/Wine-Data-Analysis-and-Prediction         # sklearn wine (notebook)
