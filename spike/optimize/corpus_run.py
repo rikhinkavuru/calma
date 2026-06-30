@@ -31,6 +31,18 @@ sys.path.insert(0, os.path.join(SPIKE, "capture"))
 from core import verdict as VD  # noqa: E402
 from pipeline import VerifyOptions, verify_repo  # noqa: E402
 from runner import build  # noqa: E402
+from runner import data_resolver as DR  # noqa: E402
+
+# the file the code tried to open in a "missing input file" failure (only data files are fetchable)
+_MISSING_RE = re.compile(r"No such file or directory:?\s*'([^']+)'|FileNotFoundError[^']*'([^']+)'")
+
+
+def _missing_data_path(err):
+    if not err:
+        return None
+    m = _MISSING_RE.search(err)
+    p = (m.group(1) or m.group(2)) if m else None
+    return p if (p and p.lower().endswith(DR._DATA_EXT)) else None
 
 # verdicts that mean "the claim was bound to a runtime computation" (vs unbound/ambiguous/undiscovered)
 _BOUND = (VD.CONFIRMED, VD.REFUTED, VD.INVALIDATED, VD.REPRODUCED_ONLY, VD.NON_DETERMINISTIC)
@@ -118,6 +130,14 @@ def run_one(url, expect, args):
                 "error": "%s: %s" % (type(e).__name__, str(e)[:160]), "seconds": round(time.time() - t0, 1),
                 "claims": [], "expect": expect}
     run = res.get("run") or {}
+    fetch_note = None
+    if args.fetch_data and not run.get("ran"):          # opt-in: grab missing external data via Exa, then retry
+        miss = _missing_data_path(run.get("error_full") or run.get("error"))
+        if miss:
+            ok, fetch_note = DR.resolve_missing_data(repo_dir, miss)
+            if ok:
+                res = verify_repo(repo_dir, opts)
+                run = res.get("run") or {}
     claims = [{"id": c.get("id"), "metric": c.get("metric"), "claimed": c.get("claimed"),
                "verdict": c.get("verdict")} for c in res.get("claims", [])]
     headline = next((c["verdict"] for c in claims if c["verdict"] in (VD.CONFIRMED, VD.REFUTED,
@@ -125,6 +145,7 @@ def run_one(url, expect, args):
     return {"url": url, "name": spec["name"], "ran": bool(run.get("ran")),
             "seconds": round(time.time() - t0, 1), "entry": run.get("entry"), "notebooks": n_nb,
             "error": (run.get("error") or "")[:160], "deps": deps[:8], "why_deps": why, "era": era,
+            "data_fetch": fetch_note,
             "n_claims": res.get("n_claims"), "counts": res.get("counts", {}), "claims": claims,
             "expect": expect, "headline": headline,
             "graded_match": (None if expect is None else (headline == expect))}
@@ -158,6 +179,7 @@ def main():
     ap.add_argument("--out", default=os.path.join(SPIKE, "results", "live-many"))
     ap.add_argument("--e2b", action="store_true")
     ap.add_argument("--no-era", action="store_true", help="disable era-based package pinning of inferred deps")
+    ap.add_argument("--fetch-data", action="store_true", help="opt-in: fetch missing external data via Exa, then retry")
     ap.add_argument("--k", type=int, default=2)
     ap.add_argument("--timeout", type=int, default=420)
     ap.add_argument("--only", default="", help="comma-substring filter on repo name")
