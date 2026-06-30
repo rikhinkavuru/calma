@@ -93,8 +93,8 @@ def _flatten(obj, prefix=""):
 def from_results_json(path) -> list[dict]:
     try:
         with open(path) as fh:
-            data = json.load(fh)
-    except (OSError, json.JSONDecodeError):
+            data = json.loads(fh.read(8_000_000))   # bounded read — a giant results file can't OOM the API
+    except (OSError, ValueError):
         return []
     claims = []
     for name, val in _flatten(data):
@@ -248,7 +248,7 @@ def discover(repo_dir, stdout_text="") -> list[dict]:
         if os.path.isfile(p):
             try:
                 with open(p, errors="replace") as fh:
-                    found.extend(from_text(fh.read(), location=fn))
+                    found.extend(from_text(fh.read(2_000_000), location=fn))   # bounded README read
             except OSError:
                 pass
     if stdout_text:
