@@ -20,6 +20,7 @@ import argparse
 import json
 import os
 import re
+import subprocess
 import sys
 import time
 
@@ -32,6 +33,20 @@ from core import verdict as VD  # noqa: E402
 from pipeline import VerifyOptions, verify_repo  # noqa: E402
 from runner import build  # noqa: E402
 from runner import data_resolver as DR  # noqa: E402
+
+# the module a failure says is missing — covers plain ModuleNotFoundError AND pandas' optional-dep messages
+# ("Missing optional dependency 'openpyxl'", "`Import openpyxl` failed").
+_MODERR_RE = re.compile(r"No module named '([\w.]+)'|Missing optional dependency '([\w.]+)'|Import\W+([\w.]+)\W+failed")
+
+
+def _missing_module(err):
+    """The top-level missing module, if it's a plausible PyPI package (not a private C-extension like
+    _tkinter, not the repo's own module). Handles runtime deps the imports don't reveal — e.g. openpyxl,
+    which pandas imports lazily for .xlsx."""
+    m = _MODERR_RE.search(err or "")
+    name = next((g for g in m.groups() if g), None) if m else None
+    top = name.split(".")[0] if name else None
+    return top if (top and not top.startswith("_")) else None
 
 # verdicts that mean "the claim was bound to a runtime computation" (vs unbound/ambiguous/undiscovered)
 _BOUND = (VD.CONFIRMED, VD.REFUTED, VD.INVALIDATED, VD.REPRODUCED_ONLY, VD.NON_DETERMINISTIC)
@@ -129,6 +144,16 @@ def run_one(url, expect, args):
             if ok:
                 res = verify_repo(repo_dir, opts)
                 run = res.get("run") or {}
+    # missing-module retry: install a dep the imports didn't reveal (e.g. openpyxl for pandas .xlsx) + retry
+    if not run.get("ran") and not args.e2b:
+        mod = _missing_module(run.get("error_full") or run.get("error"))
+        vpy = os.path.join(args.out, ".venvs", spec["name"], "bin", "python")
+        if mod and os.path.isfile(vpy):
+            pkg = build._PKG_ALIASES.get(mod, mod)
+            subprocess.run([vpy, "-m", "pip", "install", "-q", pkg], timeout=300, check=False)
+            res = verify_repo(repo_dir, opts)
+            run = res.get("run") or {}
+            fetch_note = (fetch_note + "; " if fetch_note else "") + "installed %s" % pkg
     claims = [{"id": c.get("id"), "metric": c.get("metric"), "claimed": c.get("claimed"),
                "verdict": c.get("verdict")} for c in res.get("claims", [])]
     headline = next((c["verdict"] for c in claims if c["verdict"] in (VD.CONFIRMED, VD.REFUTED,
