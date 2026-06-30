@@ -51,18 +51,34 @@ export function VerifyClient() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  // Open the GitHub App install in a POPUP so the dashboard stays visible underneath. The popup hands the
+  // installation_id back via postMessage (see /api/github/setup) and closes — no full-tab redirect, no
+  // "hit back to see the dashboard". Falls back to same-tab navigation if the popup is blocked.
+  function openConnect() {
+    const w = window.open(CONNECT_URL, "calma-github", "popup,width=1000,height=760");
+    if (!w) window.location.href = CONNECT_URL;
+  }
+
   // /api/gh/repos works from the App credentials + the installation_id alone — it does NOT depend on the
   // backend remembering the install (its in-memory map is wiped on every redeploy). So we persist the id
   // client-side and treat it as the source of truth: repos load on return visits, and the connected state
   // sticks. Returns whether repos came back (lets us drop a stale/revoked id).
-  const loadInstallationRepos = useCallback(async (iid: string): Promise<boolean> => {
+  const loadInstallationRepos = useCallback(async (iid: string): Promise<{ ok: boolean; revoked: boolean }> => {
     setGhInstId(iid);
+    setReposErr(null);
     try {
       const res = await fetch(`/api/github?kind=gh-repos&installation_id=${encodeURIComponent(iid)}`, { cache: "no-store" });
       const r = await res.json();
-      if (res.ok && Array.isArray(r)) { setGhRepos(r); return r.length > 0; }
-    } catch { /* needs the verify backend reachable */ }
-    return false;
+      if (res.ok && Array.isArray(r)) { setGhRepos(r); return { ok: true, revoked: false }; }
+      // a non-OK response: surface WHY (usually the backend is missing the GitHub App creds — CALMA_GH_*),
+      // and only treat a true 404/revoked as a reason to forget the install — never a transient/empty result.
+      const msg = (r && r.error) || `status ${res.status}`;
+      setReposErr(String(msg));
+      return { ok: false, revoked: res.status === 404 || /not.?found|revoked|suspend|410/i.test(String(msg)) };
+    } catch (e) {
+      setReposErr(e instanceof Error ? e.message : "the verification backend is unreachable");
+      return { ok: false, revoked: false };   // transient → KEEP the connection
+    }
   }, []);
 
   useEffect(() => {
@@ -80,8 +96,11 @@ export function VerifyClient() {
     if (iid) {
       setInstallationId(iid);
       const adopted = iid;
-      loadInstallationRepos(adopted).then((ok) => {
-        if (!ok) { try { localStorage.removeItem(LS_KEY); } catch { /**/ } }  // stale/revoked → forget it
+      loadInstallationRepos(adopted).then((st) => {
+        // only forget the install if GitHub says it's truly gone (revoked/404) — NOT on a transient backend
+        // error or an empty repo list, which used to silently drop a valid connection (the "asks to connect
+        // again" bug).
+        if (st.revoked) { try { localStorage.removeItem(LS_KEY); } catch { /**/ } setInstallationId(null); }
       });
     }
     (async () => {
@@ -100,6 +119,22 @@ export function VerifyClient() {
       } catch (e) { if (alive) setReposErr(e instanceof Error ? e.message : String(e)); }
     })();
     return () => { alive = false; };
+  }, [loadInstallationRepos]);
+
+  // The connect popup posts the installation_id back here (so the dashboard updates in place). Adopt it the
+  // same way as the ?installation_id URL param — same-origin messages only.
+  useEffect(() => {
+    function onMsg(e: MessageEvent) {
+      if (e.origin !== window.location.origin) return;
+      const iid = e.data && e.data.source === "calma-github" ? String(e.data.installation_id || "") : "";
+      if (iid) {
+        try { localStorage.setItem("calma_gh_installation_id", iid); } catch { /* private mode */ }
+        setInstallationId(iid);
+        loadInstallationRepos(iid);
+      }
+    }
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
   }, [loadInstallationRepos]);
 
   const poll = useCallback(async (id: string) => {
@@ -221,11 +256,11 @@ export function VerifyClient() {
 
       {/* GitHub connect: install the App (interactive redirect) + state hint */}
       <div className={s.connect}>
-        <a className={`${dash.btn} ${dash.btnGhost ?? ""} ${s.ghBtn}`} href={CONNECT_URL}>
+        <button type="button" className={`${dash.btn} ${dash.btnGhost ?? ""} ${s.ghBtn}`} onClick={openConnect}>
           <GithubMark />
           {connected ? "GitHub connected — add repos" : "Connect GitHub"}
           {cfg && !cfg.configured ? " (setup)" : ""}
-        </a>
+        </button>
         <span className={dash.muted} style={{ fontSize: 12 }}>
           {connected
             ? "pick a connected repo below"
