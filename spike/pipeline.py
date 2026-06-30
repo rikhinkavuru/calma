@@ -185,6 +185,10 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace):
         if not pip:
             pip, why = build.infer_requirements(repo_dir)
             strict = (why == "requirements.txt")          # inferred deps install tolerantly (best-effort)
+            if pip and why != "requirements.txt":
+                pip, era = build.era_pin(pip, repo_dir)    # pin INFERRED deps to the repo's commit-date era
+                if era:                                    # (paired with the era Python below) — version-drift repro
+                    trace.note("era-pinned inferred deps to %s" % era)
             if pip:
                 trace.note("auto-deps (%s): %s" % (why, " ".join(pip)[:160]))
             else:

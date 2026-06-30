@@ -150,6 +150,66 @@ def deps_are_heavy(pkgs):
     return False
 
 
+def repo_commit_date(repo_dir):
+    """YYYY-MM-DD of the repo's HEAD commit — the era to pin inferred packages to. None if unavailable."""
+    try:
+        out = subprocess.run(["git", "-C", repo_dir, "log", "-1", "--format=%cs"],
+                             capture_output=True, text=True, timeout=15)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    d = (out.stdout or "").strip()
+    return d if re.match(r"^\d{4}-\d{2}-\d{2}$", d) else None
+
+
+def _pypi_version_at(name, date, timeout=20):
+    """The version of `name` most recently released on/before `date` (PyPI JSON API). Skips pre-releases.
+    None on any failure → the caller leaves the package unpinned."""
+    import json
+    import urllib.request
+    try:
+        with urllib.request.urlopen("https://pypi.org/pypi/%s/json" % name, timeout=timeout) as fh:
+            releases = json.load(fh).get("releases") or {}
+    except Exception:  # noqa: BLE001 — network/parse failure → unpinned fallback
+        return None
+    best_ver, best_date = None, ""
+    for ver, files in releases.items():
+        if re.search(r"(a|b|rc|dev)\d", ver):           # skip 1.0a1 / 1.0rc1 / 1.0.dev0
+            continue
+        ups = [(f.get("upload_time_iso_8601") or f.get("upload_time") or "")[:10] for f in files]
+        ups = [u for u in ups if u]
+        if not ups:
+            continue
+        rel = min(ups)                                  # first upload of this version
+        if rel > date:
+            continue
+        if best_ver is None or (rel, _ver_key(ver)) > (best_date, _ver_key(best_ver)):
+            best_ver, best_date = ver, rel
+    return best_ver
+
+
+def _ver_key(v):
+    return tuple(int(x) for x in re.findall(r"\d+", v or "")[:4])
+
+
+def era_pin(packages, repo_dir):
+    """Pin each UNPINNED inferred package to the version released on/before the repo's commit date, so a repo
+    runs against ITS ERA's libraries (a 2021 repo gets sklearn ~1.0 where `plot_roc_curve` still existed),
+    not latest — the version-drift reproduction fix. Already-constrained specs and PyPI-unresolvable names
+    pass through. Needs network. Returns (pinned_packages, era_date | None)."""
+    date = repo_commit_date(repo_dir)
+    if not date:
+        return list(packages or []), None
+    out = []
+    for spec in packages or []:
+        if re.search(r"[<>=!~]", spec):                 # respect an explicit constraint
+            out.append(spec)
+            continue
+        name = re.split(r"[<>=!~ \[]", spec, maxsplit=1)[0].strip()
+        ver = _pypi_version_at(name, date) if name else None
+        out.append("%s==%s" % (name, ver) if ver else spec)
+    return out, date
+
+
 # stderr signature → (kind, user-facing hint). The honest couldn't-reproduce taxonomy: tell the user WHY the
 # re-run didn't produce a number, instead of a raw stack trace.
 _FAILURE_TAXONOMY = [

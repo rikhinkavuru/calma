@@ -42,6 +42,14 @@ def test_detect_skips_readme_env_setup_commands(tmp_path):
     assert build.detect_entrypoint(str(tmp_path)) == ["iris.py"]
 
 
+def test_era_pin_nongit_and_pinned_passthrough(tmp_path):
+    # not a git repo -> no era detected -> packages unchanged (no network call)
+    pkgs, era = build.era_pin(["scikit-learn", "numpy==1.24.0", "pandas>=2"], str(tmp_path))
+    assert era is None
+    assert pkgs == ["scikit-learn", "numpy==1.24.0", "pandas>=2"]
+    assert build.repo_commit_date(str(tmp_path)) is None
+
+
 def test_infer_requirements_txt_wins(tmp_path):
     (tmp_path / "requirements.txt").write_text("scikit-learn==1.3.0\nnumpy  # pinned later\n-r other.txt\n\n")
     (tmp_path / "m.py").write_text("import torch\n")    # ignored: declared deps win

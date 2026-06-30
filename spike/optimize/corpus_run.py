@@ -105,6 +105,9 @@ def run_one(url, expect, args):
                 "seconds": round(time.time() - t0, 1), "claims": [], "expect": expect}
     n_nb = materialize_notebooks(repo_dir)              # notebooks → .py so they become runnable
     deps, why = build.infer_requirements(repo_dir)
+    era = None
+    if why == "inferred from imports" and not args.no_era:
+        deps, era = build.era_pin(deps, repo_dir)       # pin inferred deps to the repo's era (version-drift fix)
     opts = VerifyOptions(runner=("e2b" if args.e2b else "local"), deep=True, discover=True,
                          pip_install=(None if args.e2b else deps), k=args.k, job_id=spec["name"],
                          venvs_dir=os.path.join(args.out, ".venvs"), timeout=args.timeout)
@@ -121,7 +124,7 @@ def run_one(url, expect, args):
                                                                        VD.INVALIDATED)), None)
     return {"url": url, "name": spec["name"], "ran": bool(run.get("ran")),
             "seconds": round(time.time() - t0, 1), "entry": run.get("entry"), "notebooks": n_nb,
-            "error": (run.get("error") or "")[:160], "deps": deps[:8], "why_deps": why,
+            "error": (run.get("error") or "")[:160], "deps": deps[:8], "why_deps": why, "era": era,
             "n_claims": res.get("n_claims"), "counts": res.get("counts", {}), "claims": claims,
             "expect": expect, "headline": headline,
             "graded_match": (None if expect is None else (headline == expect))}
@@ -154,6 +157,7 @@ def main():
     ap.add_argument("--urls", required=True)
     ap.add_argument("--out", default=os.path.join(SPIKE, "results", "live-many"))
     ap.add_argument("--e2b", action="store_true")
+    ap.add_argument("--no-era", action="store_true", help="disable era-based package pinning of inferred deps")
     ap.add_argument("--k", type=int, default=2)
     ap.add_argument("--timeout", type=int, default=420)
     ap.add_argument("--only", default="", help="comma-substring filter on repo name")
