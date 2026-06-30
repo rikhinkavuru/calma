@@ -50,6 +50,23 @@ def test_era_pin_nongit_and_pinned_passthrough(tmp_path):
     assert build.repo_commit_date(str(tmp_path)) is None
 
 
+def test_era_pin_parallel_preserves_order_and_constraints(monkeypatch):
+    """The PyPI lookups run concurrently (to cut N×20s of sequential latency) — results must still land in
+    input order, constrained specs pass through untouched, and an unresolvable name stays unpinned."""
+    monkeypatch.setattr(build, "repo_commit_date", lambda _d: "2021-06-01")
+    versions = {"scikit-learn": "1.0", "numpy": "1.21.0", "pandas": "1.3.0", "mystery": None}
+    seen = []
+    def fake_lookup(name, date, timeout=20):
+        seen.append(name)
+        return versions.get(name)
+    monkeypatch.setattr(build, "_pypi_version_at", fake_lookup)
+
+    pkgs, era = build.era_pin(["scikit-learn", "torch==2.0", "numpy", "mystery", "pandas"], "/repo")
+    assert era == "2021-06-01"
+    assert pkgs == ["scikit-learn==1.0", "torch==2.0", "numpy==1.21.0", "mystery", "pandas==1.3.0"]
+    assert set(seen) == {"scikit-learn", "numpy", "mystery", "pandas"}   # torch was constrained → no lookup
+
+
 def test_infer_requirements_txt_wins(tmp_path):
     (tmp_path / "requirements.txt").write_text("scikit-learn==1.3.0\nnumpy  # pinned later\n-r other.txt\n\n")
     (tmp_path / "m.py").write_text("import torch\n")    # ignored: declared deps win

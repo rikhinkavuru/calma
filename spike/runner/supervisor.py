@@ -118,11 +118,12 @@ def _mem_budget_mb() -> int:
     return 700  # uncontained dev default
 
 
-# A heavy-deps E2B build (torch/genomics/…) is allowed up to ~30 min to install before the first run; see
-# e2b_runner._install / build.deps_are_heavy. The child's wall + CPU budgets MUST cover that, or a legitimate
-# install gets killed mid-stream (the gb_kmer "exceeded the time budget (>900s)" — the old wall of
-# timeout+300 was far shorter than the install allowance, so a real install never got to finish).
-_HEAVY_BUILD_S = 1800
+# A heavy-deps E2B build (torch/genomics/…) install allowance. The child's wall + CPU budgets MUST cover it,
+# or a legitimate install gets killed mid-stream (the gb_kmer "exceeded the time budget (>900s)" — the old
+# wall of timeout+300 was far shorter than the install allowance). Sized DOWN now that uv is the installer
+# (10-50x faster than pip on scientific stacks): 20 min is generous headroom even for big downloads, and it
+# drops further once a pre-warmed template/wheel-cache moves the install off the hot path.
+_HEAVY_BUILD_S = 1200
 
 
 def _default_wall(opts) -> int:

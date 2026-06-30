@@ -72,7 +72,8 @@ def test_install_once_run_k_times(tmp_path, monkeypatch):
 
     assert _Sbx.created == 1                                    # ONE sandbox for all k runs
     cmds = _LOG.get("cmds", [])
-    assert sum(1 for c in cmds if "pip install" in c) == 1     # deps installed ONCE
+    assert sum(1 for c in cmds if "scikit-learn" in c) == 1     # the DEP installed ONCE (not k×)
+    assert any("uv pip install" in c for c in cmds)            # via uv (the fast installer)
     assert sum(1 for c in cmds if c.startswith("python ")) == 3  # entrypoint ran k×
     assert len(res["runs"]) == 3 and res["ran_ok"]
     assert res["cost"]["runs"] == 3 and res["cost"]["reused_sandbox"] is True
@@ -86,8 +87,34 @@ def test_tolerant_install_for_inferred_deps(tmp_path, monkeypatch):
     # inferred (pip_strict=False) → installs per-package
     e2b_runner.run_e2b(str(tmp_path), ["eval.py"], k=1, pip_install=["numpy", "scikit-learn"],
                        pip_strict=False, cfg=cfg)
-    installs = [c for c in _LOG.get("cmds", []) if "pip install" in c]
+    installs = [c for c in _LOG.get("cmds", []) if ("numpy" in c or "scikit-learn" in c) and "install" in c]
     assert len(installs) == 2                                   # one command per package
+
+
+def test_uses_uv_installer_by_default(tmp_path, monkeypatch):
+    """uv is the installer when it works — 10-50x faster than pip on scientific stacks."""
+    _install_fake_e2b(monkeypatch)
+    (tmp_path / "eval.py").write_text("print('hi')\n")
+    cfg = {"api_key": "x", "domain": None, "template": None}
+    e2b_runner.run_e2b(str(tmp_path), ["eval.py"], k=1, pip_install=["numpy"], cfg=cfg)
+    cmds = _LOG.get("cmds", [])
+    assert any("pip install -q uv" in c for c in cmds)          # bootstrapped uv
+    assert any("uv pip install -q --system packaging" in c for c in cmds)  # confirmed it works on this base
+    assert any("uv pip install -q --system numpy" in c for c in cmds)      # installed deps with uv
+
+
+def test_falls_back_to_pip_when_uv_unusable(tmp_path, monkeypatch):
+    """If uv can't install into the system interpreter (PEP-668 base), fall back to pip — never regress
+    correctness for speed. --prefer-binary avoids a silent source build."""
+    _install_fake_e2b(monkeypatch)
+    _LOG["fail_on"] = "uv pip install -q --system packaging"    # uv viability probe fails
+    (tmp_path / "eval.py").write_text("print('hi')\n")
+    cfg = {"api_key": "x", "domain": None, "template": None}
+    res = e2b_runner.run_e2b(str(tmp_path), ["eval.py"], k=1, pip_install=["numpy"], cfg=cfg)
+    cmds = _LOG.get("cmds", [])
+    assert any("pip install -q --prefer-binary numpy" in c for c in cmds)   # deps via pip fallback
+    assert not any("uv pip install -q --system numpy" in c for c in cmds)   # NOT uv (it was unusable)
+    assert res["ran_ok"]
 
 
 def test_inferred_heavy_dep_uses_cpu_wheel(tmp_path, monkeypatch):

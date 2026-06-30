@@ -195,19 +195,38 @@ def era_pin(packages, repo_dir):
     """Pin each UNPINNED inferred package to the version released on/before the repo's commit date, so a repo
     runs against ITS ERA's libraries (a 2021 repo gets sklearn ~1.0 where `plot_roc_curve` still existed),
     not latest — the version-drift reproduction fix. Already-constrained specs and PyPI-unresolvable names
-    pass through. Needs network. Returns (pinned_packages, era_date | None)."""
+    pass through. Needs network. Returns (pinned_packages, era_date | None).
+
+    The PyPI lookups run CONCURRENTLY: each is an independent HTTP call with a 20s timeout, so doing them
+    sequentially made the worst case N×20s of pure latency before the install even started. A small thread
+    pool collapses that to roughly one round-trip, order preserved."""
     date = repo_commit_date(repo_dir)
     if not date:
         return list(packages or []), None
-    out = []
-    for spec in packages or []:
-        if re.search(r"[<>=!~]", spec):                 # respect an explicit constraint
-            out.append(spec)
+    specs = list(packages or [])
+    out: list[str | None] = [None] * len(specs)
+    todo = []                                            # (index, name, spec) needing a PyPI lookup
+    for i, spec in enumerate(specs):
+        if re.search(r"[<>=!~]", spec):                  # respect an explicit constraint — no lookup
+            out[i] = spec
             continue
         name = re.split(r"[<>=!~ \[]", spec, maxsplit=1)[0].strip()
-        ver = _pypi_version_at(name, date) if name else None
-        out.append("%s==%s" % (name, ver) if ver else spec)
-    return out, date
+        if name:
+            todo.append((i, name, spec))
+        else:
+            out[i] = spec
+    if todo:
+        from concurrent.futures import ThreadPoolExecutor
+
+        def _resolve(item):
+            i, name, spec = item
+            ver = _pypi_version_at(name, date)
+            return i, ("%s==%s" % (name, ver) if ver else spec)
+
+        with ThreadPoolExecutor(max_workers=min(8, len(todo))) as ex:
+            for i, val in ex.map(_resolve, todo):
+                out[i] = val
+    return [v for v in out], date
 
 
 # stderr signature → (kind, user-facing hint). The honest couldn't-reproduce taxonomy: tell the user WHY the

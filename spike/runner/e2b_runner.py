@@ -117,21 +117,41 @@ def _install(sbx, pip_install, pip_strict, timeout, pip_cmd="pip install -q", lo
                 _note(log, "  (skipped %s — install failed, best-effort)" % pkg)
 
 
-def _provision_python(sbx, version, timeout):
-    """Faithful repro: provision the repo's DECLARED Python via uv, instead of running on whatever the sandbox
-    ships. Returns (python_exe, pip_cmd, version_used) — falls back to the sandbox python if uv/the build
-    can't provide it (graceful: an honest run on the default interpreter beats no run)."""
-    default = ("python", "pip install -q", None)
+def _ensure_uv(sbx, timeout):
+    """Bootstrap uv and CONFIRM `uv pip install --system` actually works on this base (a PEP-668
+    externally-managed interpreter can reject it). Returns True only when uv is usable as the system
+    installer — otherwise the caller falls back to plain pip, so we trade speed for nothing and never
+    regress correctness. uv is 10-50x faster than pip on scientific stacks and is a pip-compatible drop-in."""
+    try:
+        sbx.commands.run("pip install -q uv", timeout=min(int(timeout), 180))
+        sbx.commands.run("uv pip install -q --system packaging", timeout=min(int(timeout), 120))  # viability probe
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _provision_python(sbx, version, timeout, log=None):
+    """Resolve (python_exe, install_cmd, version_used). The installer is uv when it works (much faster);
+    pip is the fallback. For a DECLARED version we also provision that interpreter via uv (faithful repro),
+    falling back to the sandbox python if it can't be provisioned — an honest run on the default beats no run.
+    --prefer-binary on the pip fallback avoids a silent multi-minute source build."""
+    pip_default = ("python", "pip install -q --prefer-binary", None)
     if not version:
-        return default
+        if _ensure_uv(sbx, timeout):
+            _note(log, "installer: uv (fast)")
+            return "python", "uv pip install -q --system", None
+        _note(log, "installer: pip (uv unavailable)")
+        return pip_default
     try:
         sbx.commands.run("pip install -q uv", timeout=timeout)
         sbx.commands.run("uv python install %s" % shlex.quote(version), timeout=timeout)
         sbx.commands.run("uv venv --python %s /pyenv" % shlex.quote(version), timeout=timeout)
         py = "/pyenv/bin/python"
         return py, "uv pip install -q --python %s" % py, version
-    except Exception:  # noqa: BLE001 — version not provisionable → run on the sandbox's python
-        return default
+    except Exception:  # noqa: BLE001 — version not provisionable → sandbox python (still prefer uv as installer)
+        if _ensure_uv(sbx, timeout):
+            return "python", "uv pip install -q --system", None
+        return pip_default
 
 
 def _note(log, msg):
@@ -204,7 +224,7 @@ def run_e2b(repo_dir, entry, *, k=2, hooks="sklearn", targets=None, timeout=600,
         # heavy deps (torch/tf/…) need a much bigger install budget than the run timeout
         heavy = build.deps_are_heavy(pip_install)
         inst_timeout = max(timeout, 1800) if heavy else timeout
-        pybin, pip_cmd, python_used = _provision_python(sbx, python_version, inst_timeout)  # declared py (or default)
+        pybin, pip_cmd, python_used = _provision_python(sbx, python_version, inst_timeout, log=log)  # declared py (or default)
         if python_used:
             _note(log, "E2B: provisioned declared Python %s" % python_used)
         if pip_install:
