@@ -27,23 +27,44 @@
 So month-18 cost-per-scan is structurally below month-1. Watch **cost-per-scan** and the **subsidised-free
 ratio** as the core health metric.
 
+## Shape: open-core, not pure-OSS or pure-proprietary
+
+The cost table above decides the model. What's **cheap / commoditizable** (the recompute engine — catalog,
+three-way diff, validity detectors; pure-stdlib, ~$0 to run) we **open-source**: secrecy isn't the moat
+(re-executing to ground truth is the defense, not hiding the formulas), and OSS builds the trust,
+distribution, and verification-corpus flywheel that *are* the moat. What's **expensive / defensible** (hosted
+sandbox/GPU compute, private data, continuous gating, trusted artifacts) is **paid**. So: open-source the
+engine; charge for the hosted/continuous/compliance layer. Neutrality, the proprietary verification corpus,
+hosted reproduction at scale, and trusted attestation stay the edge regardless of the code being open.
+
 ## Tiers
 
-| | **Free** | **Pro / Team** (paid) | **Enterprise** |
-|---|---|---|---|
-| Repos | public only | + private | + BYOC / on-prem |
-| Discovery (static layer) | unlimited-ish | unlimited | unlimited |
-| **Deep verify** | a monthly **sandbox-minute budget** (scoped claims) | a larger budget + data-connect | custom + **GPU tier** |
-| Concurrency | 1 scan at a time | N parallel | pooled, SLA |
-| Connectors | GitHub | + GitLab, warehouses, MLflow/wandb | + private connectors |
-| Proof / audit | basic report | signed proofs | signed proofs + retention + SSO |
-| Price | $0 (subsidised) | usage-metered over an included budget | contract |
+| | **OSS / CLI** | **Free (hosted)** | **Pro / Team** | **Enterprise** |
+|---|---|---|---|---|
+| Price | $0 (open-source) | $0 (subsidised) | ~$20–50/user/mo *or* $99–299/mo flat + metered overage | contract, ~$1k–10k+/mo |
+| What | the engine as a library + CLI: recompute from committed artifacts + local runs, validity checks | connect a repo, capped verifies/day, top-K claims, CPU, public repos | private repos, bigger budget, **CI / merge-gate**, connectors, history/retention, signed proofs | **GPU verification**, SSO/RLS/roles, SLAs, **audit/compliance pack + transparency log**, **neutral third-party attestation**, dedicated capacity, BYOC/on-prem |
+| Compute | BYO (runs on your machine) | a monthly **sandbox-minute budget** | larger budget + data-connect | pooled + GPU |
+| Why it sits here | zero COGS for us; pure adoption + trust + corpus flywheel | the funnel — marginal cost is sub-cent/scan, cheap to subsidise; the gate caps abuse | the dev/agent-CI + quant-team buyer; recurring value in the deploy path | the wrong-number-costs-millions buyer (LP/board/regulator), real GPU COGS + compliance |
+| **Usage add-ons** (metered) | — | — | extra sandbox-minutes | + GPU-minutes, large-repo/long-run budgets, extra connectors |
 
-**Why pay:** one wrong number costs far more than the tool — a trade, a deployed model, an LP report. Paid
-is where wrong numbers cost real money (private repos, connected data, scoped-but-heavy deep verify, GPU).
+**Why these prices hold — value-anchored, not cost-plus.** Marginal cost is *cents per scan* (E2B
+sandbox-seconds; see above), but the buyer's alternative — one wrong number reaching a trade, a shipped model,
+an LP report, or an audit — is **thousands to millions**. A single caught error pays for Pro for years, so
+tens-of-dollars (Pro) and thousands (Enterprise) are trivially justified. COGS only sets the *floor* and the
+*meter* (sandbox-minutes); value sets the price.
 
 **Free is a funnel, not charity:** free = *discovery on any public repo* (cheap, the static layer always
 lights up) + a *capped* deep-verify budget. The expensive part (re-execution) is the thing the budget meters.
+
+## Expensive additions worth gating (ranked by margin + defensibility)
+
+1. **Neutral third-party attestation / registry** — highest margin, least replicable. An in-house tool *can't*
+   be neutral; barely costs us anything to produce. The enterprise wedge.
+2. **GPU verification** — real COGS, unlocks the ML/LLM-eval segment. A priced tier (its own SKU and/or a
+   GPU-minute add-on); exact pricing TBD.
+3. **Continuous CI / merge-gate** — recurring, sticky, high willingness-to-pay (sits in the deploy path).
+4. **Signed proofs + transparency log + retention/audit** — the compliance / "SOC-2-for-backtests" layer.
+5. **Private repos + data connectors**, and **higher sandbox / concurrency / large-repo budgets**.
 
 ## Rate limits (admission control — fail closed)
 
@@ -65,8 +86,11 @@ banked formulas) stays generous to keep the funnel wide.
 
 1. Free-tier sandbox-minute budget (sets the subsidy burn) — start tight, loosen as cost-per-scan falls.
 2. Usage-metered vs flat Pro — likely a flat included budget + metered overage on sandbox-minutes.
-3. Where GPU sits — its own SKU vs a multiplier on sandbox-minutes.
-4. Exa/HelixDB as COGS — both amortised by the flywheel; an enterprise Exa deal (founder note) lowers the
+3. ~~Where GPU sits~~ — DECIDED: a **priced tier** (Enterprise + a GPU-minute add-on). Exact pricing TBD
+   when GPU verification ships; until then GPU repos route to the "needs-GPU" couldn't-reproduce taxonomy.
+4. Exact OSS license + scope — which of the engine/catalog is open (lean: the recompute engine + a core
+   catalog open; the flywheel-banked breadth + hosted corpus stay the edge).
+5. Exa/HelixDB as COGS — both amortised by the flywheel; an enterprise Exa deal (founder note) lowers the
    synth tail further.
-5. The benchmark proof: *deterministic / ~$0 / 0% false-confirm vs an LLM-agent's stochastic / ~$5 /
+6. The benchmark proof: *deterministic / ~$0 / 0% false-confirm vs an LLM-agent's stochastic / ~$5 /
    coin-flip* is the value anchor for any price.
