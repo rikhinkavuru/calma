@@ -35,7 +35,7 @@ def exact_overlap(train_rows, test_rows) -> dict:
 
 
 def _kmers(s, k: int) -> set:
-    s = str(s).strip()
+    s = str(s).strip()[:4000]   # cap very long (genomic) sequences so one row's k-mer set can't blow up memory
     return {s[i:i + k] for i in range(len(s) - k + 1)} if len(s) >= k else {s}
 
 
@@ -89,7 +89,7 @@ def _seq_column(header):
     return 0 if header else None
 
 
-def _read_seq_col(path, cap=200000):
+def _read_seq_col(path, cap=20000):   # bounded: don't read a huge committed split fully into memory
     import csv
     try:
         with open(path, newline="", errors="replace") as fh:
@@ -136,7 +136,7 @@ def _stride(xs, cap):
     return xs[::step][:cap]
 
 
-def from_committed_splits(repo_dir, max_pairs=20, train_cap=4000, test_cap=800):
+def from_committed_splits(repo_dir, max_pairs=8, train_cap=1500, test_cap=400):
     """Run leakage detection on a repo's COMMITTED train/test split files — no re-run. Returns a result per
     dataset {dataset, n_train, n_test, sampled, findings}. The cheap, data-only validity check; the magnitude
     is estimated on a bounded sample (a lower bound on the true leak)."""
