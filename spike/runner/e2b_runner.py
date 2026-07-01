@@ -196,26 +196,33 @@ def _cmd_run(sbx, cmd, *, log=None, prefix="  | ", stream=False, **kw):
     return sbx.commands.run(cmd, **kw)
 
 
-def run_e2b(repo_dir, entry, *, k=2, hooks="sklearn", targets=None, timeout=600,
+def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout=600,
             allow_internet=False, pip_install=None, pip_strict=True, python_version=None,
-            cfg=None, max_elems=None, log=None):
+            cfg=None, max_elems=None, log=None, resolve=None):
     """ONE sandbox: stage + install ONCE, then run the entrypoint k× inside it (each a fresh process with its
     own capture file). Reusing the sandbox across the determinism runs is the big cost lever — the dominant
     `pip install` is paid once, not k×, and it's MORE correct for determinism (identical env across runs, so
-    only code-level nondeterminism shows). Returns the runner-agnostic shape + cost telemetry."""
+    only code-level nondeterminism shows). Returns the runner-agnostic shape + cost telemetry.
+
+    `resolve`, if given, is a callable returning (entry, pip_install, pip_strict). It is invoked AFTER the
+    microVM boots and the repo uploads — never before — so the caller can run an AI run-plan CONCURRENTLY with
+    the boot and only block on it here, at the last moment before deps install. When `resolve` is set the deps
+    are unknown at boot, so the sandbox's lifetime CEILING is sized conservatively (free: billing is per
+    running-second and the sandbox is killed when done)."""
     cfg = cfg or e2b_config(os.path.join(os.path.dirname(CAPTURE_DIR), os.pardir, ".env"))
     if not cfg.get("api_key"):
         return {"runs": [], "meta": [], "ran_ok": False, "error": "no E2B api key configured",
                 "hooks_armed": None, "n_calls": [], "cost": {}}
-    entry = list(entry)
+    entry = list(entry or [])
     runs, meta = [], []
     hooks_armed = None
     sbx = None
     pybin, python_used = "python", None
     t_start = time.time()
     build_seconds = 0.0
-    # heavy deps (torch/tf/…) need a much bigger install budget than the run timeout
-    heavy = build.deps_are_heavy(pip_install)
+    # heavy deps (torch/tf/…) need a much bigger install budget than the run timeout. With a deferred `resolve`
+    # the deps aren't known until after boot, so size the ceiling for the heavy case (harmless — see docstring).
+    heavy = True if resolve else build.deps_are_heavy(pip_install)
     inst_timeout = max(timeout, 1800) if heavy else timeout
     # The sandbox must OUTLIVE the whole session — build + ALL k runs — or it hits its end-of-life mid-run and
     # the run is killed (StreamReset), capturing nothing. The old code created it with just the per-run
@@ -224,12 +231,18 @@ def run_e2b(repo_dir, entry, *, k=2, hooks="sklearn", targets=None, timeout=600,
     sandbox_life = min(inst_timeout + max(1, k) * timeout + 120, _MAX_SANDBOX_S)
     try:
         _note(log, "E2B: creating microVM (lifetime %dm)…" % (sandbox_life // 60))
-        sbx = _create_sandbox(cfg, sandbox_life, allow_internet or bool(pip_install) or bool(python_version))
+        sbx = _create_sandbox(cfg, sandbox_life,
+                              allow_internet or resolve is not None or bool(pip_install) or bool(python_version))
         _note(log, "E2B: microVM up (%.1fs) — uploading repo + capture shim" % (time.time() - t_start))
         for fn in _SHIM_FILES:                                   # stage the capture shim + the repo (once)
             with open(os.path.join(CAPTURE_DIR, fn), "rb") as fh:
                 sbx.files.write("/capture/" + fn, fh.read())
         _upload_dir(sbx, repo_dir, "/work")
+        if resolve is not None:                                 # join the run-plan NOW — it ran during the boot
+            entry, pip_install, pip_strict = resolve()
+            entry = list(entry)
+            heavy = build.deps_are_heavy(pip_install)           # deps known now → right-size the install budget
+            inst_timeout = max(timeout, 1800) if heavy else timeout
         pybin, pip_cmd, python_used = _provision_python(sbx, python_version, inst_timeout, log=log)  # declared py (or default)
         if python_used:
             _note(log, "E2B: provisioned declared Python %s" % python_used)

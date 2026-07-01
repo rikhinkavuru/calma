@@ -81,6 +81,29 @@ def test_install_once_run_k_times(tmp_path, monkeypatch):
     assert _LOG.get("killed", 0) == 1                          # sandbox killed once at the end
 
 
+def test_resolve_hook_fires_after_boot_and_upload(tmp_path, monkeypatch):
+    """The deferred `resolve` hook is how the AI run-plan overlaps the boot: it is invoked ONLY after the
+    microVM is created and the repo uploaded — never before — and its (entry, deps) drive the run. This is the
+    structural guarantee that the plan's latency hides behind the boot instead of preceding it."""
+    _install_fake_e2b(monkeypatch)
+    (tmp_path / "myeval.py").write_text("print('hi')\n")
+    cfg = {"api_key": "x", "domain": None, "template": None}
+    seen = {}
+
+    def resolve():
+        seen["sandbox_created"] = _Sbx.created                  # boot already happened?
+        seen["writes_at_call"] = len(_LOG.get("writes", []))    # repo already uploaded?
+        return ["myeval.py"], ["pandas"], False
+
+    res = e2b_runner.run_e2b(str(tmp_path), resolve=resolve, k=1, cfg=cfg)
+    assert seen["sandbox_created"] == 1                          # microVM booted BEFORE resolve
+    assert seen["writes_at_call"] > 0                            # repo uploaded BEFORE resolve
+    cmds = _LOG.get("cmds", [])
+    assert any("pandas" in c and "install" in c for c in cmds)   # resolve's deps installed
+    assert "python myeval.py" in cmds                            # resolve's entrypoint ran
+    assert res["ran_ok"]
+
+
 def test_tolerant_install_for_inferred_deps(tmp_path, monkeypatch):
     _install_fake_e2b(monkeypatch)
     (tmp_path / "eval.py").write_text("print('hi')\n")

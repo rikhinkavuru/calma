@@ -6,6 +6,7 @@ both call this module so the architecture is exercised outside the web UI.
 """
 from __future__ import annotations
 
+import concurrent.futures
 import os
 import re
 import subprocess
@@ -28,6 +29,10 @@ from synth import formula as SYNTH
 import planner as PLAN  # noqa: E402 — AI run-plan pre-stage ("AI proposes"); best-effort, never touches verdicts
 
 DISCOVERED = "DISCOVERED"
+
+# The AI run-plan runs in a background thread so it overlaps the sandbox boot (its latency is hidden, not
+# added). Daemon threads; a tiny pool is plenty since the supervisor already gates verify concurrency.
+_PLAN_POOL = concurrent.futures.ThreadPoolExecutor(max_workers=2, thread_name_prefix="calma-plan")
 
 
 @dataclass
@@ -190,45 +195,58 @@ def _missing_module_from(run_result):
     return top if (top and not top.startswith("_")) else None
 
 
-def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = None):
+def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = None, get_plan=None):
     k = opts.k if k is None else k                    # adaptive-k passes an effective k (1 when proven det.)
-    entry = _argv(opts.entry)
-    if opts.deep and not entry:
-        entry = build.detect_entrypoint(repo_dir) or []
-        if entry:
-            trace.note("auto-detected entrypoint: %s" % " ".join(entry))
-    if not entry:
-        entry = ["eval.py"]
+
+    def _entry(plan):                                 # precedence: explicit opts > AI plan > auto-detect > default
+        e = _argv(opts.entry)
+        if not e and plan and plan.get("entry"):
+            e = plan["entry"]
+            trace.note("AI-planned entrypoint: %s" % " ".join(e))
+        elif not e and opts.deep:
+            e = build.detect_entrypoint(repo_dir) or []
+            if e:
+                trace.note("auto-detected entrypoint: %s" % " ".join(e))
+        return e or ["eval.py"]
 
     trace.stage("building", "preparing runnable environment")
     if opts.runner == "e2b":
         from runner.e2b_runner import run_e2b
 
-        # The E2B sandbox starts clean, so deps must be installed. If the caller didn't list them, infer:
-        # requirements.txt, else the repo's actual imports. (Local runs use the harness python, which already
-        # has the scientific stack — so we only auto-infer here, keeping local dev/tests offline + fast.)
-        pip, strict = opts.pip_install, True
-        if not pip:
-            pip, why = build.infer_requirements(repo_dir)
-            strict = (why == "requirements.txt")          # inferred deps install tolerantly (best-effort)
-            if pip and why != "requirements.txt":
-                pip, era = build.era_pin(pip, repo_dir)    # pin INFERRED deps to the repo's commit-date era
-                if era:                                    # (paired with the era Python below) — version-drift repro
-                    trace.note("era-pinned inferred deps to %s" % era)
-            if pip:
-                trace.note("auto-deps (%s): %s" % (why, " ".join(pip)[:160]))
-            else:
-                trace.note("no deps detected (%s)" % why)
-        pyver = build.detect_python_version(repo_dir)     # faithful repro under the declared interpreter
+        pyver = build.detect_python_version(repo_dir)     # faithful repro under the declared interpreter (plan-independent)
         if pyver:
             trace.note("declared Python %s — provisioning it for a faithful repro" % pyver)
-        trace.stage("running", "running in E2B microVM")
 
-        def _e2b(p):
-            return run_e2b(repo_dir, entry, k=k, hooks=opts.hooks, targets=opts.targets,
-                           pip_install=p, pip_strict=strict, python_version=pyver, timeout=opts.timeout,
-                           log=trace.note)
-        result = _e2b(pip)
+        # Deferred resolution: run_e2b calls this AFTER the microVM boots, so the run-plan (running in a
+        # background thread) overlaps the boot instead of preceding it. Precedence: explicit opts > AI plan >
+        # heuristics. The E2B sandbox starts clean, so deps must be installed — the caller's list, else the AI
+        # plan's, else inferred from requirements.txt / the repo's imports.
+        holder = {}
+
+        def _resolve():
+            plan = get_plan() if get_plan else None
+            entry = _entry(plan)
+            pip, strict = opts.pip_install, True
+            if not pip and plan and plan.get("pip_install"):
+                pip, strict = plan["pip_install"], False               # AI-proposed deps install tolerantly
+                trace.note("AI-planned deps: %s" % " ".join(pip)[:160])
+            elif not pip:
+                pip, why = build.infer_requirements(repo_dir)
+                strict = (why == "requirements.txt")                   # inferred deps install tolerantly (best-effort)
+                if pip and why != "requirements.txt":
+                    pip, era = build.era_pin(pip, repo_dir)            # pin INFERRED deps to the repo's commit-date era
+                    if era:
+                        trace.note("era-pinned inferred deps to %s" % era)
+                trace.note(("auto-deps (%s): %s" % (why, " ".join(pip)[:160])) if pip
+                           else "no deps detected (%s)" % why)
+            holder.update(entry=entry, pip=pip, strict=strict)
+            return entry, pip, strict
+
+        trace.stage("running", "running in E2B microVM")
+        result = run_e2b(repo_dir, resolve=_resolve, k=k, hooks=opts.hooks, targets=opts.targets,
+                         python_version=pyver, timeout=opts.timeout, log=trace.note)
+        entry = holder.get("entry") or _entry(get_plan() if get_plan else None)
+        pip, strict = holder.get("pip"), holder.get("strict", True)
         for _ in range(2 if opts.heal_deps else 0):       # self-heal a dep the imports didn't reveal
             if result.get("ran_ok"):
                 break
@@ -237,12 +255,18 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = 
                 break
             pip = (pip or []) + [build._PKG_ALIASES.get(mod, mod)]
             trace.note("missing dep %s — installing + retrying" % mod)
-            result = _e2b(pip)
+            result = run_e2b(repo_dir, entry, k=k, hooks=opts.hooks, targets=opts.targets,
+                             pip_install=pip, pip_strict=strict, python_version=pyver, timeout=opts.timeout,
+                             log=trace.note)
         return result, entry
 
+    # local path — no sandbox boot to hide behind, so join the plan synchronously
+    plan = get_plan() if get_plan else None
+    entry = _entry(plan)
+    pip = opts.pip_install or (plan.get("pip_install") if plan else None)
     venvs_dir = opts.venvs_dir or os.path.join(os.path.dirname(repo_dir), ".venvs")
     base_py = opts.base_python or sys.executable
-    python, note = build.ensure_venv(opts.job_id, opts.pip_install, venvs_dir, base_python=base_py)
+    python, note = build.ensure_venv(opts.job_id, pip, venvs_dir, base_python=base_py)
     trace.note("env: %s" % note)
     trace.stage("running", "running %s" % " ".join(entry))
 
@@ -348,24 +372,26 @@ def verify_repo(
     job_run = None
     static_det = False
     if opts.deep:
-        # AI run-plan pre-stage ("AI proposes, determinism disposes"): a fast model reads the repo and
-        # proposes how to RUN it (entrypoint / deps). It only fills what the caller didn't specify, is
-        # validated (the entrypoint must actually exist), and is strictly best-effort — no key / any failure
-        # leaves the build.py heuristics in charge. It never touches the recompute or the verdict.
+        # AI run-plan pre-stage ("AI proposes, determinism disposes"): a fast model reads the repo and proposes
+        # how to RUN it (entrypoint / deps). Kicked off in a BACKGROUND THREAD so it runs CONCURRENTLY with the
+        # sandbox boot + upload and is joined only at the last moment (right before deps install, inside
+        # run_e2b) — its latency is hidden, not added. Only fills what the caller didn't specify, validated
+        # (the entrypoint must exist), best-effort (no key / any failure → heuristics). Never touches the verdict.
+        plan_future = _PLAN_POOL.submit(PLAN.plan_repo, repo_dir) if opts.plan else None
         if opts.plan:
-            trace.stage("understanding", "reading the repo to plan the run")
-            plan = PLAN.plan_repo(repo_dir)
-            if plan:
-                trace.note("AI plan (%.0f%% conf): %s" % (100 * plan.get("confidence", 0),
-                                                          (plan.get("notes") or "")[:140]))
-                if not _argv(opts.entry) and plan.get("entry"):
-                    opts.entry = plan["entry"]
-                    trace.note("  proposed entrypoint: %s" % " ".join(plan["entry"]))
-                if not opts.pip_install and plan.get("pip_install"):
-                    opts.pip_install = plan["pip_install"]
-                    trace.note("  proposed deps: %s" % " ".join(plan["pip_install"])[:160])
-                if plan.get("data_needed"):
-                    trace.note("  data note: %s" % plan["data_needed"][:160])
+            trace.stage("understanding", "planning the run (concurrent with sandbox boot)")
+        _plan_cache: dict = {}
+
+        def _get_plan():                              # join once, log once, cache — safe to call from any stage
+            if "v" not in _plan_cache:
+                p = plan_future.result() if plan_future is not None else None
+                if p:
+                    trace.note("AI plan (%.0f%% conf): %s"
+                               % (100 * p.get("confidence", 0), (p.get("notes") or "")[:140]))
+                    if p.get("data_needed"):
+                        trace.note("data note: %s" % p["data_needed"][:160])
+                _plan_cache["v"] = p
+            return _plan_cache["v"]
 
         # adaptive-k gate: if the run is statically PROVEN deterministic-by-construction (every RNG seeded),
         # one run suffices and can reach CONFIRMED; otherwise keep the empirical k≥2 determinism check. Fail-
@@ -379,7 +405,7 @@ def verify_repo(
         elif opts.adaptive_k:
             trace.note("determinism not statically proven (%s) → keeping the empirical k=%d check"
                        % (det.get("detail", "at risk"), opts.k))
-        run_result, entry = _run_repo(repo_dir, opts, trace, k=eff_k)
+        run_result, entry = _run_repo(repo_dir, opts, trace, k=eff_k, get_plan=_get_plan)
         if not run_result.get("ran_ok") and opts.fetch_data:    # opt-in: grab missing external data, then retry
             from runner import data_resolver as _DR
             miss = _DR.missing_data_path(" ".join(m.get("stderr_tail", "") for m in run_result.get("meta", [])))
@@ -387,7 +413,7 @@ def verify_repo(
                 ok, note = _DR.resolve_missing_data(repo_dir, miss)
                 trace.note("data-fetch: %s" % note)
                 if ok:
-                    run_result, entry = _run_repo(repo_dir, opts, trace)
+                    run_result, entry = _run_repo(repo_dir, opts, trace, get_plan=_get_plan)
         total_calls = sum(len(run) for run in run_result.get("runs", []))
         err, err_full, failure = "", "", None
         if not run_result.get("ran_ok"):
