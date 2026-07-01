@@ -25,6 +25,7 @@ const NAV_ITEMS: CardNavItem[] = [
     textColor: "#e9ddc4",
     links: [
       { label: "Verify a repo", href: "/dashboard", ariaLabel: "Open the verify dashboard" },
+      { label: "Pricing", href: "/pricing", ariaLabel: "Pricing" },
     ],
   },
   {
