@@ -376,6 +376,47 @@ def install_targets(specs):
     return hooked
 
 
+# ---- propagate capture across subprocess boundaries -----------------------------------------------
+def _install_subprocess_propagation():
+    """A repo that spawns per-cell workers with an explicit env= (very common — setting PYTHONHASHSEED /
+    OMP_NUM_THREADS for each cell) DROPS our PYTHONPATH + CALMA_CAPTURE_OUT, so the child interpreter never
+    arms and its metric computations are captured NOWHERE (the gb_kmer `subprocess-per-cell` hole). Patch
+    subprocess.Popen so any child the run spawns inherits the capture env even when the repo supplies its own.
+    Only touches calls that pass an explicit env (the failure case); env=None already inherits ours. Fail-soft
+    and idempotent — instrumentation must never change what the repo does."""
+    try:
+        import subprocess
+    except Exception:  # noqa: BLE001
+        return
+    if getattr(subprocess.Popen, "__calma_env_patched__", False):
+        return
+    orig_init = subprocess.Popen.__init__
+    cap_dir = os.path.dirname(os.path.abspath(__file__))
+
+    def __init__(self, *args, **kwargs):
+        env = kwargs.get("env")
+        if env is not None and _OUT_PATH[0]:                 # repo passed its own env → merge ours back in
+            try:
+                env = dict(env)
+                env.setdefault("CALMA_CAPTURE_OUT", _OUT_PATH[0])
+                for var in ("CALMA_CAPTURE_HOOKS", "CALMA_CAPTURE_MAX_ELEMS", "CALMA_CAPTURE_TARGETS"):
+                    if os.environ.get(var) is not None:
+                        env.setdefault(var, os.environ[var])
+                pp = env.get("PYTHONPATH", "")
+                if cap_dir not in pp.split(os.pathsep):       # ensure sitecustomize is importable in the child
+                    env["PYTHONPATH"] = cap_dir + (os.pathsep + pp if pp else "")
+                kwargs["env"] = env
+            except Exception:  # noqa: BLE001
+                pass
+        return orig_init(self, *args, **kwargs)
+
+    try:
+        subprocess.Popen.__init__ = __init__
+        subprocess.Popen.__calma_env_patched__ = True
+    except (TypeError, AttributeError):  # noqa: BLE001 — can't patch (frozen) → children just won't capture
+        pass
+
+
 # ---- bootstrap from env ---------------------------------------------------------------------------
 def install_from_env():
     if _INSTALLED[0]:
@@ -384,6 +425,7 @@ def install_from_env():
     _OUT_PATH[0] = os.environ.get("CALMA_CAPTURE_OUT")
     if not _OUT_PATH[0]:
         return
+    _install_subprocess_propagation()   # so subprocess-per-cell repos capture in their children too
     try:
         _MAX_ELEMS[0] = int(os.environ.get("CALMA_CAPTURE_MAX_ELEMS", "5000000"))
     except ValueError:
