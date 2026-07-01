@@ -17,9 +17,13 @@ import json
 import os
 import re
 
-# A fast, cheap model is the right tool — this is structured extraction over repo text, not deep reasoning,
-# and it runs on the hot path (ideally under the sandbox boot). Overridable for a stronger read.
-_MODEL = os.environ.get("CALMA_PLAN_MODEL", "claude-haiku-4-5").strip() or "claude-haiku-4-5"
+# The planner earns its keep on HARD repos (ambiguous entrypoints, monorepos, unusual repro steps, deps not
+# declared) — easy repos already resolve from heuristics — so the read quality matters, and since the output
+# is validated (entrypoint must exist) + best-effort, model choice never risks a verdict, only run success.
+# Sonnet 5 is the sweet spot: best speed+intelligence, "Fast" latency for the hot path, ~Haiku-cheap at intro
+# pricing. CALMA_PLAN_MODEL overrides (claude-haiku-4-5 to cut cost at scale; claude-opus-4-8/claude-fable-5
+# for a maximal read).
+_MODEL = os.environ.get("CALMA_PLAN_MODEL", "claude-sonnet-5").strip() or "claude-sonnet-5"
 
 _SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv", "venv", "env", ".venvs", "results"}
 
