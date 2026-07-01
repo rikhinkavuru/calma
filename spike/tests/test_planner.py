@@ -1,0 +1,85 @@
+"""AI run-plan pre-stage: it proposes how to RUN a repo, and the proposal is validated before use. The model
+call is stubbed — no network, no key needed. The load-bearing checks are the guardrails: a hallucinated
+entrypoint is dropped, and the plan never reaches the recompute/verdict path."""
+import json
+import sys
+
+import pytest
+
+import planner as PLAN
+import pipeline as PIPE
+from core import verdict as VD
+
+
+def _stub(monkeypatch, payload):
+    """Make the model return a fixed JSON plan (or None), with no SDK / network."""
+    monkeypatch.setattr(PLAN, "_call_model",
+                        lambda ctx, model: None if payload is None else json.dumps(payload))
+
+
+def test_valid_plan_is_parsed_and_entry_kept_when_it_exists(tmp_path, monkeypatch):
+    (tmp_path / "run_benchmark.py").write_text("print('hi')\n")
+    _stub(monkeypatch, {"entrypoint": ["run_benchmark.py", "--all"], "pip_install": ["numpy", "lightgbm"],
+                        "python_version": "3.11", "data_needed": "genomic_benchmarks (auto-downloaded)",
+                        "notes": "k-mer + LightGBM genomics benchmark", "confidence": 0.9})
+    plan = PLAN.plan_repo(str(tmp_path))
+    assert plan["entry"] == ["run_benchmark.py", "--all"]        # exists → trusted
+    assert plan["pip_install"] == ["numpy", "lightgbm"]
+    assert plan["python_version"] == "3.11" and plan["confidence"] == 0.9
+
+
+def test_hallucinated_entrypoint_is_dropped(tmp_path, monkeypatch):
+    """THE guardrail: an entrypoint the model invented that doesn't exist in the repo must NOT be trusted —
+    it's dropped so the deterministic detector takes over. A made-up entry is worse than none."""
+    (tmp_path / "eval.py").write_text("print('hi')\n")
+    _stub(monkeypatch, {"entrypoint": ["totally_made_up.py"], "pip_install": [], "python_version": "",
+                        "data_needed": "", "notes": "x", "confidence": 0.8})
+    plan = PLAN.plan_repo(str(tmp_path))
+    assert plan["entry"] is None                                  # dropped → caller keeps its heuristics
+
+
+def test_module_entrypoint_form_accepted(tmp_path, monkeypatch):
+    _stub(monkeypatch, {"entrypoint": ["-m", "pkg.eval"], "pip_install": [], "python_version": "",
+                        "data_needed": "", "notes": "x", "confidence": 0.5})
+    assert PLAN.plan_repo(str(tmp_path))["entry"] == ["-m", "pkg.eval"]
+
+
+def test_no_key_or_error_returns_none(tmp_path, monkeypatch):
+    _stub(monkeypatch, None)                                       # e.g. no ANTHROPIC_API_KEY
+    assert PLAN.plan_repo(str(tmp_path)) is None                   # → pipeline falls back to heuristics
+
+
+def test_malformed_model_output_returns_none(tmp_path, monkeypatch):
+    monkeypatch.setattr(PLAN, "_call_model", lambda ctx, model: "not json at all")
+    assert PLAN.plan_repo(str(tmp_path)) is None
+
+
+def test_pipeline_uses_the_proposed_entrypoint(tmp_path, monkeypatch):
+    """End-to-end: the plan's entrypoint drives the run. Two scripts, no README/known name — the heuristic
+    would not reliably pick the eval; the plan points straight at it and the number CONFIRMS. Proves the plan
+    is consumed by the run path — and only there (the verdict still comes from the deterministic recompute)."""
+    (tmp_path / "helper.py").write_text("if __name__ == '__main__':\n    print('nothing useful')\n")
+    (tmp_path / "the_eval.py").write_text(
+        "import numpy as np\nfrom sklearn.metrics import accuracy_score\n"
+        "rng = np.random.default_rng(0)\ny = rng.integers(0,2,200)\n"
+        "p = np.where(rng.random(200) < 0.2, 1-y, y)\nprint('accuracy=%.4f' % accuracy_score(y,p))\n")
+    monkeypatch.setattr(PLAN, "plan_repo", lambda repo_dir: {
+        "entry": ["the_eval.py"], "pip_install": None, "python_version": None,
+        "data_needed": "", "notes": "seeded accuracy eval", "confidence": 0.95})
+
+    res = PIPE.verify_repo(str(tmp_path), PIPE.VerifyOptions(
+        deep=True, runner="local", discover=True, plan=True,
+        venvs_dir=str(tmp_path / "venvs"), base_python=sys.executable))
+    assert "the_eval.py" in (res["run"]["entry"] or "")           # the plan's entry drove the run
+    acc = [c for c in res["claims"] if c["metric"] == "accuracy"]
+    assert acc and acc[0]["verdict"] == VD.CONFIRMED              # verdict still from the deterministic recompute
+
+
+def test_plan_off_skips_the_stage(tmp_path, monkeypatch):
+    """plan=False must not even call the planner (opt-out is real)."""
+    called = {"n": 0}
+    monkeypatch.setattr(PLAN, "plan_repo", lambda repo_dir: called.__setitem__("n", called["n"] + 1) or None)
+    (tmp_path / "eval.py").write_text("print('accuracy=0.5')\n")
+    PIPE.verify_repo(str(tmp_path), PIPE.VerifyOptions(deep=True, runner="local", plan=False,
+                     venvs_dir=str(tmp_path / "venvs"), base_python=sys.executable))
+    assert called["n"] == 0

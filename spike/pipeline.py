@@ -25,6 +25,8 @@ from runner import build
 from runner.local_runner import run_local
 from synth import formula as SYNTH
 
+import planner as PLAN  # noqa: E402 — AI run-plan pre-stage ("AI proposes"); best-effort, never touches verdicts
+
 DISCOVERED = "DISCOVERED"
 
 
@@ -49,6 +51,8 @@ class VerifyOptions:
     heal_deps: bool = True          # self-heal: pip-install a dep the imports didn't reveal (openpyxl) + retry
     adaptive_k: bool = True         # if the run is statically proven deterministic, verify with k=1 (half the
     #                                 runs) — still fail-closed: any doubt keeps the empirical k≥2 check
+    plan: bool = True               # AI run-plan pre-stage: propose entrypoint/deps/data (build.py heuristics
+    #                                 fall back if unavailable). NEVER touches the recompute or the verdict.
 
 
 def _argv(entry) -> list[str]:
@@ -344,6 +348,25 @@ def verify_repo(
     job_run = None
     static_det = False
     if opts.deep:
+        # AI run-plan pre-stage ("AI proposes, determinism disposes"): a fast model reads the repo and
+        # proposes how to RUN it (entrypoint / deps). It only fills what the caller didn't specify, is
+        # validated (the entrypoint must actually exist), and is strictly best-effort — no key / any failure
+        # leaves the build.py heuristics in charge. It never touches the recompute or the verdict.
+        if opts.plan:
+            trace.stage("understanding", "reading the repo to plan the run")
+            plan = PLAN.plan_repo(repo_dir)
+            if plan:
+                trace.note("AI plan (%.0f%% conf): %s" % (100 * plan.get("confidence", 0),
+                                                          (plan.get("notes") or "")[:140]))
+                if not _argv(opts.entry) and plan.get("entry"):
+                    opts.entry = plan["entry"]
+                    trace.note("  proposed entrypoint: %s" % " ".join(plan["entry"]))
+                if not opts.pip_install and plan.get("pip_install"):
+                    opts.pip_install = plan["pip_install"]
+                    trace.note("  proposed deps: %s" % " ".join(plan["pip_install"])[:160])
+                if plan.get("data_needed"):
+                    trace.note("  data note: %s" % plan["data_needed"][:160])
+
         # adaptive-k gate: if the run is statically PROVEN deterministic-by-construction (every RNG seeded),
         # one run suffices and can reach CONFIRMED; otherwise keep the empirical k≥2 determinism check. Fail-
         # closed — any doubt keeps k≥2, so this can only ever spend fewer runs, never confirm a flaky number.

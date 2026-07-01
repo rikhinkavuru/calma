@@ -9,3 +9,4 @@ scipy==1.18.0
 pandas==3.0.3
 PyYAML==6.0.3
 e2b==2.30.0
+anthropic==0.115.0  # AI run-plan pre-stage (planner.py) — proposes entrypoint/deps; never touches verdicts
