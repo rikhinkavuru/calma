@@ -388,7 +388,12 @@ def verify_repo(
 
         def _get_plan():                              # join once, log once, cache — safe to call from any stage
             if "v" not in _plan_cache:
-                p = plan_future.result() if plan_future is not None else None
+                p = None
+                if plan_future is not None:
+                    try:                              # don't let a slow/stuck plan stall the verify
+                        p = plan_future.result(timeout=60)
+                    except Exception:  # noqa: BLE001 — timeout / thread error → heuristics
+                        p = None
                 if p:
                     trace.note("AI plan (%.0f%% conf): %s"
                                % (100 * p.get("confidence", 0), (p.get("notes") or "")[:140]))

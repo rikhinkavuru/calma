@@ -137,7 +137,10 @@ def _call_model(context: str, model: str) -> str | None:
     except Exception:  # noqa: BLE001 — SDK not installed → planner disabled, heuristics take over
         return None
     try:
-        client = anthropic.Anthropic()
+        # Retry transient 429/5xx (Sonnet 5 intro-tier limits, overload bursts) with backoff, and cap each
+        # attempt so a slow/hung call fails to heuristics fast instead of stalling the verify. Best-effort
+        # throughout — any failure still just means "use heuristics".
+        client = anthropic.Anthropic(max_retries=2, timeout=45.0)
         # 4096, not 1024: the plan (entrypoint + deps + data + notes + TARGETS) can run past 1k tokens on a
         # complex repo — and adding targets pushed it over exactly on the multi-domain repos we most want a
         # plan for. A truncated (max_tokens) response is unparseable JSON → a silent None, so give real headroom.
