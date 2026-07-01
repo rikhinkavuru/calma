@@ -78,6 +78,15 @@ def decide(*, claimed_raw, produced, recomputed, recompute_known,
         if validity.get("advisory"):
             caveats.extend(validity["advisory"])
         if not determinism.get("tested"):
+            if determinism.get("proven"):
+                # A single run, but static analysis proved determinism BY CONSTRUCTION (every RNG the code
+                # touches is explicitly seeded) under the enforced env — so the empirical k≥2 re-run isn't
+                # needed to rule out a flaky number. Distinctly labelled so it's never conflated with the
+                # reproduced-twice CONFIRMED. This is the ONLY way k=1 can reach CONFIRMED.
+                return out(CONFIRMED,
+                           "claim == runtime value == independent recompute; determinism proven by "
+                           "construction (all randomness seeded)" + (", with caveats" if caveats else ""),
+                           confidence="deterministic-by-construction")
             caveats.append("determinism not tested (single run) — re-run k≥2 to lift to CONFIRMED")
             return out(REPRODUCED_ONLY,
                        "claim, runtime value and independent recompute all agree, but determinism was not "

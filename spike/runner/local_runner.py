@@ -32,6 +32,11 @@ def run_local(repo_dir, entry, *, k=2, python=None, hooks="sklearn", targets=Non
         # hang we hit on a curated repo). setdefault so an explicit operator override still wins; before
         # env_extra so callers can override too.
         base.setdefault("MPLBACKEND", "Agg")
+        # determinism-enforcing env (core.determinism.enforced_env): freeze dict/set order + timezone so a
+        # deterministic-by-construction repo isn't spuriously flagged NON-DETERMINISTIC. PYTHONHASHSEED must
+        # be set before the interpreter starts — it is, this is the child's env. setdefault so overrides win.
+        base.setdefault("PYTHONHASHSEED", "0")
+        base.setdefault("TZ", "UTC")
         if env_extra:
             base.update(env_extra)
         base["CALMA_RUN_INDEX"] = str(i)  # lets a fixture simulate run-to-run drift deterministically

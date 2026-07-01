@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 from core import artifacts as A
+from core import determinism as DET
 from core import diff as D
 from core import leakage as LEAK
 from core import tolerance as T
@@ -46,6 +47,8 @@ class VerifyOptions:
     base_python: str | None = None
     fetch_data: bool = False        # opt-in: on a "missing input file" failure, fetch the data via Exa + retry
     heal_deps: bool = True          # self-heal: pip-install a dep the imports didn't reveal (openpyxl) + retry
+    adaptive_k: bool = True         # if the run is statically proven deterministic, verify with k=1 (half the
+    #                                 runs) — still fail-closed: any doubt keeps the empirical k≥2 check
 
 
 def _argv(entry) -> list[str]:
@@ -183,7 +186,8 @@ def _missing_module_from(run_result):
     return top if (top and not top.startswith("_")) else None
 
 
-def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace):
+def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = None):
+    k = opts.k if k is None else k                    # adaptive-k passes an effective k (1 when proven det.)
     entry = _argv(opts.entry)
     if opts.deep and not entry:
         entry = build.detect_entrypoint(repo_dir) or []
@@ -217,7 +221,7 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace):
         trace.stage("running", "running in E2B microVM")
 
         def _e2b(p):
-            return run_e2b(repo_dir, entry, k=opts.k, hooks=opts.hooks, targets=opts.targets,
+            return run_e2b(repo_dir, entry, k=k, hooks=opts.hooks, targets=opts.targets,
                            pip_install=p, pip_strict=strict, python_version=pyver, timeout=opts.timeout,
                            log=trace.note)
         result = _e2b(pip)
@@ -239,7 +243,7 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace):
     trace.stage("running", "running %s" % " ".join(entry))
 
     def _local():
-        return run_local(repo_dir, entry, k=opts.k, python=python, hooks=opts.hooks, targets=opts.targets,
+        return run_local(repo_dir, entry, k=k, python=python, hooks=opts.hooks, targets=opts.targets,
                          timeout=opts.timeout)
     result = _local()
     # self-heal a missing runtime dep (openpyxl etc.) — ONLY into a dedicated per-repo venv, never the shared
@@ -290,13 +294,15 @@ def _artifact_verify(repo_dir: str, claims: list[dict]) -> dict:
     return out
 
 
-def _diff_claims(claims: list[dict], run_result: dict, job_run: dict) -> list[dict]:
+def _diff_claims(claims: list[dict], run_result: dict, job_run: dict,
+                 static_deterministic: bool = False) -> list[dict]:
     records = []
     for claim in claims:
         if not run_result.get("runs"):
             records.append(_claim_out(claim, DISCOVERED, "deep verify could not run the entrypoint", {}))
             continue
-        rec = D.diff_claim(claim, run_result["runs"], resolver=SYNTH.recompute_any)
+        rec = D.diff_claim(claim, run_result["runs"], resolver=SYNTH.recompute_any,
+                           static_deterministic=static_deterministic)
         verdict, reason = rec["verdict"], rec.get("reason", "")
         if verdict == VD.INCONCLUSIVE and "no captured computation" in reason:
             verdict = DISCOVERED
@@ -309,6 +315,11 @@ def _diff_claims(claims: list[dict], run_result: dict, job_run: dict) -> list[di
         # carry the always-on validity overlay (trivial-baseline / degenerate-distribution / chance-level)
         # through to the UI — it is what flipped a would-be CONFIRMED to INVALIDATED.
         out["validity"] = rec.get("validity", out["validity"])
+        # surface HOW determinism was established: {tested, stable, proven, k}. A CONFIRMED with tested=False,
+        # proven=True is "deterministic by construction (k=1)"; tested=True is "reproduced ×k". Distinct on
+        # purpose so the two are never conflated.
+        if rec.get("determinism"):
+            out["determinism"] = rec["determinism"]
         cands = (rec.get("binding") or {}).get("candidates")
         if cands:
             out["scope_options"] = cands       # the scope-the-claim choices the UI offers for an ambiguous bind
@@ -331,8 +342,21 @@ def verify_repo(
 
     run_result, entry = None, _argv(opts.entry)
     job_run = None
+    static_det = False
     if opts.deep:
-        run_result, entry = _run_repo(repo_dir, opts, trace)
+        # adaptive-k gate: if the run is statically PROVEN deterministic-by-construction (every RNG seeded),
+        # one run suffices and can reach CONFIRMED; otherwise keep the empirical k≥2 determinism check. Fail-
+        # closed — any doubt keeps k≥2, so this can only ever spend fewer runs, never confirm a flaky number.
+        det = DET.analyze(repo_dir) if opts.adaptive_k else {"level": DET.AT_RISK, "detail": "adaptive-k off"}
+        static_det = det.get("level") == DET.DETERMINISTIC
+        eff_k = 1 if (static_det and opts.k > 1) else opts.k
+        if static_det:
+            trace.note("determinism proven by construction — %s → verifying with k=1 (was k=%d)"
+                       % (det.get("detail", ""), opts.k))
+        elif opts.adaptive_k:
+            trace.note("determinism not statically proven (%s) → keeping the empirical k=%d check"
+                       % (det.get("detail", "at risk"), opts.k))
+        run_result, entry = _run_repo(repo_dir, opts, trace, k=eff_k)
         if not run_result.get("ran_ok") and opts.fetch_data:    # opt-in: grab missing external data, then retry
             from runner import data_resolver as _DR
             miss = _DR.missing_data_path(" ".join(m.get("stderr_tail", "") for m in run_result.get("meta", [])))
@@ -378,7 +402,7 @@ def verify_repo(
 
     trace.stage("diffing", "comparing claimed vs produced vs recomputed")
     if opts.deep and run_result:
-        records = _diff_claims(claims, run_result, job_run or {})
+        records = _diff_claims(claims, run_result, job_run or {}, static_deterministic=static_det)
         records = [artifacts.get(rec["id"], rec) if rec["verdict"] == DISCOVERED else rec for rec in records]
     else:
         records = [

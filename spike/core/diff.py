@@ -125,8 +125,11 @@ def scope_options(claim, calls):
     return opts if len(opts) > 1 else []
 
 
-def diff_claim(claim, runs, resolver=None) -> dict:
+def diff_claim(claim, runs, resolver=None, static_deterministic=False) -> dict:
     """Three-way diff for one claim across `runs` (a list of capture-call lists; runs[0] is authoritative).
+
+    static_deterministic: the adaptive-k gate proved the run deterministic-by-construction (core.determinism).
+    It ONLY has effect when determinism wasn't tested empirically (k=1); with k≥2 the empirical check wins.
 
     `resolver(metric, inputs, kwargs) -> Result` is an optional injected recompute for metrics the curated
     catalog doesn't know (the synth/store flywheel). Keeping it injected leaves core pure-stdlib."""
@@ -179,9 +182,13 @@ def diff_claim(claim, runs, resolver=None) -> dict:
     if len(produced_each) >= 2:
         spread = max(produced_each) - min(produced_each)
         stable = all(T.close(produced_each[0], x) for x in produced_each[1:])
-        determinism = {"tested": True, "stable": stable, "spread": spread, "k": len(produced_each)}
+        # empirical proof from k≥2 is authoritative; a static "deterministic" claim can't override an
+        # observed instability (if the runs actually disagree, it's NON-DETERMINISTIC, full stop).
+        determinism = {"tested": True, "stable": stable, "spread": spread, "k": len(produced_each),
+                       "proven": bool(static_deterministic)}
     else:
-        determinism = {"tested": False, "stable": False, "spread": 0.0, "k": len(produced_each)}
+        determinism = {"tested": False, "stable": False, "spread": 0.0, "k": len(produced_each),
+                       "proven": bool(static_deterministic)}
 
     v = VD.decide(claimed_raw=claim.get("value"), produced=produced, recomputed=recomputed,
                   recompute_known=recompute_known, binding=binding,

@@ -264,7 +264,10 @@ def run_e2b(repo_dir, entry, *, k=2, hooks="sklearn", targets=None, timeout=600,
             _note(log, "E2B: running `%s` (run %d/%d)…" % (" ".join(entry), i + 1, max(1, k)))
             try:
                 envs = {"PYTHONPATH": "/capture", "CALMA_CAPTURE_OUT": out_remote,
-                        "CALMA_CAPTURE_HOOKS": hooks, "CALMA_RUN_INDEX": str(i)}
+                        "CALMA_CAPTURE_HOOKS": hooks, "CALMA_RUN_INDEX": str(i),
+                        # determinism-enforcing env (core.determinism.enforced_env) — freeze hash/tz so a
+                        # deterministic-by-construction repo reproduces cleanly (and adaptive-k is sound).
+                        "PYTHONHASHSEED": "0", "TZ": "UTC"}
                 if targets:
                     envs["CALMA_CAPTURE_TARGETS"] = json.dumps(targets)
                 if max_elems:
