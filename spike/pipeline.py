@@ -239,14 +239,17 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = 
                         trace.note("era-pinned inferred deps to %s" % era)
                 trace.note(("auto-deps (%s): %s" % (why, " ".join(pip)[:160])) if pip
                            else "no deps detected (%s)" % why)
-            holder.update(entry=entry, pip=pip, strict=strict)
-            return entry, pip, strict
+            tgts = opts.targets or (plan.get("targets") if plan else None)   # AI-identified metric fns to capture
+            if tgts and not opts.targets:
+                trace.note("AI-planned capture targets: %s" % ", ".join(t["target"] for t in tgts)[:160])
+            holder.update(entry=entry, pip=pip, strict=strict, targets=tgts)
+            return entry, pip, strict, tgts
 
         trace.stage("running", "running in E2B microVM")
-        result = run_e2b(repo_dir, resolve=_resolve, k=k, hooks=opts.hooks, targets=opts.targets,
+        result = run_e2b(repo_dir, resolve=_resolve, k=k, hooks=opts.hooks,
                          python_version=pyver, timeout=opts.timeout, log=trace.note)
         entry = holder.get("entry") or _entry(get_plan() if get_plan else None)
-        pip, strict = holder.get("pip"), holder.get("strict", True)
+        pip, strict, tgts = holder.get("pip"), holder.get("strict", True), holder.get("targets")
         for _ in range(2 if opts.heal_deps else 0):       # self-heal a dep the imports didn't reveal
             if result.get("ran_ok"):
                 break
@@ -255,7 +258,7 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = 
                 break
             pip = (pip or []) + [build._PKG_ALIASES.get(mod, mod)]
             trace.note("missing dep %s — installing + retrying" % mod)
-            result = run_e2b(repo_dir, entry, k=k, hooks=opts.hooks, targets=opts.targets,
+            result = run_e2b(repo_dir, entry, k=k, hooks=opts.hooks, targets=tgts,
                              pip_install=pip, pip_strict=strict, python_version=pyver, timeout=opts.timeout,
                              log=trace.note)
         return result, entry
@@ -264,6 +267,7 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = 
     plan = get_plan() if get_plan else None
     entry = _entry(plan)
     pip = opts.pip_install or (plan.get("pip_install") if plan else None)
+    tgts = opts.targets or (plan.get("targets") if plan else None)      # AI-identified metric fns to capture
     venvs_dir = opts.venvs_dir or os.path.join(os.path.dirname(repo_dir), ".venvs")
     base_py = opts.base_python or sys.executable
     python, note = build.ensure_venv(opts.job_id, pip, venvs_dir, base_python=base_py)
@@ -271,7 +275,7 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = 
     trace.stage("running", "running %s" % " ".join(entry))
 
     def _local():
-        return run_local(repo_dir, entry, k=k, python=python, hooks=opts.hooks, targets=opts.targets,
+        return run_local(repo_dir, entry, k=k, python=python, hooks=opts.hooks, targets=tgts,
                          timeout=opts.timeout)
     result = _local()
     # self-heal a missing runtime dep (openpyxl etc.) — ONLY into a dedicated per-repo venv, never the shared

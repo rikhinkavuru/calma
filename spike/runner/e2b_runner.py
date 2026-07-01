@@ -254,7 +254,7 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
     `pip install` is paid once, not k×, and it's MORE correct for determinism (identical env across runs, so
     only code-level nondeterminism shows). Returns the runner-agnostic shape + cost telemetry.
 
-    `resolve`, if given, is a callable returning (entry, pip_install, pip_strict). It is invoked AFTER the
+    `resolve`, if given, is a callable returning (entry, pip_install, pip_strict, targets). It is invoked AFTER the
     microVM boots and the repo uploads — never before — so the caller can run an AI run-plan CONCURRENTLY with
     the boot and only block on it here, at the last moment before deps install. When `resolve` is set the deps
     are unknown at boot, so the sandbox's lifetime CEILING is sized conservatively (free: billing is per
@@ -289,7 +289,7 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
                 sbx.files.write("/capture/" + fn, fh.read())
         _upload_dir(sbx, repo_dir, "/work", log=log)
         if resolve is not None:                                 # join the run-plan NOW — it ran during the boot
-            entry, pip_install, pip_strict = resolve()
+            entry, pip_install, pip_strict, targets = resolve()
             entry = list(entry)
             heavy = build.deps_are_heavy(pip_install)           # deps known now → right-size the install budget
             inst_timeout = max(timeout, 1800) if heavy else timeout

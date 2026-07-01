@@ -75,6 +75,39 @@ def test_pipeline_uses_the_proposed_entrypoint(tmp_path, monkeypatch):
     assert acc and acc[0]["verdict"] == VD.CONFIRMED              # verdict still from the deterministic recompute
 
 
+def test_targets_are_shape_validated(tmp_path, monkeypatch):
+    """The planner's capture targets (custom metric fns for non-sklearn domains) are kept only if well-formed:
+    dotted path + a metric. Malformed / hallucinated-shape entries are dropped — the shim would fail-soft-skip
+    a bad path anyway, and a target never touches the verdict (value is captured live + recomputed)."""
+    _stub(monkeypatch, {"entrypoint": [], "pip_install": [], "python_version": "", "data_needed": "",
+                        "notes": "x", "confidence": 0.5, "targets": [
+                            {"target": "metrics.sharpe_ratio", "metric": "sharpe",
+                             "inputs": [{"name": "returns", "ref": "arg0"}]},
+                            {"target": "src.eval.compute_ndcg", "metric": "ndcg"},        # no inputs → still kept
+                            {"target": "no_dot_here", "metric": "x"},                     # not dotted → dropped
+                            {"target": "bad;path", "metric": "x"},                        # bad chars → dropped
+                            {"target": "mod.fn", "metric": ""},                           # empty metric → dropped
+                            "not a dict"]})                                               # wrong type → dropped
+    tg = PLAN.plan_repo(str(tmp_path))["targets"]
+    assert [t["target"] for t in tg] == ["metrics.sharpe_ratio", "src.eval.compute_ndcg"]
+    assert tg[0]["inputs"] == {"returns": "arg0"} and "inputs" not in tg[1]   # array → {name: ref} dict for the shim
+
+
+def test_plan_targets_flow_to_the_run(tmp_path, monkeypatch):
+    """End-to-end: an AI-planned target reaches the runner's capture targets (opts is unset, plan supplies it)."""
+    (tmp_path / "eval.py").write_text("print('accuracy=0.5')\n")
+    captured = {}
+    monkeypatch.setattr(PLAN, "plan_repo", lambda repo_dir: {
+        "entry": ["eval.py"], "pip_install": None, "python_version": None, "data_needed": "", "notes": "x",
+        "confidence": 0.9, "targets": [{"target": "m.sharpe", "metric": "sharpe"}]})
+    monkeypatch.setattr(PIPE, "run_local",   # pipeline does `from runner.local_runner import run_local`
+                        lambda *a, **k: captured.update(targets=k.get("targets")) or
+                        {"runs": [[]], "meta": [], "ran_ok": True, "hooks_armed": None, "n_calls": [], "cost": {}})
+    PIPE.verify_repo(str(tmp_path), PIPE.VerifyOptions(deep=True, runner="local", plan=True,
+                     venvs_dir=str(tmp_path / "venvs"), base_python=sys.executable))
+    assert captured["targets"] == [{"target": "m.sharpe", "metric": "sharpe"}]
+
+
 def test_plan_off_skips_the_stage(tmp_path, monkeypatch):
     """plan=False must not even call the planner (opt-out is real)."""
     called = {"n": 0}

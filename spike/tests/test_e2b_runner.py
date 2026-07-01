@@ -1,5 +1,6 @@
 """E2B runner cost behaviour: ONE sandbox is created, deps install ONCE, the entrypoint runs k× inside it.
 Mocks the e2b SDK so it runs offline (no key, no network)."""
+import json
 import sys
 import types
 
@@ -28,6 +29,8 @@ class _Cmds:
 
     def run(self, cmd, on_stdout=None, on_stderr=None, **kw):
         self.log.setdefault("cmds", []).append(cmd)
+        if "envs" in kw:
+            self.log.setdefault("run_envs", []).append(kw["envs"])
         if self.log.get("fail_on") and self.log["fail_on"] in cmd:
             raise RuntimeError("simulated failure: " + cmd)
         if on_stdout:                                          # live-stream a line so tests can see forwarding
@@ -93,7 +96,7 @@ def test_resolve_hook_fires_after_boot_and_upload(tmp_path, monkeypatch):
     def resolve():
         seen["sandbox_created"] = _Sbx.created                  # boot already happened?
         seen["writes_at_call"] = len(_LOG.get("writes", []))    # repo already uploaded?
-        return ["myeval.py"], ["pandas"], False
+        return ["myeval.py"], ["pandas"], False, None
 
     res = e2b_runner.run_e2b(str(tmp_path), resolve=resolve, k=1, cfg=cfg)
     assert seen["sandbox_created"] == 1                          # microVM booted BEFORE resolve
@@ -120,6 +123,23 @@ def test_repo_uploads_as_one_archive_not_per_file(tmp_path, monkeypatch):
     assert any(w.endswith("_calma_repo.tgz") for w in writes)    # repo went up as one archive
     assert [w for w in writes if w.startswith("/work/")] == ["/work/_calma_repo.tgz"]  # ONLY the archive, not per-file
     assert any("tar xzf" in c for c in _LOG.get("cmds", []))     # extracted in the sandbox
+
+
+def test_resolve_targets_reach_the_capture_env(tmp_path, monkeypatch):
+    """A capture target from `resolve` (i.e. an AI-planned metric function) is JSON-encoded into the run's
+    CALMA_CAPTURE_TARGETS env — the domain-general capture path. The value is still captured from the real run
+    and recomputed independently; the target only picks which function to wrap."""
+    _install_fake_e2b(monkeypatch)
+    (tmp_path / "eval.py").write_text("print('hi')\n")
+    cfg = {"api_key": "x", "domain": None, "template": None}
+    tgt = [{"target": "metrics.sharpe_ratio", "metric": "sharpe", "inputs": {"returns": "arg0"}}]
+
+    def resolve():
+        return ["eval.py"], None, True, tgt
+
+    e2b_runner.run_e2b(str(tmp_path), resolve=resolve, k=1, cfg=cfg)
+    run_envs = _LOG.get("run_envs", [])
+    assert any("CALMA_CAPTURE_TARGETS" in e and json.loads(e["CALMA_CAPTURE_TARGETS"]) == tgt for e in run_envs)
 
 
 def test_tolerant_install_for_inferred_deps(tmp_path, monkeypatch):
