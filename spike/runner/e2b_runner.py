@@ -26,7 +26,7 @@ import time
 
 from . import CAPTURE_DIR, build, parse_capture
 
-_SHIM_FILES = ("calma_capture.py", "sitecustomize.py")
+_SHIM_FILES = ("calma_capture.py", "sitecustomize.py", "reinvoke.py")
 _MAX_SANDBOX_S = 3600   # hard cap on a sandbox's lifetime (build + all k runs) — safety bound on cost/E2B limits
 _MAX_ARCHIVE_B = 200 * 1024 * 1024   # above this, fall back to per-file upload (keeps the child's memory bounded)
 
@@ -43,7 +43,7 @@ def _load_dotenv(path):
             k, _, v = line.partition("=")
             v = v.strip()
             # strip an inline comment (" # ...") that isn't inside quotes
-            if not (v[:1] in ("'", '"')):
+            if v[:1] not in ("'", '"'):
                 hashpos = v.find(" #")
                 if hashpos != -1:
                     v = v[:hashpos]
@@ -248,7 +248,7 @@ def _cmd_run(sbx, cmd, *, log=None, prefix="  | ", stream=False, **kw):
 
 def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout=600,
             allow_internet=False, pip_install=None, pip_strict=True, python_version=None,
-            cfg=None, max_elems=None, log=None, resolve=None):
+            cfg=None, max_elems=None, log=None, resolve=None, fuzz=False):
     """ONE sandbox: stage + install ONCE, then run the entrypoint k× inside it (each a fresh process with its
     own capture file). Reusing the sandbox across the determinism runs is the big cost lever — the dominant
     `pip install` is paid once, not k×, and it's MORE correct for determinism (identical env across runs, so
@@ -266,6 +266,7 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
     entry = list(entry or [])
     runs, meta = [], []
     hooks_armed = None
+    fuzz_records = None
     sbx = None
     pybin, python_used = "python", None
     t_start = time.time()
@@ -335,6 +336,8 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
                     envs["CALMA_CAPTURE_TARGETS"] = json.dumps(targets)
                 if max_elems:
                     envs["CALMA_CAPTURE_MAX_ELEMS"] = str(max_elems)
+                if fuzz:
+                    envs["CALMA_FUZZ"] = "1"      # arm the feature 2/7/10 re-invocation emitter (writes .fuzz)
                 # stream the run's stdout/stderr LIVE into the job log — the repo's own prints are the best
                 # signal for "what is it actually doing" during a long run.
                 r = _cmd_run(sbx, pybin + " " + " ".join(entry), cwd="/work", envs=envs, timeout=timeout,
@@ -348,6 +351,16 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
                         hooks_armed = json.loads(h if isinstance(h, str) else h.decode())
                     except Exception:  # noqa: BLE001
                         pass
+                if fuzz and fuzz_records is None:                # first run's fuzz emit is enough (deterministic)
+                    fz_local = _pull_capture(sbx, out_remote + ".fuzz")
+                    if fz_local:
+                        recs = parse_capture(fz_local)
+                        if recs:
+                            fuzz_records = recs
+                        try:
+                            os.remove(fz_local)
+                        except OSError:
+                            pass
             except Exception as e:  # noqa: BLE001 — this run errored; others may still succeed
                 rc, out, err, killed, out_local = -9, "", "e2b error: %s" % e, "timeout" in str(e).lower(), None
             dt = time.time() - t0
@@ -371,7 +384,7 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
                 pass
     ran_ok = bool(meta) and all(m["returncode"] == 0 for m in meta)
     return {"runs": runs, "meta": meta, "ran_ok": ran_ok, "hooks_armed": hooks_armed,
-            "n_calls": [len(r) for r in runs],
+            "fuzz": fuzz_records, "n_calls": [len(r) for r in runs],
             "cost": {"sandbox_seconds": round(build_seconds + run_seconds, 2),
                      "build_seconds": round(build_seconds, 2), "run_seconds": round(run_seconds, 2),
                      "runs": len(meta), "reused_sandbox": True, "python": python_used or "sandbox-default"}}

@@ -1,0 +1,9 @@
+# Calma spike — developer/test setup (runtime + the test suite + the quality gates).
+# One-command setup:  ~/.calma/spike-venv/bin/pip install -r requirements-dev.txt
+-r requirements.txt
+
+# test + quality gates (see the README "Quality gates" section)
+pytest
+ruff
+mypy
+vulture

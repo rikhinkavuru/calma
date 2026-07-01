@@ -1,0 +1,5 @@
+{
+  "_comment": "Pinned public keys for OFFLINE verdict-attestation verification (feature 3). Populate `current` and `trusted` when a signing key is provisioned: `current` = the live key from attest.signing.public_key_info(); `trusted` = the current key plus any retired keys still guarding historical attestations. A verifier trusts ONLY the keys listed here, never a key embedded in an envelope.",
+  "current": null,
+  "trusted": []
+}

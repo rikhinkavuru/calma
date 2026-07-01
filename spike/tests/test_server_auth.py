@@ -71,12 +71,13 @@ def test_local_runner_allowed_when_not_forced(monkeypatch, _cleanup):
 
 def test_clone_falls_back_to_git_when_gh_missing(monkeypatch, _cleanup):
     """On a server (no `gh` binary) a missing gh must fall through to plain git, not crash the job."""
-    import subprocess as sp
     srv = _load_server(monkeypatch, None)
     calls = []
 
     class _R:
-        def __init__(self, rc): self.returncode = rc; self.stderr = ""
+        def __init__(self, rc):
+            self.returncode = rc
+            self.stderr = ""
 
     def fake_run(argv, *a, **k):
         calls.append(argv[0])

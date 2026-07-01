@@ -12,6 +12,12 @@ INCONCLUSIVE (fail closed; "scope the claim"). Zero -> unbound -> INCONCLUSIVE (
 from __future__ import annotations
 
 from . import catalog as C
+from . import conventions as CONV
+from . import formula_diff as FZ
+from . import interval as I
+from . import intervals as ITV
+from . import metamorphic as MM
+from . import perturb as PB
 from . import tolerance as T
 from . import validity as V
 from . import verdict as VD
@@ -125,7 +131,50 @@ def scope_options(claim, calls):
     return opts if len(opts) > 1 else []
 
 
-def diff_claim(claim, runs, resolver=None, static_deterministic=False) -> dict:
+def _fuzz_overlay(cid, raw, call, fuzz) -> list[str]:
+    """Downgrade-only re-invocation checks (features 2/7/10) on the repo's OWN callable, fed by
+    capture.reinvoke's `.fuzz` emit. Returns invalidating notes; the caller folds them into `validity`, so
+    they route through the EXISTING INVALIDATED path in verdict.decide — they can only fail a number closed,
+    never open one. Matches the fuzz record to the claim by the bound call's target sink, else by metric."""
+    if not fuzz:
+        return []
+    # The fuzz emit re-invokes a specific TARGET callable, so it may only judge a claim bound to THAT target.
+    # A claim bound elsewhere (e.g. a sklearn.metrics call) must NOT inherit another target's divergence —
+    # that would false-INVALIDATE a legitimate number that happens to share the metric name. Match by exact
+    # target; only fall back to a metric match when it is UNIQUE (a lone fuzzed target of that metric).
+    sink = (call or {}).get("sink") or ""
+    if not sink.startswith("target:"):
+        return []
+    target = sink.split("target:", 1)[1]
+    recs = [r for r in fuzz if r.get("target") == target]
+    if not recs and cid:
+        by_metric = [r for r in fuzz if C.canonical(r.get("metric") or "") == cid]
+        recs = by_metric if len(by_metric) == 1 else []
+    notes: list[str] = []
+    for r in recs:
+        cases = r.get("cases") or []
+        metric = r.get("metric") or raw
+        fd = FZ.differential(metric, cases)
+        if fd.get("diverged"):
+            ce = fd.get("counterexample") or {}
+            notes.append("formula-fuzz: the repo's function diverges from an independent recompute on random "
+                         "inputs (%d/%d cases; e.g. repo=%.6g vs recompute=%.6g) — not the metric it claims"
+                         % (fd["n_diverged"], fd["n_clean"], ce.get("repo", float("nan")),
+                            ce.get("recomputed", float("nan"))))
+            continue                                  # already invalidating; skip the redundant MR/fab notes
+        mm = MM.check_record(metric, cases)
+        if mm.get("invalidating"):
+            v0 = mm["violations"][0]
+            notes.append("metamorphic: the repo's function violates %s (an exact property of %s) — not the "
+                         "metric it claims" % (v0["relation"], C.canonical(metric) or metric))
+        fab = PB.fabrication_from_fuzz(cases)
+        if fab:
+            notes.append(fab)
+    return notes
+
+
+def diff_claim(claim, runs, resolver=None, static_deterministic=False, fuzz=None, seed_injected=False,
+               shadow=None) -> dict:
     """Three-way diff for one claim across `runs` (a list of capture-call lists; runs[0] is authoritative).
 
     static_deterministic: the adaptive-k gate proved the run deterministic-by-construction (core.determinism).
@@ -169,25 +218,74 @@ def diff_claim(claim, runs, resolver=None, static_deterministic=False) -> dict:
             recomputed = rr                       # degenerate resolver result → stays reproduced-only
 
     # convention-search: Sharpe & other convention-dependent metrics recompute to different values under
-    # different STANDARD conventions (annualization ×√252/12/…, sample-vs-population stdev). The repo's
-    # convention lives in its own code and isn't captured, so the DEFAULT recompute can falsely disagree with a
-    # correct number. If it does, try the recognized conventions against the REAL captured inputs; if one
-    # reproduces the produced value, THAT is the recompute — the number is a valid metric, not "cheating".
-    # FCR-safe: a fabricated value matches no standard convention, so this can only rescue genuine numbers,
-    # never confirm a wrong one. Only runs for metrics with a curated grid (C.CONVENTIONS).
+    # different STANDARD conventions (annualization ×√252/12/…, sample-vs-population stdev, downside-
+    # denominator, correlation type). The repo's convention lives in its own code and isn't captured, so the
+    # DEFAULT recompute can falsely disagree with a correct number. If it does, try the recognized, CITED,
+    # size-capped conventions (core.conventions, the hard contract) against the REAL captured inputs; if one
+    # reproduces the produced value at the SAME confirm tolerance, THAT is the recompute — a valid metric, not
+    # "cheating". FCR-safe: a fabricated value matches no standard convention (proven by the coincidental-
+    # value fuzz gate), so this can only rescue genuine numbers, never confirm a wrong one. Runs only after
+    # the default recompute disagrees (gated on prior reproduction, rule 5).
+    _conv_rcv = _finite_float(recomputed.get("value")) if recomputed else None
     if (recomputed and produced is not None and inputs is not None and not recomputed.get("degenerate")
-            and cid in C.CONVENTIONS and not T.close(produced, recomputed.get("value"))):
-        for conv in C.CONVENTIONS[cid]:
-            alt = C.recompute(cid, inputs, {**kw, **conv})
-            if not alt.get("degenerate") and T.close(produced, alt.get("value")):
-                alt = dict(alt)
-                alt["note"] = ("matched the repo's convention (%s)"
-                               % ", ".join("%s=%g" % (k, v) for k, v in conv.items()))
-                recomputed = alt
-                break
+            and _conv_rcv is not None and not T.close(produced, _conv_rcv)):
+        match = None
+        if cid and CONV.has_grid(cid):                       # catalog metric with a grid — recompute via C
+            match = CONV.search(cid, inputs, produced, kw, C.recompute, T.close)
+        elif recompute_known and resolver is not None:       # recipe/synth metric with a grid (guide §B.3)
+            rkey = (raw or "").strip().lower()
+            if CONV.has_grid(rkey):
+                match = CONV.search(rkey, inputs, produced, kw,
+                                    lambda m, i, k: resolver(raw, i, k), T.close)
+        if match:
+            recomputed = match
+
+    # feature 17 — differential recompute (inline, downgrade-only): fold an optional INDEPENDENT `shadow`
+    # recompute in. Disagreement → the recompute is degenerate (fail-closed); agreement changes nothing (no
+    # upgrade, per Knight–Leveson). See synth.xcheck for the same discipline applied to the synth flywheel.
+    if shadow is not None and recomputed and inputs is not None and not recomputed.get("degenerate"):
+        try:
+            sr = shadow(raw, inputs, kw)
+        except Exception:  # noqa: BLE001
+            sr = None
+        sval = _finite_float(sr.get("value")) if (sr and not sr.get("degenerate")) else None
+        if sval is not None:
+            _rcv = _finite_float(recomputed.get("value"))
+            agree = T.close(_rcv, sval)
+            rec["xcheck"] = {"agree": bool(agree), "primary": _rcv, "independent": sval}
+            if not agree:
+                recomputed = {**recomputed, "degenerate": True,
+                              "note": "recompute paths disagree (primary=%.8g vs independent=%.8g) — cannot "
+                                      "trust the oracle" % (_rcv if _rcv is not None else float("nan"), sval)}
+
+    # feature 19 — certified enclosure at the tolerance boundary. When the recompute would confirm (close to
+    # produced) on a cancellation-prone metric (variance/stdev/mean/sum), certify it: if the rigorous enclosure
+    # of OUR recompute does not lie ENTIRELY within the produced tolerance band (ill-conditioning straddling
+    # the boundary), we cannot certify agreement → fail closed (mark the recompute degenerate). Only downgrades.
+    _enc_rcv = _finite_float(recomputed.get("value")) if recomputed else None
+    if (recomputed and produced is not None and inputs is not None and not recomputed.get("degenerate")
+            and cid in ITV.ENCLOSED and _enc_rcv is not None and T.close(produced, _enc_rcv)):
+        rv = _enc_rcv
+        tol = T.ATOL + T.RTOL * max(abs(produced), abs(rv))
+        enc = ITV.enclosure(cid, inputs, kw)
+        if enc:
+            rel = ITV.band_relation(enc, produced, tol)
+            rec["enclosure"] = {**enc, "relation": rel}
+            if rel == "straddle":
+                recomputed = {**recomputed, "degenerate": True,
+                              "note": "recompute enclosure [%.6g, %.6g] straddles the confirm tolerance under "
+                                      "ill-conditioning — cannot certify" % (enc["lo"], enc["hi"])}
 
     # validity overlay on the captured inputs
     validity = V.check(raw, inputs, produced) if inputs is not None else {"invalidating": [], "advisory": []}
+    # un-foolability overlay (features 2/7/10): re-invoke the repo's OWN callable on fresh inputs and fold any
+    # formula divergence / broken metamorphic relation / input-invariance into the validity invalidations. It
+    # only ever ADDS an invalidation (downgrade-only) — a would-be CONFIRMED becomes INVALIDATED, never the
+    # reverse. Runs only on a reproduced claim (produced present) where it could change a positive verdict.
+    if fuzz and produced is not None:
+        for note in _fuzz_overlay(cid, raw, call, fuzz):
+            if note not in validity["invalidating"]:
+                validity["invalidating"].append(note)
 
     # determinism: is the produced value stable across runs? Reapply the SAME binding logic to each run
     # (same code → same call structure → the corresponding computation), so we compare like with like.
@@ -208,20 +306,49 @@ def diff_claim(claim, runs, resolver=None, static_deterministic=False) -> dict:
         determinism = {"tested": False, "stable": False, "spread": 0.0, "k": len(produced_each),
                        "proven": bool(static_deterministic)}
 
+    # feature 6 — when the runs are unstable, build a prediction interval from the repo's OWN run-to-run
+    # values so a claim consistent with that distribution can reach CONFIRMED-STOCHASTIC (and one clearly
+    # outside, REFUTED). Only has power at k ≥ k_min; at the default k=2 it is `enough=False` and inert.
+    distribution = None
+    if determinism.get("tested") and not determinism.get("stable") and len(produced_each) >= 2:
+        iv = I.predict_interval(produced_each)
+        # "too unstable to verify" guard: if the run-to-run spread exceeds the value itself, the repo is so
+        # unstable (e.g. an unseeded value ~ uniform random) that its distribution would swallow ANY in-range
+        # claim — a meaningless confirm. Fold that into `enough=False` so the verdict stays NON-DETERMINISTIC.
+        center = iv.get("center") or 0.0
+        width = (iv.get("hi") or 0.0) - (iv.get("lo") or 0.0)
+        # flag only EGREGIOUS spread: wider than 2× the value AND wider than an absolute floor. This catches a
+        # ~uniform-random value (interval swallows the whole range) without harming a legitimately noisy
+        # near-zero or large-magnitude metric.
+        too_wide = width > max(abs(center) * 2.0, 0.5)
+        distribution = {"enough": bool(iv["enough"] and not too_wide), "interval": iv, "too_wide": too_wide,
+                        "contains": I.contains(iv, claim.get("value")),
+                        "outside": I.outside_by_margin(iv, claim.get("value"))}
+
     v = VD.decide(claimed_raw=claim.get("value"), produced=produced, recomputed=recomputed,
                   recompute_known=recompute_known, binding=binding,
-                  determinism=determinism, validity=validity)
+                  determinism=determinism, validity=validity, distribution=distribution,
+                  seed_injected=seed_injected)
     rec.update(v)
     rec["sink"] = call.get("sink")
     rec["determinism"] = determinism
     rec["validity"] = validity
+    if inputs is not None:                                    # feature 16: content-address the data the number
+        from . import datahash as DH                          # lazy import — avoids a core/__init__ eager cycle
+        rec["data_digest"] = DH.canonical_sha256(inputs)      # was computed on (a field, never a verdict gate)
     rec["recompute_provenance"] = (recomputed or {}).get("provenance")   # catalog | store | synth
+    # audit surface (guide §B.2 rule 7): a confirm reached via convention-search is never a BARE CONFIRMED —
+    # record WHICH standard convention matched so a human can sanity-check the inferred convention.
+    if isinstance(recomputed, dict) and recomputed.get("convention"):
+        rec["convention"] = recomputed["convention"]
+        if rec.get("verdict") == VD.CONFIRMED and recomputed.get("note"):
+            rec["reason"] = (rec.get("reason", "") + " — " + recomputed["note"]).strip()
     return rec
 
 
-def diff_repo(claims, runs, resolver=None) -> dict:
+def diff_repo(claims, runs, resolver=None, fuzz=None) -> dict:
     """Diff every claim. Returns {"claims": [verdict record...], "counts": {verdict: n}}."""
-    records = [diff_claim(cl, runs, resolver=resolver) for cl in claims]
+    records = [diff_claim(cl, runs, resolver=resolver, fuzz=fuzz) for cl in claims]
     counts: dict[str, int] = {}
     for r in records:
         counts[r["verdict"]] = counts.get(r["verdict"], 0) + 1

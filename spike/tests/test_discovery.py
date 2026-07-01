@@ -15,8 +15,9 @@ def test_map_metric_aliases_and_keywords():
     assert D.map_metric("AUROC")[0] == "roc_auc"
     assert D.map_metric("R2")[0] == "r2"
     assert D.map_metric("training RMSE")[:2] == ("rmse", "train")
-    assert D.map_metric("BLEU")[0] is None          # not in the catalog -> not mapped
-    assert D.map_metric("loss")[0] is None
+    assert D.map_metric("BLEU")[0] == "bleu"         # now a catalog metric (guide §B.3)
+    assert D.map_metric("nDCG")[0] == "ndcg"
+    assert D.map_metric("loss")[0] is None           # still not a recomputable metric
 
 
 def test_from_results_json(tmp_path):

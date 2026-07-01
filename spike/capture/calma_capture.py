@@ -151,24 +151,41 @@ def _nsamples(inputs):
 
 
 # ---- the JSONL sink -------------------------------------------------------------------------------
-def record(metric, value, *, sink="explicit", label=None, kwargs=None, **inputs):
-    """Public explicit-capture API (and the internal recorder). Records one captured computation."""
+def record(metric, value, *, sink="explicit", label=None, kwargs=None, site=None, user_site=None, n=None,
+           **inputs):
+    """Public explicit-capture API. Records one captured computation; `**inputs` are the metric's arrays.
+
+    The INTERNAL capture tiers must NOT use this **inputs form when they key inputs by the repo's own
+    arbitrary parameter names — a repo metric with a param named `n`/`site`/`sink`/`metric`/... would collide
+    with these keyword parameters (silently dropping the input, or raising a swallowed TypeError that loses the
+    whole capture). They call `_record` with an inputs DICT instead, which cannot collide."""
+    _record(metric, value, inputs, sink=sink, label=label, kwargs=kwargs, site=site, user_site=user_site, n=n)
+
+
+def _record(metric, value, inputs, *, sink="explicit", label=None, kwargs=None, site=None, user_site=None,
+            n=None):
+    """Collision-safe recorder: `inputs` is an explicit dict (arbitrary repo param names), never **kwargs.
+
+    site/user_site/n may be passed explicitly by a capture tier that already knows the provenance (the
+    sys.monitoring Tier-1 path reads them off the target's own code object); otherwise they're derived from
+    the live frame stack (the import-monkeypatch tiers)."""
     if _OUT_PATH[0] is None:
         _OUT_PATH[0] = os.environ.get("CALMA_CAPTURE_OUT")
         if _OUT_PATH[0] is None:
             return  # capture disabled
     budget = _MAX_ELEMS[0]
     ser_inputs, full = {}, True
-    for k, v in inputs.items():
+    for k, v in (inputs or {}).items():
         sv, ok = _to_list(v, budget)
         if not ok:
             full = False
         else:
             ser_inputs[k] = sv
-    site, user_site = _call_site()
+    if site is None and user_site is None:
+        site, user_site = _call_site()
     entry = {"sink": sink, "metric": metric, "kwargs": _safe_kwargs(kwargs),
              "result": _result_scalar(value), "captured_full": full,
-             "site": site, "user_site": user_site, "n": _nsamples(inputs)}
+             "site": site, "user_site": bool(user_site), "n": n if n is not None else _nsamples(inputs or {})}
     if full:
         entry["inputs"] = ser_inputs
     if label is not None:
@@ -262,7 +279,7 @@ def _wrap(orig, sink_name, extract):
         if outer:
             try:
                 metric, inputs, kw = extract(args, kwargs)
-                record(metric, result, sink=sink_name, kwargs=kw, **inputs)
+                _record(metric, result, inputs, sink=sink_name, kwargs=kw)
             except Exception:  # noqa: BLE001
                 pass
         return result
@@ -314,7 +331,7 @@ def install_sklearn_scores():
                 if outer:
                     try:
                         y_pred = self.predict(X)
-                        record(metric, result, sink="sklearn.%s.score" % cls_name, y_true=y, y_pred=y_pred)
+                        _record(metric, result, {"y_true": y, "y_pred": y_pred}, sink="sklearn.%s.score" % cls_name)
                     except Exception:  # noqa: BLE001
                         pass
                 return result
@@ -365,7 +382,7 @@ def install_targets(specs):
                             inputs[key] = args[i] if len(args) > i else None
                         else:
                             inputs[key] = kwargs.get(ref)
-                    record(metric, result, sink=sink, **inputs)
+                    _record(metric, result, inputs, sink=sink)
                 except Exception:  # noqa: BLE001
                     pass
                 return result
@@ -373,6 +390,162 @@ def install_targets(specs):
             return wrapper
         setattr(mod, attr, make(orig, metric, mapping, "target:" + target))
         hooked.append(target)
+    return hooked
+
+
+# ---- Tier 1: sys.monitoring (PEP 669) target capture (Python >= 3.12) -----------------------------
+# The __main__ capture gap (guide §B.1): install_targets patches an IMPORTED module object, so it MISSES a
+# metric defined+called in the entrypoint's own `__main__` (running `python train.py`, the executing script
+# IS sys.modules['__main__']; import_module('train') returns a DIFFERENT object we can't reach the function
+# through). sys.monitoring hooks the CODE OBJECT's execution, so it observes a target call regardless of where
+# the function is defined — __main__, imported, OR in a worker thread (per-interpreter, not per-thread) — reads
+# the NAMED args off the frame, and returns DISABLE for every non-target location so overhead is ~0 everywhere
+# except the targets. It never mutates repo source, so it cannot change the numbers.
+_MON_TARGETS: list = []            # [(attr_name, spec)]
+_MON_PENDING = threading.local()   # id(frame) -> [(spec, inputs)] captured at PY_START, emitted at PY_RETURN
+_MON_TOOL_ID = [None]
+
+
+def _mon_pending():
+    d = getattr(_MON_PENDING, "d", None)
+    if d is None:
+        d = {}
+        _MON_PENDING.d = d
+    return d
+
+
+def _mon_match(code):
+    """Return the spec for a target this code object implements, else None. Matches the target's final dotted
+    atom against the code's qualname (top-level fn or method); the module/file is a soft signal only (a
+    __main__-defined target's module won't match its filename). A wrong match can only mis-capture inputs that
+    then fail the independent recompute (INVALIDATED/INCONCLUSIVE) — never a false CONFIRM."""
+    try:
+        qual = code.co_qualname
+    except AttributeError:
+        qual = code.co_name
+    last = qual.rsplit(".", 1)[-1]
+    for attr, spec in _MON_TARGETS:
+        if last == attr or qual == attr or qual.endswith("." + attr):
+            return spec
+    return None
+
+
+def _mon_frame_for(code):
+    """The innermost active frame whose code is `code` (walk up from the callback). None if not found."""
+    try:
+        f = sys._getframe(1)
+    except Exception:  # noqa: BLE001
+        return None
+    while f is not None:
+        if f.f_code is code:
+            return f
+        f = f.f_back
+    return None
+
+
+def _mon_read_inputs(spec, f_locals, argnames):
+    """Map the spec's inputs ({canonical: 'arg0'|kwname}) to values from the target frame's locals. With no
+    mapping, capture every positional parameter under its own name (the value-recompute fallback still gets
+    the raw arrays a hand-rolled metric received)."""
+    mapping = spec.get("inputs") or {}
+    if not mapping:
+        return {name: f_locals.get(name) for name in argnames}
+    out = {}
+    for key, ref in mapping.items():
+        if isinstance(ref, str) and ref.startswith("arg") and ref[3:].isdigit():
+            i = int(ref[3:])
+            out[key] = f_locals.get(argnames[i]) if i < len(argnames) else None
+        else:
+            out[key] = f_locals.get(ref)
+    return out
+
+
+def _mon_site(code):
+    fn = getattr(code, "co_filename", "") or ""
+    is_lib = ("site-packages" in fn or "dist-packages" in fn
+              or any(fn.startswith(p) for p in _PREFIXES) or fn.startswith("<"))
+    base = fn.rsplit("/", 1)[-1]
+    return "%s:%d" % (base, getattr(code, "co_firstlineno", 0)), (not is_lib)
+
+
+def install_targets_monitoring(specs):
+    """Arm sys.monitoring PY_START/PY_RETURN filtered to the planner's target functions. Returns the list of
+    hooked target paths (empty if unavailable / nothing to hook). Fail-soft; on any error the caller falls
+    back to the import-patch tier."""
+    mon = getattr(sys, "monitoring", None)
+    if mon is None:
+        return []
+    global _MON_TARGETS
+    _MON_TARGETS = []
+    hooked = []
+    for spec in specs or []:
+        target = spec.get("target")
+        if not target or not isinstance(target, str):
+            continue
+        attr = target.rsplit(".", 1)[-1]
+        _MON_TARGETS.append((attr, spec))
+        hooked.append(target)
+    if not _MON_TARGETS:
+        return []
+    tool_id = None
+    for tid in (5, 4, 3, 2):                      # avoid 0/1 (debugger/coverage) + 6/7 (settrace/setprofile)
+        try:
+            if mon.get_tool(tid) is None:
+                tool_id = tid
+                break
+        except Exception:  # noqa: BLE001
+            continue
+    if tool_id is None:
+        return []
+    E = mon.events
+
+    def on_start(code, _offset):
+        try:
+            spec = _mon_match(code)
+            if spec is None:
+                return mon.DISABLE                # never re-instrument a non-target location (~0 overhead)
+            frame = _mon_frame_for(code)
+            if frame is None:
+                return None
+            argnames = code.co_varnames[:code.co_argcount]
+            inputs = _mon_read_inputs(spec, frame.f_locals, argnames)
+            _mon_pending().setdefault(id(frame), []).append((spec, inputs))
+        except Exception:  # noqa: BLE001 — a capture error must never break the run
+            return None
+        return None
+
+    def on_return(code, _offset, retval):
+        try:
+            spec = _mon_match(code)
+            if spec is None:
+                return mon.DISABLE
+            frame = _mon_frame_for(code)
+            key = id(frame) if frame is not None else None
+            pend = _mon_pending().get(key) if key is not None else None
+            if pend:
+                spec2, inputs = pend.pop()
+                if not pend:
+                    _mon_pending().pop(key, None)
+                site, user_site = _mon_site(code)
+                _record(spec2.get("metric") or _MON_TARGETS[0][0], retval, inputs,
+                        sink="target:" + spec2.get("target", "?"), site=site, user_site=user_site)
+        except Exception:  # noqa: BLE001
+            return None
+        return None
+
+    try:
+        mon.use_tool_id(tool_id, "calma_capture")
+        _MON_TOOL_ID[0] = tool_id
+        mon.register_callback(tool_id, E.PY_START, on_start)
+        mon.register_callback(tool_id, E.PY_RETURN, on_return)
+        mon.set_events(tool_id, E.PY_START | E.PY_RETURN)
+    except Exception:  # noqa: BLE001 — monitoring unavailable/occupied → caller falls back to import patch
+        try:
+            if _MON_TOOL_ID[0] is not None:
+                mon.free_tool_id(_MON_TOOL_ID[0])
+        except Exception:  # noqa: BLE001
+            pass
+        return []
     return hooked
 
 
@@ -399,7 +572,8 @@ def _install_subprocess_propagation():
             try:
                 env = dict(env)
                 env.setdefault("CALMA_CAPTURE_OUT", _OUT_PATH[0])
-                for var in ("CALMA_CAPTURE_HOOKS", "CALMA_CAPTURE_MAX_ELEMS", "CALMA_CAPTURE_TARGETS"):
+                for var in ("CALMA_CAPTURE_HOOKS", "CALMA_CAPTURE_MAX_ELEMS", "CALMA_CAPTURE_TARGETS",
+                            "CALMA_FUZZ", "CALMA_INJECT_SEED"):
                     if os.environ.get(var) is not None:
                         env.setdefault(var, os.environ[var])
                 pp = env.get("PYTHONPATH", "")
@@ -422,6 +596,13 @@ def install_from_env():
     if _INSTALLED[0]:
         return
     _INSTALLED[0] = True
+    # feature 15 — force-seed all RNGs for a CHARACTERIZATION run (gated on CALMA_INJECT_SEED). Runs first, so
+    # a seed set before any repo import takes effect. Never used to produce a claim (verdict caps it).
+    try:
+        import seedinject
+        seedinject.install_seed_from_env()
+    except Exception:  # noqa: BLE001
+        pass
     _OUT_PATH[0] = os.environ.get("CALMA_CAPTURE_OUT")
     if not _OUT_PATH[0]:
         return
@@ -437,7 +618,23 @@ def install_from_env():
     targets_json = os.environ.get("CALMA_CAPTURE_TARGETS")
     if targets_json:
         try:
-            meta["targets"] = install_targets(json.loads(targets_json))
+            specs = json.loads(targets_json)
+            # Tier 1 (sys.monitoring) on >=3.12 catches __main__-defined AND imported AND threaded targets;
+            # fall back to the Tier-1b import patch if monitoring is unavailable/occupied or <3.12.
+            # CALMA_CAPTURE_NOMON=1 forces the legacy path (used to A/B the two tiers).
+            use_mon = sys.version_info >= (3, 12) and os.environ.get("CALMA_CAPTURE_NOMON") != "1"
+            hooked = install_targets_monitoring(specs) if use_mon else []
+            meta["targets"] = hooked or install_targets(specs)
+            meta["target_tier"] = "monitoring" if hooked else "import-patch"
+            # feature 2/7/10 — arm the in-sandbox re-invocation emitter at interpreter exit (so a
+            # __main__-defined target is already defined). Gated on CALMA_FUZZ=1; fail-soft.
+            if os.environ.get("CALMA_FUZZ") == "1":
+                try:
+                    import reinvoke
+                    reinvoke.install_atexit(specs, _OUT_PATH[0] + ".fuzz")
+                    meta["fuzz_armed"] = True
+                except Exception:  # noqa: BLE001
+                    pass
         except Exception:  # noqa: BLE001
             pass
     # a breadcrumb the runner can read to confirm hooks armed (never fatal)

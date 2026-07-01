@@ -17,6 +17,8 @@ import json
 import os
 import re
 
+from core import limits as _LIM  # noqa: E402 — pip-spec sanitizer (drops a prompt-injected --index-url / VCS ref)
+
 # The planner earns its keep on HARD repos (ambiguous entrypoints, monorepos, unusual repro steps, deps not
 # declared) — easy repos already resolve from heuristics — so the read quality matters, and since the output
 # is validated (entrypoint must exist) + best-effort, model choice never risks a verdict, only run success.
@@ -95,7 +97,7 @@ def _read(path: str, cap: int) -> str:
 def _gather_context(repo_dir: str) -> str:
     """Assemble a bounded snapshot of the repo for the model: file tree + README + declared deps + the head of
     the root-level scripts (where entrypoints and their imports live)."""
-    tree, scripts = [], []
+    tree = []
     n = 0
     for root, dirs, files in os.walk(repo_dir):
         dirs[:] = [d for d in dirs if d not in _SKIP_DIRS]
@@ -151,7 +153,7 @@ def _call_model(context: str, model: str) -> str | None:
         )
         if resp.stop_reason == "max_tokens":                          # truncated → JSON won't parse
             return None
-        return next((b.text for b in resp.content if getattr(b, "type", None) == "text"), None)
+        return next((getattr(b, "text", None) for b in resp.content if getattr(b, "type", None) == "text"), None)
     except Exception:  # noqa: BLE001 — auth/rate/network/parse → best-effort, fall back to heuristics
         return None
 
@@ -212,7 +214,10 @@ def plan_repo(repo_dir: str, model: str | None = None) -> dict | None:
         return None
 
     entry = _valid_entry(p.get("entrypoint"), repo_dir)
-    deps = [d for d in (p.get("pip_install") or []) if isinstance(d, str) and d.strip()] or None
+    # SANITIZE the model's proposed deps: keep only plain PyPI specs. A prompt-injected README could otherwise
+    # make the plan emit `--index-url http://evil/` or `git+https://evil/x`, redirecting the installer at
+    # build time. The entrypoint gate below is the anti-hallucination rail; this is the anti-injection rail.
+    deps = _LIM.sanitize_pip(p.get("pip_install")) or None
     pyver = p.get("python_version") if re.match(r"^\d+\.\d+", str(p.get("python_version") or "")) else None
     try:
         conf = max(0.0, min(1.0, float(p.get("confidence", 0))))

@@ -213,7 +213,8 @@ def run_isolated(
     wall = wall_seconds or _int_env("CALMA_VERIFY_WALL_SECONDS", _default_wall(opts))
 
     import dataclasses
-    opts_dict = dataclasses.asdict(opts) if dataclasses.is_dataclass(opts) else dict(opts)
+    opts_dict = (dataclasses.asdict(opts) if dataclasses.is_dataclass(opts) and not isinstance(opts, type)
+                 else dict(opts))
 
     rf = tempfile.NamedTemporaryFile(prefix="calma_result_", suffix=".json", delete=False)
     result_path = rf.name
@@ -242,12 +243,13 @@ def run_isolated(
             text=True, cwd=_spike_dir(), env=_child_env(), start_new_session=True,
         )
         try:
-            proc.stdin.write(request)
-            proc.stdin.close()
+            if proc.stdin is not None:
+                proc.stdin.write(request)
+                proc.stdin.close()
         except (BrokenPipeError, OSError):
             pass
 
-        state = {"error": None, "done": False, "stderr": ""}
+        state: dict = {"error": None, "done": False, "stderr": ""}
         t_out = threading.Thread(target=_drain_events, args=(proc.stdout, update, log, state), daemon=True)
         t_err = threading.Thread(target=_drain_stderr, args=(proc.stderr, state), daemon=True)
         t_out.start()
@@ -269,7 +271,7 @@ def run_isolated(
                                  _friendly(e.get("kind", "error"), e.get("error", "verification failed")),
                                  e.get("traceback") or state["stderr"])
         if rc not in (0, None):
-            raise _exit_error(rc, mem_cap, state["stderr"])
+            raise _exit_error(rc if rc is not None else -1, mem_cap, state["stderr"])
         # The parent's last unbounded step is loading the child's result — guard it, or a pathological repo
         # that produced a giant result could OOM the SUPERVISOR (the discovery bounds make this never trigger
         # in practice; this closes the theoretical hole so the parent's memory stays bounded no matter what).

@@ -1,10 +1,22 @@
-# Calma rebuild — Phase 0 spike corpus.
+# Calma rebuild — multi-domain evaluation corpus (DOMAIN-GENERALIZATION-GUIDE §A).
 #
 # Each repo carries hand-specified claims (the reported numbers, as written) + an `expect` (the
 # hand-graded verdict) so run_spike.py can score reproduction, input-binding, verdict accuracy, and —
 # the franchise gate — FALSE-CONFIRM COUNT (must be 0). The synthetic fixtures pin each verdict path; the
 # realistic + e2b repos exercise the build-runnable and isolation paths. Real external git repos go in the
 # `# real:` section and are attempted best-effort (an honest pass/fail feeds the couldn't-reproduce taxonomy).
+#
+# INTAKE SCHEMA (guide §A.2 — the machine-checkable rubric; enforced by tests/test_corpus_schema.py):
+#   meta:
+#     domain:      ml | finance | statistics | ir | nlp | deeplearning | genomics | analytics
+#     tier:        T1 (trivial) | T2 (standard) | T3 (hard) | T4 (adversarial/negative)
+#     split:       dev (authors tune against failures) | test (locked; RC-only; never tuned against)
+#     license:     SPDX id (MIT/BSD-3-Clause/Apache-2.0/...) | internal (our fixtures) | unknown
+#     commit_date: YYYY-MM-DD of the pinned commit (freshness/decontamination) | unknown
+#     capability:  (optional) the Part-B capability this repo exercises — e.g. convention, __main__, artifact
+# The `meta` block is describing the corpus as a DISTRIBUTION (n per domain × tier), not a list. New fields
+# are additive: run_spike.py / pipeline.py ignore unknown keys. The tier is a priori; empirical difficulty
+# (measured pass rate) refines it later (guide §A.2).
 #
 # claim fields: id, metric, value (string, as reported), [bind: {occurrence|sink|label}], expect
 
@@ -13,6 +25,7 @@ repos:
   - name: clean_eval
     source: {kind: local, path: fixtures/clean_eval}
     entry: [eval.py]
+    meta: {domain: ml, tier: T1, split: dev, license: internal, commit_date: unknown}
     claims:
       - {id: acc, metric: accuracy, value: "0.831", expect: CONFIRMED}
       - {id: auc, metric: roc_auc, value: "0.942", expect: CONFIRMED}
@@ -20,12 +33,14 @@ repos:
   - name: misreported
     source: {kind: local, path: fixtures/clean_eval}   # same code, an inflated README number
     entry: [eval.py]
+    meta: {domain: ml, tier: T4, split: dev, license: internal, commit_date: unknown, capability: fabricated}
     claims:
       - {id: acc, metric: accuracy, value: "0.95", expect: REFUTED}
 
   - name: custom_metric_invalid
     source: {kind: local, path: fixtures/custom_metric}
     entry: [eval.py]
+    meta: {domain: ml, tier: T4, split: dev, license: internal, commit_date: unknown, capability: cheating-formula}
     targets:
       - {target: metrics.my_accuracy, metric: accuracy, inputs: {y_true: arg0, y_pred: arg1}}
     claims:
@@ -34,34 +49,110 @@ repos:
   - name: trivial_baseline
     source: {kind: local, path: fixtures/trivial_baseline}
     entry: [eval.py]
+    meta: {domain: ml, tier: T4, split: dev, license: internal, commit_date: unknown, capability: trivial-baseline}
     claims:
       - {id: acc, metric: accuracy, value: "0.918", expect: INVALIDATED}  # = majority-class baseline
 
   - name: nondeterministic
     source: {kind: local, path: fixtures/nondeterministic}
     entry: [eval.py]
+    meta: {domain: ml, tier: T4, split: dev, license: internal, commit_date: unknown, capability: nondeterministic}
     claims:
       - {id: acc, metric: accuracy, value: "0.700", expect: NON-DETERMINISTIC}
 
   - name: two_splits
     source: {kind: local, path: fixtures/two_splits}
     entry: [eval.py]
+    meta: {domain: ml, tier: T3, split: dev, license: internal, commit_date: unknown, capability: multi-candidate}
     claims:
       - {id: acc_bare, metric: accuracy, value: "0.55", expect: INCONCLUSIVE}        # ambiguous: train vs test
       - {id: acc_test, metric: accuracy, value: "0.544", bind: {occurrence: 1}, expect: CONFIRMED}
+
+  # ---- convention-sensitive metrics: CONFIRM only via convention/type search (guide §B.2) --------
+  # These exercise the full pipeline end-to-end on a real run: the custom metric fn is captured via a
+  # `targets` wrap, its REAL inputs recomputed, and convention-search reproduces the produced value under a
+  # standard-but-non-default convention. The cheat (T4) proves the search rescues genuine numbers ONLY.
+  - name: finance_sharpe
+    source: {kind: local, path: fixtures/finance_sharpe}
+    entry: [eval.py]
+    meta: {domain: finance, tier: T3, split: dev, license: internal, commit_date: unknown, capability: convention}
+    targets:
+      - {target: metrics.sharpe_ratio, metric: sharpe, inputs: {returns: arg0}}
+    claims:
+      - {id: sharpe, metric: sharpe, value: "0.6852", expect: CONFIRMED}   # √252 + ddof=0 → convention-search
+
+  - name: finance_sharpe_cheat
+    source: {kind: local, path: fixtures/finance_sharpe_cheat}
+    entry: [eval.py]
+    meta: {domain: finance, tier: T4, split: dev, license: internal, commit_date: unknown, capability: cheating-formula}
+    targets:
+      - {target: metrics.sharpe_ratio, metric: sharpe, inputs: {returns: arg0}}
+    claims:
+      - {id: sharpe, metric: sharpe, value: "12.5", expect: INVALIDATED}   # hardcoded; no convention reproduces
+
+  - name: stats_correlation
+    source: {kind: local, path: fixtures/stats_correlation}
+    entry: [eval.py]
+    meta: {domain: statistics, tier: T3, split: dev, license: internal, commit_date: unknown, capability: convention}
+    targets:
+      - {target: metrics.compute_correlation, metric: correlation, inputs: {x: arg0, y: arg1}}
+    claims:
+      - {id: corr, metric: correlation, value: "0.4061", expect: CONFIRMED}   # spearman → correlation type-search
+
+  # ---- __main__-defined custom metrics: captured ONLY by Tier 1 sys.monitoring (guide §B.1) --------
+  # The metric fn is defined + called in the entrypoint's own __main__, so the import-patch tier misses it;
+  # Tier 1 (PEP 669) hooks the code object and captures its inputs regardless of where it's defined.
+  - name: main_metric
+    source: {kind: local, path: fixtures/main_metric}
+    entry: [eval.py]
+    meta: {domain: ml, tier: T3, split: dev, license: internal, commit_date: unknown, capability: main-defined}
+    targets:
+      - {target: eval.my_accuracy, metric: accuracy, inputs: {y_true: arg0, y_pred: arg1}}
+    claims:
+      - {id: acc, metric: accuracy, value: "0.8000", expect: CONFIRMED}   # __main__ metric captured by Tier 1
+
+  - name: main_metric_cheat
+    source: {kind: local, path: fixtures/main_metric_cheat}
+    entry: [eval.py]
+    meta: {domain: ml, tier: T4, split: dev, license: internal, commit_date: unknown, capability: main-defined-cheat}
+    targets:
+      - {target: eval.my_accuracy, metric: accuracy, inputs: {y_true: arg0, y_pred: arg1}}
+    claims:
+      - {id: acc, metric: accuracy, value: "1.0", expect: INVALIDATED}   # cheat; Tier 1 captures real inputs → ≈0.8
 
   - name: unknown_metric
     source: {kind: local, path: fixtures/unknown_metric}
     entry: [eval.py]
     hooks: ""        # no sink to auto-hook; the repo records explicitly
+    meta: {domain: nlp, tier: T3, split: dev, license: internal, commit_date: unknown, capability: learned-metric-fail-closed}
     claims:
-      - {id: bleu, metric: bleu, value: "0.722", expect: REPRODUCED-ONLY}   # not in the trusted catalog
+      - {id: bs, metric: bertscore, value: "0.8955", expect: REPRODUCED-ONLY}   # learned metric — no independent recompute
+
+  # ---- IR + NLP generation: CONFIRM only via the convention/type search on captured text/ranking inputs --
+  - name: ir_ndcg
+    source: {kind: local, path: fixtures/ir_ndcg}
+    entry: [eval.py]
+    meta: {domain: ir, tier: T3, split: dev, license: internal, commit_date: unknown, capability: convention}
+    targets:
+      - {target: metrics.compute_ndcg, metric: ndcg, inputs: {relevances: arg0}}
+    claims:
+      - {id: ndcg, metric: ndcg, value: "0.9008", expect: CONFIRMED}   # exponential gain → nDCG convention search
+
+  - name: bleu_eval
+    source: {kind: local, path: fixtures/bleu_eval}
+    entry: [eval.py]
+    meta: {domain: nlp, tier: T3, split: dev, license: internal, commit_date: unknown, capability: convention}
+    targets:
+      - {target: metrics.compute_bleu, metric: bleu, inputs: {candidate: arg0, references: arg1}}
+    claims:
+      - {id: bleu, metric: bleu, value: "88.0112", expect: CONFIRMED}   # 0-100 scale → BLEU convention search
 
   # ---- realistic: full build-runnable path (own requirements.txt, real model, results.json) -----
   - name: realistic_sklearn
     source: {kind: local, path: fixtures/realistic_sklearn}
     entry: [train.py]
     pip_install: [numpy, scikit-learn]      # exercises build.ensure_venv (per-repo env)
+    meta: {domain: ml, tier: T2, split: dev, license: internal, commit_date: unknown}
     claims:
       - {id: acc, metric: accuracy, value: "0.755", expect: CONFIRMED}
       - {id: auc, metric: roc_auc, value: "0.8146", expect: CONFIRMED}
@@ -72,6 +163,7 @@ repos:
     source: {kind: local, path: fixtures/realistic_sklearn}
     entry: [train.py]
     discover: true          # claims auto-extracted from results.json + stdout, then verified
+    meta: {domain: ml, tier: T2, split: dev, license: internal, commit_date: unknown, capability: discovery}
     # (no `claims:` — everything here is discovered)
 
   # ---- isolation path: real E2B Firecracker microVM, network-denied ------------------------------
@@ -80,6 +172,7 @@ repos:
     runner: e2b
     entry: [eval.py]
     hooks: ""
+    meta: {domain: analytics, tier: T1, split: dev, license: internal, commit_date: unknown}
     claims:
       - {id: mean, metric: mean, value: "0.3000", expect: CONFIRMED}
 
@@ -94,6 +187,7 @@ repos:
              commit: c5f6c4c14cea337df9ebf71444b7367228b16d87}
     entry: [iris.py]
     pip_install: [scikit-learn]
+    meta: {domain: ml, tier: T4, split: test, license: unknown, commit_date: unknown, capability: version-drift}
     claims:
       - {id: acc, metric: accuracy, value: "96.67%", expect: REFUTED}   # version drift; 1.0 in a fresh env
 
@@ -101,57 +195,67 @@ repos:
   # confirming the HEAD SHA via the API). All CPU-only, sklearn built-in / committed / seaborn datasets, a
   # single run-and-print entrypoint. `discover: true` (no hand-grade): the Phase-0 measurement here is the
   # objective reproduction + binding rate on code we didn't author — the false-confirm gate stays proven on
-  # the synthetic graded suite. Flags called out inline.
+  # the synthetic graded suite. Flags called out inline. (license/commit_date=unknown until the Stage-1
+  # sourcing pipeline (guide §A.6 / P4) records them; kept honest rather than fabricated.)
   - name: breast-cancer-rf
     source: {kind: git, url: https://github.com/Yukti-09/Breast_Cancer.git, commit: d089a1c1c79a18be26f5bd3332b77b658ef5dd0a}
     entry: [model.py]
     pip_install: [scikit-learn]
+    meta: {domain: ml, tier: T3, split: dev, license: unknown, commit_date: unknown, capability: nondeterministic}
     discover: true              # README "97.37%"; RF is UNSEEDED → expect non-deterministic, not a clean CONFIRMED
 
   - name: iris-algos-compare
     source: {kind: git, url: https://github.com/danish008-dan/Iris_Algorithms_Comparisons-.git, commit: 467d2bfe49b60c0afd160ca988af8949a1305540}
     entry: [iris_classification.py]
     pip_install: [scikit-learn, pandas]
+    meta: {domain: ml, tier: T1, split: dev, license: unknown, commit_date: unknown}
     discover: true              # README table LR 97% / KNN 100% / DT 97% / RF 100%; committed Iris.csv; seeded
 
   - name: iris-logreg
     source: {kind: git, url: https://github.com/sroiis/iris-ml-classifier.git, commit: 9c317aedc652c7c06c742b8b555642f1a2ae21ab}
     entry: [iris_classifier.py]
     pip_install: [scikit-learn, matplotlib]
+    meta: {domain: ml, tier: T1, split: dev, license: unknown, commit_date: unknown}
     discover: true              # prints "Model Accuracy: 1.00"; load_iris + LogisticRegression seed 42
 
   - name: iris-svm
     source: {kind: git, url: https://github.com/grandhibhoomika-cloud/iris-svm-classification.git, commit: ddffeef6a3d89add26d37d0f182ad8b439ec65d1}
     entry: [iris-svm.py]
     pip_install: [scikit-learn, pandas]
+    meta: {domain: ml, tier: T1, split: dev, license: unknown, commit_date: unknown}
     discover: true              # README "Accuracy: 100%"; load_iris + SVC(linear) seed 42
 
   - name: iris-naive-bayes
     source: {kind: git, url: https://github.com/grandhibhoomika-cloud/iris-naive-bayes-classification.git, commit: 4f5f7df964b9326871e1d5eb55815b40ce754b71}
     entry: [naive_bayes_iris.py]
     pip_install: [scikit-learn, pandas]
+    meta: {domain: ml, tier: T1, split: dev, license: unknown, commit_date: unknown}
     discover: true              # README "Accuracy: 100%"; load_iris + GaussianNB seed 42
 
   - name: iris-codealpha
     source: {kind: git, url: https://github.com/dinutanwar/CodeAlpha_IrisClassification.git, commit: f11b298af0665531066df5a21dfe56f6add0c865}
     entry: [iris_classification.py]
     pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn]
+    meta: {domain: ml, tier: T3, split: dev, license: unknown, commit_date: unknown, capability: multi-candidate}
     discover: true              # README "Final Accuracy 96.67%"; load_iris, fully seeded incl. GridSearchCV
 
   - name: digits-softmax
     source: {kind: git, url: https://github.com/kaushu42/digit-classification.git, commit: 250b2d23af8c01cdf28ac42af50f147e99819a65}
     entry: [classify.py]
     pip_install: [scikit-learn, numpy, matplotlib]
+    meta: {domain: ml, tier: T3, split: dev, license: unknown, commit_date: unknown, capability: hand-rolled-metric}
     discover: true              # README "95%"; load_digits + from-scratch numpy softmax, np.random.seed(1)
 
   - name: titanic-seaborn
     source: {kind: git, url: https://github.com/khwahishcodes05/titanic-ml-project.git, commit: c9192d1d8e591603afd524ebe95623d533ff3f47}
     entry: [titanic_ml_project.py]
     pip_install: [scikit-learn, pandas, numpy, seaborn, matplotlib]
+    meta: {domain: ml, tier: T2, split: dev, license: unknown, commit_date: unknown}
     discover: true              # README LR 81% / 79% / 78%; sns.load_dataset("titanic") (fetches CSV on first use)
 
   - name: iris-multimodel
     source: {kind: git, url: https://github.com/DivyaSajjan01/iris-flower-classification.git, commit: 051b985dc64bd27270ec42326046ea5a4bf5332f}
     entry: [untitled14.py]
     pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn]
+    meta: {domain: ml, tier: T3, split: dev, license: unknown, commit_date: unknown, capability: multi-candidate}
     discover: true              # no written number; prints "Accuracy: {x:.4f}" per model; load_iris seed 42

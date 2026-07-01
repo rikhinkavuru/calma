@@ -16,7 +16,6 @@ carried from the existing infer_validity.py — noted here, ported when the spik
 from __future__ import annotations
 
 from . import catalog as C
-from . import tolerance as T
 
 
 def check(metric: str, inputs: dict, produced: float) -> dict:

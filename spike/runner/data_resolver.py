@@ -78,10 +78,44 @@ def _pick_url(urls):
     return anydata[0] if anydata else None
 
 
-def fetch_to(url, dest, timeout=40, max_bytes=80_000_000):
-    """Download a data URL to dest (size-capped, creating parent dirs best-effort). Returns bytes or None."""
+def _url_is_safe(url) -> bool:
+    """SSRF/LFI guard for an outbound data fetch derived from search results (not a fixed host). Requires an
+    http(s) scheme (blocks file:// local-file reads, ftp/gopher) and rejects any host that resolves to a
+    private / loopback / link-local / reserved IP (blocks localhost, 10.x/192.168.x, and the 169.254.169.254
+    cloud-metadata endpoint). Not a full DNS-rebinding defense, but it closes the obvious internal-reach paths.
+    """
+    import ipaddress  # noqa: PLC0415
+    import socket  # noqa: PLC0415
+    from urllib.parse import urlparse  # noqa: PLC0415
     try:
-        with urllib.request.urlopen(_raw(url), timeout=timeout) as fh:
+        p = urlparse(url)
+    except (ValueError, AttributeError):
+        return False
+    if p.scheme not in ("http", "https") or not p.hostname:
+        return False
+    try:
+        infos = socket.getaddrinfo(p.hostname, None)
+    except socket.gaierror:
+        return False
+    for info in infos:
+        try:
+            ip = ipaddress.ip_address(info[4][0])
+        except ValueError:
+            return False
+        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+            return False
+    return True
+
+
+def fetch_to(url, dest, timeout=40, max_bytes=80_000_000):
+    """Download a data URL to dest (size-capped, creating parent dirs best-effort). Returns bytes or None.
+    Refuses non-http(s) schemes and internal/private hosts (SSRF/LFI guard) — the URL comes from untrusted
+    search results, so it is never trusted to reach the local filesystem or an internal service."""
+    safe_url = _raw(url)
+    if not _url_is_safe(safe_url):
+        return None
+    try:
+        with urllib.request.urlopen(safe_url, timeout=timeout) as fh:  # noqa: S310 - scheme+host validated above
             data = fh.read(max_bytes + 1)
     except Exception:  # noqa: BLE001
         return None

@@ -1,8 +1,19 @@
 # build artifacts produced by run_spike.py — not source
+.env
+.env.*
 results/.venvs/
 results/repos/
 __pycache__/
 *.pyc
 .pytest_cache/
-# keep the report + scored results (results/SPIKE-REPORT.md, results/results.json)
+# keep the report + scored results (results/SPIKE-REPORT.md, results/results.json, results/SCORECARD.md)
+# large regenerable per-run output dumps (multi-GB: cloned repos, sandbox logs, artifacts) — never source
+results/live-*/
+results/rerun-*/
 synth/formula_store.json
+# runtime artifacts written by the flywheel + trust layer (features 5/11/12) — not source
+synth/experience_bank.json
+.calma/
+# per-feature meta-eval outputs (optimize/*.py write <name>_metrics.json / *_ledger.json)
+optimize/*_metrics.json
+optimize/bounty_ledger.json

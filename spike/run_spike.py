@@ -103,6 +103,7 @@ def run_one(spec, args, venvs_dir):
         tail = " ".join(m.get("stderr_tail", "") for m in r.get("meta", []))
         fail = classify_failure(tail)
     return {"name": name, "ran": r["ran_ok"], "runner": runner, "seconds": elapsed,
+            "meta": spec.get("meta", {}),   # domain/tier/split — makes results self-describing for the scorecard
             "n_calls": r.get("n_calls"), "hooks_armed": r.get("hooks_armed"), "n_discovered": n_discovered,
             "build": "%s/%s" % (build_note, env_note), "claims": claim_records, "failure": fail,
             "stderr_tail": ("" if r["ran_ok"] else (r.get("meta", [{}])[-1].get("stderr_tail", "")[-400:]))}
@@ -180,11 +181,16 @@ def write_report(agg, results, out_dir):
 
 
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--repos", default=os.path.join(HERE, "repos.yaml"))
-    ap.add_argument("--only", default="", help="comma-separated repo names to run")
+    ap = argparse.ArgumentParser(
+        description="Run the Calma verification loop over a corpus: discover claims, re-run each repo, "
+                    "independently recompute, three-way diff, and score vs hand-graded truth (FALSE_CONFIRMS=0 "
+                    "is the franchise gate). Writes results/SPIKE-REPORT.md.")
+    ap.add_argument("--repos", default=os.path.join(HERE, "repos.yaml"),
+                    help="corpus file (default: repos.yaml)")
+    ap.add_argument("--only", default="", help="comma-separated repo names to run (default: the whole corpus)")
     ap.add_argument("--k", type=int, default=2, help="runs per repo (determinism gate needs >=2)")
-    ap.add_argument("--out", default=os.path.join(HERE, "results"))
+    ap.add_argument("--out", default=os.path.join(HERE, "results"),
+                    help="output dir for the report + scored results (default: results/)")
     args = ap.parse_args()
 
     import yaml

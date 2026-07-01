@@ -1,26 +1,26 @@
-"""A repo reporting a metric the trusted catalog does not (yet) recognise (a toy 'bleu'). We can reproduce
-the reported number (and check determinism), but we have no independent oracle to recompute it -> the
-fail-closed verdict REPRODUCED-ONLY, never CONFIRMED. (Coverage grows via the catalog flywheel, guide §10.)
+"""A repo reporting a LEARNED / embedding metric (BERTScore). We can reproduce the reported number and
+check determinism, but there is NO independent recompute of a neural metric — reproducing it would mean
+re-running the same checkpoint, which is the thing under test, not an independent oracle. So the honest,
+fail-closed verdict is REPRODUCED-ONLY, never CONFIRMED (guide §B.3 (c)).
 
 Instrumented explicitly because there is no known sink to auto-hook — the repo hands us the inputs+value."""
-import numpy as np
-
 try:
     import calma_capture            # present on PYTHONPATH inside the spike sandbox
 except Exception:                   # noqa: BLE001 — repo still runs outside the harness
     calma_capture = None
 
 
-def toy_bleu(candidate, reference):
-    # a deliberately simple stand-in for an unrecognised metric
-    c, r = set(candidate), set(reference)
-    return len(c & r) / max(1, len(c))
+def neural_score(candidate, reference):
+    # stand-in for a BERTScore-style learned metric (the real one runs a BERT checkpoint). Deterministic
+    # value — the point is that it is NOT independently recomputable, not how it's produced.
+    cand, ref = candidate.split(), reference.split()
+    overlap = len(set(cand) & set(ref)) / max(1, len(set(cand) | set(ref)))
+    return 0.85 + 0.1 * overlap
 
 
-rng = np.random.default_rng(5)
-cand = list(rng.integers(0, 50, 60))
-ref = list(rng.integers(0, 50, 60))
-score = toy_bleu(cand, ref)
+cand = "the quick brown fox jumped over the lazy dog"
+ref = "a quick brown fox leaps over a sleepy dog"
+score = neural_score(cand, ref)
 if calma_capture:
-    calma_capture.record("bleu", score, candidate=cand, reference=ref)
-print(f"bleu={score:.4f}")
+    calma_capture.record("bertscore", score, candidate=cand, reference=ref)
+print(f"bertscore={score:.4f}")

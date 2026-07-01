@@ -13,15 +13,14 @@ lets a misreport pass. We bind the tolerance to the *as-written precision* of th
 """
 from __future__ import annotations
 
-import math
 import re
 
 RTOL = 1e-6
 ATOL = 1e-9
 
 
-def close(a: float, b: float, rtol: float = RTOL, atol: float = ATOL) -> bool:
-    """Tight symmetric closeness for two full-precision values."""
+def close(a: float | None, b: float | None, rtol: float = RTOL, atol: float = ATOL) -> bool:
+    """Tight symmetric closeness for two full-precision values. Accepts None (a missing value never matches)."""
     if a is None or b is None:
         return False
     if not (a == a and b == b):  # NaN never matches
@@ -70,7 +69,7 @@ def parse_claim(raw) -> tuple[float | None, int | None, str]:
     return (val, decimals, kind)
 
 
-def claim_close(claimed_raw, produced: float, kind_hint: str | None = None) -> tuple[bool, dict]:
+def claim_close(claimed_raw, produced: float) -> tuple[bool, dict]:
     """Is the full-precision `produced` consistent with the as-written `claimed_raw` (rounding-aware)?
     Returns (ok, detail). `detail` carries the parsed claim + the tolerance used, for the report."""
     val, decimals, kind = parse_claim(claimed_raw)

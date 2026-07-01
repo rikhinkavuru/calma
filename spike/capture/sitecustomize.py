@@ -24,8 +24,9 @@ try:  # pragma: no cover
         _cand = _os.path.join(_p, "sitecustomize.py")
         if _os.path.isfile(_cand):
             _spec = _u.spec_from_file_location("_chained_sitecustomize", _cand)
-            _mod = _u.module_from_spec(_spec)
-            _spec.loader.exec_module(_mod)
+            if _spec and _spec.loader:
+                _mod = _u.module_from_spec(_spec)
+                _spec.loader.exec_module(_mod)
             break
 except Exception:  # noqa: BLE001
     pass

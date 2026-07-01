@@ -151,12 +151,24 @@ def analyze(repo_dir: str) -> dict:
             "detail": "no stochastic library detected — pure computation"}
 
 
-def enforced_env() -> dict:
+# a fixed build/mtime clock for the shim tier (feature 20): 2023-11-14T22:13:20Z. Any fixed value works; it
+# only needs to be STABLE across runs so SOURCE_DATE_EPOCH-aware code produces the same output each time.
+_SHIM_EPOCH = "1700000000"
+
+
+def enforced_env(shim: bool = False) -> dict:
     """The determinism-enforcing env applied to EVERY verification run (independent of adaptive-k): freeze the
     hash seed (dict/set iteration order) and the timezone. This is a strict quality win — it removes the
     controllable, output-affecting nondeterminism sources so a repo that IS deterministic-by-construction
     isn't spuriously flagged NON-DETERMINISTIC over dict ordering. We deliberately do NOT pin BLAS threads:
     that would negate the multi-core template, and the residual ~1e-6 thread-reduction wobble is far below any
     reported-metric tolerance. (Set-before-interpreter-start vars like PYTHONHASHSEED are read by the child
-    python at launch.)"""
-    return {"PYTHONHASHSEED": "0", "TZ": "UTC"}
+    python at launch.)
+
+    `shim=True` adds the feature-20 shim tier (the DebuggAI/libfate 80/20 of rr): pin the build/mtime clock
+    via SOURCE_DATE_EPOCH. It only REMOVES clock-derived noise — same category as PYTHONHASHSEED/TZ — so it can
+    only turn a spurious NON-DETERMINISTIC into a clean verdict, never manufacture agreement."""
+    env = {"PYTHONHASHSEED": "0", "TZ": "UTC"}
+    if shim:
+        env["SOURCE_DATE_EPOCH"] = _SHIM_EPOCH
+    return env

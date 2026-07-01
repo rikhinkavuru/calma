@@ -394,18 +394,214 @@ def sharpe(inputs, kwargs) -> dict:
     return result(val, mean=m, stdev=sd, n=n, periods_per_year=ppy, ddof=ddof)
 
 
-# Convention-sensitive metrics recompute to DIFFERENT values under different STANDARD conventions — Sharpe
-# especially (annualization factor √periods_per_year, sample-vs-population stdev via ddof). The repo's
-# convention is buried in its own code (e.g. `* np.sqrt(252)`, `np.std` default ddof=0) and isn't captured,
-# so a single-convention recompute will falsely disagree with a correct number. `CONVENTIONS` gives diff.py a
-# bounded grid of RECOGNIZED conventions to try against the REAL captured inputs: if one reproduces the
-# produced value, the number is a valid metric (not cheating). FCR-safe — a fabricated value matches none of a
-# small set of standard conventions; keep these grids to genuinely-standard settings only.
-CONVENTIONS: dict[str, list[dict]] = {
-    # daily/weekly/monthly/quarterly/annual annualization × sample/population stdev
-    "sharpe": [{"periods_per_year": p, "ddof": d}
-               for p in (1.0, 252.0, 52.0, 12.0, 4.0, 365.0) for d in (1, 0)],
-}
+def _returns(inputs):
+    r = inputs.get("returns", inputs.get("values"))
+    if r is None:
+        raise ValueError("missing 'returns'")
+    v = _as_floats(r)
+    if len(v) < 2:
+        raise ValueError("need >=2 returns")
+    return v
+
+
+def stdev(inputs, kwargs) -> dict:
+    """Standard deviation. Convention-sensitive: ddof ∈ {1 (sample, pandas default), 0 (population, numpy
+    default)} — the single most common numeric discrepancy in the product. Default ddof=1 (sample)."""
+    try:
+        v = _values(inputs)
+    except ValueError as e:
+        return _degenerate(str(e))
+    n = len(v)
+    ddof = int(kwargs.get("ddof", 1))
+    if n - ddof <= 0:
+        return _degenerate("ddof too large for n=%d" % n)
+    m = math.fsum(v) / n
+    var = math.fsum((x - m) ** 2 for x in v) / (n - ddof)
+    return result(math.sqrt(var), n=n, ddof=ddof)
+
+
+def variance(inputs, kwargs) -> dict:
+    """Variance. Same ddof convention as stdev (1 sample / 0 population). Default ddof=1."""
+    r = stdev(inputs, kwargs)
+    if r["degenerate"]:
+        return r
+    return result(r["value"] ** 2, n=r["terms"].get("n"), ddof=r["terms"].get("ddof"))
+
+
+def sortino(inputs, kwargs) -> dict:
+    """Sortino ratio = mean(return - target) / downside_deviation * sqrt(periods_per_year). Conventions:
+    periods_per_year (annualization), and the downside-deviation denominator ∈ {full (N, all obs) |
+    downside (N_downside, below-target count)} — a genuine, common divergence. target/MAR is taken from the
+    captured risk_free (NOT a free search dimension). Near-zero downside deviation -> degenerate."""
+    try:
+        r = _returns(inputs)
+    except ValueError as e:
+        return _degenerate(str(e))
+    n = len(r)
+    rf = float(kwargs.get("risk_free", 0.0) or 0.0)
+    target = float(kwargs.get("target", rf))
+    ppy = float(kwargs.get("periods_per_year", 1) or 1)
+    denom_mode = str(kwargs.get("downside_denom", "full"))
+    excess = [x - target for x in r]
+    neg_sq = [min(e, 0.0) ** 2 for e in excess]
+    n_down = sum(1 for e in excess if e < 0.0)
+    denom_n = n if denom_mode == "full" else n_down
+    if denom_n <= 0:
+        return _degenerate("no downside observations (Sortino undefined)")
+    dd = math.sqrt(math.fsum(neg_sq) / denom_n)
+    if dd < 1e-12:
+        return {"value": float("nan"), "degenerate": True, "note": "near-zero downside deviation (Sortino undefined)",
+                "terms": {"downside_dev": dd}}
+    val = (math.fsum(excess) / n) / dd * math.sqrt(ppy)
+    return result(val, n=n, downside_dev=dd, periods_per_year=ppy, downside_denom=denom_mode)
+
+
+def calmar(inputs, kwargs) -> dict:
+    """Calmar ratio = CAGR / |max drawdown|, from a per-period returns series. The numerator is ALREADY
+    annual (CAGR), so no extra √ppy — the only annualization axis is periods_per_year for computing CAGR from
+    n periods. No drawdown -> degenerate (Calmar undefined). Default ppy=252 (daily)."""
+    try:
+        r = _returns(inputs)
+    except ValueError as e:
+        return _degenerate(str(e))
+    n = len(r)
+    ppy = float(kwargs.get("periods_per_year", 252) or 252)
+    curve = [1.0]
+    for x in r:
+        curve.append(curve[-1] * (1.0 + x))
+    terminal = curve[-1]
+    if terminal <= 0.0:
+        return _degenerate("non-positive terminal equity (CAGR undefined)")
+    years = n / ppy
+    if years <= 0:
+        return _degenerate("non-positive horizon")
+    cagr = terminal ** (1.0 / years) - 1.0
+    peak, mdd = curve[0], 0.0
+    for eq in curve:                      # equity point (named `eq`, not `e`, to avoid shadowing an except-var)
+        if eq > peak:
+            peak = eq
+        dd = (eq - peak) / peak
+        if dd < mdd:
+            mdd = dd
+    if mdd >= -1e-12:
+        return _degenerate("no drawdown (Calmar undefined)")
+    return result(cagr / abs(mdd), n=n, cagr=cagr, mdd=mdd, periods_per_year=ppy)
+
+
+def information_ratio(inputs, kwargs) -> dict:
+    """Information ratio = mean(active) / stdev(active, ddof) * sqrt(periods_per_year), where active =
+    returns - benchmark. Disambiguated from a Sharpe-of-active-returns by the REQUIRED benchmark input. Axes:
+    ddof ∈ {1,0} and annualization. Near-zero tracking error -> degenerate."""
+    r = inputs.get("returns", inputs.get("portfolio"))
+    b = inputs.get("benchmark", inputs.get("bench"))
+    if r is None or b is None:
+        return _degenerate("information ratio needs returns + benchmark")
+    try:
+        ra, rb = _as_floats(r), _as_floats(b)
+    except ValueError as e:
+        return _degenerate(str(e))
+    if len(ra) != len(rb):
+        return _degenerate("length mismatch: returns=%d vs benchmark=%d" % (len(ra), len(rb)))
+    n = len(ra)
+    if n < 2:
+        return _degenerate("need >=2 observations")
+    ddof = int(kwargs.get("ddof", 1))
+    ppy = float(kwargs.get("periods_per_year", 1) or 1)
+    if n - ddof <= 0:
+        return _degenerate("ddof too large")
+    active = [a - bb for a, bb in zip(ra, rb)]
+    m = math.fsum(active) / n
+    te = math.sqrt(math.fsum((x - m) ** 2 for x in active) / (n - ddof))
+    if te < 1e-12:
+        return {"value": float("nan"), "degenerate": True, "note": "near-zero tracking error (IR undefined)",
+                "terms": {"tracking_error": te}}
+    return result(m / te * math.sqrt(ppy), n=n, tracking_error=te, periods_per_year=ppy, ddof=ddof)
+
+
+def _rank(a):
+    """Average ranks (1-based), ties share the mean rank — for Spearman."""
+    order = sorted(range(len(a)), key=lambda i: a[i])
+    r = [0.0] * len(a)
+    i = 0
+    while i < len(order):
+        j = i
+        while j + 1 < len(order) and a[order[j + 1]] == a[order[i]]:
+            j += 1
+        avg = (i + j) / 2.0 + 1.0
+        for k in range(i, j + 1):
+            r[order[k]] = avg
+        i = j + 1
+    return r
+
+
+def _tie_pairs(vals):
+    counts: dict = {}
+    for v in vals:
+        counts[v] = counts.get(v, 0) + 1
+    return sum(c * (c - 1) // 2 for c in counts.values())
+
+
+def correlation(inputs, kwargs) -> dict:
+    """Correlation with a TYPE convention: method ∈ {pearson, spearman, kendall}. A repo that says
+    'correlation = 0.83' rarely states which — the convention search recomputes all three and confirms only
+    when exactly one reproduces the value. Pearson (default), Spearman (Pearson of average ranks), Kendall
+    tau-b (tie-corrected, == scipy.stats.kendalltau)."""
+    x = inputs.get("x", inputs.get("y_true"))
+    y = inputs.get("y", inputs.get("y_pred"))
+    if x is None or y is None:
+        return _degenerate("correlation needs x + y")
+    if len(x) != len(y):
+        return _degenerate("length mismatch: x=%d vs y=%d" % (len(x), len(y)))
+    if len(x) < 2:
+        return _degenerate("need >=2 points")
+    try:
+        xf, yf = _as_floats(x), _as_floats(y)
+    except ValueError as e:
+        return _degenerate(str(e))
+    method = str(kwargs.get("method", "pearson")).lower()
+    if method in ("spearman", "spearmanr", "spearman_rank"):
+        xf, yf = _rank(xf), _rank(yf)
+        method_used = "spearman"
+    elif method in ("pearson", "pearsonr", ""):
+        method_used = "pearson"
+    elif method in ("kendall", "kendalltau", "tau", "kendall_tau"):
+        n = len(xf)
+        conc = disc = 0
+        for i in range(n):
+            xi, yi = xf[i], yf[i]
+            for jj in range(i + 1, n):
+                dx = xi - xf[jj]
+                dy = yi - yf[jj]
+                s = (dx > 0) - (dx < 0)
+                t = (dy > 0) - (dy < 0)
+                p = s * t
+                if p > 0:
+                    conc += 1
+                elif p < 0:
+                    disc += 1
+        n0 = n * (n - 1) // 2
+        den = math.sqrt((n0 - _tie_pairs(xf)) * (n0 - _tie_pairs(yf)))
+        if den == 0.0:
+            return _degenerate("Kendall tau denominator is zero (a variable is constant)")
+        return result((conc - disc) / den, method="kendall", n=n)
+    else:
+        return _degenerate("unknown correlation method %r" % method)
+    n = len(xf)
+    mx, my = math.fsum(xf) / n, math.fsum(yf) / n
+    cov = math.fsum((a - mx) * (b - my) for a, b in zip(xf, yf))
+    sx = math.sqrt(math.fsum((a - mx) ** 2 for a in xf))
+    sy = math.sqrt(math.fsum((b - my) ** 2 for b in yf))
+    if sx * sy == 0.0:
+        return _degenerate("zero variance (correlation undefined)")
+    return result(cov / (sx * sy), method=method_used, n=n)
+
+
+# The convention-sensitive metrics above (sharpe/sortino/calmar/information_ratio/stdev/correlation) recompute
+# to DIFFERENT values under different STANDARD conventions (annualization √periods_per_year, sample-vs-
+# population stdev via ddof, downside-denominator, correlation type). The repo's convention lives in its own
+# code (`* np.sqrt(252)`, `np.std` default ddof=0) and isn't captured. The bounded, cited grid of recognized
+# conventions to try against the REAL captured inputs lives in core/conventions.py (the hard registry
+# contract: cited axes, size cap, no free continuous params, tight tolerance, coincidental-value fuzz gate).
 
 
 # ---- registry -------------------------------------------------------------------------------------
@@ -426,6 +622,12 @@ CATALOG: dict[str, Callable[[dict, dict], dict]] = {
     "mean": mean,
     "sum": total_sum,
     "sharpe": sharpe,
+    "stdev": stdev,
+    "variance": variance,
+    "sortino": sortino,
+    "calmar": calmar,
+    "information_ratio": information_ratio,
+    "correlation": correlation,
 }
 
 # canonical aliases a discovered/claimed metric name may arrive under
@@ -441,7 +643,24 @@ ALIASES = {
     "matthews_corrcoef": "mcc", "matthews": "mcc", "mcc_score": "mcc",
     "cohen_kappa_score": "cohen_kappa", "kappa": "cohen_kappa", "cohens_kappa": "cohen_kappa",
     "brier_score": "brier", "brier_score_loss": "brier",
+    # convention-sensitive finance/statistics metrics (grids in core/conventions.py)
+    "std": "stdev", "std_dev": "stdev", "stddev": "stdev", "standard_deviation": "stdev",
+    "var_": "variance",   # NB: bare 'var' is ambiguous (variance vs value-at-risk) — left unmapped on purpose
+    "sortino_ratio": "sortino", "calmar_ratio": "calmar",
+    "info_ratio": "information_ratio", "information ratio": "information_ratio",
+    "corr": "correlation", "pearson": "correlation", "pearsonr": "correlation",
+    "pearson_correlation": "correlation", "pearson_r": "correlation",
 }
+
+# IR (nDCG/MRR/recall@k/...) + NLP-generation (BLEU/ROUGE) kernels + the learned-metric fail-closed set
+# (guide §B.3), kept in their own module. Merge them into the registry so they resolve like any catalog
+# metric (and get convention-search via core.conventions for nDCG/BLEU).
+from . import textmetrics as _TM  # noqa: E402
+
+CATALOG.update(_TM.TEXT_CATALOG)
+ALIASES.update(_TM.TEXT_ALIASES)
+LEARNED_METRICS = _TM.LEARNED_METRICS
+learned_metric = _TM.learned_metric
 
 
 def canonical(metric: str) -> str | None:

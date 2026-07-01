@@ -67,7 +67,7 @@ def homology_overlap(train_seqs, test_seqs, k: int = 6, sim: float = 0.8, sample
         for km in tk:
             for ti in index.get(km, ()):
                 cand[ti] = cand.get(ti, 0) + 1
-        for ti in sorted(cand, key=cand.get, reverse=True)[:max_candidates]:   # most-shared k-mers first
+        for ti in sorted(cand, key=lambda t: cand[t], reverse=True)[:max_candidates]:   # most-shared k-mers first
             if _jaccard(tk, train_k[ti]) >= sim:
                 n += 1
                 break

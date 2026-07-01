@@ -39,7 +39,11 @@ capture/     calma_capture.py — the instrumented-capture shim; sitecustomize.p
 discovery/   extract.py — claim discovery (TDMR): auto-extract (metric, value) from results.json + README + stdout
 runner/      local_runner.py (host subprocess), e2b_runner.py (Firecracker microVM), build.py (make-runnable)
 fixtures/    one synthetic repo per verdict path + a realistic sklearn repo (own requirements.txt)
-tests/       293 checks — catalog validated vs sklearn/numpy (1e-9), the full loop per verdict, discovery
+tests/       720+ checks — catalog validated vs sklearn/numpy (1e-9), the full loop per verdict, discovery,
+             the 20 verification features (fuzz/metamorphic/fabrication/repair/stochastic/anomaly/trust stack)
+attest/      the trust layer: reproducibility receipts, DSSE-signed in-toto verdict attestations, transparency
+             log, CONFIRMED-only-green badges (all strictly post-verdict — zero FCR surface)
+optimize/    the meta-eval instruments — each proves an FCR=0 invariant as a permanent CI gate
 repos.yaml   the corpus: hand-specified claims + hand-graded `expect`, or `discover: true` (auto-find claims)
 run_spike.py the loop + scoring + the go/no-go memo (results/SPIKE-REPORT.md)
 ```
@@ -67,16 +71,43 @@ Backend: `server.py` (FastAPI) runs each repo as a durable background job over `
 
 ```bash
 python3 -m venv ~/.calma/spike-venv
-~/.calma/spike-venv/bin/pip install numpy scikit-learn pandas pyyaml e2b pytest
-
 cd spike
-~/.calma/spike-venv/bin/python -m pytest tests/ -q          # 289 checks
-~/.calma/spike-venv/bin/python run_spike.py                 # writes results/SPIKE-REPORT.md
+~/.calma/spike-venv/bin/pip install -r requirements-dev.txt  # runtime + test + quality tooling
+
+# the magical moment — one repo, ~2s, a real verdict + the franchise metric:
+~/.calma/spike-venv/bin/python run_spike.py --only main_metric --k 2
+#   → main_metric ... acc=CONFIRMED    |    FALSE_CONFIRMS=0
+
+~/.calma/spike-venv/bin/python -m pytest tests/ -q          # the full suite (720+ checks)
+~/.calma/spike-venv/bin/python run_spike.py                 # the whole corpus → results/SPIKE-REPORT.md
 # subsets / knobs:
 ~/.calma/spike-venv/bin/python run_spike.py --only clean_eval,misreported --k 3
 ```
 
 E2B needs `CALMA_E2B_API_KEY` (+ `CALMA_E2B_ENDPOINT`, `CALMA_E2B_TEMPLATE`); read from the repo `.env`.
+
+## Quality gates (run before you push)
+
+The franchise is **false-confirm = 0**. Every change must keep the suite green AND keep every FCR meta-eval at
+zero. Code quality is enforced too: ruff (lint), mypy (types, clean across the source tree), vulture (dead code).
+
+```bash
+cd spike
+V=~/.calma/spike-venv/bin
+$V/pip install ruff mypy vulture          # one-time (quality tooling)
+
+$V/python -m pytest tests/ -q             # 1. the full suite must be green
+$V/ruff check .                           # 2. lint clean (config: ruff.toml)
+$V/mypy core capture discovery synth runner optimize attest *.py --ignore-missing-imports   # 3. 0 type errors
+$V/vulture core capture discovery synth runner optimize attest *.py --min-confidence 80      # 4. no dead code
+
+# 5. the FCR=0 gates — each MUST exit 0 (a wrong number reaching an affirmative verdict is a franchise bug):
+for g in redteam formula_fuzz_eval metamorphic_eval fabrication repair stochastic anomaly_eval xcheck_eval \
+         interval_eval bounty convention_fuzz; do $V/python optimize/$g.py >/dev/null && echo "$g OK" || echo "$g FAIL"; done
+```
+
+`optimize/SCOREBOARD.md` is the durable, cross-session tracker for the metric-by-metric optimization loop —
+read it first to resume.
 
 ## Go / no-go gates
 

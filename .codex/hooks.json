@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash '/Users/rikhinkavuru/calma/.codex/hooks/doc_sync_reminder.sh'",
+            "timeout": 10,
+            "statusMessage": "doc-sync check"
+          }
+        ]
+      }
+    ]
+  }
+}

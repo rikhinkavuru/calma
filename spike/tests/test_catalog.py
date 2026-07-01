@@ -113,7 +113,9 @@ def test_fail_closed_paths():
     assert C.recompute("roc_auc", {"y_true": [1, 1, 1], "y_score": [0.1, 0.2, 0.3]}, {})["degenerate"]
     # near-zero vol sharpe -> degenerate
     assert C.recompute("sharpe", {"returns": [0.01, 0.01, 0.01]}, {})["degenerate"]
-    # unknown metric -> degenerate (fail closed)
+    # BLEU with the wrong inputs (no candidate/references) -> degenerate (fail closed)
     assert C.recompute("bleu", {"values": [1, 2]}, {})["degenerate"]
+    # a genuinely unknown metric -> degenerate (fail closed)
+    assert C.recompute("totally_unknown_metric_xyz", {"values": [1, 2]}, {})["degenerate"]
     # non-numeric regression cell -> degenerate
     assert C.recompute("rmse", {"y_true": ["a", "b"], "y_pred": [1, 2]}, {})["degenerate"]

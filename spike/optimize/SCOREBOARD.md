@@ -180,3 +180,122 @@ main work — flag for the founder).
   (`plot_roc_curve` removed — env-pinning territory), a notebook that ran but reported no recognizable metric.
 - **Known edge (deferred):** one repo hit RecursionError under the auto-runner yet still produced the correct
   CONFIRMED verdict (FCR-safe). Corpus curation to n=50-100 is the founder's "test on tons of repos" phase.
+
+## Phase 3 — domain generalization (2026-07-01, executing docs/DOMAIN-GENERALIZATION-GUIDE.md)
+Executing the guide's franchise-safety-first roadmap. FCR=0 held throughout; full suite 460→540 tests.
+- **P0.1 — corpus intake schema.** Every repos.yaml entry now carries a machine-checkable `meta`
+  {domain/tier/split/license/commit_date} (guide §A.2). New `corpus.py` describes the corpus as a
+  DISTRIBUTION (n per domain×tier) + validates the rubric; `tests/test_corpus_schema.py` is a hard gate.
+  The 18/20-ML "iris trap" is now measured, not hidden. Corpus grew 20→23 (finance/statistics domains added).
+- **P0.3 — T4 tier + coincidental-value fuzz.** T4 negatives tagged/added per domain; `optimize/convention_fuzz.py`
+  is the standing FCR proof (guide §B.2 rule 8) — 2800 random fabricated values against random inputs, 0
+  matched any standard convention. Wired into `test_optimize_gates.py` as a permanent CI gate.
+- **P2 — convention registry (§B.2) [DONE].** New `core/conventions.py`: the HARD CONTRACT (cited axes, size
+  cap ≤24, no free continuous params, tight tolerance, gated-on-reproduction, audit note) + a GENERIC
+  `search()` reused by catalog + (later) synth/NLP. Native pure-stdlib kernels added to the catalog
+  (stdev/variance/sortino/calmar/information_ratio/correlation) validated vs numpy/scipy to 1e-9. Covers
+  Sharpe/Sortino/Calmar/IR + stdev-ddof + correlation-type. Proven END-TO-END on real runs: finance_sharpe
+  (√252+ddof=0)→CONFIRMED, stats_correlation (spearman-as-'correlation')→CONFIRMED, finance_sharpe_cheat
+  (hardcoded)→INVALIDATED. **FCR=0 on the 2800-trial fuzz + T4.**
+- **P1 — __main__ capture ladder (§B.1) [DONE].** Tier 1 = `sys.monitoring` (PEP 669) target capture in
+  `calma_capture.install_targets_monitoring` — hooks the CODE OBJECT so it captures a metric defined+called
+  in __main__ (AND imported AND THREADED), reads NAMED args off the frame, DISABLE-elsewhere for ~0 overhead;
+  never mutates source. Tier 2 = `capture/ast_capture.py` (AST decorator-append + __main__ exec + round-trip
+  determinism GUARD) as the <3.12 portable fallback. Runner auto-selects Tier 1 on ≥3.12 (`target_tier`
+  breadcrumb); `CALMA_CAPTURE_NOMON=1` forces legacy. **A/B PROOF:** main_metric → CONFIRMED under Tier 1 vs
+  INCONCLUSIVE (fail-closed) under the legacy import-patch tier — the __main__ gap closed, and the old miss
+  was always fail-closed. digits-softmax-style hand-rolled metrics now reach a real verdict (cheat→INVALIDATED).
+  Full local graded corpus: reproduction 92%, binding 93%, **verdict-accuracy 100%, FALSE-CONFIRMS 0.**
+- **P0.2 — metric×domain×tier scorecard [DONE].** `optimize/scorecard.py` renders the intake distribution
+  matrix + per-(domain,tier) outcomes (reproduction/capture/binding/verdict-accuracy/verdict-distribution),
+  each with n-counts + small-n flags, and the FCR cell as a HARD gate (`fcr_breaches`). `run_spike` now emits
+  per-repo `meta` so results are self-describing. Live scorecard across 5 domains: FCR 0 in every cell.
+- **P3 — NLP/IR recompute + LLM-synth + learned fail-closed (§B.3) [DONE].** New `core/textmetrics.py`:
+  pure-stdlib IR (nDCG validated vs sklearn to 1e-9; MRR/recall@k/precision@k/hit@k/MAP) + NLP generation
+  (BLEU corpus/sentence; ROUGE-1/2/L) kernels, merged into the catalog. nDCG (gain×k) + BLEU (tok×smooth×
+  scale) convention grids reuse `conventions.search` — the SAME code path as Sharpe (the guide's unifying
+  insight). LEARNED metrics (BERTScore/BLEURT/COMET) fail closed to REPRODUCED-ONLY with an honest reason
+  (no independent recompute of a neural checkpoint). LLM synthesis PRODUCTIONIZED: `_llm_synthesize` (Claude,
+  gated+best-effort like the planner) proposes a recompute, `_validate_synth` disposes (wrong/injected code
+  fails validation → falls back to the grounded registry code, never banked); text-input case generators +
+  best-effort sacrebleu/pytrec_eval oracle wiring with the empty-qrels-bug guard. Proven end-to-end:
+  ir_ndcg→CONFIRMED, bleu_eval→CONFIRMED (scale=percent), bertscore→REPRODUCED-ONLY. Fuzz gate extended to
+  ndcg+bleu (3600 trials, 0 FCR).
+- **P4 — automated sourcing pipeline (§A.6) [DONE].** `optimize/source_corpus.py`: Stage 1 (GitHub search,
+  gated) → Stage 2 cheap filters (permissive SPDX + size + reported-number, PURE) → Stage 3 planner triage →
+  Stage 4 dry-run → Stage 5 emit a repos.yaml stub that passes the SAME intake rubric a hand-authored entry
+  does. Post-cutoff freshness classification (decontamination slice). Degrades gracefully offline (empty,
+  well-formed queue). Network stages gated/best-effort like the planner.
+- **Cycle FB — the 20-feature build-out (2026-07-01), Waves 0+1.** Executing `docs/FEATURE-BUILD-PLANS-2026-07.md`
+  at SOTA. **Wave 0 (FCR-hardeners + legibility):** F8 inline red-team gate (`core/redteam_gate.py` +
+  `verdict.monotone`, a second independent downgrade-only screen of every CONFIRMED, wired in `pipeline.
+  _apply_redteam_gate`); F4 claim salience (`discovery/salience.py` P0 deterministic + `discovery/
+  claim_classifier.py` P1 best-effort LLM, identity-preserving re-rank, zero FCR surface); F10 perturbation
+  primitives (`core/perturb.py`). **Wave 1 (coverage floor + un-foolability):** F2 fuzz-the-formula + F7
+  metamorphic + F10-P1 fabrication all ride ONE shared in-sandbox re-invocation emitter (`capture/reinvoke.py`,
+  gated `CALMA_FUZZ=1`, armed at atexit so __main__ targets resolve, wired through local + E2B runners →
+  `run_result['fuzz']` → `core/diff.py._fuzz_overlay` → the EXISTING validity-invalidating path, downgrade-only);
+  host judges = `core/formula_diff.py` (differential vs catalog + convention-explains guard), `core/metamorphic.py`
+  (exact analytic MRs on the repo's own outputs), `core/perturb.fabrication_from_fuzz` (input-independent output).
+  F1 get-it-running repair loop (`runner/repair.py`, ENV-ONLY action space {PIP/APT/SETENV/ENTRYPOINT_ARG/
+  FETCH_DATA/GIVE_UP} — no source-edit, so a bad step → DISCOVERED not a confirm; source-modified rail caps
+  CONFIRMED→REPRODUCED-ONLY via `pipeline._apply_agent_modified_cap`; best-effort LLM proposer, heuristic
+  fallback). New meta-evals: `optimize/{formula_fuzz_eval,metamorphic_eval,fabrication,repair,claim_legibility}.py`
+  + extended `redteam.py` (inline_gate_fcr + honest-no-downgrade). **FCR=0 held on every new gate**: fuzz
+  catch-rate 1.0 / false-INVALIDATED 0 / coincident-constant→INVALIDATED; MR catch 1.0 / mr-confirms 0;
+  fabrication catch 1.0 / false-flag 0; repair structurally FCR-safe. Full suite 588→632 tests (+44), all green.
+- **Cycle FB — Waves 2–4 (2026-07-01), the remaining 14 features.** **Wave 2 (trust stack, all post-verdict,
+  FCR surface zero):** F16 data digests (`core/datahash.py`, a field + binding key); F18 reproducibility
+  receipts (`attest/receipt.py` — timestamp-free canonical claim block → idempotent `receipt_sha256`,
+  measurement split out); F3 signed attestations (lifted `legacy/control_plane/api/signing.py` → `attest/
+  {signing,statement,verify_verdict}.py` — DSSE + in-toto verdict/v1 VSA, ed25519 env-seed + KMS ECDSA-P256,
+  PASSED-iff-CONFIRMED, fail-open sign / fail-closed verify); F12 transparency log (`attest/tlog.py` — local
+  hash-chained tamper-evident ledger + optional Rekor, fail-open submit); F13 badges+registry (`attest/badge.py`
+  — CONFIRMED-only-green, SHA-pin staleness); F9 bug bounty (`optimize/bounty.py` + BOUNTY.md — false-CONFIRM =
+  the only Critical, wild-FCR 0). Server routes wired: /api/{signing-key,jobs/{id}/{receipt,attestation,
+  inclusion-proof},badge/{id}}. Installed `cryptography` into the spike venv. **Wave 3 (new domains +
+  compounding):** F6 statistical/distribution (`core/interval.py` prediction interval + new distinct verdict
+  CONFIRMED-STOCHASTIC, NOT in POSITIVE; step-3 defers to the distribution for unstable runs; k_min power gate;
+  meta-eval FCR=0); F15 seed injection (`capture/seedinject.py` force-seed hook + `core/seedchar.py`
+  characterization ONLY; `seed_injected` hard-caps decide below CONFIRMED); F5 learning flywheel (`synth/
+  experience.py` ExperienceBank + the KnownValueHint FIREWALL — a hint can never reach diff/verdict, enforced by
+  test_known_value_firewall); F11 cross-run anomaly (`core/{anomaly,refstore}.py` robust-z + advisory-only
+  overlay, never auto-refutes, dark-launched behind opts.anomaly). **Wave 4 (deep determinism infra —
+  escalations):** F17 differential recompute (`synth/xcheck.py` + inline diff shadow hook — disagree→degenerate,
+  agree→no-upgrade); F19 certified enclosures (`core/intervals.py` Neumaier + stable-two-pass variance,
+  straddle→fail-closed at the tolerance boundary; soundness proven vs exact Fraction); F20 shim tier
+  (`determinism.enforced_env(shim)` SOURCE_DATE_EPOCH + `runner/rr_runner.py`, graceful without rr); F14 Nix
+  (`runner/nix_runner.py` flake synthesis + uv `--generate-hashes`, graceful without nix). **FCR=0 held on EVERY
+  new gate** (formula_fuzz / metamorphic / fabrication / repair / stochastic / anomaly / xcheck / interval /
+  bounty). Full suite 588→704 tests (+116 across all waves), all green, 2 skipped. ALL 20 FEATURES BUILT.
+- **Cycle QUALITY — all-reviews hardening (2026-07-01).** Ran the gstack analysis tools and drove every metric to
+  its ceiling without touching functionality. **/health = 10/10**: installed ruff/vulture/mypy into the spike
+  venv; ruff CLEAN (added `ruff.toml`, per-file-ignore E741 in generated recipes/), vulture 0 dead-code,
+  **mypy 0 errors across 86 source files** (core FCR-oracle fully typed; narrowed SDK/crypto unions via
+  getattr/isinstance, annotated dict inits, widened tolerance.close to float|None — all logic-preserving),
+  tests 10/10, shell clean. **/cso security = 4 findings fixed** (report in .gstack/security-reports/): HIGH —
+  exec_formula sandbox escape closed with an AST denylist (`_ast_safe`, blocks dunder/import/global before
+  exec); MEDIUM — data_resolver SSRF/LFI closed (`_url_is_safe`: http(s)-only + private/loopback/link-local/
+  metadata-IP reject, blocks file://); MEDIUM — repair PIP arg-injection closed (`is_safe_pip`: plain
+  requirement spec only); LOW — .env gitignored. Full suite 709→719 (+10 quality/security tests), all green,
+  FCR gates all still 0. **/code-review** (background workflow, high effort, 4 finders → 9 candidates → 5
+  verified) surfaced 5 real findings, ALL FIXED + regression-tested: (1) badge missing CONFIRMED-STOCHASTIC →
+  grey 'unknown' [added yellowgreen, is_green stays false]; (2) capture `record(**inputs)` reserved-kwarg
+  collision — a repo metric param named `n`/`site`/... silently dropped/failed capture [refactored to a
+  collision-safe `_record(inputs_dict)`, routed all 4 internal tiers through it]; (3) stochastic step-3 bypass
+  could affirm a never-produced value inside the wide t-interval [`interval.contains` now checks the OBSERVED
+  run range, not the extrapolated PI]; (4) FCR gate checked POSITIVE not AFFIRMATIVE — a stochastic false-affirm
+  wouldn't trip it [redteam+bounty+gate now use AFFIRMATIVE, + a `stochastic_fabricated` attack added → REFUTED];
+  (5) red-team value-coincidence screen false-downgraded legit train+test CONFIRMEDs [screen removed —
+  coincidence is binding's job]. (4 of 9 candidates unverified — workflow verifiers hit a session cap on
+  diff/interval/pipeline/reinvoke, all already adversarially reviewed in the prior pass.) **Engine DX:** README
+  test counts corrected (293→720+), added a "Quality gates" section (the full lint/type/deadcode + FCR-gate
+  command suite, verified to pass as written) + documented the attest/ trust layer + optimize/ meta-evals.
+  Final: 588→720 tests, ruff/mypy/vulture all clean, every FCR gate 0. Tooling: `~/.calma/spike-venv/bin/{ruff,
+  vulture,mypy}`; lint config = `ruff.toml`; security report in `.gstack/security-reports/`.
+- **STATUS: the whole DOMAIN-GENERALIZATION-GUIDE roadmap (P0-P4) is executed.** Full suite 460→587 tests
+  (+127), FCR=0 held across every gate (convention_fuzz 3600 / redteam / corpus_synth / edge_stress /
+  recompute_stress) and every scorecard cell. Convention rule 7 (audit surface) wired: a convention-search
+  confirm records WHICH standard convention matched. Corpus now spans finance/statistics/ir/nlp/ml/analytics
+  (5 new graded fixtures). Coverage grew ONLY by capture reach (§B.1) + recompute breadth (§B.2/§B.3) behind
+  independent oracles — the verdict never loosened.

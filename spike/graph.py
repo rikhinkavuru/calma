@@ -107,7 +107,7 @@ def build_graph(jobs=None, store=None) -> dict:
                 if target and target in nodes:
                     _edge(edges, cid, target, "recomputed_by")
 
-    counts = {}
+    counts: dict = {}
     for n in nodes.values():
         counts[n["kind"]] = counts.get(n["kind"], 0) + 1
     return {"store": _store_status(store), "counts": counts, "nodes": list(nodes.values()), "edges": edges}

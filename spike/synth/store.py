@@ -22,7 +22,6 @@ import json
 import math
 import os
 import re
-import time
 from dataclasses import asdict, dataclass, field
 
 _EMBED_DIM = 256
@@ -50,7 +49,7 @@ def cosine(a: list[float], b: list[float]) -> float:
     return sum(x * y for x, y in zip(a, b))
 
 
-def _match(records, metric: str, text: str = None, threshold: float = 0.86):
+def _match(records, metric: str, text: str | None = None, threshold: float = 0.86):
     """Shared lookup: exact metric/alias (certain) first, then vector cosine for paraphrases. Used by both
     the local store and the Helix store (a formula catalog is small, so reading all + matching host-side is
     fine, and keeps the backend-agnostic)."""
@@ -120,7 +119,7 @@ class LocalStore:
         except OSError:
             pass
 
-    def lookup(self, metric: str, text: str = None, threshold: float = 0.86):
+    def lookup(self, metric: str, text: str | None = None, threshold: float = 0.86):
         return _match(self.records, metric, text, threshold)
 
     def add(self, rec: FormulaRecord):
@@ -202,7 +201,7 @@ class HelixStore:
                 pass
         return out
 
-    def lookup(self, metric: str, text: str = None, threshold: float = 0.86):
+    def lookup(self, metric: str, text: str | None = None, threshold: float = 0.86):
         return _match(self.all(), metric, text, threshold)
 
 

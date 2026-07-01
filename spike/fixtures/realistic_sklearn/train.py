@@ -4,7 +4,6 @@ repos. Seeded end-to-end, so it is genuinely deterministic. Run via the harness'
 (a per-repo venv from requirements.txt)."""
 import json
 
-import numpy as np
 from sklearn.datasets import make_classification
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score

@@ -83,7 +83,7 @@ def _selftest(mode: str) -> None:
         hog = []
         while True:                                   # steady leak until the parent's RSS monitor kills us
             hog.append(bytearray(16 * 1024 * 1024))
-            time = __import__("time"); time.sleep(0.01)
+            __import__("time").sleep(0.01)
     elif mode == "hang":
         __import__("time").sleep(99999)               # burns no CPU → only the wall-clock can stop it
     elif mode == "cpu":

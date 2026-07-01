@@ -24,8 +24,13 @@ def test_brier_and_logloss_match_sklearn():
 
 def test_finance_recipe_resolves():
     rng = random.Random(2)
+    # sortino is now a native pure-stdlib CORE catalog metric (ported for the convention registry, guide
+    # §B.2) which recompute_any prefers over the recipe — same migration pattern as brier/mcc/kappa.
     r = F.recompute_any("sortino", {"returns": [rng.gauss(0.001, 0.02) for _ in range(200)]}, {})
-    assert r["provenance"] == "recipe" and r["value"] == r["value"]   # finite
+    assert r["provenance"] in ("catalog", "recipe") and r["value"] == r["value"]   # finite
+    # the recipe path itself still resolves a finance metric it uniquely owns (value-at-risk).
+    var = F.recompute_any("value_at_risk", {"returns": [rng.gauss(0.001, 0.02) for _ in range(200)]}, {})
+    assert var["provenance"] == "recipe" and var["value"] == var["value"]
 
 
 def test_unbindable_recipe_falls_through():

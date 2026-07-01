@@ -3,7 +3,8 @@
 // with the server-side service token. The browser never touches the backend or token directly.
 import { withAuth } from "@workos-inc/authkit-nextjs";
 import { NextResponse } from "next/server";
-import { githubApi } from "@/lib/verify";
+import { githubApi, VerifyApiError } from "@/lib/verify";
+import { resolveTier, tenantOf } from "@/lib/tier";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +14,8 @@ export async function GET(req: Request) {
   if (!user && !devTenant) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+  const tenant = tenantOf(user, devTenant);
+  const tier = resolveTier(user);
   const url = new URL(req.url);
   const kind = url.searchParams.get("kind");
   try {
@@ -26,12 +29,16 @@ export async function GET(req: Request) {
       case "gh-repos": {
         const iid = url.searchParams.get("installation_id");
         if (!iid) return NextResponse.json({ error: "installation_id required" }, { status: 400 });
-        return NextResponse.json(await githubApi.ghRepos(iid));
+        return NextResponse.json(await githubApi.ghRepos(iid, { tenant, tier }));
       }
       default:
         return NextResponse.json({ error: "unknown kind" }, { status: 400 });
     }
   } catch (e) {
+    // A cross-tenant / gated installation surfaces as 403/402 from the backend — preserve it.
+    if (e instanceof VerifyApiError && [401, 402, 403].includes(e.status)) {
+      return NextResponse.json({ error: e.message }, { status: e.status });
+    }
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "the verification API is unreachable" },
       { status: 502 },

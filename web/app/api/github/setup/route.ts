@@ -3,7 +3,9 @@
 // not on a backend host. We persist the installation to the verification backend best-effort, then either
 // hand the id back to the opener (when this ran in the connect POPUP) and close, or — for a same-tab
 // install — redirect to /dashboard with the id. Both paths leave a working connection.
+import { withAuth } from "@workos-inc/authkit-nextjs";
 import { NextResponse } from "next/server";
+import { tenantOf } from "@/lib/tier";
 
 export const dynamic = "force-dynamic";
 
@@ -16,11 +18,17 @@ export async function GET(req: Request) {
   const action = url.searchParams.get("setup_action") || "";
 
   if (iid) {
+    // Bind this installation to the signed-in user so it can't later be used cross-tenant (the backend's
+    // _installation_ok check). GitHub redirects here in the user's own browser, so the session cookie is
+    // present and withAuth resolves them.
+    const { user } = await withAuth().catch(() => ({ user: null }));
+    const devTenant = process.env.NODE_ENV !== "production" && process.env.DASHBOARD_DEV_TENANT_ID;
+    const tenant = tenantOf(user, devTenant);
     try {
-      // the spike backend stores the installation_id in its handler before redirecting; we just want the
-      // side effect. Manual redirect so we don't chase its 302 to a backend page.
+      // the spike backend stores installation_id ↔ tenant before redirecting; we just want the side effect.
+      // Manual redirect so we don't chase its 302 to a backend page.
       await fetch(`${API}/connect/github/setup?installation_id=${encodeURIComponent(iid)}&setup_action=${encodeURIComponent(action)}`,
-        { headers: { "X-Calma-Service-Token": SVC }, redirect: "manual", cache: "no-store" });
+        { headers: { "X-Calma-Service-Token": SVC, "X-Calma-Tenant": tenant }, redirect: "manual", cache: "no-store" });
     } catch { /* best-effort: the client still carries the id below */ }
   }
 

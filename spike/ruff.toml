@@ -1,0 +1,12 @@
+# Lint config for the Calma spike engine. The default ruff ruleset (E4/E7/E9 + F) is the high-signal set:
+# real bugs (unused imports/vars, ambiguous names, syntax), not style noise. The core is pure-stdlib and uses
+# explicit `# noqa` for the few intentional deviations (E402 import-order after sys.path setup).
+target-version = "py312"
+line-length = 120
+extend-exclude = ["results", "legacy", ".venvs", "__pycache__", ".calma"]
+
+[lint.per-file-ignores]
+# recipes/ is a large ported/generated numeric library that uses math-convention single-letter names
+# (I, l, O for matrices / indices / operators). Renaming them would risk the math; they are not a code-
+# quality signal, so E741 is ignored there (real issues — unused imports/vars — are still caught).
+"recipes/*.py" = ["E741"]

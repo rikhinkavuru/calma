@@ -3,6 +3,7 @@ stdev) must CONFIRM when the repo used a recognized convention, and must STAY no
 is reproducible under NO standard convention. The second half is the franchise invariant — convention-search
 may only rescue genuine numbers, never confirm a wrong one."""
 from core import catalog as C
+from core import conventions as CONV
 from core import diff as D
 from core import verdict as VD
 
@@ -40,7 +41,7 @@ def test_wrong_sharpe_stays_uncofirmed():
 def test_convention_search_only_touches_convention_metrics():
     """An unambiguous metric (accuracy) has no convention grid → a produced-vs-recompute disagreement is still a
     hard INVALIDATED; convention-search must not soften it."""
-    assert "accuracy" not in C.CONVENTIONS
+    assert not CONV.has_grid("accuracy")
     call = {"metric": "accuracy", "result": 0.99, "captured_full": True,
             "inputs": {"y_true": [1, 0, 1, 0, 1, 1], "y_pred": [1, 0, 1, 0, 1, 0]}}  # true acc = 5/6 ≈ 0.833
     rec = D.diff_claim({"metric": "accuracy", "value": "0.99"}, [[call], [dict(call)]])

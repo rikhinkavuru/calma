@@ -94,7 +94,7 @@ def recompute_recipe(metric: str, inputs: dict, kwargs: dict | None = None):
     cols, binding = bound
     convention = (kwargs or {}).get("convention")
     if convention is None and (kwargs or {}).get("periods_per_year"):
-        convention = str(int(kwargs["periods_per_year"]))
+        convention = str(int((kwargs or {})["periods_per_year"]))
     try:
         r = fn(cols, binding, convention)
     except Exception as e:  # noqa: BLE001 — a binding/kernel failure → fall through, never a wrong number

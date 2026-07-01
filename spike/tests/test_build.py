@@ -1,5 +1,4 @@
 """Make-runnable helpers: entrypoint detection + dependency inference (no network)."""
-import os
 
 from runner import build
 

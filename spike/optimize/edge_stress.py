@@ -8,7 +8,6 @@ CONFIRMED (the oracle stays correct at scale / tiny magnitude). Run in the spike
 from __future__ import annotations
 
 import json
-import math
 import os
 import sys
 
@@ -36,7 +35,6 @@ def _verdict(metric, value, inputs, result, kwargs=None):
 def cases():
     """[(label, expect_confirmed: bool, verdict)]."""
     out = []
-    C = VD.CONFIRMED
 
     # --- degenerate / invalid → must NOT confirm ----------------------------------------------------
     # Sharpe on (near-)constant returns: variance ~0 → ratio explodes → degenerate, must not confirm.
@@ -89,7 +87,7 @@ def main():
     fc = [(lbl, v) for lbl, exp, v in rows if not exp and v == VD.CONFIRMED]   # degenerate confirmed = breach
     miss = [(lbl, v) for lbl, exp, v in rows if exp and v != VD.CONFIRMED]     # valid extreme not confirmed
     with open(os.path.join(HERE, "edge_metrics.json"), "w") as fh:
-        json.dump({"rows": [{"label": l, "expect_confirmed": e, "verdict": v} for l, e, v in rows],
+        json.dump({"rows": [{"label": lbl, "expect_confirmed": e, "verdict": v} for lbl, e, v in rows],
                    "false_confirms": fc, "valid_misses": miss}, fh, indent=2)
     print("=== EDGE-NUMERIC stress (degenerate must fail closed; valid extremes must confirm) ===")
     for lbl, exp, v in rows:

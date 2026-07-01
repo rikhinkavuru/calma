@@ -19,7 +19,6 @@ Attacks:
 from __future__ import annotations
 
 import json
-import math
 import os
 import sys
 
@@ -28,6 +27,7 @@ SPIKE = os.path.dirname(HERE)
 sys.path.insert(0, SPIKE)
 
 from core import diff as D  # noqa: E402
+from core import redteam_gate as RTG  # noqa: E402
 from core import verdict as VD  # noqa: E402
 
 
@@ -85,30 +85,76 @@ def attacks():
     # 8. length mismatch: malformed inputs → degenerate recompute.
     c = call("accuracy", 0.90, {"y_true": [0, 1, 0, 1, 1], "y_pred": [0, 1, 0, 1]}, n=5)
     out.append(("length_mismatch", {"metric": "accuracy", "value": "0.90"}, [[c], [dict(c)]]))
+
+    # 9. stochastic fabrication: an UNSTABLE metric (varies across k≥5 runs) with a claim OUTSIDE the observed
+    # range must NOT reach an affirmative verdict — CONFIRMED-STOCHASTIC included (feature 6 guard).
+    sruns = [[call("accuracy", (160 + i) / 200, acc_inputs(200, 160 + i), n=200)] for i in range(6)]
+    out.append(("stochastic_fabricated", {"metric": "accuracy", "value": "0.95"}, sruns))
+    return out
+
+
+def honest_confirms():
+    """Honest computations that legitimately reach CONFIRMED — the precision guard for feature 8's inline
+    gate: it must downgrade ZERO of these (a downgrade here would be a false-REFUTE, not an FCR breach, but
+    still a trust cost). Balanced labels, a score well above the trivial baseline, clean equal-length inputs."""
+    out = []
+    out.append(("honest_accuracy", {"metric": "accuracy", "value": "0.9"},
+                [[call("accuracy", 0.9, acc_inputs(20, 18))], [call("accuracy", 0.9, acc_inputs(20, 18))]]))
+    out.append(("honest_auc", {"metric": "roc_auc", "value": "0.83"},
+                [[call("roc_auc", 0.8333333333, {"y_true": [0, 0, 1, 1, 1, 0], "y_score": [0.1, 0.2, 0.9, 0.7, 0.6, 0.3]}, n=6)],
+                 [call("roc_auc", 0.8333333333, {"y_true": [0, 0, 1, 1, 1, 0], "y_score": [0.1, 0.2, 0.9, 0.7, 0.6, 0.3]}, n=6)]]))
     return out
 
 
 def main():
     rows, breaches = [], []
+    gate_breaches, honest_downgrades = [], []
     for name, claim, runs in attacks():
         rec = D.diff_claim(claim, runs)
         v = rec["verdict"]
-        confirmed = (v in VD.POSITIVE)
-        rows.append({"attack": name, "verdict": v, "confirmed": confirmed, "reason": rec.get("reason", "")[:120]})
+        # a breach is ANY affirmative verdict on a wrong number — CONFIRMED or the weaker CONFIRMED-STOCHASTIC
+        # (feature 6). The gate must guard both; POSITIVE alone would let a stochastic false-affirm slip.
+        confirmed = (v in VD.AFFIRMATIVE)
+        # inline-gate FCR: re-screen the bound computation and fold through monotone (downgrade-only). The
+        # gate can only ever LOWER v, so gated_confirmed ⊆ confirmed — but we assert it explicitly.
+        gv = v
+        if confirmed:
+            base = runs[0] if runs else []
+            bc, st, _ = D._bound_call(claim, base)
+            if st == "bound" and bc:
+                proposed, _reason = RTG.screen(claim.get("metric"), bc, base)
+                gv = VD.monotone(v, proposed)
+        if gv in VD.AFFIRMATIVE:
+            gate_breaches.append(name)
+        rows.append({"attack": name, "verdict": v, "gated": gv, "confirmed": confirmed,
+                     "reason": rec.get("reason", "")[:120]})
         if confirmed:
             breaches.append(name)
+    # precision guard: the gate must NOT downgrade a legitimately-CONFIRMED claim.
+    for name, claim, runs in honest_confirms():
+        rec = D.diff_claim(claim, runs)
+        if rec["verdict"] not in VD.POSITIVE:
+            continue  # not a CONFIRMED baseline this env — skip (the gate can't downgrade what didn't confirm)
+        base = runs[0]
+        bc, st, _ = D._bound_call(claim, base)
+        proposed, _r = RTG.screen(claim.get("metric"), bc, base) if (st == "bound" and bc) else (None, None)
+        if VD.monotone(rec["verdict"], proposed) != rec["verdict"]:
+            honest_downgrades.append(name)
     n = len(rows)
-    m = {"n_attacks": n, "breaches": breaches, "adversarial_fcr": round(len(breaches) / n, 4) if n else None}
+    m = {"n_attacks": n, "breaches": breaches, "adversarial_fcr": round(len(breaches) / n, 4) if n else None,
+         "inline_gate_fcr": round(len(gate_breaches) / n, 4) if n else None,
+         "gate_breaches": gate_breaches, "honest_downgrades": honest_downgrades}
     with open(os.path.join(HERE, "redteam_metrics.json"), "w") as fh:
         json.dump({**m, "rows": rows}, fh, indent=2)
     print("=== ADVERSARIAL FALSE-CONFIRM gate (#13 — the franchise) ===")
-    print("attacks=%d   adversarial-FCR=%s   [target 0 — ANY breach is a franchise bug]"
-          % (n, m["adversarial_fcr"]))
+    print("attacks=%d   adversarial-FCR=%s   inline-gate-FCR=%s   [target 0 — ANY breach is a franchise bug]"
+          % (n, m["adversarial_fcr"], m["inline_gate_fcr"]))
     for r in rows:
         flag = "  ‼️ BREACH" if r["confirmed"] else ""
         print("  %-18s → %-15s %s%s" % (r["attack"], r["verdict"], r["reason"][:60], flag))
     print("HELD (no attack confirmed):", not breaches)
-    return 1 if breaches else 0
+    print("inline gate held (no honest CONFIRMED downgraded):", not honest_downgrades)
+    return 1 if (breaches or gate_breaches or honest_downgrades) else 0
 
 
 if __name__ == "__main__":

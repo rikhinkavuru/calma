@@ -18,11 +18,12 @@ from . import capture_env, parse_capture
 
 
 def run_local(repo_dir, entry, *, k=2, python=None, hooks="sklearn", targets=None,
-              env_extra=None, timeout=600, max_elems=None):
+              env_extra=None, timeout=600, max_elems=None, fuzz=False):
     python = python or sys.executable
     entry = list(entry)
     runs, meta = [], []
     hooks_armed = None
+    fuzz_records = None
     for i in range(max(1, k)):
         with tempfile.NamedTemporaryFile(prefix="calma_cap_", suffix=".jsonl", delete=False) as tf:
             out_path = tf.name
@@ -40,6 +41,8 @@ def run_local(repo_dir, entry, *, k=2, python=None, hooks="sklearn", targets=Non
         if env_extra:
             base.update(env_extra)
         base["CALMA_RUN_INDEX"] = str(i)  # lets a fixture simulate run-to-run drift deterministically
+        if fuzz:
+            base["CALMA_FUZZ"] = "1"       # arm the feature 2/7/10 re-invocation emitter (writes .fuzz)
         env = capture_env(base, out_path, hooks=hooks, targets=targets, max_elems=max_elems)
         t0 = time.time()
         try:
@@ -56,13 +59,17 @@ def run_local(repo_dir, entry, *, k=2, python=None, hooks="sklearn", targets=Non
                 hooks_armed = json.load(open(out_path + ".hooks"))
             except Exception:  # noqa: BLE001
                 pass
+        if fuzz and fuzz_records is None:                    # first run's fuzz emit is enough (deterministic)
+            recs = parse_capture(out_path + ".fuzz")
+            if recs:
+                fuzz_records = recs
         meta.append({"returncode": rc, "killed": killed, "seconds": dt,
                      "stdout_tail": (out or "")[-2000:], "stderr_tail": (err or "")[-2000:]})
-        for pth in (out_path, out_path + ".hooks"):
+        for pth in (out_path, out_path + ".hooks", out_path + ".fuzz"):
             try:
                 os.remove(pth)
             except OSError:
                 pass
     ran_ok = all(m["returncode"] == 0 for m in meta)
     return {"runs": runs, "meta": meta, "ran_ok": ran_ok, "hooks_armed": hooks_armed,
-            "n_calls": [len(r) for r in runs]}
+            "fuzz": fuzz_records, "n_calls": [len(r) for r in runs]}

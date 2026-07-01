@@ -83,11 +83,15 @@ def test_inconclusive_ambiguous_then_scoped():
     assert rec2["verdict"] == VD.CONFIRMED, rec2
 
 
-def test_reproduced_only_unknown_metric():
+def test_reproduced_only_learned_metric():
+    """A LEARNED/embedding metric (BERTScore) reproduces but cannot be independently recomputed → the honest
+    fail-closed REPRODUCED-ONLY, never CONFIRMED (guide §B.3 (c))."""
     r = _run("unknown_metric")
-    p = _produced_explicit(r["runs"], "bleu")
-    rec = D.diff_claim({"id": "b", "metric": "bleu", "value": round(p, 3)}, r["runs"])
+    p = _produced_explicit(r["runs"], "bertscore")
+    rec = D.diff_claim({"id": "b", "metric": "bertscore", "value": "%.4f" % p}, r["runs"],
+                       resolver=__import__("synth.formula", fromlist=["recompute_any"]).recompute_any)
     assert rec["verdict"] == VD.REPRODUCED_ONLY, rec
+    assert "learned" in rec.get("reason", "").lower(), rec
 
 
 def _produced_explicit(runs, metric):

@@ -4,7 +4,6 @@ entrypoint is dropped, and the plan never reaches the recompute/verdict path."""
 import json
 import sys
 
-import pytest
 
 import planner as PLAN
 import pipeline as PIPE

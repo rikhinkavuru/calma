@@ -54,7 +54,8 @@ def map_metric(name: str):
     # detect + strip a split prefix/suffix token
     tokens = re.split(r"[^a-z0-9]+", raw)
     split = next((t for t in tokens if t in _SPLITS), None)
-    split = _SPLIT_CANON.get(split, split)
+    if split is not None:
+        split = _SPLIT_CANON.get(split, split)
     core_tokens = [t for t in tokens if t and t not in _SPLITS]
     core = "_".join(core_tokens)
     cid = C.canonical(core) or C.canonical(raw)
@@ -183,7 +184,7 @@ def from_results_csv(path, max_claims=400) -> list[dict]:
     claims; data CSVs (no metric columns) are skipped after a cheap header read. Each claim carries a
     context label built from id columns (dataset=… model=… k=…) so it is meaningful."""
     import csv
-    claims = []
+    claims: list = []
     try:
         with open(path, newline="", errors="replace") as fh:
             rd = csv.DictReader(fh)
