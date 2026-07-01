@@ -20,6 +20,7 @@ from __future__ import annotations
 import json
 import shlex
 import os
+import tarfile
 import tempfile
 import time
 
@@ -27,6 +28,7 @@ from . import CAPTURE_DIR, build, parse_capture
 
 _SHIM_FILES = ("calma_capture.py", "sitecustomize.py")
 _MAX_SANDBOX_S = 3600   # hard cap on a sandbox's lifetime (build + all k runs) — safety bound on cost/E2B limits
+_MAX_ARCHIVE_B = 200 * 1024 * 1024   # above this, fall back to per-file upload (keeps the child's memory bounded)
 
 
 def _load_dotenv(path):
@@ -71,12 +73,60 @@ def _create_sandbox(cfg, timeout, allow_internet):
     return Sandbox.create(**kw)
 
 
-def _upload_dir(sbx, local_dir, dest):
-    for root, _dirs, files in os.walk(local_dir):
+def _skip_upload(fn: str) -> bool:
+    return fn.endswith(".pyc")
+
+
+def _upload_dir(sbx, local_dir, dest, log=None):
+    """Stage the repo in ONE round-trip: tar it locally, write the single archive, extract it in the sandbox.
+    File-by-file `sbx.files.write` was N network round-trips — the dominant pre-install cost on any non-trivial
+    repo (a tiny repo still cost ~4s). This collapses it to one write + one `tar` command. `.git` is dropped
+    (a fresh checkout doesn't need VCS history to reproduce a number — era-pinning uses the LOCAL clone, which
+    keeps it). Strictly best-effort: too large, or any failure, → the original per-file path (never regress)."""
+    tmp = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".tgz", delete=False) as tf:
+            tmp = tf.name
+        n = 0
+        with tarfile.open(tmp, "w:gz") as tar:                          # streamed to disk → bounded memory
+            for root, dirs, files in os.walk(local_dir):
+                dirs[:] = [d for d in dirs if d not in ("__pycache__", ".git")]
+                for fn in files:
+                    if _skip_upload(fn):
+                        continue
+                    lp = os.path.join(root, fn)
+                    try:
+                        tar.add(lp, arcname=os.path.relpath(lp, local_dir).replace(os.sep, "/"), recursive=False)
+                        n += 1
+                    except OSError:
+                        pass
+        size = os.path.getsize(tmp)
+        if size > _MAX_ARCHIVE_B:
+            raise ValueError("archive %dMB > cap" % (size // 1024 // 1024))
+        # Write the archive INTO `dest` — the SDK's files.write creates the dir with the right perms (a shell
+        # `mkdir /work` fails: the sandbox user can't create dirs at /). Then extract in place, no mkdir needed.
+        arc = dest + "/_calma_repo.tgz"
+        with open(tmp, "rb") as fh:
+            sbx.files.write(arc, fh.read())
+        r = sbx.commands.run("tar xzf %s -C %s && rm -f %s"
+                             % (shlex.quote(arc), shlex.quote(dest), shlex.quote(arc)), timeout=300)
+        if getattr(r, "exit_code", 0):
+            raise RuntimeError("extract exit %s" % r.exit_code)
+        _note(log, "E2B: staged %d file(s) as one %.1fMB archive" % (n, size / 1e6))
+        return
+    except Exception as e:  # noqa: BLE001 — bulk unavailable → per-file (memory-safe, one file at a time)
+        _note(log, "E2B: bulk stage unavailable (%s) — uploading per-file" % str(e)[:120])
+    finally:
+        if tmp:
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
+    for root, _dirs, files in os.walk(local_dir):                       # fallback: original per-file path
         if "__pycache__" in root.split(os.sep):
             continue
         for fn in files:
-            if fn.endswith(".pyc"):
+            if _skip_upload(fn):
                 continue
             lp = os.path.join(root, fn)
             rel = os.path.relpath(lp, local_dir).replace(os.sep, "/")
@@ -237,7 +287,7 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
         for fn in _SHIM_FILES:                                   # stage the capture shim + the repo (once)
             with open(os.path.join(CAPTURE_DIR, fn), "rb") as fh:
                 sbx.files.write("/capture/" + fn, fh.read())
-        _upload_dir(sbx, repo_dir, "/work")
+        _upload_dir(sbx, repo_dir, "/work", log=log)
         if resolve is not None:                                 # join the run-plan NOW — it ran during the boot
             entry, pip_install, pip_strict = resolve()
             entry = list(entry)

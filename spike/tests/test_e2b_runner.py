@@ -104,6 +104,24 @@ def test_resolve_hook_fires_after_boot_and_upload(tmp_path, monkeypatch):
     assert res["ran_ok"]
 
 
+def test_repo_uploads_as_one_archive_not_per_file(tmp_path, monkeypatch):
+    """The repo is staged in ONE round-trip (tar → single write → extract), not one sbx.files.write per file —
+    the pre-install latency win. .git is dropped (a run doesn't need VCS history)."""
+    _install_fake_e2b(monkeypatch)
+    for i in range(6):
+        (tmp_path / ("mod%d.py" % i)).write_text("x = %d\n" % i)
+    (tmp_path / "eval.py").write_text("print('hi')\n")
+    (tmp_path / ".git").mkdir()
+    (tmp_path / ".git" / "HEAD").write_text("ref: refs/heads/main\n")
+    cfg = {"api_key": "x", "domain": None, "template": None}
+    e2b_runner.run_e2b(str(tmp_path), ["eval.py"], k=1, cfg=cfg)
+
+    writes = _LOG.get("writes", [])
+    assert any(w.endswith("_calma_repo.tgz") for w in writes)    # repo went up as one archive
+    assert [w for w in writes if w.startswith("/work/")] == ["/work/_calma_repo.tgz"]  # ONLY the archive, not per-file
+    assert any("tar xzf" in c for c in _LOG.get("cmds", []))     # extracted in the sandbox
+
+
 def test_tolerant_install_for_inferred_deps(tmp_path, monkeypatch):
     _install_fake_e2b(monkeypatch)
     (tmp_path / "eval.py").write_text("print('hi')\n")
