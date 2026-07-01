@@ -168,6 +168,24 @@ def diff_claim(claim, runs, resolver=None, static_deterministic=False) -> dict:
         elif rr:
             recomputed = rr                       # degenerate resolver result → stays reproduced-only
 
+    # convention-search: Sharpe & other convention-dependent metrics recompute to different values under
+    # different STANDARD conventions (annualization ×√252/12/…, sample-vs-population stdev). The repo's
+    # convention lives in its own code and isn't captured, so the DEFAULT recompute can falsely disagree with a
+    # correct number. If it does, try the recognized conventions against the REAL captured inputs; if one
+    # reproduces the produced value, THAT is the recompute — the number is a valid metric, not "cheating".
+    # FCR-safe: a fabricated value matches no standard convention, so this can only rescue genuine numbers,
+    # never confirm a wrong one. Only runs for metrics with a curated grid (C.CONVENTIONS).
+    if (recomputed and produced is not None and inputs is not None and not recomputed.get("degenerate")
+            and cid in C.CONVENTIONS and not T.close(produced, recomputed.get("value"))):
+        for conv in C.CONVENTIONS[cid]:
+            alt = C.recompute(cid, inputs, {**kw, **conv})
+            if not alt.get("degenerate") and T.close(produced, alt.get("value")):
+                alt = dict(alt)
+                alt["note"] = ("matched the repo's convention (%s)"
+                               % ", ".join("%s=%g" % (k, v) for k, v in conv.items()))
+                recomputed = alt
+                break
+
     # validity overlay on the captured inputs
     validity = V.check(raw, inputs, produced) if inputs is not None else {"invalidating": [], "advisory": []}
 

@@ -394,6 +394,20 @@ def sharpe(inputs, kwargs) -> dict:
     return result(val, mean=m, stdev=sd, n=n, periods_per_year=ppy, ddof=ddof)
 
 
+# Convention-sensitive metrics recompute to DIFFERENT values under different STANDARD conventions — Sharpe
+# especially (annualization factor √periods_per_year, sample-vs-population stdev via ddof). The repo's
+# convention is buried in its own code (e.g. `* np.sqrt(252)`, `np.std` default ddof=0) and isn't captured,
+# so a single-convention recompute will falsely disagree with a correct number. `CONVENTIONS` gives diff.py a
+# bounded grid of RECOGNIZED conventions to try against the REAL captured inputs: if one reproduces the
+# produced value, the number is a valid metric (not cheating). FCR-safe — a fabricated value matches none of a
+# small set of standard conventions; keep these grids to genuinely-standard settings only.
+CONVENTIONS: dict[str, list[dict]] = {
+    # daily/weekly/monthly/quarterly/annual annualization × sample/population stdev
+    "sharpe": [{"periods_per_year": p, "ddof": d}
+               for p in (1.0, 252.0, 52.0, 12.0, 4.0, 365.0) for d in (1, 0)],
+}
+
+
 # ---- registry -------------------------------------------------------------------------------------
 CATALOG: dict[str, Callable[[dict, dict], dict]] = {
     "accuracy": accuracy,
