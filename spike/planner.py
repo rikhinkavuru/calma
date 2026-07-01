@@ -138,11 +138,16 @@ def _call_model(context: str, model: str) -> str | None:
         return None
     try:
         client = anthropic.Anthropic()
+        # 4096, not 1024: the plan (entrypoint + deps + data + notes + TARGETS) can run past 1k tokens on a
+        # complex repo — and adding targets pushed it over exactly on the multi-domain repos we most want a
+        # plan for. A truncated (max_tokens) response is unparseable JSON → a silent None, so give real headroom.
         resp = client.messages.create(
-            model=model, max_tokens=1024, system=_SYSTEM,
+            model=model, max_tokens=4096, system=_SYSTEM,
             output_config={"format": {"type": "json_schema", "schema": _SCHEMA}},
             messages=[{"role": "user", "content": context}],
         )
+        if resp.stop_reason == "max_tokens":                          # truncated → JSON won't parse
+            return None
         return next((b.text for b in resp.content if getattr(b, "type", None) == "text"), None)
     except Exception:  # noqa: BLE001 — auth/rate/network/parse → best-effort, fall back to heuristics
         return None

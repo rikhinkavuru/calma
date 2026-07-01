@@ -394,6 +394,8 @@ def verify_repo(
                                % (100 * p.get("confidence", 0), (p.get("notes") or "")[:140]))
                     if p.get("data_needed"):
                         trace.note("data note: %s" % p["data_needed"][:160])
+                elif plan_future is not None:          # attempted but failed — say so, don't fail silently
+                    trace.note("AI plan unavailable this run — using heuristics")
                 _plan_cache["v"] = p
             return _plan_cache["v"]
 
