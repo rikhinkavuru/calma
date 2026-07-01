@@ -26,6 +26,7 @@ import time
 from . import CAPTURE_DIR, build, parse_capture
 
 _SHIM_FILES = ("calma_capture.py", "sitecustomize.py")
+_MAX_SANDBOX_S = 3600   # hard cap on a sandbox's lifetime (build + all k runs) — safety bound on cost/E2B limits
 
 
 def _load_dotenv(path):
@@ -213,17 +214,22 @@ def run_e2b(repo_dir, entry, *, k=2, hooks="sklearn", targets=None, timeout=600,
     pybin, python_used = "python", None
     t_start = time.time()
     build_seconds = 0.0
+    # heavy deps (torch/tf/…) need a much bigger install budget than the run timeout
+    heavy = build.deps_are_heavy(pip_install)
+    inst_timeout = max(timeout, 1800) if heavy else timeout
+    # The sandbox must OUTLIVE the whole session — build + ALL k runs — or it hits its end-of-life mid-run and
+    # the run is killed (StreamReset), capturing nothing. The old code created it with just the per-run
+    # timeout, so a repo whose build + k·runs approached one run's timeout silently failed deep verify
+    # (gb_kmer: the sandbox died at 600s during run 2 → 0 computations captured → fell back to discovery).
+    sandbox_life = min(inst_timeout + max(1, k) * timeout + 120, _MAX_SANDBOX_S)
     try:
-        _note(log, "E2B: creating microVM…")
-        sbx = _create_sandbox(cfg, timeout, allow_internet or bool(pip_install) or bool(python_version))
+        _note(log, "E2B: creating microVM (lifetime %dm)…" % (sandbox_life // 60))
+        sbx = _create_sandbox(cfg, sandbox_life, allow_internet or bool(pip_install) or bool(python_version))
         _note(log, "E2B: microVM up (%.1fs) — uploading repo + capture shim" % (time.time() - t_start))
         for fn in _SHIM_FILES:                                   # stage the capture shim + the repo (once)
             with open(os.path.join(CAPTURE_DIR, fn), "rb") as fh:
                 sbx.files.write("/capture/" + fn, fh.read())
         _upload_dir(sbx, repo_dir, "/work")
-        # heavy deps (torch/tf/…) need a much bigger install budget than the run timeout
-        heavy = build.deps_are_heavy(pip_install)
-        inst_timeout = max(timeout, 1800) if heavy else timeout
         pybin, pip_cmd, python_used = _provision_python(sbx, python_version, inst_timeout, log=log)  # declared py (or default)
         if python_used:
             _note(log, "E2B: provisioned declared Python %s" % python_used)

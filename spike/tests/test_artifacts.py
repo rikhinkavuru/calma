@@ -42,3 +42,19 @@ def test_roc_auc_from_committed_scores(tmp_path):
 def test_no_prediction_file(tmp_path):
     (tmp_path / "data.csv").write_text("feature_a,feature_b\n1,2\n3,4\n")
     assert A.recompute_from_artifacts(str(tmp_path), "accuracy", F.recompute_any) is None
+
+
+def test_artifact_verify_scans_repo_once_not_per_claim(tmp_path, monkeypatch):
+    """The prediction-file scan is a pure function of repo_dir — it must run ONCE, not once per claim. With
+    hundreds of discovered claims (gb_kmer: 838) the per-claim scan was a ~15-minute stall."""
+    import pipeline as PIPE
+
+    calls = {"n": 0}
+    def counting_find(_repo):
+        calls["n"] += 1
+        return []                                    # no prediction files → the loop body is skipped anyway
+    monkeypatch.setattr(PIPE.A, "find_prediction_files", counting_find)
+
+    claims = [{"id": "c%d" % i, "metric": "accuracy", "value": 0.9} for i in range(200)]
+    PIPE._artifact_verify(str(tmp_path), claims)
+    assert calls["n"] == 1                            # scanned ONCE for all 200 claims, not 200×

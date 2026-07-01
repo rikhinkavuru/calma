@@ -259,8 +259,14 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace):
 
 def _artifact_verify(repo_dir: str, claims: list[dict]) -> dict:
     out = {}
+    # Scan the repo for committed prediction files ONCE — it's a pure function of repo_dir. Doing it inside
+    # the per-claim loop re-walked + re-read the repo for every claim; a benchmark that discovers hundreds of
+    # claims (gb_kmer: 838) turned that into ~838 full repo scans = a ~15-minute stall.
+    pred_files = A.find_prediction_files(repo_dir)
+    if not pred_files:
+        return out
     for claim in claims:
-        for path, cols in A.find_prediction_files(repo_dir):
+        for path, cols in pred_files:
             res = A.recompute_from_cols(cols, claim.get("metric"), SYNTH.recompute_any)
             if not res:
                 continue

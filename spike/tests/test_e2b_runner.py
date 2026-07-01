@@ -46,6 +46,7 @@ class _Sbx:
     @classmethod
     def create(cls, **kw):
         cls.created += 1
+        _LOG["sandbox_timeout"] = kw.get("timeout")
         return cls(_LOG)
 
     def kill(self):
@@ -89,6 +90,18 @@ def test_tolerant_install_for_inferred_deps(tmp_path, monkeypatch):
                        pip_strict=False, cfg=cfg)
     installs = [c for c in _LOG.get("cmds", []) if ("numpy" in c or "scikit-learn" in c) and "install" in c]
     assert len(installs) == 2                                   # one command per package
+
+
+def test_sandbox_lifetime_covers_build_plus_k_runs(tmp_path, monkeypatch):
+    """The sandbox must outlive build + ALL k runs, or it hits end-of-life mid-run (StreamReset) and captures
+    nothing — the silent deep-verify failure seen on gb_kmer. Not just the per-run timeout."""
+    _install_fake_e2b(monkeypatch)
+    (tmp_path / "eval.py").write_text("print('hi')\n")
+    cfg = {"api_key": "x", "domain": None, "template": None}
+    e2b_runner.run_e2b(str(tmp_path), ["eval.py"], k=3, timeout=600, pip_install=["numpy"], cfg=cfg)
+    # build budget (>=600) + 3 runs * 600 + margin — far larger than a single run's 600.
+    assert _LOG["sandbox_timeout"] >= 600 + 3 * 600
+    assert _LOG["sandbox_timeout"] <= e2b_runner._MAX_SANDBOX_S
 
 
 def test_uses_uv_installer_by_default(tmp_path, monkeypatch):
