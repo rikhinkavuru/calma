@@ -45,7 +45,10 @@ flyctl secrets set -a calma-engine \
   CALMA_VERIFY_TOKEN="$(openssl rand -hex 32)" \
   CALMA_E2B_API_KEY="<your e2b key>" \
   CALMA_E2B_ENDPOINT="e2b.dev" \
-  CALMA_E2B_TEMPLATE="base" \
+  CALMA_E2B_TEMPLATE="calma-verify" \
+  # ^ the pre-warmed multi-core template (8 vCPU + ML/genomics stack baked in). Build/rebuild it with
+  #   `CALMA_E2B_API_KEY=… python spike/e2b_template.py` (tunable: CALMA_TEMPLATE_CPUS / _MEM_MB). Deep runs
+  #   get the cores → the repo's own compute (the latency floor) runs 3-4× faster. Fall back to "base" to disable.
   CALMA_GH_APP_ID="4163291" \
   CALMA_GH_APP_SLUG="calma-verify" \
   CALMA_GH_PRIVATE_KEY="$(cat /path/to/calma-verify.pem)"
