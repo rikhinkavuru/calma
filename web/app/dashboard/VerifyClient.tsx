@@ -46,6 +46,57 @@ export function VerifyClient() {
   const [visibleTiers, setVisibleTiers] = useState<Set<PillTier>>(new Set(ISSUE_TIERS));
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Dev / promo code: unlock a higher tier (private repos, un-foolability, bigger budgets) before billing
+  // exists. Reflects the currently-unlocked tier from the httpOnly cookie (via /api/dev-code).
+  const [devTier, setDevTier] = useState<string | null>(null);
+  const [devCode, setDevCode] = useState("");
+  const [devMsg, setDevMsg] = useState<string | null>(null);
+  const [devBusy, setDevBusy] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/dev-code", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => { if (alive && d?.tier) setDevTier(d.tier); })
+      .catch(() => { /* best-effort */ });
+    return () => { alive = false; };
+  }, []);
+
+  async function unlockDev(e: React.FormEvent) {
+    e.preventDefault();
+    if (!devCode.trim() || devBusy) return;
+    setDevBusy(true);
+    setDevMsg(null);
+    try {
+      const res = await fetch("/api/dev-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: devCode.trim() }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d?.error || `status ${res.status}`);
+      setDevTier(d.tier);
+      setDevCode("");
+      setDevMsg(`Dev mode on — ${d.tier} tier unlocked. Reconnect private repos below.`);
+    } catch (e2) {
+      setDevMsg(e2 instanceof Error ? e2.message : String(e2));
+    } finally {
+      setDevBusy(false);
+    }
+  }
+
+  async function disableDev() {
+    setDevBusy(true);
+    setDevMsg(null);
+    try {
+      await fetch("/api/dev-code", { method: "DELETE" });
+      setDevTier(null);
+      setDevMsg("Dev mode off — back to your normal tier.");
+    } catch { /* best-effort */ } finally {
+      setDevBusy(false);
+    }
+  }
+
   // GitHub connect + repo picker
   const [cfg, setCfg] = useState<GithubConfig["github"] | null>(null);
   const [ghRepos, setGhRepos] = useState<Repo[]>([]);          // installation repos (GitHub App)
@@ -517,6 +568,42 @@ export function VerifyClient() {
           )}
         </>
       )}
+
+      {/* Dev / promo code — pre-billing unlock for private repos + paid features. Collapsed by default. */}
+      <details className={s.advanced} style={{ marginTop: 32 }}>
+        <summary className={s.advancedSummary}>
+          {devTier ? `Dev mode: ${devTier} tier unlocked` : "Have a dev code?"}
+        </summary>
+        <div className={s.advancedBody}>
+          {devTier ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <span className={dash.muted} style={{ fontSize: 13 }}>
+                All <b>{devTier}</b>-tier features are on (private repos, un-foolability, bigger budgets).
+              </span>
+              <button type="button" className={dash.btn} onClick={disableDev} disabled={devBusy}>
+                Turn off
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={unlockDev} style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <input
+                className={`${dash.input} ${s.entry}`}
+                placeholder="dev code"
+                value={devCode}
+                onChange={(e) => setDevCode(e.target.value)}
+                spellCheck={false}
+                autoCapitalize="off"
+              />
+              <button className={dash.btn} type="submit" disabled={devBusy || !devCode.trim()}>
+                {devBusy ? "…" : "Unlock"}
+              </button>
+            </form>
+          )}
+          {devMsg && (
+            <p className={dash.muted} style={{ fontSize: 12, marginTop: 8 }}>{devMsg}</p>
+          )}
+        </div>
+      </details>
     </div>
   );
 }

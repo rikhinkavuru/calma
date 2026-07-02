@@ -4,7 +4,7 @@
 import { withAuth } from "@workos-inc/authkit-nextjs";
 import { NextResponse } from "next/server";
 import { githubApi, VerifyApiError } from "@/lib/verify";
-import { resolveTier, tenantOf } from "@/lib/tier";
+import { resolveTier, tenantOf, devCodeTierFromCookie } from "@/lib/tier";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +15,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
   const tenant = tenantOf(user, devTenant);
-  const tier = resolveTier(user);
+  const tier = resolveTier(user, await devCodeTierFromCookie());
   const url = new URL(req.url);
   const kind = url.searchParams.get("kind");
   try {

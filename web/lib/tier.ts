@@ -8,8 +8,12 @@
 // or CALMA_TIER_DEFAULT to grant a blanket tier during a launch.
 
 import { createHash } from "node:crypto";
+import { cookies } from "next/headers";
 
 export type Tier = "free" | "pro" | "enterprise";
+
+// Ordering so a dev/promo code (or any override) can only ever ELEVATE a tier, never silently downgrade one.
+const TIER_RANK: Record<Tier, number> = { free: 0, pro: 1, enterprise: 2 };
 
 type Userish = { id?: string | null; email?: string | null } | null | undefined;
 
@@ -22,15 +26,61 @@ function allowlist(env: string | undefined): Set<string> {
   );
 }
 
-export function resolveTier(user: Userish): Tier {
+export function resolveTier(user: Userish, override?: Tier | null): Tier {
   const id = (user?.id || "").toLowerCase();
   const email = (user?.email || "").toLowerCase();
   const ent = allowlist(process.env.CALMA_ENTERPRISE_USERS);
   const pro = allowlist(process.env.CALMA_PRO_USERS);
-  if ((id && ent.has(id)) || (email && ent.has(email))) return "enterprise";
-  if ((id && pro.has(id)) || (email && pro.has(email))) return "pro";
-  const dflt = (process.env.CALMA_TIER_DEFAULT || "free").toLowerCase();
-  return dflt === "pro" || dflt === "enterprise" ? (dflt as Tier) : "free";
+  let base: Tier;
+  if ((id && ent.has(id)) || (email && ent.has(email))) base = "enterprise";
+  else if ((id && pro.has(id)) || (email && pro.has(email))) base = "pro";
+  else {
+    const dflt = (process.env.CALMA_TIER_DEFAULT || "free").toLowerCase();
+    base = dflt === "pro" || dflt === "enterprise" ? (dflt as Tier) : "free";
+  }
+  // A valid dev/promo code elevates but never downgrades: a Pro user typing a Pro code stays Pro, and an
+  // unknown/forged cookie (override=null) leaves the identity tier untouched. Fail closed on entitlement.
+  if (override && TIER_RANK[override] > TIER_RANK[base]) return override;
+  return base;
+}
+
+// ── dev / promo codes ──────────────────────────────────────────────────────────────────────────────────
+// A reusable, env-configured code a signed-in user types once to self-unlock a tier — the founder's own dev
+// mode, and hand-picked beta testers, before billing exists. Format:
+//   CALMA_DEV_CODES="CALMA-DEV-2026:enterprise,BETA-2026:pro"   (a bare "CODE" grants enterprise)
+// The code itself IS the secret. A forged cookie carrying an unknown code resolves to null (no elevation), so
+// a code can only ever unlock a tier the operator explicitly minted. Codes are case-sensitive.
+export const DEV_CODE_COOKIE = "calma_dev";
+
+function devCodeMap(): Map<string, Tier> {
+  const m = new Map<string, Tier>();
+  for (const pair of (process.env.CALMA_DEV_CODES || "").split(",")) {
+    const t = pair.trim();
+    if (!t) continue;
+    const [codeRaw, tierRaw] = t.split(":");
+    const code = (codeRaw || "").trim();
+    if (!code) continue;
+    const tier = (tierRaw || "enterprise").trim().toLowerCase();
+    m.set(code, tier === "pro" || tier === "free" ? (tier as Tier) : "enterprise");
+  }
+  return m;
+}
+
+// The tier a submitted code unlocks, or null if it isn't a live code.
+export function tierForDevCode(code: string | null | undefined): Tier | null {
+  const c = (code || "").trim();
+  return c ? devCodeMap().get(c) || null : null;
+}
+
+// Resolve the dev-code cookie (set by POST /api/dev-code) to a tier. Returns null outside a request scope or
+// when no valid code is present — safe to `await` in any authed route and pass straight to resolveTier().
+export async function devCodeTierFromCookie(): Promise<Tier | null> {
+  try {
+    const store = await cookies();
+    return tierForDevCode(store.get(DEV_CODE_COOKIE)?.value);
+  } catch {
+    return null;
+  }
 }
 
 // A stable tenant id for metering: the WorkOS user id (falls back to the dev tenant, then "anon").

@@ -5,7 +5,7 @@
 import { withAuth } from "@workos-inc/authkit-nextjs";
 import { NextResponse } from "next/server";
 import { verifyApi, VerifyApiError } from "@/lib/verify";
-import { resolveTier, tenantOf, edgeGuard } from "@/lib/tier";
+import { resolveTier, tenantOf, edgeGuard, devCodeTierFromCookie } from "@/lib/tier";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +16,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "sign in to verify a repo" }, { status: 401 });
   }
   const tenant = tenantOf(user, devTenant);
-  const tier = resolveTier(user);
+  const tier = resolveTier(user, await devCodeTierFromCookie());
 
   // First line of defense: shed a per-user flood at the edge before it reaches the backend or spends compute.
   const guard = edgeGuard(tenant);
