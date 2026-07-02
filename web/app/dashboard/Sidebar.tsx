@@ -2,9 +2,8 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import {
-  FiBookOpen, FiFileText, FiList, FiSearch, FiLogOut, FiExternalLink, FiCheckCircle,
-} from "react-icons/fi";
+import { FiFileText, FiLogOut, FiExternalLink, FiCheckCircle } from "react-icons/fi";
+import { GITHUB_URL } from "../../components/contact";
 import styles from "./dashboard.module.css";
 
 type NavItem = { href: string; label: string; icon: React.ReactNode; external?: boolean };
@@ -16,11 +15,7 @@ const GROUPS: NavGroup[] = [
   },
   {
     head: "Resources",
-    items: [
-      { href: "/install", label: "Docs", icon: <FiFileText />, external: true },
-      { href: "/recipes", label: "Recipes", icon: <FiBookOpen />, external: true },
-      { href: "/registry", label: "Registry", icon: <FiList />, external: true },
-    ],
+    items: [{ href: GITHUB_URL, label: "Docs", icon: <FiFileText />, external: true }],
   },
 ];
 
@@ -34,12 +29,6 @@ export function Sidebar({ user }: { user: { name: string; email: string; mode: "
       <Link href="/dashboard" className={styles.brand}>
         <Image src="/img/calma-lotus.png" alt="" width={26} height={26} className={styles.brandMark} />
         <span className={styles.brandName}>calma<span> / console</span></span>
-      </Link>
-
-      <Link href="/recipes" className={styles.search}>
-        <FiSearch />
-        Search recipes
-        <span className={styles.kbd}>⌘K</span>
       </Link>
 
       <nav className={styles.navgroups}>

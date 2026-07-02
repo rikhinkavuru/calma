@@ -14,19 +14,13 @@ export function BpFooter() {
           <a href="#flow">How it works</a>
           <a href="#features">Features</a>
           <a href="#faq">FAQ</a>
-          <Link href="/install">Docs</Link>
-        </div>
-        <div className="bp-fcol">
-          <h5>Resources</h5>
-          <Link href="/recipes">Recipes</Link>
-          <Link href="/registry">Registry</Link>
-          <Link href="/lab">The lab</Link>
+          <Link href="/demo">Try the demo</Link>
         </div>
         <div className="bp-fcol">
           <h5>Engine</h5>
           <a href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub</a>
-          <a href={`${GITHUB_URL}/blob/main/CHANGELOG.md`} target="_blank" rel="noreferrer">Changelog</a>
-          <a href={`${GITHUB_URL}/blob/main/README.md`} target="_blank" rel="noreferrer">README</a>
+          <a href={`${GITHUB_URL}/blob/main/README.md`} target="_blank" rel="noreferrer">Docs / README</a>
+          <a href={`${GITHUB_URL}/blob/main/REBUILD.md`} target="_blank" rel="noreferrer">Architecture</a>
         </div>
         <div className="bp-fcol">
           <h5>Connect</h5>

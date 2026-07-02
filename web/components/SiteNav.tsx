@@ -33,7 +33,8 @@ const NAV_ITEMS: CardNavItem[] = [
     bgColor: "#16130d",
     textColor: "#e9ddc4",
     links: [
-      { label: "Docs", href: "/install", ariaLabel: "Docs" },
+      { label: "Docs", href: GITHUB_URL, ariaLabel: "Docs (GitHub README)" },
+      { label: "Try the demo", href: "/demo", ariaLabel: "Try the live demo, no signup" },
       { label: "GitHub", href: GITHUB_URL, ariaLabel: "Calma on GitHub" },
     ],
   },

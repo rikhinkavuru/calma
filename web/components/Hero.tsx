@@ -40,7 +40,8 @@ export function Hero() {
             <a className="btn-primary" href="/dashboard">
               Verify a repo <span className="arrow" aria-hidden="true">→</span>
             </a>
-            <a className="btn-ghost" href="/install">Install the CLI</a>
+            {/* no-signup path: runs the same engine against a fixed sample repo, unauthenticated. */}
+            <a className="btn-ghost" href="/demo">Try the live demo</a>
           </div>
         </div>
 
