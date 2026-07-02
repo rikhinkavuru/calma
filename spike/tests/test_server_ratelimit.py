@@ -8,13 +8,17 @@ import sys
 import pytest
 
 
-def _load(monkeypatch, token="s3cret", force_e2b=False):
+def _load(monkeypatch, token="s3cret", force_e2b=False, install_secret=None):
     if token is None:
         monkeypatch.delenv("CALMA_VERIFY_TOKEN", raising=False)
         monkeypatch.delenv("CALMA_SERVICE_TOKEN", raising=False)
     else:
         monkeypatch.setenv("CALMA_VERIFY_TOKEN", token)
     monkeypatch.setenv("CALMA_FORCE_E2B", "1" if force_e2b else "0")
+    if install_secret is None:
+        monkeypatch.delenv("CALMA_INSTALL_SECRET", raising=False)
+    else:
+        monkeypatch.setenv("CALMA_INSTALL_SECRET", install_secret)
     sys.modules.pop("server", None)
     srv = importlib.import_module("server")
     # reset the process-wide limiter so counters don't leak between tests
@@ -146,6 +150,65 @@ def test_installation_bound_to_tenant_blocks_cross_tenant_use(monkeypatch, _clea
                   headers=_hdr(tenant="userA", tier="pro")).status_code == 200
     # and B cannot enumerate A's repos either
     assert c.get("/api/gh/repos?installation_id=555", headers=_hdr(tenant="userB", tier="pro")).status_code == 403
+
+
+def test_job_endpoints_are_tenant_scoped(monkeypatch, _cleanup):
+    """get_job / get_job_logs / list_jobs used to check ONLY the service token, never the job's owning
+    tenant — any authed caller (including the public demo route, which authenticates with the token but not
+    a real user) could read any other tenant's full job record (claims, verdicts, raw logs) by guessing/
+    reusing a job id (e.g. one seen on a public /api/badge/{id})."""
+    srv = _load(monkeypatch)
+    c = _client(srv)
+    jid = c.post("/api/verify", json={"repo": "x/y"}, headers=_hdr(tenant="userA")).json()["id"]
+
+    # the owning tenant can read its own job + logs, and sees it in its own list
+    assert c.get("/api/jobs/%s" % jid, headers=_hdr(tenant="userA")).status_code == 200
+    assert c.get("/api/jobs/%s/logs" % jid, headers=_hdr(tenant="userA")).status_code == 200
+    assert jid in [j["id"] for j in c.get("/api/jobs", headers=_hdr(tenant="userA")).json()]
+
+    # a different tenant gets an opaque 404 — not 403 (never confirms the job exists), on every job route,
+    # and the job is absent from tenant B's own list
+    assert c.get("/api/jobs/%s" % jid, headers=_hdr(tenant="userB")).status_code == 404
+    assert c.get("/api/jobs/%s/logs" % jid, headers=_hdr(tenant="userB")).status_code == 404
+    assert jid not in [j["id"] for j in c.get("/api/jobs", headers=_hdr(tenant="userB")).json()]
+
+    # the local/unmetered operator (no token) still sees everything — the trusted single-operator flow
+    srv2 = _load(monkeypatch, token=None)
+    c2 = _client(srv2)
+    jid2 = c2.post("/api/verify", json={"repo": "x/y"}).json()["id"]
+    assert c2.get("/api/jobs/%s" % jid2).status_code == 200
+
+
+def test_installation_proof_survives_redeploy(monkeypatch, _cleanup):
+    """The in-memory INSTALLATIONS map is wiped on every redeploy (it's a plain process dict) — that used to
+    silently 403 every existing connection with a confusing "not connected" error even though the GitHub App
+    was still installed. The stateless proof (CALMA_INSTALL_SECRET) must let the SAME tenant keep using the
+    SAME installation across that wipe, while still refusing a forged/cross-tenant proof."""
+    srv = _load(monkeypatch, install_secret="topsecret")
+    c = _client(srv)
+    r = c.get("/connect/github/setup?installation_id=555&setup_action=install",
+              headers={"X-Calma-Service-Token": "s3cret", "X-Calma-Tenant": "userA"},
+              follow_redirects=False)
+    proof = r.headers.get("x-calma-install-proof")
+    assert proof
+
+    # simulate a redeploy: the process-wide map is gone, but the client kept the proof it was handed.
+    srv.INSTALLATIONS.clear()
+
+    # the owning tenant, with its proof, still works with zero server memory of the binding
+    assert c.post("/api/verify", json={"repo": "x/y", "installation_id": "555", "installation_proof": proof},
+                  headers=_hdr(tenant="userA", tier="pro")).status_code == 200
+    assert c.get("/api/gh/repos?installation_id=555&installation_proof=%s" % proof,
+                 headers=_hdr(tenant="userA", tier="pro")).status_code != 403
+
+    # without a proof (and the map wiped) it's correctly unauthorized again — no silent bypass
+    r2 = c.post("/api/verify", json={"repo": "x/y", "installation_id": "555"},
+               headers=_hdr(tenant="userA", tier="pro"))
+    assert r2.status_code == 403
+
+    # a forged/cross-tenant proof (someone else's installation_id under a different tenant) is refused
+    assert c.post("/api/verify", json={"repo": "x/y", "installation_id": "555", "installation_proof": proof},
+                  headers=_hdr(tenant="userB", tier="pro")).status_code == 403
 
 
 def test_owner_flow_unmetered_when_token_unset(monkeypatch, _cleanup):

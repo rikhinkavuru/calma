@@ -103,6 +103,27 @@ def _bound_call(claim, calls):
         if split in _TRAIN:
             return s[-1], "bound", pfx + "split=%s → the larger training computation (n=%d)" % (split, s[-1].get("n"))
 
+    # EXACTLY two candidates, SAME sink (the same computation run twice — not two different models/methods,
+    # which stays ambiguous below), no hint, but distinct sizes: the GridSearchCV/train-vs-test shape after
+    # collapsing library-internal calls to 2 user-site evals. Default to the ML reporting convention — the
+    # headline number is the HELD-OUT evaluation, not the training-set score — and bind the smaller one.
+    #
+    # This is a HEURISTIC bind, status "bound_heuristic" (not "bound"): sizing, never value, so it can still
+    # REFUTE a genuine misreport (bound to a real-but-possibly-wrong candidate, claim doesn't match it — a
+    # real catch). But it must NEVER be allowed to CONFIRM — the redteam corpus's `value_coincidence` attack
+    # proves why: an attacker (or an unlucky repo shape) can arrange for the claimed value to coincidentally
+    # equal the smaller candidate's actual output even when the claim was really about the larger one, and a
+    # bare CONFIRMED here would be indistinguishable from binding-by-value, the exact hole this file's module
+    # docstring rules out. diff_claim() caps any AFFIRMATIVE reached via this status back to INCONCLUSIVE —
+    # downgrade-only, the same pattern every other advisory/heuristic overlay in this codebase follows.
+    same_sink = len({c.get("sink") for c in cands}) == 1
+    if len(cands) == 2 and same_sink and all(isinstance(n, int) for n in sizes) and len(set(sizes)) == 2:
+        s = sorted(cands, key=lambda c: c.get("n"))
+        return s[0], "bound_heuristic", pfx + (
+            "no split hint; 2 differently-sized computations of the same call (n=%d, n=%d) — bound to the "
+            "smaller as the held-out/headline evaluation by convention (catches a mismatch; can't confirm)"
+        ) % (s[0].get("n"), s[1].get("n"))
+
     sinks = sorted({c.get("sink") or "?" for c in cands})
     return None, "ambiguous", pfx + "%d candidate computations of %r (%s) — scope the claim (split/occurrence)" % (
         len(cands), raw, ", ".join(sinks))
@@ -185,12 +206,19 @@ def diff_claim(claim, runs, resolver=None, static_deterministic=False, fuzz=None
     cid, raw = _claim_cid(claim)
     base_calls = runs[0] if runs else []
     call, status, reason = _bound_call(claim, base_calls)
-    binding = {"bound": status == "bound", "ambiguous": status == "ambiguous", "reason": reason}
+    # Two distinct sources of a non-certain bind, both capped below CONFIRMED (see the cap after VD.decide):
+    # (1) status "bound_heuristic" — a sizing-only guess between 2 same-sink candidates (Cycle-1, train-vs-
+    #     held-out, see _bound_call); (2) a "static:"-prefixed sink — a NAME-matched (not planner/user
+    #     specified) capture target for a hand-rolled metric function with no library call to hook (Cycle-2,
+    #     runner/target_discovery.py). Both can still REFUTE/INVALIDATE a real mismatch; neither may CONFIRM.
+    heuristic_bind = status == "bound_heuristic" or bool((call or {}).get("sink", "").startswith("static:"))
+    bound = status in ("bound", "bound_heuristic")
+    binding = {"bound": bound, "ambiguous": status == "ambiguous", "reason": reason}
     if status == "ambiguous":
         binding["candidates"] = scope_options(claim, base_calls)   # the choices for the scope-the-claim UX
     rec = {"claim": claim, "binding": dict(binding)}
 
-    if status != "bound":
+    if not bound:
         v = VD.decide(claimed_raw=claim.get("value"), produced=None, recomputed=None,
                       recompute_known=cid is not None, binding=binding,
                       determinism={"tested": False, "stable": False, "spread": 0.0, "k": len(runs)},
@@ -329,6 +357,17 @@ def diff_claim(claim, runs, resolver=None, static_deterministic=False, fuzz=None
                   recompute_known=recompute_known, binding=binding,
                   determinism=determinism, validity=validity, distribution=distribution,
                   seed_injected=seed_injected)
+    if heuristic_bind and v.get("verdict") in VD.AFFIRMATIVE:
+        # Downgrade-only cap (never open, only close — the same pattern as the redteam gate / anomaly /
+        # agent-modified caps elsewhere): a NAME- or SIZE-matched guess (never a value match — see _bound_call
+        # and runner/target_discovery.py) may REFUTE/INVALIDATE a real mismatch, but must never CONFIRM on its
+        # own say-so. This is what closes the `value_coincidence` redteam attack for the size-convention bind,
+        # and the equivalent risk for a static-heuristic capture target. Preserves diff/confidence/caveats —
+        # only the verdict + reason change; the produced/recomputed numbers stay visible for audit.
+        v = {**v, "verdict": VD.INCONCLUSIVE,
+             "reason": "bound by a name/size heuristic (not a hint, not a known library call) and it matched "
+                       "the claim — capped at INCONCLUSIVE rather than confirmed on a guess; %s"
+                       % v.get("reason", "")}
     rec.update(v)
     rec["sink"] = call.get("sink")
     rec["determinism"] = determinism

@@ -53,11 +53,26 @@ def _to_list(x, budget):
         return (1 if x else 0), True
     if isinstance(x, (int, float, str)):
         return x, True
-    # numpy / pandas / array-likes expose .tolist() and .size/.shape
+    # numpy / pandas / array-likes expose .tolist() and .size/.shape (a DataFrame has .shape + .values but
+    # NOT .tolist() itself — the squeeze branch below falls back to .values.tolist() for exactly that case).
     shape = getattr(x, "shape", None)
-    if shape is not None and hasattr(x, "tolist"):
-        if len(shape) != 1:
-            return None, False  # 2-D (e.g. multiclass scores) — out of spike scope
+    if shape is not None and (hasattr(x, "tolist") or hasattr(x, "values")):
+        if len(shape) == 2 and shape[1] == 1:
+            # a single-column 2-D array/DataFrame (e.g. pandas.get_dummies(..., drop_first=True) on a
+            # binary label, or y.values.reshape(-1, 1)) is semantically 1-D — squeeze it. Only ever
+            # narrows what WOULD have been "too large/unsupported" into something capturable; never
+            # touches a genuine multi-column (shape[1] > 1) 2-D array (multiclass scores, still out of
+            # scope below).
+            if shape[0] > budget:
+                return None, False
+            try:
+                rows = x.tolist() if hasattr(x, "tolist") else x.values.tolist()
+                flat = [row[0] if isinstance(row, (list, tuple)) else row for row in rows]
+                return [_scalar(v) for v in flat], True
+            except Exception:  # noqa: BLE001
+                return None, False
+        if not hasattr(x, "tolist") or len(shape) != 1:
+            return None, False  # multi-column DataFrame / 2-D (e.g. multiclass scores) — out of spike scope
         if shape[0] > budget:
             return None, False
         try:
@@ -388,7 +403,8 @@ def install_targets(specs):
                 return result
             wrapper.__calma_wrapped__ = True
             return wrapper
-        setattr(mod, attr, make(orig, metric, mapping, "target:" + target))
+        sink = ("static:" if spec.get("static") else "") + "target:" + target
+        setattr(mod, attr, make(orig, metric, mapping, sink))
         hooked.append(target)
     return hooked
 
@@ -527,8 +543,9 @@ def install_targets_monitoring(specs):
                 if not pend:
                     _mon_pending().pop(key, None)
                 site, user_site = _mon_site(code)
+                sink = ("static:" if spec2.get("static") else "") + "target:" + spec2.get("target", "?")
                 _record(spec2.get("metric") or _MON_TARGETS[0][0], retval, inputs,
-                        sink="target:" + spec2.get("target", "?"), site=site, user_site=user_site)
+                        sink=sink, site=site, user_site=user_site)
         except Exception:  # noqa: BLE001
             return None
         return None

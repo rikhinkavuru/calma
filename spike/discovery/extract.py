@@ -40,6 +40,9 @@ _KEYWORDS = [
     # metrics outside the curated catalog — discoverable, then verified via the synth/store flywheel
     (("mcc",), "mcc"), (("matthews",), "mcc"), (("brier",), "brier"),
     (("cohen", "kappa"), "cohen_kappa"), (("kappa",), "cohen_kappa"), (("spearman",), "spearman"),
+    # IR/ranking: "nDCG@5 (linear)"-style labels carry extra @k / qualifier tokens the exact-alias match
+    # can't absorb (found in e2e testing on a real repo) — reachable only via the keyword fallback.
+    (("ndcg",), "ndcg"),
     # NB: mean/sum/average are intentionally NOT greedy keywords — they over-match column names like
     # "auroc_mean"/"peak_ram_mb_mean". They stay reachable via an exact alias (a column literally "mean").
 ]
@@ -114,10 +117,11 @@ def from_results_json(path) -> list[dict]:
     return claims
 
 
-# "Accuracy: 0.83", "test AUC = 0.91", "F1 0.72", "Accuracy: 96.67%"
-_KV_RE = re.compile(r"([A-Za-z][A-Za-z0-9 _\-/]{1,40}?)\s*[:=]\s*([-+]?\d*\.?\d+%?)")
+# "Accuracy: 0.83", "test AUC = 0.91", "F1 0.72", "Accuracy: 96.67%", "nDCG@5 (linear): 0.947" (a real repo
+# shape found in e2e testing — @k and a parenthetical qualifier are common on ranking/retrieval metric labels)
+_KV_RE = re.compile(r"([A-Za-z][A-Za-z0-9 _\-/@()]{1,40}?)\s*[:=]\s*([-+]?\d*\.?\d+%?)")
 # markdown table row: | Accuracy | 0.83 |
-_ROW_RE = re.compile(r"\|\s*([A-Za-z][A-Za-z0-9 _\-/]{1,40}?)\s*\|\s*([-+]?\d*\.?\d+%?)\s*\|")
+_ROW_RE = re.compile(r"\|\s*([A-Za-z][A-Za-z0-9 _\-/@()]{1,40}?)\s*\|\s*([-+]?\d*\.?\d+%?)\s*\|")
 
 # PROSE forms the "Metric: value" patterns miss (the SOTA value-parse weak spot): a metric word and a nearby
 # number, in either order. map_metric() is the precision gate — only a span that maps to a real catalog

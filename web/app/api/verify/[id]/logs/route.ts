@@ -4,6 +4,7 @@
 import { withAuth } from "@workos-inc/authkit-nextjs";
 import { NextResponse } from "next/server";
 import { verifyApi } from "@/lib/verify";
+import { resolveTier, tenantOf } from "@/lib/tier";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   }
   const { id } = await params;
   try {
-    const text = await verifyApi.logsText(id);
+    const text = await verifyApi.logsText(id, { tenant: tenantOf(user, devTenant), tier: resolveTier(user) });
     return new NextResponse(text, {
       status: 200,
       headers: { "Content-Type": "text/plain; charset=utf-8" },

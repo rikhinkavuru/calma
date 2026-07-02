@@ -28,6 +28,7 @@ from attest import receipt as RCPT
 from discovery import extract as DISC
 from discovery import salience as SAL
 from runner import build
+from runner import target_discovery as TD
 from runner.local_runner import run_local
 from synth import formula as SYNTH
 
@@ -299,6 +300,23 @@ def _missing_module_from(run_result):
     return top if (top and not top.startswith("_")) else None
 
 
+def _with_static_targets(repo_dir: str, tgts, trace: Trace):
+    """Cycle-2 binding fix: append target_discovery's deterministic, name-matched fallback targets (marked
+    `static: True`, capped below CONFIRMED downstream — core/diff.py's `heuristic_bind`) to whatever the
+    caller/AI planner already proposed. Dedup by function name; never overrides an existing (higher-trust)
+    proposal. Best-effort — any failure here just means fewer fallback targets, never a broken run."""
+    try:
+        have = {t.get("target") for t in (tgts or [])}
+        extra = [t for t in TD.propose(repo_dir) if t.get("target") not in have]
+    except Exception:  # noqa: BLE001 — a repo-scanning heuristic must never break the verify
+        extra = []
+    if not extra:
+        return tgts
+    trace.note("static fallback capture targets (name-matched, capped below CONFIRMED): %s"
+              % ", ".join(t["target"] for t in extra)[:160])
+    return list(tgts or []) + extra
+
+
 def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = None, get_plan=None):
     k = opts.k if k is None else k                    # adaptive-k passes an effective k (1 when proven det.)
 
@@ -346,6 +364,7 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = 
             tgts = opts.targets or (plan.get("targets") if plan else None)   # AI-identified metric fns to capture
             if tgts and not opts.targets:
                 trace.note("AI-planned capture targets: %s" % ", ".join(t["target"] for t in tgts)[:160])
+            tgts = _with_static_targets(repo_dir, tgts, trace)
             holder.update(entry=entry, pip=pip, strict=strict, targets=tgts)
             return entry, pip, strict, tgts
 
@@ -372,6 +391,7 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = 
     entry = _entry(plan)
     pip = opts.pip_install or (plan.get("pip_install") if plan else None)
     tgts = opts.targets or (plan.get("targets") if plan else None)      # AI-identified metric fns to capture
+    tgts = _with_static_targets(repo_dir, tgts, trace)
     venvs_dir = opts.venvs_dir or os.path.join(os.path.dirname(repo_dir), ".venvs")
     base_py = opts.base_python or sys.executable
     python, note = build.ensure_venv(opts.job_id, pip, venvs_dir, base_python=base_py)

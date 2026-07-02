@@ -91,3 +91,34 @@ def test_clone_falls_back_to_git_when_gh_missing(monkeypatch, _cleanup):
     dest = srv._clone("owner/name", "/tmp/calma_clone_test_dest", job)
     assert dest == "/tmp/calma_clone_test_dest"
     assert "gh" in calls and "git" in calls          # tried gh, fell back to git
+
+
+def test_clone_never_logs_the_installation_token_on_failure(monkeypatch, _cleanup):
+    """The clone URL embeds the live installation token (x-access-token:{tok}@...); git's own error text
+    commonly echoes the remote URL back verbatim. A clone failure must never let that token reach the job
+    log — logs are readable later (get_job_logs)."""
+    srv = _load_server(monkeypatch, None)
+    secret_token = "ghs_SUPERSECRETTOKEN12345"
+
+    class _R:
+        def __init__(self, rc, stderr):
+            self.returncode = rc
+            self.stderr = stderr
+
+    def fake_run(argv, *a, **k):
+        if argv[0] == "git":
+            # a realistic git error: it echoes the full remote URL, credential included
+            url = srv.GH.clone_url(secret_token, "owner/name")
+            return _R(128, "fatal: unable to access '%s/': The requested URL returned error: 403\n" % url)
+        raise FileNotFoundError(argv[0])
+    monkeypatch.setattr(srv.subprocess, "run", fake_run)
+    monkeypatch.setattr(srv.GH, "configured", lambda: True)
+    monkeypatch.setattr(srv.GH, "installation_token_for", lambda iid: secret_token)
+
+    job = {"logs": [], "updated": 0.0}
+    try:
+        srv._clone("owner/name", "/tmp/calma_clone_test_dest2", job, installation_id="42")
+    except Exception:  # noqa: BLE001 — the fallback paths (gh/git) also fail in this test; only the log matters
+        pass
+    logged = " ".join(job["logs"])
+    assert secret_token not in logged, logged

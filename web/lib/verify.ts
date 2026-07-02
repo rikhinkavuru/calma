@@ -61,6 +61,7 @@ export type VerifySubmit = {
   discover?: boolean;
   pip_install?: string[] | null;
   installation_id?: string | null;
+  installation_proof?: string | null;
 };
 
 export type Repo = {
@@ -129,17 +130,21 @@ export const verifyApi = {
           discover: body.discover !== false,
           pip_install: Array.isArray(body.pip_install) ? body.pip_install : null,
           installation_id: body.installation_id || null,
+          installation_proof: body.installation_proof || null,
           k: 2,
         }),
       },
       id,
     ),
   usage: (id: Identity): Promise<Usage> => call("/api/usage", undefined, id),
-  job: (id: string): Promise<Job> => call(`/api/jobs/${encodeURIComponent(id)}`),
+  // `id` (the Identity) is required: the backend now scopes every job to the tenant that submitted it (a
+  // job endpoint used to trust the service token alone, which let any authed caller — including the public
+  // demo route — read any OTHER tenant's job by id). Omitting it here would silently 404 real users' own jobs.
+  job: (jobId: string, id: Identity): Promise<Job> => call(`/api/jobs/${encodeURIComponent(jobId)}`, undefined, id),
   // the full e2e log as plaintext (the backend's /api/jobs/{id}/logs) — for the "raw ↗" view.
-  logsText: async (id: string): Promise<string> => {
-    const res = await fetch(`${API}/api/jobs/${encodeURIComponent(id)}/logs`, {
-      headers: { "X-Calma-Service-Token": SVC },
+  logsText: async (jobId: string, id: Identity): Promise<string> => {
+    const res = await fetch(`${API}/api/jobs/${encodeURIComponent(jobId)}/logs`, {
+      headers: { "X-Calma-Service-Token": SVC, "X-Calma-Tenant": id.tenant, "X-Calma-Tier": id.tier },
       cache: "no-store",
     });
     if (!res.ok) throw new Error(`verify API ${res.status} on logs`);
@@ -152,6 +157,11 @@ export const githubApi = {
   config: (): Promise<GithubConfig> => call("/api/config"),
   repos: (): Promise<Repo[]> => call("/api/repos"),
   installations: (): Promise<Installation[]> => call("/api/installations"),
-  ghRepos: (installationId: string, id: Identity): Promise<Repo[]> =>
-    call(`/api/gh/repos?installation_id=${encodeURIComponent(installationId)}`, undefined, id),
+  ghRepos: (installationId: string, id: Identity, proof?: string | null): Promise<Repo[]> =>
+    call(
+      `/api/gh/repos?installation_id=${encodeURIComponent(installationId)}` +
+        (proof ? `&installation_proof=${encodeURIComponent(proof)}` : ""),
+      undefined,
+      id,
+    ),
 };

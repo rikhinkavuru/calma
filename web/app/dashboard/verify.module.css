@@ -64,6 +64,13 @@
 .ok { background: var(--ok-bg); color: var(--ok-fg); }
 .bad { background: var(--bad-bg); color: var(--bad-fg); }
 .idle { background: var(--idle-bg); color: var(--idle-fg); }
+/* the --warn/--inv/--neu tokens exist in dashboard.module.css's palette but were never wired to a verdict
+   tier — every non-CONFIRMED/REFUTED/INVALIDATED result fell into the same flat .idle grey, so a claim we
+   tried hard on and genuinely couldn't confirm (REPRODUCED-ONLY, INCONCLUSIVE) looked visually identical to
+   one we haven't even attempted yet (DISCOVERED). See lib/verdict.ts pillTier(). */
+.warn { background: var(--warn-bg); color: var(--warn-fg); }
+.inv { background: var(--inv-bg); color: var(--inv-fg); }
+.neu { background: var(--neu-bg); color: var(--neu-fg); }
 
 .advanced { margin: 2px 0 12px; }
 .advancedSummary { cursor: pointer; font-size: 12px; color: var(--muted-fg, #8a8a82); user-select: none; width: fit-content; }

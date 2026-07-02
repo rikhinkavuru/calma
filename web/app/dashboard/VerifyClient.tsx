@@ -5,19 +5,15 @@
 // (leakage) — the same loop as the spike SPA, but first-party and behind login.
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Claim, GithubConfig, Job, Repo } from "@/lib/verify";
+import { ORDER, PROBLEMS, pillTier, verdictLabel } from "@/lib/verdict";
 import dash from "./dashboard.module.css";
 import s from "./verify.module.css";
-
-const PROBLEMS = ["REFUTED", "INVALIDATED", "NON-DETERMINISTIC"];
-const ORDER = ["REFUTED", "INVALIDATED", "CONFIRMED", "NON-DETERMINISTIC", "REPRODUCED-ONLY", "INCONCLUSIVE", "DISCOVERED"];
 
 // Same-origin connect route → 302s to GitHub's install URL. No hardcoded host, so it works on any deploy.
 const CONNECT_URL = "/api/github/connect";
 
 function pillClass(verdict: string): string {
-  if (verdict === "CONFIRMED") return s.ok;
-  if (PROBLEMS.includes(verdict)) return s.bad;
-  return s.idle;
+  return s[pillTier(verdict)];
 }
 
 function num(x: unknown): string {
@@ -41,6 +37,10 @@ export function VerifyClient() {
   const [ghInstId, setGhInstId] = useState<string | null>(null);   // the installation those repos belong to
   const [myRepos, setMyRepos] = useState<Repo[]>([]);          // the operator's `gh` repos (local dev)
   const [installationId, setInstallationId] = useState<string | null>(null);
+  // The stateless proof minted at connect time (server.py _install_proof): the backend's in-memory
+  // installation↔tenant binding is wiped on every redeploy, so this is what actually keeps the connection
+  // alive across one — resent on every gh-repos/verify call alongside installation_id.
+  const [installProof, setInstallProof] = useState<string | null>(null);
   const [reposErr, setReposErr] = useState<string | null>(null);
 
   // pick a repo: fill the field, and remember the installation when it's an App-connected repo (clears on
@@ -63,11 +63,12 @@ export function VerifyClient() {
   // backend remembering the install (its in-memory map is wiped on every redeploy). So we persist the id
   // client-side and treat it as the source of truth: repos load on return visits, and the connected state
   // sticks. Returns whether repos came back (lets us drop a stale/revoked id).
-  const loadInstallationRepos = useCallback(async (iid: string): Promise<{ ok: boolean; revoked: boolean }> => {
+  const loadInstallationRepos = useCallback(async (iid: string, proof?: string | null): Promise<{ ok: boolean; revoked: boolean }> => {
     setGhInstId(iid);
     setReposErr(null);
     try {
-      const res = await fetch(`/api/github?kind=gh-repos&installation_id=${encodeURIComponent(iid)}`, { cache: "no-store" });
+      const q = `installation_id=${encodeURIComponent(iid)}` + (proof ? `&proof=${encodeURIComponent(proof)}` : "");
+      const res = await fetch(`/api/github?kind=gh-repos&${q}`, { cache: "no-store" });
       const r = await res.json();
       if (res.ok && Array.isArray(r)) { setGhRepos(r); return { ok: true, revoked: false }; }
       // a non-OK response: surface WHY (usually the backend is missing the GitHub App creds — CALMA_GH_*),
@@ -81,33 +82,54 @@ export function VerifyClient() {
     }
   }, []);
 
+  const LS_KEY = "calma_gh_installation_id";
+  const LS_PROOF_KEY = "calma_gh_install_proof";
+
+  function rememberInstall(iid: string, proof: string) {
+    try {
+      localStorage.setItem(LS_KEY, iid);
+      if (proof) localStorage.setItem(LS_PROOF_KEY, proof); else localStorage.removeItem(LS_PROOF_KEY);
+    } catch { /* private mode */ }
+    setInstallationId(iid);
+    setInstallProof(proof || null);
+  }
+
   useEffect(() => {
     let alive = true;
-    const LS_KEY = "calma_gh_installation_id";
-    // 1) just installed? GitHub redirected here with ?installation_id=… — adopt + remember it, tidy the URL.
+    // 1) just installed? GitHub redirected here with ?installation_id=…&proof=… — adopt + remember it, tidy
+    // the URL. `proof` is the stateless binding (see server.py _install_proof) that keeps this connection
+    // alive across a backend redeploy, which wipes the server's in-memory installation map.
     const params = new URLSearchParams(window.location.search);
     let iid = params.get("installation_id");
+    let proof = params.get("proof") || "";
     if (iid) {
-      try { localStorage.setItem(LS_KEY, iid); } catch { /* private mode */ }
+      rememberInstall(iid, proof);
       window.history.replaceState({}, "", "/dashboard");
     }
-    // 2) else reuse a remembered install (survives backend redeploys).
-    if (!iid) { try { iid = localStorage.getItem(LS_KEY); } catch { iid = null; } }
+    // 2) else reuse a remembered install (survives backend redeploys via the proof, not backend memory).
+    if (!iid) {
+      try { iid = localStorage.getItem(LS_KEY); proof = localStorage.getItem(LS_PROOF_KEY) || ""; }
+      catch { iid = null; proof = ""; }
+    }
     if (iid) {
       setInstallationId(iid);
+      setInstallProof(proof || null);
       const adopted = iid;
-      loadInstallationRepos(adopted).then((st) => {
+      loadInstallationRepos(adopted, proof).then((st) => {
         // only forget the install if GitHub says it's truly gone (revoked/404) — NOT on a transient backend
         // error or an empty repo list, which used to silently drop a valid connection (the "asks to connect
         // again" bug).
-        if (st.revoked) { try { localStorage.removeItem(LS_KEY); } catch { /**/ } setInstallationId(null); }
+        if (st.revoked) {
+          try { localStorage.removeItem(LS_KEY); localStorage.removeItem(LS_PROOF_KEY); } catch { /**/ }
+          setInstallationId(null); setInstallProof(null);
+        }
       });
     }
     (async () => {
       try {
         const c: GithubConfig = await (await fetch("/api/github?kind=config", { cache: "no-store" })).json();
         if (alive) setCfg(c.github);
-        if (!iid && c.github?.connected) {                 // backend still remembers an install
+        if (!iid && c.github?.connected) {                 // backend still remembers an install (no proof needed)
           const insts = await (await fetch("/api/github?kind=installations", { cache: "no-store" })).json();
           const bid = Array.isArray(insts) && insts[0]?.installation_id;
           if (bid && alive) { setInstallationId(bid); loadInstallationRepos(bid); }
@@ -119,22 +141,24 @@ export function VerifyClient() {
       } catch (e) { if (alive) setReposErr(e instanceof Error ? e.message : String(e)); }
     })();
     return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadInstallationRepos]);
 
-  // The connect popup posts the installation_id back here (so the dashboard updates in place). Adopt it the
-  // same way as the ?installation_id URL param — same-origin messages only.
+  // The connect popup posts the installation_id + proof back here (so the dashboard updates in place). Adopt
+  // it the same way as the ?installation_id URL param — same-origin messages only.
   useEffect(() => {
     function onMsg(e: MessageEvent) {
       if (e.origin !== window.location.origin) return;
       const iid = e.data && e.data.source === "calma-github" ? String(e.data.installation_id || "") : "";
       if (iid) {
-        try { localStorage.setItem("calma_gh_installation_id", iid); } catch { /* private mode */ }
-        setInstallationId(iid);
-        loadInstallationRepos(iid);
+        const proof = String(e.data.proof || "");
+        rememberInstall(iid, proof);
+        loadInstallationRepos(iid, proof);
       }
     }
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadInstallationRepos]);
 
   const poll = useCallback(async (id: string) => {
@@ -174,6 +198,7 @@ export function VerifyClient() {
           entry: entry.trim() || null,
           pip_install: pip.trim() ? pip.trim().split(/\s+/) : null,
           installation_id: installationId,
+          installation_proof: installProof,
         }),
       });
       const data = await res.json();
@@ -390,7 +415,7 @@ export function VerifyClient() {
                         <td><b>{c.metric}</b></td>
                         <td className={s.mono}>{c.claimed}</td>
                         <td className={s.mono}>{recomp}</td>
-                        <td><span className={`${s.pill} ${pillClass(c.verdict)}`}>{c.verdict}</span></td>
+                        <td><span className={`${s.pill} ${pillClass(c.verdict)}`}>{verdictLabel(c.verdict)}</span></td>
                         <td className={s.where}>{(c.context || c.location || c.source || "").slice(0, 90)}</td>
                         <td className={s.why}>
                           {c.reason}

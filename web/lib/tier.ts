@@ -7,6 +7,8 @@
 // listed is `free` — fail closed on entitlement. Set CALMA_PRO_USERS / CALMA_ENTERPRISE_USERS (comma-sep),
 // or CALMA_TIER_DEFAULT to grant a blanket tier during a launch.
 
+import { createHash } from "node:crypto";
+
 export type Tier = "free" | "pro" | "enterprise";
 
 type Userish = { id?: string | null; email?: string | null } | null | undefined;
@@ -34,6 +36,15 @@ export function resolveTier(user: Userish): Tier {
 // A stable tenant id for metering: the WorkOS user id (falls back to the dev tenant, then "anon").
 export function tenantOf(user: Userish, devTenant?: string | false | null): string {
   return user?.id || (devTenant || undefined) || "anon";
+}
+
+// The public, unauthenticated demo's identity: an IP hash, not a real tenant. Shared by the submit route
+// (app/api/demo/verify) and the poll route (app/api/demo/verify/[id]) — they MUST resolve to the same string
+// for the same visitor, or the backend's per-tenant job-ownership check (server.py _job_or_404) will 404 the
+// visitor's own demo job on poll.
+export function demoTenant(req: Request): string {
+  const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || "unknown";
+  return "demo:" + createHash("sha256").update(ip).digest("hex").slice(0, 16);
 }
 
 // ── edge burst guard ────────────────────────────────────────────────────────────────────────────────────

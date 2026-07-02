@@ -4,20 +4,14 @@
 // (spike/core/limits.py) caps this hard (3 scans/day, top-1 claim, 120s wall) and the identity is an IP
 // hash, not a real tenant, so it can never become a free arbitrary-compute proxy — the repo/entry are not
 // caller-controlled.
-import { createHash } from "node:crypto";
 import { NextResponse } from "next/server";
 import { verifyApi, VerifyApiError } from "@/lib/verify";
-import { edgeGuard } from "@/lib/tier";
+import { demoTenant, edgeGuard } from "@/lib/tier";
 
 export const dynamic = "force-dynamic";
 
 const DEMO_REPO = "rikhinkavuru/calma";
 const DEMO_ENTRY = "demo-repo/eval.py";
-
-function demoTenant(req: Request): string {
-  const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() || "unknown";
-  return "demo:" + createHash("sha256").update(ip).digest("hex").slice(0, 16);
-}
 
 export async function POST(req: Request) {
   const tenant = demoTenant(req);

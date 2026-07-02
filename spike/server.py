@@ -18,6 +18,7 @@ apps/api later. In-memory jobs (MVP).
 from __future__ import annotations
 
 import dataclasses
+import hashlib
 import hmac
 import os
 import re
@@ -56,6 +57,11 @@ app = FastAPI(title="Calma — the correctness layer")
 # stays open for the local-first operator flow (your own machine, your own E2B keys). The SPA at "/" is a
 # local dev/admin surface and is not token-gated.
 _VERIFY_TOKEN = (os.environ.get("CALMA_VERIFY_TOKEN") or os.environ.get("CALMA_SERVICE_TOKEN") or "").strip()
+
+# Signs the (installation_id, tenant) binding statelessly (see _install_proof below) so a GitHub App
+# connection survives a redeploy without any server-side memory. Falls back to the in-memory INSTALLATIONS
+# map alone when unset (today's behavior — same-instance-lifetime only, fine for local/dev).
+_INSTALL_SECRET = (os.environ.get("CALMA_INSTALL_SECRET") or "").strip()
 
 # SAFETY: a PUBLIC backend runs code from repos that strangers submit. The local runner executes that code as
 # a host subprocess (no isolation) — only safe for your own machine / curated repos. On any shared/public
@@ -139,12 +145,30 @@ def _bind_installation(iid: str, tenant: str, action: str = "") -> None:
         INSTALLATIONS[iid] = rec
 
 
-def _installation_ok(iid: str, tenant: str, unmetered: bool) -> bool:
+def _install_proof(iid: str, tenant: str) -> str:
+    """A stateless, forgery-proof attestation that `tenant` completed the GitHub App install flow for `iid` —
+    minted once at connect time (github_setup), handed to the CLIENT, and resent on every later call so
+    `_installation_ok` can verify the binding WITHOUT server memory (survives a redeploy, which wipes
+    INSTALLATIONS — the bug that silently broke every existing connection on restart). HMAC, not a lookup:
+    forging a valid proof for someone else's installation requires _INSTALL_SECRET. Empty when unconfigured
+    (falls back to the in-memory map alone, today's behavior)."""
+    if not _INSTALL_SECRET or not iid or not tenant:
+        return ""
+    return hmac.new(_INSTALL_SECRET.encode(), (iid + "|" + tenant).encode(), hashlib.sha256).hexdigest()
+
+
+def _installation_ok(iid: str, tenant: str, unmetered: bool, proof: str | None = None) -> bool:
     """Authorize use of a GitHub App installation (mint a scoped token / clone / list its private repos).
     The local operator (unmetered) may use any installation. On the hosted service an installation is usable
     ONLY by the tenant it was bound to at connect time — an unknown or mismatched id is refused, closing the
-    IDOR where a guessed installation_id would clone another account's private repos."""
+    IDOR where a guessed installation_id would clone another account's private repos.
+
+    Checked two ways, either is sufficient: (1) a signed `proof` the client resent (stateless — survives a
+    redeploy with zero server memory, constant-time compared), or (2) the in-memory INSTALLATIONS map from
+    this process's own lifetime (works even with _INSTALL_SECRET unset, e.g. local dev)."""
     if unmetered:
+        return True
+    if proof and _INSTALL_SECRET and hmac.compare_digest(proof, _install_proof(iid, tenant)):
         return True
     with _LOCK:
         rec = INSTALLATIONS.get(iid)
@@ -175,6 +199,7 @@ class VerifyReq(BaseModel):
     timeout: int = 600                   # per-sandbox wall-clock (tier cap)
     fetch_data: bool = False             # opt-in: fetch missing external data via Exa, then retry (paid-tier)
     installation_id: str | None = None   # clone via this GitHub App installation's short-lived token
+    installation_proof: str | None = None  # stateless binding proof from connect time (see _install_proof)
 
 
 def _set(job, **kw):
@@ -214,7 +239,11 @@ def _clone(repo: str, dest: str, job, installation_id=None) -> str:
                                 capture_output=True, text=True, timeout=240)
             if ri.returncode == 0:
                 return dest
-            _log(job, "installation-token clone failed, falling back: %s" % (ri.stderr or "")[-120:])
+            # git error text commonly echoes the remote URL back verbatim, and that URL embeds the live
+            # installation token (x-access-token:{tok}@...) — strip it before it ever reaches a log a
+            # non-owning tenant could later read (job logs, badges, etc).
+            safe_stderr = (ri.stderr or "").replace(tok, "***")
+            _log(job, "installation-token clone failed, falling back: %s" % safe_stderr[-120:])
         except Exception as e:  # noqa: BLE001
             _log(job, "installation token error: %s" % str(e)[:120])
     gh_err = ""
@@ -314,7 +343,8 @@ def verify(req: VerifyReq, ident: Identity = Depends(identity)):
 
     # 4) a private-repo installation (paid tiers only, past the gate above) may be used only by the tenant it
     #    was connected to (cross-tenant IDOR guard).
-    if req.installation_id and not _installation_ok(req.installation_id, ident.tenant, ident.unmetered):
+    if req.installation_id and not _installation_ok(
+        req.installation_id, ident.tenant, ident.unmetered, req.installation_proof):
         raise HTTPException(403, "that GitHub installation is not connected to your account")
     req.k = int(clamped.get("k", req.k))
     req.timeout = int(clamped.get("timeout", req.timeout))
@@ -359,19 +389,18 @@ def verify(req: VerifyReq, ident: Identity = Depends(identity)):
 
 
 @app.get("/api/jobs", dependencies=[Depends(require_service_token)])
-def list_jobs():
+def list_jobs(ident: Identity = Depends(identity)):
     with _LOCK:
+        jobs = JOBS.values() if ident.unmetered else (j for j in JOBS.values() if j.get("_tenant") == ident.tenant)
         return [{"id": j["id"], "repo": j["repo"], "status": j["status"], "stage": j["stage"],
                  "counts": j["counts"], "n_claims": j["n_claims"], "created": j["created"]}
-                for j in sorted(JOBS.values(), key=lambda j: -j["created"])]
+                for j in sorted(jobs, key=lambda j: -j["created"])]
 
 
 @app.get("/api/jobs/{job_id}", dependencies=[Depends(require_service_token)])
-def get_job(job_id: str):
+def get_job(job_id: str, ident: Identity = Depends(identity)):
+    job = _job_or_404(job_id, ident)
     with _LOCK:
-        job = JOBS.get(job_id)
-        if not job:
-            raise HTTPException(404, "no such job")
         # cap claims sent to the UI (a big benchmark can discover hundreds); UI shows the count
         out = {k: v for k, v in job.items() if not k.startswith("_")}   # never leak internal keys (_tenant/_slot)
         if len(out["claims"]) > 500:
@@ -380,13 +409,11 @@ def get_job(job_id: str):
 
 
 @app.get("/api/jobs/{job_id}/logs", dependencies=[Depends(require_service_token)])
-def get_job_logs(job_id: str):
+def get_job_logs(job_id: str, ident: Identity = Depends(identity)):
     """The full, timestamped e2e log for one job as plaintext — easy to read in a browser, `curl`, or tail.
     The same lines stream into the dashboard's live console; this is the raw view (and survives the UI)."""
+    job = _job_or_404(job_id, ident)
     with _LOCK:
-        job = JOBS.get(job_id)
-        if not job:
-            raise HTTPException(404, "no such job")
         lines = list(job.get("logs", []))
         header = "# calma verify %s — repo=%s status=%s stage=%s\n" % (
             job_id, job.get("repo"), job.get("status"), job.get("stage"))
@@ -394,7 +421,7 @@ def get_job_logs(job_id: str):
     return PlainTextResponse(header + "\n".join(lines) + "\n")
 
 
-@app.get("/api/repos")
+@app.get("/api/repos", dependencies=[Depends(require_service_token)])
 def repos():
     try:
         r = subprocess.run(["gh", "repo", "list", "--limit", "100", "--json",
@@ -431,19 +458,21 @@ def cost():
             "sandbox_seconds_avg": round(sandbox_seconds / len(deep), 1) if deep else 0.0}
 
 
-@app.get("/api/config")
+@app.get("/api/config", dependencies=[Depends(require_service_token)])
 def config():
     return {"internal": _internal(),
             "github": {"configured": GH.configured(), "connected": len(INSTALLATIONS) > 0}}
 
 
-@app.get("/api/graph")
+@app.get("/api/graph", dependencies=[Depends(require_service_token)])
 def graph_view_json():
-    """Formula + provenance graph: curated catalog, recipes, banked formulas, and recent verification jobs."""
+    """Formula + provenance graph: curated catalog, recipes, banked formulas, and recent verification jobs.
+    Internal/ops surface (like /api/cost) — cross-tenant by design, so it stays behind the service token: only
+    the first-party proxy (which holds it) can reach it, never a public/anonymous caller."""
     return GRAPH.build_graph(JOBS.values())
 
 
-@app.get("/graph")
+@app.get("/graph", dependencies=[Depends(require_service_token)])
 def graph_view_html():
     return HTMLResponse(GRAPH.html(GRAPH.build_graph(JOBS.values())))
 
@@ -475,28 +504,38 @@ def github_setup(installation_id: str = "", setup_action: str = "",
     CALMA_DASHBOARD_URL is set) so its UI adopts the install and lists the repos — otherwise land on the local
     SPA. Binding is what lets `_installation_ok` refuse cross-tenant use later. Token-gated: only the
     first-party proxy (which forwards the connecting tenant) may record a binding, so it can't be hijacked to
-    rebind someone else's installation. Open in the local flow (token unset)."""
+    rebind someone else's installation. Open in the local flow (token unset).
+
+    Also mints the stateless `_install_proof` and puts it on a response header (readable by the Next proxy
+    even with redirect:"manual") — the client persists it alongside installation_id and resends it on every
+    later call, so the binding survives an API redeploy (which wipes INSTALLATIONS) with zero server memory."""
+    tenant = (x_calma_tenant or "").strip()
     if installation_id:
-        _bind_installation(installation_id, (x_calma_tenant or "").strip(), setup_action)
+        _bind_installation(installation_id, tenant, setup_action)
+    proof = _install_proof(installation_id, tenant) if installation_id else ""
+    headers = {"X-Calma-Install-Proof": proof} if proof else {}
     dash = (os.environ.get("CALMA_DASHBOARD_URL") or "").rstrip("/")
     if dash:
         from urllib.parse import quote
-        return RedirectResponse("%s/api/github/setup?installation_id=%s&setup_action=%s"
-                                % (dash, quote(installation_id), quote(setup_action)))
-    return RedirectResponse("/?connected=" + installation_id)
+        return RedirectResponse(
+            "%s/api/github/setup?installation_id=%s&setup_action=%s"
+            % (dash, quote(installation_id), quote(setup_action)),
+            headers=headers,
+        )
+    return RedirectResponse("/?connected=" + installation_id, headers=headers)
 
 
-@app.get("/api/installations")
+@app.get("/api/installations", dependencies=[Depends(require_service_token)])
 def installations():
     with _LOCK:
         return list(INSTALLATIONS.values())
 
 
 @app.get("/api/gh/repos")
-def gh_repos(installation_id: str, ident: Identity = Depends(identity)):
+def gh_repos(installation_id: str, installation_proof: str = "", ident: Identity = Depends(identity)):
     """The repos this installation granted — listed via a short-lived installation token. Gated: the caller
     may only enumerate an installation bound to their own tenant (cross-tenant private-repo guard)."""
-    if not _installation_ok(installation_id, ident.tenant, ident.unmetered):
+    if not _installation_ok(installation_id, ident.tenant, ident.unmetered, installation_proof):
         raise HTTPException(403, "that GitHub installation is not connected to your account")
     try:
         return GH.list_installation_repos(GH.installation_token_for(installation_id))
@@ -547,10 +586,17 @@ def catalog_view():
 
 
 # ---- trust layer (features 3 / 12 / 13 / 18) -----------------------------------------------------
-def _job_or_404(job_id: str) -> dict:
+def _job_or_404(job_id: str, ident: "Identity | None" = None) -> dict:
+    """404 (never 403) both for a truly-missing job AND for a job that exists but belongs to a different
+    tenant — the same opaque-not-found response either way, so a caller can't use this endpoint as an oracle
+    to enumerate which job ids exist. `ident=None` (internal call sites, e.g. the attestation endpoints below
+    before their own ownership check was added) skips the ownership check entirely; every public route should
+    pass its resolved Identity."""
     with _LOCK:
         job = JOBS.get(job_id)
-    if not job:
+    cross_tenant = (ident is not None and not ident.unmetered and job is not None
+                    and job.get("_tenant") != ident.tenant)
+    if not job or cross_tenant:
         raise HTTPException(404, "no such job")
     return job
 
@@ -573,7 +619,13 @@ def signing_key():
 
 @app.get("/api/jobs/{job_id}/receipt", dependencies=[Depends(require_service_token)])
 def job_receipt(job_id: str):
-    """Feature 18 — the reproducibility receipt (canonical, content-addressed) for a completed job."""
+    """Feature 18 — the reproducibility receipt (canonical, content-addressed) for a completed job.
+
+    Deliberately NOT tenant-scoped, unlike get_job/get_job_logs: the receipt/attestation/inclusion-proof
+    trio (+ the public /api/badge, /api/signing-key) exist specifically so a THIRD PARTY who only has a job
+    id (e.g. from a badge embedded in a public README) can independently verify a claim without trusting the
+    API or being the submitting tenant — that's the whole "neutral third-party verification" product, not a
+    gap. get_job/get_job_logs are different: full claim detail + raw logs the badge model doesn't need."""
     job = _job_or_404(job_id)
     receipt = job.get("receipt")
     if receipt is None:

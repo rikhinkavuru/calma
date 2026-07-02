@@ -61,9 +61,13 @@ def scenarios():
         _scn("multimodel_sink_hint", {"metric": A, "bind": {"sink": "modelB"}},
              [call(A, 100, sink="modelA", seq=0, cid="A"),
               call(A, 100, sink="modelB", seq=1, cid="CORRECT")], ("bind", "CORRECT")),
-        # ---- should REFUSE (genuinely ambiguous — fail closed) -------------------------------------
+        # Cycle-1 fix (was the OPEN "train_test_diffsize_nohint" ambiguous case): exactly 2 differently-sized
+        # user-site candidates, no explicit hint — bind the smaller as the held-out/headline eval by the ML
+        # reporting convention (train accuracy is rarely the claimed number). Sizing, never value: a wrong
+        # guess fails toward REFUTED against the real-but-different candidate, never manufactures a CONFIRM.
         _scn("train_test_diffsize_nohint", {"metric": A},
-             [call(A, 400, seq=0, cid="TRAIN"), call(A, 100, seq=1, cid="TEST")], ("ambiguous",)),
+             [call(A, 400, seq=0, cid="TRAIN"), call(A, 100, seq=1, cid="CORRECT")], ("bind", "CORRECT")),
+        # ---- should REFUSE (genuinely ambiguous — fail closed) -------------------------------------
         _scn("samesize_nohint", {"metric": A},
              [call(A, 500, seq=0, cid="TRAIN"), call(A, 500, seq=1, cid="TEST")], ("ambiguous",)),
         _scn("kfold_5", {"metric": A},
@@ -71,16 +75,15 @@ def scenarios():
         _scn("multimodel_nohint", {"metric": A},
              [call(A, 100, sink="modelA", seq=0, cid="A"),
               call(A, 120, sink="modelB", seq=1, cid="B")], ("ambiguous",)),
-        # ---- OPEN: real corpus failures, currently (correctly) fail closed -------------------------
-        # iris-codealpha: GridSearchCV emits 31 internal accuracy calls + SEVERAL user-site evals (train
-        # score + held-out score, different n). No split hint → after collapsing library-internal, 2
-        # user-site candidates remain → ambiguous. The Cycle-1 fix target is to bind the held-out (smallest)
-        # user-site computation WITHOUT value-proximity (worst case a false REFUTE, never a false CONFIRM —
-        # franchise-sensitive per memory). Until that's deliberately designed, INCONCLUSIVE is the right call.
+        # Cycle-1 fix, the real corpus case: iris-codealpha — GridSearchCV emits 31 internal accuracy calls +
+        # 2 user-site evals (train score + held-out score, different n, same call/sink). No split hint → after
+        # collapsing library-internal calls, 2 same-sink user-site candidates of different size remain → now
+        # bound to the smaller (held-out) by convention, per the diff.py fix above.
         _scn("gridsearch_multi_usersite", {"metric": A},
              [call(A, 120, user_site=False, seq=i, cid="cv%d" % i) for i in range(31)]
              + [call(A, 120, user_site=True, seq=40, cid="TRAIN"),
-                call(A, 30, user_site=True, seq=41, cid="HELDOUT")], ("ambiguous",)),
+                call(A, 30, user_site=True, seq=41, cid="CORRECT")], ("bind", "CORRECT")),
+        # ---- OPEN: real corpus failures, currently (correctly) fail closed -------------------------
         # digits-softmax: hand-rolled numpy accuracy, no sklearn sink → nothing captured → unbound.
         # Cycle-2 fix: a value-recompute fallback from captured predictions. Until then, fail closed.
         _scn("hand_rolled_uncaptured", {"metric": A}, [], ("unbound",)),
@@ -99,8 +102,9 @@ def measure(scns):
         c, status, reason = D._bound_call(s["claim"], s["calls"])
         got_id = (c or {}).get("id")
         row = {"name": s["name"], "expect": s["expect"][0], "status": status, "bound_id": got_id}
+        is_bound = status in ("bound", "bound_heuristic")
         if s["expect"][0] == "bind":
-            if status == "bound":
+            if is_bound:
                 bound += 1
                 if got_id == "CORRECT":
                     correct += 1
@@ -109,7 +113,7 @@ def measure(scns):
             else:
                 row["BUG"] = "should have bound (got %s)" % status
         else:  # should refuse
-            if status == "bound":
+            if is_bound:
                 over_bound += 1
                 row["DANGER"] = "bound an ambiguous case to %r" % got_id
             else:

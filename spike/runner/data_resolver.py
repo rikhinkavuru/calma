@@ -130,10 +130,25 @@ def fetch_to(url, dest, timeout=40, max_bytes=80_000_000):
     return len(data)
 
 
+def _contained(path, root):
+    """True iff the canonical `path` is inside canonical `root` (path-traversal / arbitrary-write guard)."""
+    try:
+        p = os.path.realpath(path)
+        r = os.path.realpath(root)
+    except OSError:
+        return False
+    return p == r or p.startswith(r + os.sep)
+
+
 def resolve_missing_data(repo_dir, missing_path, key=None):
     """Find + fetch the dataset a repo expects at `missing_path` (e.g. '/content/data.csv') via Exa, and place
-    it at repo_dir/<basename> AND (best-effort) the absolute path the code used, so the re-run finds it.
-    Returns (ok, note). Gated: no key -> a clear paid-tier message, never an error."""
+    it at repo_dir/<basename> — the safe, primary path (the re-run's CWD is repo_dir, so a relative or a
+    Colab-style absolute path both resolve there for the common case). `missing_path` is parsed out of the
+    REPO'S OWN stderr (missing_data_path's regex over the traceback), so it is attacker-influenced: a crafted
+    "FileNotFoundError: '/etc/cron.d/x'" is enough to make this function want to write to an arbitrary host
+    path. It never does — a second write is only attempted when `missing_path` (once resolved) is ALSO inside
+    repo_dir; any path outside is refused, full stop, no silent redirect. Returns (ok, note). Gated: no key ->
+    a clear paid-tier message, never an error."""
     key = key or os.environ.get("EXA_API_KEY")
     if not key:
         return False, "external-data fetch is a paid-tier feature (no EXA_API_KEY configured)"
@@ -151,8 +166,8 @@ def resolve_missing_data(repo_dir, missing_path, key=None):
     if not url:
         return False, "no directly-downloadable data file found for %r" % (hints or name)
     n = fetch_to(url, os.path.join(repo_dir, name))
-    if missing_path.startswith("/"):
-        fetch_to(url, missing_path)                   # best-effort: also place at the absolute path the code used
+    if missing_path.startswith("/") and _contained(missing_path, repo_dir):
+        fetch_to(url, missing_path)     # best-effort: ALSO place at the absolute path, but only inside repo_dir
     if not n:
         return False, "found %s but the download failed" % url
     return True, "fetched %s (%d bytes) from %s" % (name, n, url)

@@ -6,15 +6,11 @@
 // account. No repo field: the point is "try it", not "configure it".
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Claim, Job } from "@/lib/verify";
+import { ORDER, pillTier, verdictLabel } from "@/lib/verdict";
 import s from "../dashboard/verify.module.css";
 
-const ORDER = ["REFUTED", "INVALIDATED", "CONFIRMED", "NON-DETERMINISTIC", "REPRODUCED-ONLY", "INCONCLUSIVE", "DISCOVERED"];
-const PROBLEMS = ["REFUTED", "INVALIDATED", "NON-DETERMINISTIC"];
-
 function pillClass(verdict: string): string {
-  if (verdict === "CONFIRMED") return s.ok;
-  if (PROBLEMS.includes(verdict)) return s.bad;
-  return s.idle;
+  return s[pillTier(verdict)];
 }
 
 function num(x: unknown): string {
@@ -100,7 +96,7 @@ export function DemoClient() {
                   <td><b>{c.metric}</b></td>
                   <td className={s.mono}>{c.claimed}</td>
                   <td className={s.mono}>{recomp}</td>
-                  <td><span className={`${s.pill} ${pillClass(c.verdict)}`}>{c.verdict}</span></td>
+                  <td><span className={`${s.pill} ${pillClass(c.verdict)}`}>{verdictLabel(c.verdict)}</span></td>
                   <td className={s.where}>{(c.context || c.location || c.source || "").slice(0, 90)}</td>
                   <td className={s.why}>{c.reason}</td>
                 </tr>

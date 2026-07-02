@@ -15,6 +15,9 @@ Attacks:
   degenerate_nan     a NaN in the inputs → recompute degenerate; a hardcoded result must not confirm
   nondeterministic   the produced value differs across runs; the claim matches run 0 only
   length_mismatch    malformed inputs (len mismatch) → degenerate recompute
+  stochastic_fabricated  an unstable metric (varies across k>=5 runs), claim outside the observed range
+  static_target_coincidence  a NAME-matched (not library/human/AI-verified) hand-rolled capture target;
+                      even a clean coincidental match must not confirm (Cycle-2, runner/target_discovery.py)
 """
 from __future__ import annotations
 
@@ -90,6 +93,13 @@ def attacks():
     # range must NOT reach an affirmative verdict — CONFIRMED-STOCHASTIC included (feature 6 guard).
     sruns = [[call("accuracy", (160 + i) / 200, acc_inputs(200, 160 + i), n=200)] for i in range(6)]
     out.append(("stochastic_fabricated", {"metric": "accuracy", "value": "0.95"}, sruns))
+
+    # 10. static-target coincidence: a hand-rolled function was auto-discovered by NAME MATCH alone
+    # (runner/target_discovery.py, Cycle-2) — not a real library call, not a human/AI's judgment. Even when
+    # everything lines up (claim == produced == independent recompute, deterministic), a NAME-matched guess
+    # must never reach CONFIRMED on its own — same discipline as attack #1's size-matched guess.
+    c = call("accuracy", 0.90, acc_inputs(100, 90), n=100, sink="static:target:accuracy")
+    out.append(("static_target_coincidence", {"metric": "accuracy", "value": "0.90"}, [[c], [dict(c)]]))
     return out
 
 

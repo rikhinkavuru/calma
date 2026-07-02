@@ -16,6 +16,7 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const iid = url.searchParams.get("installation_id") || "";
   const action = url.searchParams.get("setup_action") || "";
+  let proof = "";
 
   if (iid) {
     // Bind this installation to the signed-in user so it can't later be used cross-tenant (the backend's
@@ -25,19 +26,24 @@ export async function GET(req: Request) {
     const devTenant = process.env.NODE_ENV !== "production" && process.env.DASHBOARD_DEV_TENANT_ID;
     const tenant = tenantOf(user, devTenant);
     try {
-      // the spike backend stores installation_id ↔ tenant before redirecting; we just want the side effect.
-      // Manual redirect so we don't chase its 302 to a backend page.
-      await fetch(`${API}/connect/github/setup?installation_id=${encodeURIComponent(iid)}&setup_action=${encodeURIComponent(action)}`,
+      // the spike backend stores installation_id ↔ tenant before redirecting AND mints a stateless proof of
+      // that binding on X-Calma-Install-Proof (server.py _install_proof) — the in-memory map alone is wiped
+      // on every backend redeploy, so this proof is what actually survives one. Manual redirect so we don't
+      // chase its 302 to a backend page; we only want the side effect + the header.
+      const r = await fetch(`${API}/connect/github/setup?installation_id=${encodeURIComponent(iid)}&setup_action=${encodeURIComponent(action)}`,
         { headers: { "X-Calma-Service-Token": SVC, "X-Calma-Tenant": tenant }, redirect: "manual", cache: "no-store" });
+      proof = r.headers.get("x-calma-install-proof") || "";
     } catch { /* best-effort: the client still carries the id below */ }
   }
 
-  // Popup path: postMessage the id to the dashboard (the opener) and close. Same-tab fallback: redirect.
-  const fallback = iid ? `/dashboard?installation_id=${encodeURIComponent(iid)}` : "/dashboard";
+  // Popup path: postMessage the id + proof to the dashboard (the opener) and close. Same-tab fallback: redirect.
+  const fallback = iid
+    ? `/dashboard?installation_id=${encodeURIComponent(iid)}${proof ? `&proof=${encodeURIComponent(proof)}` : ""}`
+    : "/dashboard";
   const html = `<!doctype html><meta charset="utf-8"><title>Connecting…</title>
 <body style="font-family:system-ui;color:#1a1a18;display:grid;place-items:center;height:100vh;margin:0">Connecting…</body>
-<script>(function(){var iid=${JSON.stringify(iid)},origin=${JSON.stringify(url.origin)},fb=${JSON.stringify(fallback)};
-try{if(window.opener&&!window.opener.closed){window.opener.postMessage({source:"calma-github",installation_id:iid},origin);window.close();return;}}catch(e){}
+<script>(function(){var iid=${JSON.stringify(iid)},proof=${JSON.stringify(proof)},origin=${JSON.stringify(url.origin)},fb=${JSON.stringify(fallback)};
+try{if(window.opener&&!window.opener.closed){window.opener.postMessage({source:"calma-github",installation_id:iid,proof:proof},origin);window.close();return;}}catch(e){}
 location.replace(fb);})();</script>`;
   return new NextResponse(html, {
     headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" },

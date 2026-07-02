@@ -28,8 +28,9 @@ export async function GET(req: Request) {
         return NextResponse.json(await githubApi.installations());
       case "gh-repos": {
         const iid = url.searchParams.get("installation_id");
+        const proof = url.searchParams.get("proof");
         if (!iid) return NextResponse.json({ error: "installation_id required" }, { status: 400 });
-        return NextResponse.json(await githubApi.ghRepos(iid, { tenant, tier }));
+        return NextResponse.json(await githubApi.ghRepos(iid, { tenant, tier }, proof));
       }
       default:
         return NextResponse.json({ error: "unknown kind" }, { status: 400 });

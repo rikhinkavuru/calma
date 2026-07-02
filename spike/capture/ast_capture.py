@@ -66,8 +66,8 @@ def _wrap_factory(atoms: dict, record_fn):
             def wrapper(*a, **k):
                 r = fn(*a, **k)
                 try:
-                    record_fn(spec.get("metric") or qual, r, sink="ast:" + spec.get("target", qual),
-                              **_map_inputs(spec, a, k))
+                    sink = ("static:" if spec.get("static") else "") + "ast:" + spec.get("target", qual)
+                    record_fn(spec.get("metric") or qual, r, sink=sink, **_map_inputs(spec, a, k))
                 except Exception:  # noqa: BLE001 — a capture error must never break the run
                     pass
                 return r
