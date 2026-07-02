@@ -146,6 +146,10 @@ def test_classify_failure_taxonomy():
     assert build.classify_failure("ModuleNotFoundError: No module named 'x'")["kind"] == "missing-dep"
     assert build.classify_failure("\n[timeout]")["kind"] == "too-slow"
     assert build.classify_failure("some random traceback")["kind"] == "errored"
+    # the interpreter can't open the entrypoint script itself → missing-ENTRYPOINT, not missing-data, even
+    # though the same line contains "No such file or directory" (order in the taxonomy must screen it first).
+    assert (build.classify_failure("python: can't open file '/work/eval.py': [Errno 2] No such file or "
+                                   "directory")["kind"] == "missing-entrypoint")
 
 
 def test_infer_excludes_local_modules_in_subdirs(tmp_path):

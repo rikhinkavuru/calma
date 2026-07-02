@@ -242,6 +242,11 @@ _FAILURE_TAXONOMY = [
     ("[timeout]", ("too-slow", "exceeded the time budget — scope the run or raise the timeout")),
     ("ModuleNotFoundError", ("missing-dep", "a dependency could not be installed/resolved")),
     ("No matching distribution", ("missing-dep", "a dependency could not be installed/resolved")),
+    # The interpreter itself couldn't open the entrypoint SCRIPT (`python: can't open file '…'`). This is a
+    # wrong/undetected entrypoint, NOT a missing data file — must be screened BEFORE the generic
+    # "No such file or directory" below, which the same stderr line also contains.
+    ("can't open file", ("missing-entrypoint", "couldn't find the script that runs this repo — name the "
+                         "entrypoint (a .py file or `-m package.module`) under Advanced → Entrypoint")),
     ("FileNotFoundError", ("missing-data", "an input file/dataset is missing — connect the data")),
     ("No such file or directory", ("missing-data", "an input file/dataset is missing — connect the data")),
     ("HTTPError", ("needs-network", "a runtime download failed — the dataset/model isn't bundled")),
