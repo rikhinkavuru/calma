@@ -51,6 +51,13 @@ class Tier:
     private_repos: bool               # connect + verify private repos (via a GitHub App installation)
     allow_fetch_data: bool            # opt-in external-data pull (paid/opt-in only; SSRF-guarded downstream)
     allow_unfoolability: bool         # fuzz / metamorphic / perturbation extra-run anti-cheat (F2/F7/F10)
+    cpu_cores: int = 2                # sandbox vCPU for the deep-verify run — realised via per-tier E2B
+    #                                   template routing (see e2b_config); also the capacity signal shown in UI
+    allow_ai_plan: bool = False       # the AI run-plan / orchestrator LLM ("AI proposes, determinism disposes").
+    #                                   Off → deterministic heuristics only (still fully correct, just no AI read)
+    allow_data_acquisition: bool = False  # run the repo's OWN data-download pipeline in a gated, bounded,
+    #                                   allowlisted-internet phase, then recompute (the download-first research
+    #                                   repo case). Paid only; FCR-safe (a wrong fetch → DISCOVERED, never CONFIRM)
     unmetered: bool = False           # the local operator: no counters drawn down
 
 
@@ -79,6 +86,9 @@ TIERS: dict[str, Tier] = {
         private_repos=False,
         allow_fetch_data=False,
         allow_unfoolability=False,
+        cpu_cores=_i("CALMA_FREE_CORES", 2),
+        allow_ai_plan=False,
+        allow_data_acquisition=False,
     ),
     # the public, unauthenticated landing-page demo: fixed sample repo only (enforced by the caller, not
     # here), tight enough that it can't become a free arbitrary-compute proxy. Tenant is an IP hash, not a
@@ -103,6 +113,9 @@ TIERS: dict[str, Tier] = {
         private_repos=False,
         allow_fetch_data=False,
         allow_unfoolability=False,
+        cpu_cores=_i("CALMA_DEMO_CORES", 1),
+        allow_ai_plan=False,
+        allow_data_acquisition=False,
     ),
     "pro": Tier(
         name="pro",
@@ -119,6 +132,9 @@ TIERS: dict[str, Tier] = {
         private_repos=True,
         allow_fetch_data=False,
         allow_unfoolability=True,
+        cpu_cores=_i("CALMA_PRO_CORES", 8),
+        allow_ai_plan=True,
+        allow_data_acquisition=True,
     ),
     "enterprise": Tier(
         name="enterprise",
@@ -135,6 +151,9 @@ TIERS: dict[str, Tier] = {
         private_repos=True,
         allow_fetch_data=True,
         allow_unfoolability=True,
+        cpu_cores=_i("CALMA_ENT_CORES", 16),
+        allow_ai_plan=True,
+        allow_data_acquisition=True,
     ),
     # the local-first operator (token unset): their machine, their keys — unmetered but still concrete-capped so
     # a runaway loop can't fan out unbounded.
@@ -153,6 +172,9 @@ TIERS: dict[str, Tier] = {
         private_repos=True,
         allow_fetch_data=True,
         allow_unfoolability=True,
+        cpu_cores=_i("CALMA_OWNER_CORES", 8),
+        allow_ai_plan=True,
+        allow_data_acquisition=True,
         unmetered=True,
     ),
 }
@@ -359,12 +381,29 @@ def clamp_request(tier: Tier, req: dict) -> tuple[dict, Decision]:
     out["timeout"] = tier.wall_seconds
     out["top_k"] = tier.top_k_claims
     out["repair_steps"] = tier.repair_steps
+    out["cpu_cores"] = tier.cpu_cores          # sandbox vCPU (realised via E2B template routing)
+    out["mem_mb"] = tier.mem_mb                 # per-sandbox RSS cap (supervisor caps the child at min(container, this))
+
+    # AI run-plan / orchestrator LLM — a paid read ("AI proposes, determinism disposes"). Free tiers run on
+    # deterministic heuristics only; still fully correct (FCR unchanged), just without the AI entrypoint/dep read.
+    if tier.allow_ai_plan:
+        out["plan"] = out.get("plan", True)
+    else:
+        if out.get("plan"):
+            d.notes.append("the AI run-plan is a paid capability — running on deterministic heuristics")
+        out["plan"] = False
 
     # feature GATES — refuse, don't silently downgrade
     if out.get("fetch_data") and not tier.allow_fetch_data:
         return out, Decision(ok=False, status=402, kind="gate",
                              reason="external-data fetch is an opt-in paid capability — not on the %s tier"
                                     % tier.name)
+    if out.get("acquire_data") and not tier.allow_data_acquisition:
+        return out, Decision(ok=False, status=402, kind="gate",
+                             reason="running a repo's data-download pipeline is a paid capability — the %s tier "
+                                    "verifies self-contained repos (bundled data or committed predictions)"
+                                    % tier.name)
+    out["acquire_data"] = bool(out.get("acquire_data")) and tier.allow_data_acquisition
     if out.get("installation_id") and not tier.private_repos:
         return out, Decision(ok=False, status=402, kind="gate",
                              reason="connecting private repos (GitHub App installs) requires a paid tier — "

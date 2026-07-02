@@ -246,9 +246,20 @@ def _cmd_run(sbx, cmd, *, log=None, prefix="  | ", stream=False, **kw):
     return sbx.commands.run(cmd, **kw)
 
 
+def _route_template(cfg, cpu_cores):
+    """Per-tier vCPU is realised by template routing: E2B fixes cores at template-build time, not per sandbox.
+    A low core count uses the small template (env CALMA_E2B_TEMPLATE_SMALL) when it's been built + configured;
+    otherwise the default template (the current 8-core calma-verify). Build the small template on the E2B
+    account + set the env to actually cap a free tier's cores; until then every tier uses the default."""
+    small = (os.environ.get("CALMA_E2B_TEMPLATE_SMALL") or "").strip()
+    if cpu_cores and cpu_cores <= 2 and small:
+        return {**cfg, "template": small}
+    return cfg
+
+
 def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout=600,
             allow_internet=False, pip_install=None, pip_strict=True, python_version=None,
-            cfg=None, max_elems=None, log=None, resolve=None, fuzz=False):
+            cfg=None, max_elems=None, log=None, resolve=None, fuzz=False, cpu_cores=0, acquire=None):
     """ONE sandbox: stage + install ONCE, then run the entrypoint k× inside it (each a fresh process with its
     own capture file). Reusing the sandbox across the determinism runs is the big cost lever — the dominant
     `pip install` is paid once, not k×, and it's MORE correct for determinism (identical env across runs, so
@@ -260,6 +271,7 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
     are unknown at boot, so the sandbox's lifetime CEILING is sized conservatively (free: billing is per
     running-second and the sandbox is killed when done)."""
     cfg = cfg or e2b_config(os.path.join(os.path.dirname(CAPTURE_DIR), os.pardir, ".env"))
+    cfg = _route_template(cfg, cpu_cores)          # tier vCPU → small template when configured
     if not cfg.get("api_key"):
         return {"runs": [], "meta": [], "ran_ok": False, "error": "no E2B api key configured",
                 "hooks_armed": None, "n_calls": [], "cost": {}}
@@ -283,7 +295,8 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
     try:
         _note(log, "E2B: creating microVM (lifetime %dm)…" % (sandbox_life // 60))
         sbx = _create_sandbox(cfg, sandbox_life,
-                              allow_internet or resolve is not None or bool(pip_install) or bool(python_version))
+                              allow_internet or resolve is not None or bool(pip_install)
+                              or bool(python_version) or bool(acquire))
         _note(log, "E2B: microVM up (%.1fs) — uploading repo + capture shim" % (time.time() - t_start))
         for fn in _SHIM_FILES:                                   # stage the capture shim + the repo (once)
             with open(os.path.join(CAPTURE_DIR, fn), "rb") as fh:
@@ -302,6 +315,23 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
                 len(pip_install), " [heavy: up to %dm]" % (inst_timeout // 60) if heavy else "",
                 " ".join(pip_install)[:200]))
         _install(sbx, pip_install, pip_strict, inst_timeout, pip_cmd, log=log)  # install (once)
+        # data-acquisition (paid, gated upstream): run the repo's OWN download pipeline WITH network so the
+        # datasets materialize before the eval. The sandbox was created with internet for this; the eval then
+        # runs in the same sandbox (a documented tradeoff — the recompute is still independent, so FCR holds).
+        if acquire:
+            _note(log, "E2B: acquiring data — %d step(s) with network allowed" % len(acquire))
+            for argv in acquire:
+                inner = " ".join(shlex.quote(a) for a in argv)
+                cmd = "cd /work && %s %s" % (pybin, inner) if str(argv[0]).endswith(".py") else "cd /work && " + inner
+                try:
+                    ra = sbx.commands.run(cmd, timeout=inst_timeout)
+                    ok = getattr(ra, "exit_code", 1) == 0
+                    _note(log, "E2B: acquire `%s` → %s" % (" ".join(argv), "ok" if ok else "failed"))
+                    if not ok:
+                        break                                # later steps depend on earlier ones
+                except Exception as e:  # noqa: BLE001
+                    _note(log, "E2B: acquire error — %s" % str(e)[:160])
+                    break
         build_seconds = time.time() - t_start
         _note(log, "E2B: environment ready (%.0fs total)" % build_seconds)
     except Exception as e:  # noqa: BLE001 — setup failed → every run fails identically

@@ -65,11 +65,17 @@ class VerifyOptions:
     job_id: str = "pipeline"
     venvs_dir: str | None = None
     base_python: str | None = None
+    cpu_cores: int = 0              # tier vCPU for the sandbox (0 = default E2B template); realised by template routing
+    acquire_data: bool = False      # opt-in (paid): run the repo's OWN data-download pipeline in a gated internet
+    #                                 phase on a missing-data failure, then re-run + recompute (download-first repos)
     fetch_data: bool = False        # opt-in: on a "missing input file" failure, fetch the data via Exa + retry
     heal_deps: bool = True          # self-heal: pip-install a dep the imports didn't reveal (openpyxl) + retry
     repair: bool = False            # feature 1: iterative env-only repair loop (deps/env/argv/data) until the
     #                                 entrypoint runs. Never edits repo compute; a bad step → DISCOVERED, not a
     #                                 confirm. A post-repair source change caps the verdict at REPRODUCED-ONLY.
+    repair_steps: int = 4           # tier-scaled env-repair budget (the loop's max_steps); 0 → repair off.
+    mem_mb: int = 0                 # per-sandbox RSS cap from the tier; 0 = supervisor's container-derived default.
+    #                                 The supervisor caps the child at min(container-derived, this) when set.
     adaptive_k: bool = True         # if the run is statically proven deterministic, verify with k=1 (half the
     #                                 runs) — still fail-closed: any doubt keeps the empirical k≥2 check
     plan: bool = True               # AI run-plan pre-stage: propose entrypoint/deps/data (build.py heuristics
@@ -322,7 +328,8 @@ def _with_static_targets(repo_dir: str, tgts, trace: Trace, entry=None):
     return list(tgts or []) + extra
 
 
-def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = None, get_plan=None):
+def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = None, get_plan=None,
+              acquire=None):
     k = opts.k if k is None else k                    # adaptive-k passes an effective k (1 when proven det.)
 
     if opts.orchestrate:                              # build plan: assess→rank→bounded execute/observe/revise
@@ -378,7 +385,8 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = 
 
         trace.stage("running", "running in E2B microVM")
         result = run_e2b(repo_dir, resolve=_resolve, k=k, hooks=opts.hooks,
-                         python_version=pyver, timeout=opts.timeout, log=trace.note, fuzz=opts.fuzz)
+                         python_version=pyver, timeout=opts.timeout, log=trace.note, fuzz=opts.fuzz,
+                         cpu_cores=opts.cpu_cores, acquire=acquire)
         entry = holder.get("entry") or _entry(get_plan() if get_plan else None)
         pip, strict, tgts = holder.get("pip"), holder.get("strict", True), holder.get("targets")
         for _ in range(2 if opts.heal_deps else 0):       # self-heal a dep the imports didn't reveal
@@ -391,7 +399,7 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = 
             trace.note("missing dep %s — installing + retrying" % mod)
             result = run_e2b(repo_dir, entry, k=k, hooks=opts.hooks, targets=tgts,
                              pip_install=pip, pip_strict=strict, python_version=pyver, timeout=opts.timeout,
-                             log=trace.note, fuzz=opts.fuzz)
+                             log=trace.note, fuzz=opts.fuzz, cpu_cores=opts.cpu_cores)
         return result, entry
 
     # local path — no sandbox boot to hide behind, so join the plan synchronously
@@ -404,6 +412,13 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = 
     base_py = opts.base_python or sys.executable
     python, note = build.ensure_venv(opts.job_id, pip, venvs_dir, base_python=base_py)
     trace.note("env: %s" % note)
+    # data-acquisition (paid, gated upstream): run the repo's own download pipeline with network before the
+    # eval, so the datasets exist. Local path = host subprocess; FCR-safe (only writes inputs, recompute stays
+    # independent). A failed step stops the chain; the eval then runs (and honestly fails again if data missing).
+    if acquire:
+        from runner import acquire as _ACQ
+        res = _ACQ.run_acquisition(acquire, _ACQ.local_run_cmd(repo_dir, python), log=trace.note)
+        trace.note("data-acquisition: %s — %d step(s) run" % ("complete" if res["ok"] else "incomplete", len(res["ran"])))
     trace.stage("running", "running %s" % " ".join(entry))
 
     def _local(cur_entry=None, env_extra=None):
@@ -453,7 +468,7 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = 
 
         propose = REPAIR.llm_propose(_missing_module_from) if os.environ.get("ANTHROPIC_API_KEY") \
             else REPAIR.heuristic_propose(_missing_module_from)
-        result, manifest = REPAIR.repair_loop(_runfn, propose, _apply, max_steps=4,
+        result, manifest = REPAIR.repair_loop(_runfn, propose, _apply, max_steps=(opts.repair_steps or 4),
                                               snapshot_fn=lambda: REPAIR.snapshot_pyfiles(repo_dir),
                                               log=trace.note)
         result["repair_manifest"] = manifest
@@ -524,7 +539,7 @@ def _run_repo_orchestrated(repo_dir: str, opts: VerifyOptions, trace: Trace, k: 
                     trace.note("era-pinned inferred deps to %s" % era)
             r = run_e2b(repo_dir, entry, k=k, hooks=opts.hooks, targets=targets, pip_install=pip or None,
                         pip_strict=strict, python_version=pyver, timeout=opts.timeout, log=trace.note,
-                        fuzz=opts.fuzz)
+                        fuzz=opts.fuzz, cpu_cores=opts.cpu_cores)
             return _wrap(r, approach)
 
         # local path. B2: a conda builder provisions the interpreter from environment.yml via micromamba.
@@ -719,14 +734,28 @@ def verify_repo(
             trace.note("determinism not statically proven (%s) → keeping the empirical k=%d check"
                        % (det.get("detail", "at risk"), opts.k))
         run_result, entry = _run_repo(repo_dir, opts, trace, k=eff_k, get_plan=_get_plan)
-        if not run_result.get("ran_ok") and opts.fetch_data:    # opt-in: grab missing external data, then retry
+        if not run_result.get("ran_ok") and opts.fetch_data:    # opt-in: grab a single missing file, then retry
             from runner import data_resolver as _DR
             miss = _DR.missing_data_path(" ".join(m.get("stderr_tail", "") for m in run_result.get("meta", [])))
             if miss:
                 ok, note = _DR.resolve_missing_data(repo_dir, miss)
                 trace.note("data-fetch: %s" % note)
                 if ok:
-                    run_result, entry = _run_repo(repo_dir, opts, trace, get_plan=_get_plan)
+                    run_result, entry = _run_repo(repo_dir, opts, trace, k=eff_k, get_plan=_get_plan)
+        # opt-in (paid): run the repo's OWN data-acquisition pipeline (numbered download scripts / make-data
+        # target), then retry. Distinct from fetch_data (one file via Exa) — this is the download-first research
+        # repo case. Only fires on a genuine missing-data failure, so we never pay for a download that isn't needed.
+        if not run_result.get("ran_ok") and opts.acquire_data:
+            _errtxt = " ".join(m.get("stderr_tail", "") for m in run_result.get("meta", []))
+            if build.classify_failure(_errtxt).get("kind") == "missing-data":
+                from runner import acquire as _ACQ
+                cmds = _ACQ.find_acquisition(repo_dir)
+                if cmds:
+                    trace.stage("acquiring data",
+                                "running the repo's data-acquisition pipeline (%d step(s), network allowed)" % len(cmds))
+                    run_result, entry = _run_repo(repo_dir, opts, trace, k=eff_k, get_plan=_get_plan, acquire=cmds)
+                else:
+                    trace.note("data-acquisition requested but no acquisition scripts / make-data target found")
         total_calls = sum(len(run) for run in run_result.get("runs", []))
         err, err_full, failure = "", "", None
         if not run_result.get("ran_ok"):

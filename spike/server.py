@@ -198,6 +198,12 @@ class VerifyReq(BaseModel):
     top_k: int = 1_000_000               # deep-verify at most the top-K salient claims (tier cap); rest → DISCOVERED
     timeout: int = 600                   # per-sandbox wall-clock (tier cap)
     fetch_data: bool = False             # opt-in: fetch missing external data via Exa, then retry (paid-tier)
+    acquire_data: bool = False           # opt-in (paid): run the repo's own data-download pipeline (numbered
+    #                                      acquisition scripts / make target) in a gated internet phase, then recompute
+    plan: bool = True                    # AI run-plan pre-stage (tier-gated in clamp_request; free → heuristics)
+    cpu_cores: int = 0                   # sandbox vCPU (tier; realised via E2B template routing). 0 = default template
+    mem_mb: int = 0                      # per-sandbox RSS cap (tier; supervisor caps the child at min(container, this))
+    repair_steps: int = 0                # tier env-repair budget (0 = repair off; >0 enables the bounded loop)
     installation_id: str | None = None   # clone via this GitHub App installation's short-lived token
     installation_proof: str | None = None  # stateless binding proof from connect time (see _install_proof)
 
@@ -279,6 +285,12 @@ def run_job(job, req: VerifyReq):
             top_k=req.top_k,
             timeout=req.timeout,
             fetch_data=req.fetch_data,
+            acquire_data=req.acquire_data,
+            plan=req.plan,
+            cpu_cores=req.cpu_cores,
+            mem_mb=req.mem_mb,
+            repair=req.repair_steps > 0,            # env-repair loop enabled on tiers with a repair budget
+            repair_steps=req.repair_steps,
             job_id=job["id"],
             venvs_dir=_VENVS,
             base_python=VENV_PY,
@@ -350,6 +362,11 @@ def verify(req: VerifyReq, ident: Identity = Depends(identity)):
     req.timeout = int(clamped.get("timeout", req.timeout))
     req.top_k = int(clamped.get("top_k", req.top_k))
     req.fetch_data = bool(clamped.get("fetch_data", req.fetch_data))
+    req.acquire_data = bool(clamped.get("acquire_data", False))      # tier-gated above (402 for free)
+    req.plan = bool(clamped.get("plan", req.plan))                    # AI run-plan off on free tiers
+    req.cpu_cores = int(clamped.get("cpu_cores", 0))                  # tier vCPU (E2B template routing)
+    req.mem_mb = int(clamped.get("mem_mb", 0))                        # tier per-sandbox RSS cap
+    req.repair_steps = int(clamped.get("repair_steps", 0))           # tier env-repair budget (0 = off)
     # sanitize caller-supplied deps to plain PyPI specs (the tolerant install path) — a request can't smuggle
     # `--index-url http://evil/` or a VCS/URL ref into the installer. The repo's own requirements.txt (read
     # from the cloned source, installed faithfully) is unaffected.

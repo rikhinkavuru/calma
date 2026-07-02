@@ -141,6 +141,11 @@ def _limits(opts) -> dict:
     """The OS limits handed to the child. Memory (RSS) is enforced by the parent monitor; here we compute the
     child-side CPU limit and a HIGH virtual-address backstop (see isolated_verify._apply_limits)."""
     mem_mb = _mem_budget_mb()
+    # Tier RSS cap: a tier may only LOWER the child's memory (never raise it above the container-safe budget) —
+    # so a free tier gets a tighter cap while the machine stays protected. min() enforces both directions.
+    tier_mem = int(getattr(opts, "mem_mb", 0) or 0)
+    if tier_mem > 0:
+        mem_mb = min(mem_mb, tier_mem)
     # CPU budget mirrors the wall budget's reasoning: a heavy build burns real CPU, so it must clear the same
     # bar as the wall, or RLIMIT_CPU would kill a legitimate long install/run.
     cpu = _int_env("CALMA_VERIFY_CPU_SECONDS", _default_wall(opts))
