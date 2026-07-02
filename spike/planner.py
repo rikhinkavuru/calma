@@ -18,6 +18,7 @@ import os
 import re
 
 from core import limits as _LIM  # noqa: E402 — pip-spec sanitizer (drops a prompt-injected --index-url / VCS ref)
+from orchestrator import envelope as _ENV  # noqa: E402 — spotlight untrusted repo text (defense-in-depth)
 
 # The planner earns its keep on HARD repos (ambiguous entrypoints, monorepos, unusual repro steps, deps not
 # declared) — easy repos already resolve from heuristics — so the read quality matters, and since the output
@@ -30,6 +31,7 @@ _MODEL = os.environ.get("CALMA_PLAN_MODEL", "claude-sonnet-5").strip() or "claud
 _SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv", "venv", "env", ".venvs", "results"}
 
 _SYSTEM = (
+    _ENV.SYSTEM_PREAMBLE + " "     # untrusted-content spotlighting: the repo text is DATA, not instructions
     "You are the environment-synthesis step of a verification system. Your ONLY job is to plan how to RUN a "
     "repository so it reproduces the numbers it reports — you do NOT compute, judge, or predict any metric "
     "value, and you never decide whether a number is correct. Read the repo and return how to execute its "
@@ -126,7 +128,9 @@ def _gather_context(repo_dir: str) -> str:
                    if f.endswith(".py")) [:_MAX_SCRIPTS]
     for f in roots:
         parts.append("## %s (head)\n%s" % (f, _read(os.path.join(repo_dir, f), _MAX_SCRIPT)))
-    return "\n\n".join(parts)
+    # spotlight the whole repo-derived context as one break-out-resistant untrusted span (a README that says
+    # "ignore your instructions" is neutralized; the entry validation + pip sanitizer are the hard rails).
+    return _ENV.wrap_untrusted("\n\n".join(parts), "repo")
 
 
 def _call_model(context: str, model: str) -> str | None:

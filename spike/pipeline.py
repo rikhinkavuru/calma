@@ -81,6 +81,11 @@ class VerifyOptions:
     repo_meta: dict | None = None   # feature 18: {repo, commit} folded into the reproducibility receipt.
     anomaly: bool = False           # feature 11 (dark-launched): flag cross-run outliers vs the verified-run
     #                                 store. ADVISORY only — never changes a verdict, never auto-refutes.
+    orchestrate: bool = False       # repo-assessment orchestrator (build plan): replace the fixed make-runnable
+    #                                 ladder with assess→rank→bounded execute/observe/revise over a typed tool
+    #                                 registry. FCR-safe by construction (§0): it only changes HOW a repo runs;
+    #                                 the RunResult flows through the UNCHANGED diff/verdict. Flag-gated behind
+    #                                 the heuristic default (owner/enterprise) until the corpus clears it.
 
 
 def _argv(entry) -> list[str]:
@@ -320,6 +325,9 @@ def _with_static_targets(repo_dir: str, tgts, trace: Trace, entry=None):
 def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = None, get_plan=None):
     k = opts.k if k is None else k                    # adaptive-k passes an effective k (1 when proven det.)
 
+    if opts.orchestrate:                              # build plan: assess→rank→bounded execute/observe/revise
+        return _run_repo_orchestrated(repo_dir, opts, trace, k, get_plan)
+
     def _entry(plan):                                 # precedence: explicit opts > AI plan > auto-detect > default
         e = _argv(opts.entry)
         if not e and plan and plan.get("entry"):
@@ -463,6 +471,126 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = 
                        timeout=300, check=False)
         result = _local()
     return result, entry
+
+
+def _run_repo_orchestrated(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int, get_plan=None):
+    """The make-runnable BRAIN (build plan §1): the orchestrator replaces the fixed entrypoint ladder. It
+    profiles the repo, ranks typed RunApproach candidates (reusing the background planner turn), and drives a
+    bounded execute/observe/revise loop over the real runners — returning the SAME run dict shape the heuristic
+    path returns, so everything downstream (_diff_claims, overlays, verdict) is unchanged. FCR-safe: the loop
+    owns no verdict; a wrong choice → wrong/empty capture → DISCOVERED/REFUTED, never a false CONFIRM. C3: on
+    total failure it returns an honest empty run (ran_ok=False), NEVER a fabricated eval.py."""
+    from orchestrator import orchestrate as ORCH
+    from orchestrator import tools_exec as XT
+    from orchestrator.types import RunResult as ORR
+
+    venvs_dir = os.path.abspath(opts.venvs_dir or os.path.join(os.path.dirname(os.path.abspath(repo_dir)),
+                                                               ".venvs"))
+    base_py = opts.base_python or sys.executable
+    pyver = build.detect_python_version(repo_dir)
+    if pyver:
+        trace.note("declared Python %s" % pyver)
+    plan = get_plan() if get_plan else None                # reuse the background planner turn (boot-overlap)
+    holder: dict = {}                                      # carries the winning run's fuzz emit + raw cost
+
+    def _wrap(r, approach):
+        holder["fuzz"] = r.get("fuzz")
+        return ORR(ran_ok=bool(r.get("ran_ok")), runs=(r.get("runs") or []), meta=(r.get("meta") or []),
+                   cost=(r.get("cost") or {}), source_modified=[], approach=approach)
+
+    def run_approach(approach):
+        entry = list(approach.entry)
+        targets = opts.targets or approach.capture_targets or None
+        deps = list(approach.deps)
+        head = str(entry[0]) if entry else ""
+
+        # A1: notebook entry → run_notebook (kernel-armed capture). Local only; the E2B notebook image is future.
+        if head.startswith("nb:"):
+            return _wrap(XT.run_notebook(repo_dir, head, k=k, hooks=opts.hooks, targets=targets,
+                                         timeout=opts.timeout), approach)
+        # A3: Makefile target → run_make (recipe's python child auto-arms capture).
+        if head.startswith("make:"):
+            return _wrap(XT.run_make(repo_dir, head[5:], k=k, hooks=opts.hooks, targets=targets,
+                                     timeout=opts.timeout, env_extra=(approach.env or None)), approach)
+
+        if opts.runner == "e2b":
+            from runner.e2b_runner import run_e2b
+            pip, strict = deps, (approach.builder == "declared")
+            if pip and approach.builder not in ("declared", "conda-micromamba"):
+                pip, era, notes = XT.era_pin_compat(pip, repo_dir, pyver)   # C1: interpreter-aware era pin
+                for n in notes:
+                    trace.note("era-compat: " + n)
+                if era:
+                    trace.note("era-pinned inferred deps to %s" % era)
+            r = run_e2b(repo_dir, entry, k=k, hooks=opts.hooks, targets=targets, pip_install=pip or None,
+                        pip_strict=strict, python_version=pyver, timeout=opts.timeout, log=trace.note,
+                        fuzz=opts.fuzz)
+            return _wrap(r, approach)
+
+        # local path. B2: a conda builder provisions the interpreter from environment.yml via micromamba.
+        if approach.builder == "conda-micromamba":
+            conda = XT.build_conda(repo_dir, envs_dir=os.path.join(os.path.dirname(os.path.abspath(repo_dir)),
+                                                                   ".conda-envs"))
+            trace.note("conda: %s" % conda["note"])
+            if conda["ok"] and conda["python"]:
+                r = run_local(repo_dir, entry, k=k, python=conda["python"], hooks=opts.hooks, targets=targets,
+                              timeout=opts.timeout, fuzz=opts.fuzz, env_extra=(approach.env or None))
+                return _wrap(r, approach)
+            # micromamba unavailable → fall through to a pip venv from the (conda-declared) deps, best-effort
+        # The local runner is the fixtures/curated path: like the heuristic path, it runs against the harness
+        # python and only builds a venv for EXPLICIT deps (opts.pip_install). Inferred/declared deps drive the
+        # E2B path (real installs); installing them into a local venv both diverges from the heuristic baseline
+        # and can fail on a wheel-less interpreter. venvs_dir is absolute so run_local's cwd change can resolve it.
+        local_pip = opts.pip_install or None
+        python, note = build.ensure_venv(opts.job_id + "-orch", local_pip, venvs_dir, base_python=base_py)
+        trace.note("env: %s" % note)
+        r = run_local(repo_dir, entry, k=k, python=python, hooks=opts.hooks, targets=targets,
+                      timeout=opts.timeout, fuzz=opts.fuzz, env_extra=(approach.env or None))
+        return _wrap(r, approach)
+
+    trace.stage("assessing", "assessing the repo (static profile → run approach)")
+    # tier-scaled budget: no repair budget → a single approach, no revise (free tier); else the full loop.
+    if opts.repair:
+        budget = ORCH.Budget(step_cap=6, max_approaches=4)
+    else:
+        budget = ORCH.Budget(step_cap=1, max_approaches=1)
+    # flywheel (env-gated so it stays off in the hermetic test suite; prod enables it): fingerprint→approach
+    # cache + error→fix hint store. HOW-only — a cache hit still flows through the full fail-closed verify.
+    cache = hints = None
+    if os.environ.get("CALMA_ORCH_FLYWHEEL") == "1":
+        from orchestrator import cache as OCACHE
+        cache, hints = OCACHE.approach_cache(), OCACHE.hint_store()
+    trace.stage("running", "running the chosen approach")
+    # belt-and-suspenders FCR rail (parity with the heuristic repair loop): fingerprint repo compute source
+    # before/after; if the build/run changed any .py (a package post-install, a fetched file), cap AFFIRMATIVE
+    # → REPRODUCED-ONLY downstream. The action space is env-only, so this is expected to stay empty.
+    from runner import repair as _REPAIR
+    _src_before = _REPAIR.snapshot_pyfiles(repo_dir)
+    result = ORCH.orchestrate(repo_dir, run_approach, use_llm=opts.plan, plan=plan, budget=budget,
+                              cache=cache, hints=hints, log=trace.note)
+    _src_changed = _REPAIR._changed(_src_before, _REPAIR.snapshot_pyfiles(repo_dir))
+    for line in (result.cost.get("assessment") or []):
+        trace.note(line)
+    if result.cost.get("launch"):
+        trace.note("reproduce: %s" % result.cost["launch"])
+    run_dict = result.to_run_dict()
+    if holder.get("fuzz") is not None:
+        run_dict["fuzz"] = holder["fuzz"]                  # preserve the un-foolability emit for diff_claim
+    # unify the source-edit rail with the heuristic path so _apply_agent_modified_cap works identically.
+    run_dict["repair_manifest"] = {"source_modified": (result.source_modified or []) + _src_changed,
+                                   "orchestrator_trace": result.trace}
+    # a human/discovery-facing entry label: strip the nb:/make: routing prefixes (make: has no python entry to
+    # scope discovery against, so it drops to []; nb: keeps the notebook path).
+    entry_out: list[str] = []
+    for e in (result.approach.entry if result.approach else []):
+        s = str(e)
+        if s.startswith("nb:"):
+            entry_out.append(s[3:])
+        elif s.startswith("make:"):
+            continue
+        else:
+            entry_out.append(s)
+    return run_dict, entry_out
 
 
 def _artifact_verify(repo_dir: str, claims: list[dict]) -> dict:

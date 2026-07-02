@@ -319,3 +319,55 @@ no-false-confirm corpus run.
 leakage, red-team gate, receipt/attestation, salience, tier limits. The orchestrator makes the repo *runnable
 and run*; everything that turns a run into a **verdict** is deterministic and untouched. That separation is
 the product.
+
+---
+
+## 11. Implementation status — BUILT 2026-07-02
+
+All phases shipped behind `opts.orchestrate` (default off; heuristic path unchanged). 781→865 tests
+(+84, 0 failures), ruff/mypy/vulture clean. Package `spike/orchestrator/`:
+
+| File | Role |
+|---|---|
+| `types.py` | §3 typed hand-off (RepoProfile/EntryCand/RunApproach/RunResult) — the firewall surface |
+| `registry.py` | tool registry + agent≠executor `call` gateway; `register` hard-rejects verdict tools |
+| `envelope.py` | untrusted-content spotlighting (content-bound nonce + defang + injection scan) |
+| `tools_static.py` | 26 static assessment tools (A1/A3/A4/B1/B3/B4/B5/C1/C2 + fingerprint) |
+| `tools_exec.py` | 5 exec tools (probe_run, run_make, run_notebook, build_conda, run_lang) + add_argv/era_pin_compat/rescan_outputs |
+| `assess.py` | RepoProfile builder + layout/domain classification + monorepo selection + Assessment Report |
+| `orchestrate.py` | rank (static-first / reused planner turn) + bounded execute/observe/revise loop + budgets |
+| `cache.py` | fingerprint→approach flywheel + error→fix hint store |
+
+**31 registered tools, every one `touches_verdict=False`** (asserted live by `tests/test_orchestrator_firewall.py`).
+Wired into `pipeline._run_repo` behind `opts.orchestrate`; C3 (fabricated `eval.py`) killed on that path;
+flywheel env-gated (`CALMA_ORCH_FLYWHEEL=1`). Corpus gate (`tests/test_orchestrator_corpus.py`): orchestrated
+affirmative-verdict counts **== heuristic baseline** and **FCR==0** across the fixture set.
+
+## 12. SOTA gap analysis (exa-researched) — 8 gaps found in this plan, all closed
+
+Researched against SetupX, Repo2Run, ExecutionAgent, RAT, RepoLaunch, EnvBench + the ReAct-hardening and
+prompt-injection literature. The plan's core (static-first + fixed action enum + fail-closed) matched SOTA;
+these gaps were additions:
+
+1. **No-progress / oscillation detection** — the plan bounded only step/token/wall. Added action-tuple hashing:
+   a revised approach that hashes to one already tried ends the chain (`orchestrate.approach_key`, `tried` set).
+2. **Untrusted-envelope break-out defense** — the plan said "untrusted envelope" but not how. Added spotlighting
+   with a **content-bound nonce** (a break-out needs a hash fixed-point) + delimiter defang (`envelope.py`),
+   now on the live LLM surface (`planner._gather_context`).
+3. **Notebook capture-shim arming** — unspecified. Solved by launching the kernel with the same capture env as
+   a subprocess (`tools_exec.run_notebook`) — no fragile in-cell injection.
+4. **Budget checked BEFORE the effector** — the plan checked ceilings implicitly. Now `Budget.stop_reason()` is
+   evaluated before every `run_approach` call (never pay for the step that busts the ceiling).
+5. **Experience beyond fingerprint** (SetupX XPU / ExecutionAgent lessons) — the plan cached only by fingerprint.
+   Added `HintStore`: error-signature→verified-fix, so a *novel* repo benefits from a past run's fix.
+6. **Re-runnable launch artifact** (ExecutionAgent launch.sh / RAT) — added `launch_command` on `result.cost`.
+7. **Static missing-import probe** (EnvBench's own metric) — `probe_run` byte-compiles + imports third-party
+   roots to kill a doomed approach in ~2s before a full k-run.
+8. **Source-edit rail on the orchestrated path** — the plan reused `_apply_agent_modified_cap` but the new
+   executor needed to feed it. Added a before/after `snapshot_pyfiles` diff around the orchestrated build+run.
+
+Two bugs found + fixed during the build: (a) `find_entrypoints` inherited `detect_entrypoint`'s arbitrary
+tie-break as false 0.9 confidence, masking genuine ties (now scored by real signal strength → ties stay
+ambiguous → LLM tie-break); (b) the orchestrated local effector built venvs from a *relative* `venvs_dir` and
+from *inferred* deps, diverging from the heuristic baseline and crashing under `run_local`'s cwd change (now
+absolute path + harness-python parity, install only explicit deps on local).
