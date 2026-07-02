@@ -123,6 +123,18 @@ export type Usage = {
   concurrency: number;
 };
 
+// The compact shape the backend's GET /api/jobs returns per job (server.py list_jobs) — enough to render the
+// Scans list + the Overview recent table without fetching each full job. `created` is a unix epoch (seconds).
+export type JobSummary = {
+  id: string;
+  repo: string;
+  status: string;
+  stage: string;
+  counts: Record<string, number>;
+  n_claims: number;
+  created: number;
+};
+
 export const verifyApi = {
   submit: (body: VerifySubmit, id: Identity): Promise<{ id: string; tier: string; deep: boolean; limit_notes: string[] }> =>
     call(
@@ -144,6 +156,8 @@ export const verifyApi = {
       id,
     ),
   usage: (id: Identity): Promise<Usage> => call("/api/usage", undefined, id),
+  // the tenant's own scans, newest-first (backend list_jobs is tenant-scoped by the same Identity headers).
+  listJobs: (id: Identity): Promise<JobSummary[]> => call("/api/jobs", undefined, id),
   // `id` (the Identity) is required: the backend now scopes every job to the tenant that submitted it (a
   // job endpoint used to trust the service token alone, which let any authed caller — including the public
   // demo route — read any OTHER tenant's job by id). Omitting it here would silently 404 real users' own jobs.

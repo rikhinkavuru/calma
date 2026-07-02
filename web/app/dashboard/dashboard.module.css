@@ -429,3 +429,66 @@
   .detailGrid { grid-template-columns: 1fr; }
   .statline { gap: 14px 0; }
 }
+
+/* ============================================================ overview stat cards */
+.statCards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 6px; }
+.statCard {
+  background: var(--surface); border: 1px solid var(--hair); border-radius: var(--radius);
+  padding: 18px 20px 20px; display: flex; flex-direction: column;
+}
+.statCardIcon {
+  width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center;
+  background: var(--surface-2); color: var(--ink-2); margin-bottom: 14px;
+}
+.statCardIcon svg { width: 17px; height: 17px; }
+.statCardIcon.toneOk { background: var(--ok-bg); color: var(--ok-fg); }
+.statCardIcon.toneBad { background: var(--bad-bg); color: var(--bad-fg); }
+.statCardValue { font-family: var(--mono, monospace); font-size: 28px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; }
+.statCardLabel { font-size: 13.5px; font-weight: 600; margin-top: 9px; }
+.statCardSub { font-size: 12.5px; color: var(--ink-3); margin-top: 3px; }
+
+/* ============================================================ card header (list toolbar) */
+.cardHead { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 15px 18px; border-bottom: 1px solid var(--hair); }
+.cardHeadTitle { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+.searchInline {
+  display: flex; align-items: center; gap: 8px; flex: 0 1 300px;
+  border: 1px solid var(--hair); border-radius: var(--radius-sm); padding: 7px 11px;
+  background: var(--surface-2); color: var(--ink-3);
+  transition: border-color 0.15s var(--ease), background 0.15s var(--ease);
+}
+.searchInline:focus-within { border-color: var(--amber-line); background: var(--surface); }
+.searchInline svg { width: 14px; height: 14px; flex: none; }
+.searchInline input { border: none; background: none; outline: none; font: inherit; font-size: 13.5px; color: var(--ink); width: 100%; }
+
+/* ============================================================ run-status pill */
+.statusPill { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; font-size: 12.5px; font-weight: 600; color: var(--ink-2); }
+.statusDot { width: 7px; height: 7px; border-radius: 50%; flex: none; background: var(--ink-3); }
+.stDone .statusDot { background: var(--ok-fg); }
+.stRunning { color: var(--amber-ink); }
+.stRunning .statusDot { background: var(--amber); animation: statusPulse 1.4s ease-out infinite; }
+.stError { color: var(--bad-fg); }
+.stError .statusDot { background: var(--bad-fg); }
+.stIdle { color: var(--ink-3); }
+@keyframes statusPulse { 0% { box-shadow: 0 0 0 0 var(--amber-line); } 70% { box-shadow: 0 0 0 5px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+
+/* ============================================================ generic verdict-tier badges */
+.vsum { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.badgeOk { background: var(--ok-bg); color: var(--ok-fg); }
+.badgeBad { background: var(--bad-bg); color: var(--bad-fg); }
+.badgeWarn { background: var(--warn-bg); color: var(--warn-fg); }
+.badgeInv { background: var(--inv-bg); color: var(--inv-fg); }
+.badgeNeu { background: var(--neu-bg); color: var(--neu-fg); }
+.badgeIdle { background: var(--idle-bg); color: var(--idle-fg); }
+
+/* compact topbar CTA */
+.topcta { padding: 7px 13px; font-size: 12.5px; }
+.topcta svg { width: 14px; height: 14px; }
+
+@media (max-width: 920px) {
+  .statCards { grid-template-columns: 1fr; }
+  .cardHead { flex-direction: column; align-items: stretch; }
+  .searchInline { flex: 1 1 auto; }
+  /* the topbar's "New scan" label crowds a phone — keep the two text links, drop the CTA there (the page
+     header + sidebar both still offer New scan / Verify). */
+  .topcta { display: none; }
+}

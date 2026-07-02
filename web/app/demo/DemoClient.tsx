@@ -10,7 +10,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Claim } from "@/lib/verify";
 import { ORDER, pillTier, verdictLabel } from "@/lib/verdict";
 import { RECORDED_CLAIMS, RECORDED_LOGS, parsedLogTimes } from "./recording";
-import s from "../dashboard/verify.module.css";
+import s from "./demo.module.css";
 
 function pillClass(verdict: string): string {
   return s[pillTier(verdict)];

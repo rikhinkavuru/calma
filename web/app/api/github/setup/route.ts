@@ -38,8 +38,8 @@ export async function GET(req: Request) {
 
   // Popup path: postMessage the id + proof to the dashboard (the opener) and close. Same-tab fallback: redirect.
   const fallback = iid
-    ? `/dashboard?installation_id=${encodeURIComponent(iid)}${proof ? `&proof=${encodeURIComponent(proof)}` : ""}`
-    : "/dashboard";
+    ? `/dashboard/verify?installation_id=${encodeURIComponent(iid)}${proof ? `&proof=${encodeURIComponent(proof)}` : ""}`
+    : "/dashboard/verify";
   const html = `<!doctype html><meta charset="utf-8"><title>Connecting…</title>
 <body style="font-family:system-ui;color:#1a1a18;display:grid;place-items:center;height:100vh;margin:0">Connecting…</body>
 <script>(function(){var iid=${JSON.stringify(iid)},proof=${JSON.stringify(proof)},origin=${JSON.stringify(url.origin)},fb=${JSON.stringify(fallback)};

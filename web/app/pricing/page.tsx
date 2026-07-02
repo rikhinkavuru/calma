@@ -168,7 +168,7 @@ export default function PricingPage() {
                     GitHub
                   </a>
                   , or{" "}
-                  <a href="/dashboard">verify a repo</a> right now.
+                  <a href="/dashboard/verify">verify a repo</a> right now.
                 </p>
               </div>
             </div>

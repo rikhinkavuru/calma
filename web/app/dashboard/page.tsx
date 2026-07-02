@@ -1,11 +1,10 @@
-// The dashboard IS the connect → verify flow. The layout already gates on a WorkOS session (anonymous
-// visitors get the sign-in card), so reaching here means authenticated; the client component talks only to
-// the authed /api/verify proxy. No control-plane dependency on the default view — verify needs identity
-// (getUser/withAuth), not a provisioned tenant.
-import { VerifyClient } from "./VerifyClient";
+// The console home: an overview of the account's verification activity + recent scans. The verify action
+// itself lives at /dashboard/verify. The layout gates on a WorkOS session (anonymous visitors get the
+// sign-in card); the client component reads only the authed /api/jobs proxy.
+import { OverviewClient } from "./OverviewClient";
 
 export const dynamic = "force-dynamic";
 
 export default function DashboardHome() {
-  return <VerifyClient />;
+  return <OverviewClient />;
 }

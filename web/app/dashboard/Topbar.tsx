@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FiBox, FiExternalLink, FiArrowLeft } from "react-icons/fi";
+import { FiBox, FiExternalLink, FiArrowLeft, FiPlus } from "react-icons/fi";
 import { GITHUB_URL } from "../../components/contact";
 import styles from "./dashboard.module.css";
 
@@ -12,11 +12,14 @@ export function Topbar({ user }: { user: { name: string; email: string; mode: "w
         {user.mode === "dev" && <span className={styles.devpill}>DEV</span>}
       </div>
       <div className={styles.topright}>
+        <Link href="/" className={styles.toplink}>
+          <FiArrowLeft /> Back to site
+        </Link>
         <Link href={GITHUB_URL} className={styles.toplink}>
           Docs <FiExternalLink />
         </Link>
-        <Link href="/" className={styles.toplink}>
-          <FiArrowLeft /> Back to site
+        <Link href="/dashboard/verify" className={`${styles.btn} ${styles.btnAmber} ${styles.topcta}`}>
+          <FiPlus /> New scan
         </Link>
       </div>
     </header>

@@ -2,7 +2,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { FiFileText, FiLogOut, FiExternalLink, FiCheckCircle } from "react-icons/fi";
+import { FiFileText, FiLogOut, FiExternalLink, FiCheckCircle, FiGrid, FiClock } from "react-icons/fi";
 import { GITHUB_URL } from "../../components/contact";
 import styles from "./dashboard.module.css";
 
@@ -11,7 +11,11 @@ type NavGroup = { head?: string; items: NavItem[] };
 
 const GROUPS: NavGroup[] = [
   {
-    items: [{ href: "/dashboard", label: "Verify a repo", icon: <FiCheckCircle /> }],
+    items: [
+      { href: "/dashboard", label: "Overview", icon: <FiGrid /> },
+      { href: "/dashboard/verify", label: "Verify a repo", icon: <FiCheckCircle /> },
+      { href: "/dashboard/scans", label: "Scans", icon: <FiClock /> },
+    ],
   },
   {
     head: "Resources",

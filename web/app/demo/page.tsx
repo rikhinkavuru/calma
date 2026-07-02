@@ -38,7 +38,7 @@ export default function DemoPage() {
         <section className="sec rpage__foot">
           <div className="wrap">
             <p className="rpage__verify">
-              Ready for your own repo? <a href="/dashboard">Verify a repo →</a>
+              Ready for your own repo? <a href="/dashboard/verify">Verify a repo →</a>
             </p>
           </div>
         </section>

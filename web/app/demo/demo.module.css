@@ -1,0 +1,33 @@
+/* Demo replay styles — the marketing "watch it catch one" preview. Dark to sit on the cosmic landing page
+   (its own palette, independent of the dashboard's light verify.module.css). Only the classes DemoClient
+   uses: the log console, the claims table, and the verdict pills. */
+
+.console { margin: 16px 0; border: 1px solid rgba(233,221,196,0.14); border-radius: 12px; background: #14110c; overflow: hidden; }
+.consoleHead { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 9px 13px; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: rgba(233,221,196,0.55); border-bottom: 1px solid rgba(233,221,196,0.1); }
+.consoleHeadL { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.consoleStage { color: #ece0c6; text-transform: none; letter-spacing: 0; font-family: var(--mono, ui-monospace, monospace); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dot { width: 8px; height: 8px; border-radius: 999px; display: inline-block; flex-shrink: 0; }
+.dotLive { background: #e8b06a; animation: demoPulse 1.4s ease-out infinite; }
+.dotDone { background: #6fb98a; }
+@keyframes demoPulse { 0% { box-shadow: 0 0 0 0 rgba(232,176,106,0.6); } 70% { box-shadow: 0 0 0 7px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+.consoleBody { font-family: var(--mono, ui-monospace, monospace); font-size: 11.5px; line-height: 1.6; padding: 11px 13px; max-height: 340px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+.consoleBody > div { color: #d8ccb2; opacity: .92; }
+.logStream { color: #8fb2d0 !important; opacity: 1 !important; }
+.logPip { color: #9db974 !important; opacity: .95 !important; }
+.logWarn { color: #e69277 !important; opacity: 1 !important; }
+
+.table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin-top: 12px; }
+.table th { text-align: left; font-family: var(--mono, monospace); font-size: 10.5px; text-transform: uppercase; letter-spacing: .08em; color: rgba(233,221,196,0.55); font-weight: 600; padding: 10px 12px; border-bottom: 1px solid rgba(233,221,196,0.16); }
+.table td { padding: 11px 12px; border-bottom: 1px solid rgba(233,221,196,0.09); vertical-align: top; color: rgba(233,221,196,0.9); }
+.table tr:last-child td { border-bottom: none; }
+.mono { font-family: var(--mono, ui-monospace, monospace); font-size: 12.5px; }
+.where { color: rgba(233,221,196,0.55); font-size: 12.5px; max-width: 220px; }
+.why { max-width: 380px; color: rgba(233,221,196,0.8); line-height: 1.5; }
+
+.pill { display: inline-block; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; font-family: var(--mono, monospace); letter-spacing: .01em; white-space: nowrap; }
+.ok   { background: rgba(122,184,158,0.16); color: #8fd0ad; }
+.bad  { background: rgba(224,135,107,0.16); color: #e69277; }
+.idle { background: rgba(233,221,196,0.08); color: #b9b2a3; }
+.warn { background: rgba(232,176,106,0.16); color: #e8b06a; }
+.inv  { background: rgba(150,120,220,0.16); color: #b79ae0; }
+.neu  { background: rgba(120,160,200,0.16); color: #8fb2d0; }

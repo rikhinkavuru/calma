@@ -6,6 +6,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Claim, GithubConfig, Job, Repo } from "@/lib/verify";
 import { ISSUE_TIERS, ORDER, TIER_META, pillTier, tierCounts, verdictLabel, type PillTier } from "@/lib/verdict";
+import { recordScan } from "@/lib/scan-history";
+import { LogConsole } from "./LogConsole";
 import dash from "./dashboard.module.css";
 import s from "./verify.module.css";
 
@@ -166,11 +168,14 @@ export function VerifyClient() {
     // the URL. `proof` is the stateless binding (see server.py _install_proof) that keeps this connection
     // alive across a backend redeploy, which wipes the server's in-memory installation map.
     const params = new URLSearchParams(window.location.search);
+    // Re-run from a scan detail: /dashboard/verify?repo=owner/name prefills the field.
+    const repoParam = params.get("repo");
+    if (repoParam) setRepo(repoParam);
     let iid = params.get("installation_id");
     let proof = params.get("proof") || "";
-    if (iid) {
-      rememberInstall(iid, proof);
-      window.history.replaceState({}, "", "/dashboard");
+    if (iid || repoParam) {
+      if (iid) rememberInstall(iid, proof);
+      window.history.replaceState({}, "", "/dashboard/verify");
     }
     // 2) else reuse a remembered install (survives backend redeploys via the proof, not backend memory).
     if (!iid) {
@@ -207,7 +212,6 @@ export function VerifyClient() {
       } catch (e) { if (alive) setReposErr(e instanceof Error ? e.message : String(e)); }
     })();
     return () => { alive = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadInstallationRepos]);
 
   // The connect popup posts the installation_id + proof back here (so the dashboard updates in place). Adopt
@@ -224,7 +228,6 @@ export function VerifyClient() {
     }
     window.addEventListener("message", onMsg);
     return () => window.removeEventListener("message", onMsg);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadInstallationRepos]);
 
   const poll = useCallback(async (id: string) => {
@@ -269,6 +272,7 @@ export function VerifyClient() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || `status ${res.status}`);
+      recordScan(data.id, repo.trim());   // durable local index — survives a backend redeploy for the Scans tab
       poll(data.id);
     } catch (e2) {
       setErr(e2 instanceof Error ? e2.message : String(e2));
@@ -606,57 +610,6 @@ export function VerifyClient() {
       </details>
     </div>
   );
-}
-
-// The live console. Renders the job's timestamped log lines, auto-following the tail unless the user has
-// scrolled up (so they can read back without being yanked to the bottom on every poll). Streamed sandbox
-// output (`| …`) and pip lines (`pip| …`) are tinted so the repo's own output stands out from Calma's steps.
-function LogConsole({ job }: { job: Job }) {
-  const bodyRef = useRef<HTMLDivElement | null>(null);
-  const follow = useRef(true);
-  const logs = job.logs || [];
-  const running = job.status === "running" || job.status === "queued";
-
-  useEffect(() => {
-    const el = bodyRef.current;
-    if (el && follow.current) el.scrollTop = el.scrollHeight;
-  }, [logs.length]);
-
-  function onScroll() {
-    const el = bodyRef.current;
-    if (el) follow.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
-  }
-
-  const dotClass = running ? s.dotLive : job.status === "error" ? s.dotErr : s.dotDone;
-  return (
-    <div className={s.console}>
-      <div className={s.consoleHead}>
-        <span className={s.consoleHeadL}>
-          <span className={`${s.dot} ${dotClass}`} />
-          <span className={s.consoleStage}>{running ? `${job.stage}…` : job.status}</span>
-        </span>
-        <a className={s.consoleRaw} href={`/api/verify/${job.id}/logs`} target="_blank" rel="noreferrer">
-          {logs.length} lines · raw ↗
-        </a>
-      </div>
-      <div className={s.consoleBody} ref={bodyRef} onScroll={onScroll}>
-        {logs.length === 0 ? (
-          <div className={s.consoleEmpty}>starting…</div>
-        ) : (
-          logs.map((l, i) => <div key={i} className={logLineClass(l)}>{l}</div>)
-        )}
-      </div>
-    </div>
-  );
-}
-
-// tint by line kind: the run's own streamed stdout (`| `), pip/install output (`pip| ` / `! `), and the
-// budget/kill/error lines that explain a stopped job.
-function logLineClass(l: string): string {
-  if (/]\s+\|\s/.test(l)) return s.logStream;
-  if (/]\s+(pip\||!\s)/.test(l)) return s.logPip;
-  if (/(exceeded|killed|stopped|failed|error|crash)/i.test(l)) return s.logWarn;
-  return "";
 }
 
 function RepoList({ title, repos, selected, onPick }: {
