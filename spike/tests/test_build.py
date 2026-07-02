@@ -41,6 +41,62 @@ def test_detect_skips_readme_env_setup_commands(tmp_path):
     assert build.detect_entrypoint(str(tmp_path)) == ["iris.py"]
 
 
+def test_detect_readme_subdir_path_preserved(tmp_path):
+    # A README `python scripts/run.py` must run scripts/run.py, not a non-existent root run.py. The old code
+    # stripped to basename and silently missed the subdir script (fell back to a fabricated eval.py).
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "scripts" / "run.py").write_text("print(1)\n")
+    (tmp_path / "helpers.py").write_text("x = 1\n")
+    (tmp_path / "README.md").write_text("## run\npython scripts/run.py\n")
+    assert build.detect_entrypoint(str(tmp_path)) == ["scripts/run.py"]
+
+
+def test_detect_readme_stale_dash_m_rejected(tmp_path):
+    # A README `-m pkg.missing` that no longer resolves must NOT be trusted (it would fail the run); detection
+    # falls through to a real signal instead.
+    (tmp_path / "only.py").write_text("print(1)\n")
+    (tmp_path / "README.md").write_text("run: python -m pkg.gone\n")
+    assert build.detect_entrypoint(str(tmp_path)) == ["only.py"]  # single root script, not the stale -m
+
+
+def test_detect_runnable_package_main(tmp_path):
+    # A package-shaped repo (no root script) with code/__main__.py → `python -m code`.
+    pkg = tmp_path / "code"
+    pkg.mkdir()
+    (pkg / "__init__.py").write_text("")
+    (pkg / "__main__.py").write_text("if __name__ == '__main__':\n    print('go')\n")
+    assert build.detect_entrypoint(str(tmp_path)) == ["-m", "code"]
+
+
+def test_detect_subdir_driver_script(tmp_path):
+    # No root script, no package __main__ — but code/run_eval.py is a __main__-guarded driver that imports a
+    # metric lib. Detection reaches into the source subdir and returns the repo-relative path.
+    pkg = tmp_path / "code"
+    pkg.mkdir()
+    (pkg / "utils.py").write_text("import os\nx = 1\n")            # a util (no metric lib, no guard) — skipped
+    (pkg / "run_eval.py").write_text(
+        "import numpy as np\nif __name__ == '__main__':\n    print(np.mean([1, 2]))\n")
+    assert build.detect_entrypoint(str(tmp_path)) == ["code/run_eval.py"]
+
+
+def test_detect_subdir_driver_prefers_driver_stem(tmp_path):
+    # Two metric-importing, __main__-guarded scripts: the driver-ish stem (run_all) beats a plain analysis one.
+    pkg = tmp_path / "src"
+    pkg.mkdir()
+    for name in ("zutils_score.py", "run_all.py"):
+        (pkg / name).write_text("import sklearn\nif __name__ == '__main__':\n    pass\n")
+    assert build.detect_entrypoint(str(tmp_path)) == ["src/run_all.py"]
+
+
+def test_detect_none_when_no_signal(tmp_path):
+    # A repo with only tests/docs and no driver → None (the pipeline then reports missing-entrypoint honestly
+    # rather than fabricating a verdict).
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "test_x.py").write_text("import numpy\nif __name__ == '__main__':\n    pass\n")
+    (tmp_path / "docs").mkdir()
+    assert build.detect_entrypoint(str(tmp_path)) is None
+
+
 def test_era_pin_nongit_and_pinned_passthrough(tmp_path):
     # not a git repo -> no era detected -> packages unchanged (no network call)
     pkgs, era = build.era_pin(["scikit-learn", "numpy==1.24.0", "pandas>=2"], str(tmp_path))

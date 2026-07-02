@@ -22,6 +22,17 @@ _NOT_ENTRY = {"setup.py", "conftest.py", "__init__.py", "_version.py", "version.
 # `python -m venv ...` / `python -m pip install ...` BEFORE the real run command; picking those breaks the
 # run (e.g. `python -m venv` with no target dir). Skip them and keep scanning for the actual entrypoint.
 _SETUP_MODULES = {"venv", "virtualenv", "pip", "ensurepip", "pipenv", "poetry", "build", "twine", "uv", "conda"}
+# source dirs a runnable driver hides in when the repo root has no script (package-shaped repos)
+_SRC_DIRS = ("src", "code", "scripts", "experiments", "experiment", "bin", "analysis", "pipeline", "notebooks")
+# dirs that are never the headline entrypoint's home (tests/docs/examples) — skip when hunting a package/driver
+_SKIP_DIRS = {"test", "tests", "testing", "docs", "doc", "examples", "example", ".git", "__pycache__",
+              ".venv", "venv", "env", "node_modules", "build", "dist", ".github"}
+# import roots that signal a file actually computes/reports numbers (vs a config/util module)
+_METRIC_LIBS = frozenset({"sklearn", "numpy", "scipy", "pandas", "torch", "tensorflow", "xgboost",
+                          "lightgbm", "catboost", "statsmodels", "jax"})
+# driver-ish stems, most-likely-the-headline first (mirrors _ENTRY_NAMES, sans .py)
+_DRIVER_STEMS = ("reproduce", "runall", "run", "main", "eval", "evaluate", "runeval", "benchmark",
+                 "runbenchmark", "experiment", "analysis", "analyze", "figures", "results", "score")
 
 
 def _root_scripts(repo_dir):
@@ -32,12 +43,28 @@ def _root_scripts(repo_dir):
                   and os.path.isfile(os.path.join(repo_dir, f)))
 
 
-def detect_entrypoint(repo_dir):
-    """Best-effort: find the script that produces the headline numbers, so deep verify works without the
-    user naming it. README run-command → a known entrypoint name → a single root script → a repo-name match
-    → a script with a __main__ guard. Returns an argv list (e.g. ['iris-svm.py']) or None. (make-runnable,
-    guide §5.)"""
-    # 1) a run command in the README that points at a file present in the repo
+def _has_main_guard(path):
+    try:
+        return "__main__" in open(path, errors="replace").read()
+    except OSError:
+        return False
+
+
+def _module_exists(repo_dir, dotted):
+    """True if `dotted` (pkg.mod) resolves to a file/package under repo_dir, so `python -m dotted` can run
+    with cwd=repo_dir. Guards against a stale `-m` command in a README naming a module that no longer exists."""
+    base = os.path.join(repo_dir, *dotted.split("."))
+    return (os.path.isfile(base + ".py") or os.path.isfile(os.path.join(base, "__main__.py"))
+            or os.path.isdir(base))
+
+
+def _readme_run_command(repo_dir):
+    """A `python …` command from a README/REPRODUCE doc that points at a file/module that ACTUALLY EXISTS.
+    Two fixes over a naive scan: (a) preserve the relative PATH — `python scripts/run.py` must run
+    scripts/run.py, not a non-existent root run.py (the old code stripped to basename and silently missed
+    it); (b) validate a `-m pkg.mod` resolves under the repo before trusting it. Returns an argv list or None.
+    Arguments are intentionally dropped for now (a README's `--data /abs/path` often won't exist in the
+    sandbox); the AI planner / repair loop supply args."""
     for fn in ("README.md", "README.rst", "README.txt", "readme.md", "REPRODUCE.md", "REPRODUCIBILITY.md"):
         p = os.path.join(repo_dir, fn)
         if not os.path.isfile(p):
@@ -47,14 +74,84 @@ def detect_entrypoint(repo_dir):
         except OSError:
             continue
         for m in _RUN_RE.finditer(text):
-            tok = m.group(1)
+            tok = m.group(1).strip()
             if tok.startswith("-m"):
-                mod = (tok.split() + [""])[1].split(".")[0]
-                if mod in _SETUP_MODULES:
-                    continue                            # env setup (venv/pip/...), not the eval entrypoint
-                return tok.split()                      # python -m pkg.mod
-            if os.path.isfile(os.path.join(repo_dir, os.path.basename(tok))):
-                return [os.path.basename(tok)]
+                mod = (tok.split() + [""])[1]
+                if mod.split(".")[0] in _SETUP_MODULES:   # env setup (venv/pip/...), not the eval entrypoint
+                    continue
+                if _module_exists(repo_dir, mod):
+                    return ["-m", mod]
+                continue
+            if os.path.isfile(os.path.join(repo_dir, tok)):   # keeps a subdir path intact
+                return [tok]
+            base = os.path.basename(tok)                       # tolerate a README naming just the basename
+            if base != tok and os.path.isfile(os.path.join(repo_dir, base)):
+                return [base]
+    return None
+
+
+def _runnable_package(repo_dir):
+    """A top-level import package directly runnable via `python -m <pkg>` because it ships a
+    `<pkg>/__main__.py` — the Pythonic entrypoint for a package-shaped repo with no root script (e.g. a
+    `code/` or `<name>/` package). Only ROOT-level packages, so it runs with cwd=repo_dir and no PYTHONPATH
+    juggling. Returns the package name or None."""
+    try:
+        entries = sorted(os.listdir(repo_dir))
+    except OSError:
+        return None
+    for name in entries:
+        d = os.path.join(repo_dir, name)
+        if os.path.isdir(d) and name not in _SKIP_DIRS and os.path.isfile(os.path.join(d, "__main__.py")):
+            return name
+    return None
+
+
+def _subdir_driver_script(repo_dir):
+    """Last resort before giving up: look one level into the common source dirs (src/, code/, scripts/, the
+    repo-name package, …) for a DRIVER — a `.py` with a `__main__` guard that imports a metric library
+    (sklearn/numpy/…), i.e. a file that actually computes/reports, not a util or config. Ranked by a
+    driver-ish stem (run/main/eval/reproduce/…). Returns a repo-relative argv (['code/run.py']) or None.
+
+    Best-effort and fail-closed: a wrong pick can only produce a wrong/empty capture → DISCOVERED / REFUTED /
+    INCONCLUSIVE, never a false CONFIRM (binding is by metric identity, not by the fact that something ran).
+    That is strictly better than the old behavior of fabricating a non-existent `eval.py` that always failed."""
+    reponame = os.path.basename(repo_dir.rstrip("/"))
+    cands: list[tuple[int, str]] = []
+    seen_dirs = set()
+    for sub in _SRC_DIRS + (reponame,):
+        d = os.path.join(repo_dir, sub)
+        if sub in seen_dirs or not os.path.isdir(d):
+            continue
+        seen_dirs.add(sub)
+        try:
+            files = sorted(f for f in os.listdir(d) if f.endswith(".py") and f not in _NOT_ENTRY)
+        except OSError:
+            continue
+        for f in files:
+            path = os.path.join(d, f)
+            if not (os.path.isfile(path) and _has_main_guard(path)):
+                continue
+            if not (_imported_roots(path) & _METRIC_LIBS):    # skip utils/config — no compute → not a driver
+                continue
+            stem = re.sub(r"[^a-z0-9]", "", f[:-3].lower())
+            rank = next((i for i, s in enumerate(_DRIVER_STEMS) if s in stem), len(_DRIVER_STEMS))
+            cands.append((rank, os.path.join(sub, f)))
+    if not cands:
+        return None
+    cands.sort()
+    return [cands[0][1]]
+
+
+def detect_entrypoint(repo_dir):
+    """Best-effort: find the script that produces the headline numbers, so deep verify works without the
+    user naming it. In order of trust: a README run-command → a known entrypoint name at root → root-script
+    heuristics (only script / repo-name match / __main__ guard) → a runnable package (`-m pkg` when
+    `pkg/__main__.py` exists) → a __main__-guarded driver in a source subdir (code/, src/, …). Returns an
+    argv list (e.g. ['iris-svm.py'], ['-m', 'code'], ['code/run.py']) or None. (make-runnable, guide §5.)"""
+    # 1) a README run command that points at a file/module present in the repo (path- and module-validated)
+    cmd = _readme_run_command(repo_dir)
+    if cmd:
+        return cmd
     # 2) a known entrypoint filename present at the repo root
     for name in _ENTRY_NAMES:
         if os.path.isfile(os.path.join(repo_dir, name)):
@@ -69,12 +166,14 @@ def detect_entrypoint(repo_dir):
         if stem and len(stem) >= 4 and (stem in base or base in stem):
             return [f]
     for f in roots:                                      # a script with an `if __name__ == "__main__"` guard
-        try:
-            if "__main__" in open(os.path.join(repo_dir, f), errors="replace").read():
-                return [f]
-        except OSError:
-            continue
-    return None
+        if _has_main_guard(os.path.join(repo_dir, f)):
+            return [f]
+    # 4) a package-shaped repo (no root script): `python -m <pkg>` when `<pkg>/__main__.py` exists
+    pkg = _runnable_package(repo_dir)
+    if pkg:
+        return ["-m", pkg]
+    # 5) a __main__-guarded driver hiding in a source subdir (code/, src/, scripts/, the repo-name package)
+    return _subdir_driver_script(repo_dir)
 
 
 # import name → PyPI package, where they differ (otherwise the import name is the package name)
