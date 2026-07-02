@@ -60,6 +60,7 @@ export type VerifySubmit = {
   entry?: string | null;
   discover?: boolean;
   pip_install?: string[] | null;
+  acquire_data?: boolean;          // opt-in (paid): run the repo's own data-download pipeline, then recompute
   installation_id?: string | null;
   installation_proof?: string | null;
 };
@@ -148,6 +149,7 @@ export const verifyApi = {
           entry: body.entry || null,
           discover: body.discover !== false,
           pip_install: Array.isArray(body.pip_install) ? body.pip_install : null,
+          acquire_data: !!body.acquire_data,
           installation_id: body.installation_id || null,
           installation_proof: body.installation_proof || null,
           k: 2,

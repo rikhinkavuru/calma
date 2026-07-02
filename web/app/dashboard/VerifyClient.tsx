@@ -8,6 +8,7 @@ import type { Claim, GithubConfig, Job, Repo } from "@/lib/verify";
 import { ISSUE_TIERS, ORDER, TIER_META, pillTier, tierCounts, verdictLabel, type PillTier } from "@/lib/verdict";
 import { recordScan } from "@/lib/scan-history";
 import { LogConsole } from "./LogConsole";
+import { UpgradeModal } from "./UpgradeModal";
 import dash from "./dashboard.module.css";
 import s from "./verify.module.css";
 
@@ -36,10 +37,12 @@ function num(x: unknown): string {
 export function VerifyClient() {
   const [repo, setRepo] = useState("");
   const [deep, setDeep] = useState(true);
+  const [acquire, setAcquire] = useState(false);        // paid: run the repo's data-download pipeline
   const [entry, setEntry] = useState("");
   const [pip, setPip] = useState("");
   const [job, setJob] = useState<Job | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [gate, setGate] = useState<string | null>(null);  // upgrade-popup reason on a 402 tier gate
   const [busy, setBusy] = useState(false);
   // Defaults to "issues" (bad/inv/neu tiers) — a run with hundreds of discovered-but-unverified claims used
   // to dump ALL of them into one flat table by default, which reads as noise and buries the 2 real catches
@@ -264,6 +267,7 @@ export function VerifyClient() {
         body: JSON.stringify({
           repo: repo.trim(),
           deep,
+          acquire_data: acquire,
           entry: entry.trim() || null,
           pip_install: pip.trim() ? pip.trim().split(/\s+/) : null,
           installation_id: installationId,
@@ -271,6 +275,12 @@ export function VerifyClient() {
         }),
       });
       const data = await res.json();
+      // a tier gate (402) → the upgrade popup with the backend's plain-language reason, not an inline error.
+      if (res.status === 402) {
+        setGate(data?.error || "This is a paid feature — upgrade to unlock it.");
+        setBusy(false);
+        return;
+      }
       if (!res.ok) throw new Error(data?.error || `status ${res.status}`);
       recordScan(data.id, repo.trim());   // durable local index — survives a backend redeploy for the Scans tab
       poll(data.id);
@@ -326,6 +336,12 @@ export function VerifyClient() {
           <input type="checkbox" checked={deep} onChange={(e) => setDeep(e.target.checked)} />
           Deep verify (re-run the code to recompute the numbers)
         </label>
+        {deep && (
+          <label title="Runs the repo's own data-download scripts (numbered NN_*.py or a `make data` target) before verifying — for repos whose datasets aren't bundled. A paid capability.">
+            <input type="checkbox" checked={acquire} onChange={(e) => setAcquire(e.target.checked)} />
+            Download the repo&apos;s data <span className={dash.muted} style={{ fontSize: 11 }}>(Pro)</span>
+          </label>
+        )}
       </div>
 
       {/* Advanced: entrypoint + deps are auto-detected/inferred; this is the manual override. */}
@@ -469,8 +485,18 @@ export function VerifyClient() {
                     </details>
                   )}
                   <br />
-                  Showing the {job.n_claims} numbers Calma found — give it a runnable entrypoint (and any
-                  data/deps) to deep-verify them.
+                  {job.run.failure?.kind === "missing-data" ? (
+                    <>
+                      This repo downloads its data at runtime rather than bundling it. Turn on{" "}
+                      <b>Download the repo&apos;s data</b> above to run its acquisition pipeline first (a Pro
+                      capability), or connect the data — then Calma can recompute the {job.n_claims} numbers below.
+                    </>
+                  ) : (
+                    <>
+                      Showing the {job.n_claims} numbers Calma found — give it a runnable entrypoint (and any
+                      data/deps) to deep-verify them.
+                    </>
+                  )}
                 </>
               )}
             </div>
@@ -608,6 +634,8 @@ export function VerifyClient() {
           )}
         </div>
       </details>
+
+      <UpgradeModal reason={gate} onClose={() => setGate(null)} />
     </div>
   );
 }
