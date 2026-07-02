@@ -44,3 +44,24 @@ export const ORDER = [
   "NON-DETERMINISTIC", "REPRODUCED-ONLY", "INCONCLUSIVE",
   "DISCOVERED",
 ];
+
+// Tier-level summary for the results view: a big claim list is noise until it's grouped. Order matches
+// ORDER's priority — issues first, confirms next, the honest-uncertainty tiers, not-yet-checked last.
+export const TIER_META: { tier: PillTier; label: string; issue: boolean }[] = [
+  { tier: "bad", label: "caught", issue: true },              // REFUTED — a plain misreport
+  { tier: "inv", label: "invalidated", issue: true },         // INVALIDATED — the repo's own formula is wrong
+  { tier: "neu", label: "unstable", issue: true },            // NON-DETERMINISTIC — can't be trusted as-is
+  { tier: "ok", label: "confirmed", issue: false },
+  { tier: "warn", label: "unverifiable", issue: false },      // REPRODUCED-ONLY / INCONCLUSIVE
+  { tier: "idle", label: "not checked yet", issue: false },   // DISCOVERED
+];
+
+// "Issues" = the tiers worth a human's attention by default (mirrors PROBLEMS, but at tier granularity).
+export const ISSUE_TIERS: PillTier[] = TIER_META.filter((t) => t.issue).map((t) => t.tier);
+
+// Roll a per-verdict counts map (job.counts, e.g. {"REFUTED": 2, "CONFIRMED": 5}) up into per-tier totals.
+export function tierCounts(counts: Record<string, number>): Record<PillTier, number> {
+  const out: Record<PillTier, number> = { ok: 0, bad: 0, warn: 0, inv: 0, neu: 0, idle: 0 };
+  for (const [verdict, n] of Object.entries(counts || {})) out[pillTier(verdict)] += n;
+  return out;
+}

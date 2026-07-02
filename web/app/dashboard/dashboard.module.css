@@ -375,6 +375,7 @@
 .noticeOk { background: var(--ok-bg); color: var(--ok-fg); border: 1px solid var(--ok-line); }
 .noticeOk a { color: var(--ok-fg); font-weight: 600; text-decoration: underline; }
 .noticeErr { background: var(--bad-bg); color: var(--bad-fg); border: 1px solid var(--bad-line); }
+.noticeWarn { background: var(--warn-bg); color: var(--warn-fg); border: 1px solid color-mix(in srgb, var(--warn-fg) 40%, transparent); }
 .keytoken {
   font-family: var(--mono, monospace); font-size: 13px; background: var(--ink); color: #efe9df;
   padding: 13px 15px; border-radius: var(--radius-sm); word-break: break-all;

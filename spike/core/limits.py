@@ -86,10 +86,15 @@ TIERS: dict[str, Tier] = {
     "demo": Tier(
         name="demo",
         deep_verify_per_day=_i("CALMA_DEMO_SCANS_PER_DAY", 3),
-        top_k_claims=_i("CALMA_DEMO_TOP_K", 1),
-        sandbox_minutes_per_month=_i("CALMA_DEMO_SANDBOX_MIN", 5),
+        # top_k=1 / max_k=1 used to defeat the demo's own point: demo-repo/ has TWO claims (a README
+        # misreport meant to REFUTE, and an honest printed number meant to CONFIRM) — top_k=1 silently
+        # dropped one of them, and max_k=1 means the k>=2 empirical determinism check never runs, so even
+        # the surviving claim could never clear REPRODUCED-ONLY into a real CONFIRMED. demo-repo is tiny
+        # (~5s/run) so k=2 is still well inside the wall budget.
+        top_k_claims=_i("CALMA_DEMO_TOP_K", 3),
+        sandbox_minutes_per_month=_i("CALMA_DEMO_SANDBOX_MIN", 10),
         concurrency=_i("CALMA_DEMO_CONCURRENCY", 1),
-        max_k=_i("CALMA_DEMO_MAX_K", 1),
+        max_k=_i("CALMA_DEMO_MAX_K", 2),
         wall_seconds=_i("CALMA_DEMO_WALL_S", 120),
         mem_mb=_i("CALMA_DEMO_MEM_MB", 512),
         api_rpm=_i("CALMA_DEMO_API_RPM", 5),

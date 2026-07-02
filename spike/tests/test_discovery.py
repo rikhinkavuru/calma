@@ -55,3 +55,24 @@ def test_discover_realistic_repo():
     metrics = {c["metric"] for c in claims}
     assert {"accuracy", "roc_auc", "f1"} <= metrics
     assert all("id" in c and 0.0 < c["confidence"] <= 1.0 for c in claims)
+
+
+def test_discover_scans_the_entrys_own_subdirectory(tmp_path):
+    """A repo-root README claim and a nested-entrypoint's OWN README claim must both surface — a monorepo
+    with a runnable example nested under its own subfolder (demo-repo/, examples/mnist/, ...) is a real,
+    common shape. Before this fix, discover() only ever scanned repo_dir's root, so a claim documented next
+    to the entry it's actually about (not repo_dir's own top-level README) was silently invisible — exactly
+    what happened running calma's own live demo (entry=demo-repo/eval.py inside the calma monorepo)."""
+    (tmp_path / "README.md").write_text("Top-level project. See subfolders for examples.\n")
+    sub = tmp_path / "demo-repo"
+    sub.mkdir()
+    (sub / "README.md").write_text("Test accuracy: 94.2%\n")
+    claims = D.discover(str(tmp_path), entry="demo-repo/eval.py")
+    assert any(c["metric"] == "accuracy" and c["value"] == "94.2%" for c in claims), claims
+
+
+def test_discover_entry_at_repo_root_is_unaffected(tmp_path):
+    (tmp_path / "README.md").write_text("Accuracy: 90.0%\n")
+    claims_with_entry = D.discover(str(tmp_path), entry="eval.py")
+    claims_without = D.discover(str(tmp_path))
+    assert claims_with_entry == claims_without

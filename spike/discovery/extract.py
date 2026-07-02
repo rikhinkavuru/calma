@@ -238,24 +238,46 @@ def _candidate_csvs(repo_dir):
     return out
 
 
-def discover(repo_dir, stdout_text="") -> list[dict]:
-    """Discover claims across a repo's result files + README + (optional) captured stdout. Dedupes on
-    (metric, value), preferring the highest-confidence source; assigns stable ids."""
+def _scan_dir(d) -> list[dict]:
+    """The result-file + README scan, scoped to a single directory (repo root, or the entry's own
+    subdirectory — see `discover`'s `entry` param)."""
     found = []
     for fn in _RESULT_FILES:
-        p = os.path.join(repo_dir, fn)
+        p = os.path.join(d, fn)
         if os.path.isfile(p):
             found.extend(from_results_json(p))
-    for p in _candidate_csvs(repo_dir):
+    for p in _candidate_csvs(d):
         found.extend(from_results_csv(p))
     for fn in ("README.md", "README.rst", "README.txt", "readme.md"):
-        p = os.path.join(repo_dir, fn)
+        p = os.path.join(d, fn)
         if os.path.isfile(p):
             try:
                 with open(p, errors="replace") as fh:
                     found.extend(from_text(fh.read(2_000_000), location=fn))   # bounded README read
             except OSError:
                 pass
+    return found
+
+
+def discover(repo_dir, stdout_text="", entry=None) -> list[dict]:
+    """Discover claims across a repo's result files + README + (optional) captured stdout. Dedupes on
+    (metric, value), preferring the highest-confidence source; assigns stable ids.
+
+    `entry`: the argv the pipeline actually ran (e.g. ["demo-repo/eval.py"] or "examples/mnist/train.py
+    --epochs 3"). Real repos commonly nest a runnable example under its OWN subdirectory with its OWN
+    README documenting the claimed number (monorepos, `examples/`, a demo folder) — scanning only repo_dir's
+    root silently misses that claim entirely. When the entry's dirname differs from repo_dir, that
+    subdirectory is scanned TOO (repo-root results still count; this only adds a search location, never
+    replaces one — some repos legitimately document per-example results in the top-level README)."""
+    found = _scan_dir(repo_dir)
+    argv = entry.split() if isinstance(entry, str) else (entry or [])
+    entry_path = argv[0] if argv else None
+    if entry_path:
+        entry_dir = os.path.dirname(entry_path)
+        if entry_dir:
+            full_entry_dir = os.path.join(repo_dir, entry_dir)
+            if os.path.isdir(full_entry_dir) and os.path.normpath(full_entry_dir) != os.path.normpath(repo_dir):
+                found.extend(_scan_dir(full_entry_dir))
     if stdout_text:
         found.extend(from_text(stdout_text, location="stdout"))
 

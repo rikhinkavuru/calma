@@ -5,12 +5,23 @@
 // (leakage) — the same loop as the spike SPA, but first-party and behind login.
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Claim, GithubConfig, Job, Repo } from "@/lib/verify";
-import { ORDER, PROBLEMS, pillTier, verdictLabel } from "@/lib/verdict";
+import { ISSUE_TIERS, ORDER, TIER_META, pillTier, tierCounts, verdictLabel, type PillTier } from "@/lib/verdict";
 import dash from "./dashboard.module.css";
 import s from "./verify.module.css";
 
 // Same-origin connect route → 302s to GitHub's install URL. No hardcoded host, so it works on any deploy.
 const CONNECT_URL = "/api/github/connect";
+
+// job.failure_kind: the SUPERVISOR killed the isolated job (a resource/time budget, not the entrypoint's own
+// failure — see runner/supervisor.py). Distinct from job.run.failure, which is the entrypoint's own
+// classified failure and already carries its own hint string.
+const FAILURE_KIND_HINT: Record<string, string> = {
+  timeout: "exceeded the time budget for your tier and was stopped — a heavy dependency install or a slow "
+    + "entrypoint can hit this; upgrading raises the ceiling, or point Calma at a lighter entrypoint.",
+  memory: "ran out of memory for your tier and was stopped — needs a larger tier.",
+  cpu: "exceeded the CPU budget and was stopped — needs a larger tier.",
+  crashed: "the isolated process crashed unexpectedly.",
+};
 
 function pillClass(verdict: string): string {
   return s[pillTier(verdict)];
@@ -28,7 +39,11 @@ export function VerifyClient() {
   const [job, setJob] = useState<Job | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [filter, setFilter] = useState<"PROBLEMS" | "ALL">("ALL");
+  // Defaults to "issues" (bad/inv/neu tiers) — a run with hundreds of discovered-but-unverified claims used
+  // to dump ALL of them into one flat table by default, which reads as noise and buries the 2 real catches
+  // that actually matter. Each tier chip toggles independently; "confirmed"/"unverifiable"/"not checked yet"
+  // are collapsed (but their counts are always visible) until a human asks to see them.
+  const [visibleTiers, setVisibleTiers] = useState<Set<PillTier>>(new Set(ISSUE_TIERS));
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // GitHub connect + repo picker
@@ -187,7 +202,7 @@ export function VerifyClient() {
     setErr(null);
     setJob(null);
     setBusy(true);
-    setFilter("ALL");
+    setVisibleTiers(new Set(ISSUE_TIERS));
     try {
       const res = await fetch("/api/verify", {
         method: "POST",
@@ -211,13 +226,21 @@ export function VerifyClient() {
   }
 
   const counts = job?.counts || {};
-  const problems = PROBLEMS.reduce((n, v) => n + (counts[v] || 0), 0);
-  const clean = counts.CONFIRMED || 0;
+  const byTier = tierCounts(counts);
+  const issueTotal = ISSUE_TIERS.reduce((n, t) => n + byTier[t], 0);
   const leak = job?.leakage || [];
   const connected = !!installationId || !!cfg?.connected;   // a known install (client-remembered or backend)
 
+  function toggleTier(t: PillTier) {
+    setVisibleTiers((prev) => {
+      const next = new Set(prev);
+      if (next.has(t)) next.delete(t); else next.add(t);
+      return next;
+    });
+  }
+
   const claims: Claim[] = (job?.claims || [])
-    .filter((c) => (filter === "PROBLEMS" ? PROBLEMS.includes(c.verdict) : true))
+    .filter((c) => visibleTiers.has(pillTier(c.verdict)))
     .slice()
     .sort((a, b) => ORDER.indexOf(a.verdict) - ORDER.indexOf(b.verdict))
     .slice(0, 300);
@@ -312,16 +335,47 @@ export function VerifyClient() {
         />
       )}
       {reposErr && ghRepos.length === 0 && myRepos.length === 0 && (
-        <p className={dash.muted} style={{ fontSize: 12 }}>
-          Couldn’t list repos ({reposErr}). Paste a repo or local path above.
-        </p>
+        /^that GitHub installation is not connected/i.test(reposErr) ? (
+          // The backend's per-tenant binding is a stateless proof minted at connect time (server.py
+          // _install_proof) — a connection made before that existed, or before the CURRENT signing secret,
+          // has no valid proof and reads as "not connected" even though the GitHub App install is real and
+          // still active. One click through Connect re-mints a fresh proof; no need to uninstall/reinstall
+          // the App on GitHub's side.
+          <div className={`${dash.notice} ${dash.noticeWarn}`} style={{ marginTop: 4 }}>
+            <p style={{ margin: "0 0 8px" }}>
+              Your GitHub connection needs to be refreshed — the server can no longer verify it, even though
+              the App is still installed.
+            </p>
+            <button type="button" className={dash.btn} onClick={openConnect}>
+              Reconnect GitHub
+            </button>
+          </div>
+        ) : (
+          <p className={dash.muted} style={{ fontSize: 12 }}>
+            Couldn’t list repos ({reposErr}). Paste a repo or local path above.
+          </p>
+        )
       )}
 
       {err && <div className={`${dash.notice} ${dash.noticeErr}`}>{err}</div>}
 
       {busy && !job && <p className={dash.muted}>Cloning and preparing the repo…</p>}
       {job?.status === "error" && (
-        <div className={`${dash.notice} ${dash.noticeErr}`}>{job.error || "verification failed"}</div>
+        <div className={`${dash.notice} ${dash.noticeErr}`}>
+          {job.failure_kind && FAILURE_KIND_HINT[job.failure_kind] ? (
+            <>
+              {FAILURE_KIND_HINT[job.failure_kind]}
+              {job.error && (
+                <details style={{ marginTop: 6 }}>
+                  <summary style={{ cursor: "pointer", fontSize: 12 }}>raw error</summary>
+                  <span className={s.mono}>{job.error}</span>
+                </details>
+              )}
+            </>
+          ) : (
+            job.error || "verification failed"
+          )}
+        </div>
       )}
 
       {/* Live e2e log: every step from clone → build → run → recompute, streamed as it happens. This is the
@@ -338,23 +392,25 @@ export function VerifyClient() {
               {job.run.ran ? (
                 <>
                   Re-ran <code>{job.run.entry}</code> · captured {job.run.calls} computation(s) ·{" "}
-                  <b>{problems} need attention</b>, {clean} hold up.
+                  <b>{issueTotal} need attention</b>, {byTier.ok} confirmed.
                 </>
               ) : (
                 <>
                   Tried to re-run <code>{job.run.entry}</code> but it didn&apos;t execute
-                  {job.run.error ? (
+                  {job.run.failure?.hint ? (
+                    <> — {job.run.failure.hint}</>
+                  ) : job.run.error ? (
                     <>
                       {" "}— <span className={s.mono}>{job.run.error}</span>
                     </>
                   ) : null}
                   .
-                  {job.run.error_full && job.run.error_full !== job.run.error && (
+                  {(job.run.error || job.run.error_full) && (
                     <details>
                       <summary className={dash.muted} style={{ cursor: "pointer", fontSize: 12 }}>
-                        full error output
+                        {job.run.failure?.hint ? "raw error" : "full error output"}
                       </summary>
-                      <pre className={s.mono}>{job.run.error_full}</pre>
+                      <pre className={s.mono}>{job.run.error_full || job.run.error}</pre>
                     </details>
                   )}
                   <br />
@@ -382,55 +438,79 @@ export function VerifyClient() {
             </div>
           )}
 
-          <div className={s.cards}>
-            <div className={s.sum}><div className={s.n} style={{ color: "var(--bad-fg)" }}>{problems}</div><div className={s.l}>need attention</div></div>
-            <div className={s.sum}><div className={s.n} style={{ color: "var(--ok-fg)" }}>{clean}</div><div className={s.l}>hold up</div></div>
-            <div className={s.sum}><div className={s.n}>{counts.DISCOVERED || 0}</div><div className={s.l}>found · not re-run</div></div>
-            <div className={s.sum}><div className={s.n}>{job.n_claims}</div><div className={s.l}>claims total</div></div>
-          </div>
-
           {job.n_claims > 0 ? (
             <>
+              {/* Tier chips: each toggles its own rows independently. Defaults to "issues" only (caught /
+                  invalidated / unstable) — a big repo can discover hundreds of claims, and dumping all of
+                  them into one flat table by default buried the 2 that actually matter. The count is always
+                  visible even when a tier is collapsed, so "confirmed: 40" / "not checked yet: 300" reads as
+                  real information, not a void. */}
               <div className={s.filters}>
-                <button className={`${s.filter} ${filter === "ALL" ? s.filterOn : ""}`} onClick={() => setFilter("ALL")}>
-                  All ({job.n_claims})
-                </button>
-                <button className={`${s.filter} ${filter === "PROBLEMS" ? s.filterOn : ""}`} onClick={() => setFilter("PROBLEMS")}>
-                  Problems ({problems})
-                </button>
+                {TIER_META.map(({ tier, label }) => {
+                  const n = byTier[tier];
+                  const on = visibleTiers.has(tier);
+                  return (
+                    <button
+                      key={tier}
+                      type="button"
+                      className={`${s.filter} ${on ? s.filterOn : ""}`}
+                      onClick={() => toggleTier(tier)}
+                      disabled={n === 0}
+                    >
+                      <span className={`${s.pill} ${s[tier]}`} style={{ marginRight: 6 }}>{n}</span>
+                      {label}
+                    </button>
+                  );
+                })}
+                {visibleTiers.size < TIER_META.length && (
+                  <button type="button" className={s.filter} onClick={() => setVisibleTiers(new Set(TIER_META.map((t) => t.tier)))}>
+                    show all ({job.n_claims})
+                  </button>
+                )}
               </div>
-              <table className={s.table}>
-                <thead>
-                  <tr>
-                    <th>Metric</th><th>Claimed</th><th>Recomputed</th><th>Verdict</th><th>Where</th><th>Why</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {claims.map((c) => {
-                    const d = c.diff || {};
-                    const recomp = d.recomputed != null ? num(d.recomputed) : num(d.produced);
-                    const adv = c.validity?.advisory || [];
-                    return (
-                      <tr key={c.id}>
-                        <td><b>{c.metric}</b></td>
-                        <td className={s.mono}>{c.claimed}</td>
-                        <td className={s.mono}>{recomp}</td>
-                        <td><span className={`${s.pill} ${pillClass(c.verdict)}`}>{verdictLabel(c.verdict)}</span></td>
-                        <td className={s.where}>{(c.context || c.location || c.source || "").slice(0, 90)}</td>
-                        <td className={s.why}>
-                          {c.reason}
-                          {adv.length > 0 && <div className={s.adv}>⚠ validity: {adv.join("; ")}</div>}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              {job.truncated ? (
-                <p className={dash.muted} style={{ marginTop: 8 }}>
-                  Showing {job.claims.length} of {job.truncated} discovered claims.
+
+              {claims.length === 0 ? (
+                <p className={dash.muted} style={{ margin: "4px 0 12px" }}>
+                  {issueTotal === 0
+                    ? `No issues found — ${byTier.ok} claim(s) confirmed. Click a tier above to see the rest.`
+                    : "Nothing in the selected tiers — click one above to show its rows."}
                 </p>
-              ) : null}
+              ) : (
+                <>
+                  <table className={s.table}>
+                    <thead>
+                      <tr>
+                        <th>Metric</th><th>Claimed</th><th>Recomputed</th><th>Verdict</th><th>Where</th><th>Why</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {claims.map((c) => {
+                        const d = c.diff || {};
+                        const recomp = d.recomputed != null ? num(d.recomputed) : num(d.produced);
+                        const adv = c.validity?.advisory || [];
+                        return (
+                          <tr key={c.id}>
+                            <td><b>{c.metric}</b></td>
+                            <td className={s.mono}>{c.claimed}</td>
+                            <td className={s.mono}>{recomp}</td>
+                            <td><span className={`${s.pill} ${pillClass(c.verdict)}`}>{verdictLabel(c.verdict)}</span></td>
+                            <td className={s.where}>{(c.context || c.location || c.source || "").slice(0, 90)}</td>
+                            <td className={s.why}>
+                              {c.reason}
+                              {adv.length > 0 && <div className={s.adv}>⚠ validity: {adv.join("; ")}</div>}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                  {job.truncated ? (
+                    <p className={dash.muted} style={{ marginTop: 8 }}>
+                      Showing {job.claims.length} of {job.truncated} discovered claims.
+                    </p>
+                  ) : null}
+                </>
+              )}
             </>
           ) : (
             <p className={dash.muted}>No reported numbers found in this repo.</p>

@@ -118,3 +118,28 @@ def test_caps_at_max_targets():
         _write(d, "eval.py", src)
         props = TD.propose(d, known_metrics=set())    # nothing pre-covered, so all 8 are candidates
     assert len(props) <= TD._MAX_TARGETS
+
+
+def test_scans_only_the_entrys_subdirectory_in_a_monorepo():
+    """A monorepo with lots of unrelated code elsewhere and the actual entry nested in its own subfolder:
+    scanning must be scoped to that subfolder, not walk the whole repo picking up irrelevant name matches
+    from code that never runs (found via calma's own live demo: entry=demo-repo/eval.py inside the calma
+    monorepo turned up unrelated targets like 'mean'/'sharpe'/'stdev' from spike/'s own metric catalog)."""
+    with tempfile.TemporaryDirectory() as d:
+        os.makedirs(os.path.join(d, "unrelated_subsystem"))
+        _write(d, os.path.join("unrelated_subsystem", "catalog.py"),
+               "def precision(y_true, y_pred):\n    return 0.5\n")   # a real metric name, but not the entry's
+        sub = os.path.join(d, "demo-repo")
+        os.makedirs(sub)
+        _write(d, os.path.join("demo-repo", "eval.py"), "def accuracy(y_true, y_pred):\n    return 1.0\n")
+
+        props = TD.propose(d, known_metrics=set(), entry="demo-repo/eval.py")
+    assert [t["target"] for t in props] == ["accuracy"]   # only the entry-dir candidate, not the unrelated one
+
+
+def test_entry_at_repo_root_scans_normally():
+    with tempfile.TemporaryDirectory() as d:
+        _write(d, "eval.py", "def accuracy(y_true, y_pred):\n    return 1.0\n")
+        with_entry = TD.propose(d, known_metrics=set(), entry="eval.py")
+        without = TD.propose(d, known_metrics=set())
+    assert with_entry == without

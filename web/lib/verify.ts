@@ -99,10 +99,17 @@ export type Job = {
   n_claims: number;
   claims: Claim[];
   leakage: { dataset: string; findings: { kind: string; magnitude: number; detail: string }[] }[];
-  run: { ran: boolean; calls: number; entry: string; error?: string; error_full?: string } | null;
+  run: {
+    ran: boolean; calls: number; entry: string; error?: string; error_full?: string;
+    // the classified, human-readable reason the entrypoint didn't produce a usable result (server.py
+    // build.classify_failure) — needs-gpu | too-heavy | too-slow | missing-dep | missing-data | needs-network
+    // | errored. Prefer `failure.hint` over the raw `error` string when both are present.
+    failure?: { kind: string; hint: string } | null;
+  } | null;
   logs: string[];
   error: string | null;
-  failure_kind?: string;        // memory | timeout | cpu | crashed | error — why an isolated job was stopped
+  failure_kind?: string;        // memory | timeout | cpu | crashed | error — why an ISOLATED job was killed
+                                 // (the supervisor's resource monitor, not the entrypoint's own failure)
   truncated?: number;
 };
 

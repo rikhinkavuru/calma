@@ -53,13 +53,19 @@ def _iter_py_files(repo_dir: str):
                 return
 
 
-def propose(repo_dir: str, known_metrics=None) -> list[dict]:
+def propose(repo_dir: str, known_metrics=None, entry=None) -> list[dict]:
     """[{target, metric, inputs, confidence, static}] — candidate hand-rolled metric functions, ranked by name-
     match confidence, capped to `_MAX_TARGETS`. `target` is a bare function name (all 3 capture tiers accept
     that — see ast_capture.target_atoms / calma_capture's sys.monitoring qualname match); `inputs` assumes the
     conventional (y_true, y_pred) positional shape (order-independent for accuracy; a swapped order on an
     order-sensitive metric just fails the independent recompute, same fail-closed outcome as a wrong guess
     anywhere else in the capture ladder). Best-effort: any parse/IO error on a file is silently skipped.
+
+    `entry`: the argv the pipeline actually ran. When its dirname differs from repo_dir (a monorepo, an
+    `examples/` subfolder, ...), scanning starts THERE instead of repo_dir's root — otherwise a big repo
+    with an unrelated bulk of other code drowns out the file that actually matters, and burns the file
+    budget on content that was never going to run (found via the calma repo's own e2e demo: entry lives in
+    demo-repo/, but a repo-root scan turned up capture-target noise from spike/'s own metric catalog).
 
     `known_metrics`: metrics to SKIP because a higher-trust source already covers them. Default (None) auto-
     detects: `_SKLEARN_COVERED` if any scanned file actually imports/mentions sklearn (so this fallback
@@ -70,7 +76,15 @@ def propose(repo_dir: str, known_metrics=None) -> list[dict]:
     seen: set[str] = set()
     sklearn_seen = False
     sources: list[tuple[str, ast.AST]] = []
-    for path in _iter_py_files(repo_dir):
+    scan_root = repo_dir
+    argv = entry.split() if isinstance(entry, str) else (entry or [])
+    if argv:
+        entry_dir = os.path.dirname(argv[0])
+        if entry_dir:
+            candidate = os.path.join(repo_dir, entry_dir)
+            if os.path.isdir(candidate):
+                scan_root = candidate
+    for path in _iter_py_files(scan_root):
         try:
             with open(path, encoding="utf-8", errors="ignore") as fh:
                 src = fh.read()
