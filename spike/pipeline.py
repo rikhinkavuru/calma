@@ -811,7 +811,13 @@ def verify_repo(
                 # BYPASS an imperfect repo pipeline: the AI plan's canonical data-source URLs are fetched directly
                 # into the sandbox (opts.fetch_data), so a repo whose own download scripts fail still gets its
                 # inputs. Fetch runs BEFORE the repo's acquire scripts (which then process the materialized files).
-                sources = ((_get_plan() or {}).get("data_sources") or []) if opts.fetch_data else []
+                sources = []
+                if opts.fetch_data:
+                    _plan = _get_plan() or {}
+                    # the AI plan's URLs + deterministic canonical URLs for standard datasets (data_catalog) —
+                    # so a common data-blocked repo resolves reliably even when the model fumbles a URL.
+                    from runner import data_catalog as _CAT
+                    sources = _CAT.augment_sources(_plan.get("data_sources"), _plan.get("data_needed", ""))
                 if cmds or sources:
                     what = []
                     if sources:

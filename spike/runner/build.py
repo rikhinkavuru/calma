@@ -350,8 +350,10 @@ _FAILURE_TAXONOMY = [
     # "No such file or directory" below, which the same stderr line also contains.
     ("can't open file", ("missing-entrypoint", "couldn't find the script that runs this repo — name the "
                          "entrypoint (a .py file or `-m package.module`) under Advanced → Entrypoint")),
-    ("FileNotFoundError", ("missing-data", "an input file/dataset is missing — connect the data")),
-    ("No such file or directory", ("missing-data", "an input file/dataset is missing — connect the data")),
+    ("FileNotFoundError", ("missing-data", "an input file/dataset is missing — commit a predictions file "
+                           "(id,y_true,y_score) to verify the metric without the data, or connect the data")),
+    ("No such file or directory", ("missing-data", "an input file/dataset is missing — commit a predictions file "
+                                   "(id,y_true,y_score) to verify the metric without the data, or connect the data")),
     ("HTTPError", ("needs-network", "a runtime download failed — the dataset/model isn't bundled")),
     ("ConnectionError", ("needs-network", "a runtime download failed — the dataset/model isn't bundled")),
     ("URLError", ("needs-network", "a runtime download failed — the dataset/model isn't bundled")),

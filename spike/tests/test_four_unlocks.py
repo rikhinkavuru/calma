@@ -386,3 +386,16 @@ def test_auto_resolved_data_caps_refute_to_inconclusive():
         assert P._diff_claims(claims, run2, {"ran": True})[0]["verdict"] == VD.REFUTED
     finally:
         P.D = orig
+
+
+def test_data_catalog_augments_and_dedupes():
+    from runner import data_catalog as CAT
+    # data_needed mentions clinvar + GRCh38 → both canonical URLs added
+    out = CAT.augment_sources([], "Needs ClinVar VCF and the GRCh38 reference genome")
+    urls = {s["url"] for s in out}
+    assert any("clinvar.vcf.gz" in u for u in urls)
+    assert any("GRCh38" in u for u in urls)
+    # a plan source already covering clinvar is not duplicated
+    pre = [{"path": "d/clinvar.vcf.gz", "url": "https://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh38/clinvar.vcf.gz"}]
+    out2 = CAT.augment_sources(pre, "clinvar")
+    assert sum(1 for s in out2 if "clinvar.vcf.gz" in s["url"]) == 1     # deduped by URL

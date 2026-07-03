@@ -503,9 +503,11 @@ export function VerifyClient() {
                   <br />
                   {job.run.failure?.kind === "missing-data" ? (
                     <>
-                      This repo downloads its data at runtime rather than bundling it. Turn on{" "}
-                      <b>Download the repo&apos;s data</b> above to run its acquisition pipeline first (a Pro
-                      capability), or connect the data — then Calma can recompute the {job.n_claims} numbers below.
+                      This repo needs data it doesn&apos;t bundle. Fastest fix:{" "}
+                      <b>commit a predictions file</b> (<code>id, y_true, y_score</code>) — Calma recomputes the
+                      metric directly from it, no data download or pipeline run needed. Or turn on{" "}
+                      <b>Download the repo&apos;s data</b> above to fetch it automatically (a Pro capability) —
+                      then Calma can recompute the {job.n_claims} numbers below.
                     </>
                   ) : (
                     <>
