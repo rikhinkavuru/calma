@@ -59,9 +59,10 @@ def augment_sources(sources, data_needed: str = "") -> list[dict]:
             continue
         if ent["url"] in have:
             continue
-        # place it where the repo expects this dataset if a plan source already names that path; else the default.
-        path = next((s["path"] for s in out
-                     if any(m in (str(s.get("path", "")).lower()) for m in ent["match"])), ent["path"])
-        out.append({"path": path, "url": ent["url"]})
+        # Always land it at the catalog's canonical default path — NOT a fuzzy-matched plan path (the substring
+        # "clinvar" collides with "evo2_clinvar", which would drop the ClinVar VCF onto a different dataset's
+        # file). The default paths are the standard conventions; the plan's own entry (if any) still covers a
+        # non-standard path with the plan's URL, so both get tried.
+        out.append({"path": ent["path"], "url": ent["url"]})
         have.add(ent["url"])
     return out
