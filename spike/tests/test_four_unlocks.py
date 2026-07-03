@@ -434,3 +434,11 @@ def test_reactive_acquire_resolves_missing_file_and_reruns():
 
     n_ok, n_res = E._run_acquire(_Sbx(), [["03_get_clinvar.py"]], "python", 60, None)
     assert n_res >= 1 and n_ok == 1                                # resolved via catalog, step then succeeded
+
+
+def test_missing_binary_detection_is_allowlisted():
+    from runner.e2b_runner import _missing_binaries_from
+    assert _missing_binaries_from("FileNotFoundError: [Errno 2] No such file or directory: 'bedtools'") == ["bedtools"]
+    assert _missing_binaries_from("samtools: command not found") == ["samtools"]
+    assert _missing_binaries_from("No such file or directory: 'rm_rf_evil'") == []   # not allowlisted → refused
+    assert _missing_binaries_from("No such file or directory: 'data/x.vcf.gz'") == [] # a path, not a bare tool

@@ -241,6 +241,49 @@ def _missing_files_from(tail):
     return out
 
 
+# A step often shells out to a CLI tool the image lacks (`FileNotFoundError: 'bedtools'` / `X: command not
+# found`). We install it and retry. ALLOWLISTED to well-known tools only — a repo's error is attacker-influenced,
+# so we never apt/conda-install an arbitrary name it puts in a traceback (supply-chain rail).
+_MISSING_BIN_RES = [
+    re.compile(r"No such file or directory:?\s*'([A-Za-z][\w.+-]{1,40})'"),
+    re.compile(r"([A-Za-z][\w.+-]{1,40}):\s*command not found"),
+    re.compile(r"which:\s*no\s+([A-Za-z][\w.+-]{1,40})\b"),
+]
+_ALLOWED_BINS = frozenset({
+    "bedtools", "samtools", "bcftools", "tabix", "bgzip", "htsfile", "vcftools", "plink", "plink2",
+    "bwa", "bowtie2", "minimap2", "star", "salmon", "kallisto", "seqkit", "datamash", "parallel",
+    "wget", "unzip", "pigz", "jq", "gawk", "liftOver", "bigWigToBedGraph", "bedGraphToBigWig",
+    "twoBitToFa", "faToTwoBit", "gffread", "bedGraphToBigWig", "wigToBigWig", "cutadapt", "fastqc",
+})
+
+
+def _missing_binaries_from(tail):
+    """Allowlisted CLI tool names a failed step said were missing (bare command names, not file paths)."""
+    out = []
+    for rx in _MISSING_BIN_RES:
+        for m in rx.finditer(tail or ""):
+            name = (m.group(1) or "").strip()
+            if "/" not in name and "." not in name and name in _ALLOWED_BINS and name not in out:
+                out.append(name)
+    return out
+
+
+def _install_binary(sbx, name, timeout, log=None):
+    """Install an allowlisted CLI tool: apt first (fast; bedtools/samtools/tabix/… are in Debian), else
+    micromamba from bioconda/conda-forge (which the image ships). Best-effort; returns True if it lands on PATH."""
+    for cmd in ("apt-get install -y -q %s" % shlex.quote(name),
+                "apt-get update -qq && apt-get install -y -q %s" % shlex.quote(name),
+                "micromamba install -y -n base -c bioconda -c conda-forge %s" % shlex.quote(name)):
+        try:
+            sbx.commands.run(cmd, timeout=timeout)
+            chk = sbx.commands.run("command -v %s" % shlex.quote(name), timeout=30)
+            if getattr(chk, "exit_code", 1) == 0:
+                return True
+        except Exception:  # noqa: BLE001
+            continue
+    return False
+
+
 def _tail_of(ra):
     """The stderr (else stdout) tail of a commands.run result, for missing-file extraction."""
     err = getattr(ra, "stderr", "") or ""
@@ -282,17 +325,30 @@ def _run_acquire(sbx, acquire, pybin, timeout, acquire_env, log=None, data_resol
               % (" ".join(argv), "ok" if ok else "failed", "" if ok else " — " + _reason(tail)))
 
     resolved: set[str] = set()
+    tried_bin: set[str] = set()
     n_resolved = 0
     for _round in range(3):                                  # bounded resolve↔retry loop
         failed = [(a, t) for (a, ok, t) in results.values() if not ok]
-        missing = []
+        missing, bins = [], []
         for _a, tail in failed:
             for p in _missing_files_from(tail):
                 if p not in resolved and p not in missing:
                     missing.append(p)
-        if not missing:
+            for b in _missing_binaries_from(tail):
+                if b not in tried_bin and b not in bins:
+                    bins.append(b)
+        if not missing and not bins:
             break
         got = []
+        # (a) install missing CLI tools the steps shell out to (bedtools/samtools/…)
+        for b in bins:
+            tried_bin.add(b)
+            if _install_binary(sbx, b, timeout, log=log):
+                got.append("bin:" + b)
+                _note(log, "E2B: installed missing tool `%s`" % b)
+            else:
+                _note(log, "E2B: could not install `%s` (best-effort)" % b)
+        # (b) resolve missing data files to the EXACT path the repo reported
         for p in missing:
             url = _CAT.resolve_path(p)                       # deterministic catalog (by filename) first
             if not url and data_resolver:                    # then the injected AI resolver (given the exact path)
