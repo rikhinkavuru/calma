@@ -28,6 +28,11 @@ BASE_DATA_HOSTS: tuple[str, ...] = (
     "*.amazonaws.com", "storage.googleapis.com", "*.googleapis.com",
     "pypi.org", "files.pythonhosted.org",                     # a pip called mid-acquire
     "conda.anaconda.org", "repo.anaconda.com",                # a conda/micromamba solve mid-acquire
+    # common genomics / open-science data hosts (a credentialed acquire from a research repo reaches these).
+    "*.encodeproject.org", "encodeproject.org", "*.ucsc.edu", "hgdownload.soe.ucsc.edu",
+    "*.ensembl.org", "ftp.ensembl.org", "*.ncbi.nlm.nih.gov", "ftp.ncbi.nlm.nih.gov",
+    "*.ebi.ac.uk", "ftp.ebi.ac.uk", "*.broadinstitute.org", "*.kaggle.com", "kaggle.com",
+    "*.dropbox.com", "*.dropboxusercontent.com", "drive.google.com", "*.figshare.com",
 )
 
 DENY_ALL = ("0.0.0.0/0",)

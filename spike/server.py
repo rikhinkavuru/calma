@@ -286,8 +286,12 @@ def run_job(job, req: VerifyReq):
             from runner import secrets as _SEC
             tenant = job.get("_tenant", "owner")
             acq_env = _SEC.get_store().env_for(tenant) or None
-            acq_allow = _EG.allowlist_for(list(acq_env or {}))
+            # The egress allowlist exists to stop a leaked CREDENTIAL from being exfiltrated off the data host.
+            # With NO secret injected there is nothing to protect, and a default-deny allowlist only breaks
+            # legitimate downloads from hosts we didn't pre-list (ENCODE/UCSC/Ensembl/…). So clamp egress ONLY
+            # when a credential is present; otherwise the acquire runs with open net (still gated to paid tiers).
             if acq_env:
+                acq_allow = _EG.allowlist_for(list(acq_env))
                 _log(job, "data-acquisition: injecting %d tenant secret(s), egress limited to %d host(s)"
                      % (len(acq_env), len(acq_allow)))
         opts = PIPE.VerifyOptions(
