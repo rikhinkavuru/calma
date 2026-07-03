@@ -107,6 +107,12 @@ export type Job = {
     // | errored. Prefer `failure.hint` over the raw `error` string when both are present.
     failure?: { kind: string; hint: string } | null;
   } | null;
+  summary?: {                   // plain-language explanation (core/report.summarize) — leads the results view
+    headline: string;
+    conclusion: string;
+    findings: string[];
+    next_step: string;
+  } | null;
   logs: string[];
   error: string | null;
   failure_kind?: string;        // memory | timeout | cpu | crashed | error — why an ISOLATED job was killed

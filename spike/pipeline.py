@@ -202,6 +202,48 @@ def _apply_leakage_overlay(records: list[dict], leakage: list[dict]) -> None:
             rec["reason"] = "reproducible but invalid: %s" % "; ".join(notes)
 
 
+def _apply_baseline_overlay(records: list[dict], leakage: list[dict]) -> None:
+    """Trivial-baseline / degenerate-distribution overlay from a split's LABEL distribution (in place). A number
+    that reproduces perfectly is still INVALID if it's no better than a constant predictor, at/below chance, or
+    computed on a single-class test set — the 'looks great, means nothing' bug. Uses the label stats the leakage
+    scan attached (from committed OR materialized/downloaded data), dataset-name-matched like the leakage overlay
+    so one dataset's baseline never mis-attributes to another. Downgrade-only; never a false CONFIRM."""
+    stats: dict[str, dict] = {}
+    for d in leakage or []:
+        ls = d.get("label_stats")
+        if ls:
+            stats[_norm_ds(d.get("dataset"))] = ls
+    if not stats:
+        return
+    for rec in records:
+        toks = _claim_dataset_tokens(rec)
+        ls = next((s for ds, s in stats.items() if ds in toks), None)
+        if not ls:
+            continue
+        metric = (rec.get("metric") or "").lower()
+        try:
+            val = float(rec.get("claimed", rec.get("value")))
+        except (TypeError, ValueError):
+            val = None
+        note = None
+        if ls.get("n_classes", 2) <= 1:
+            note = "the test set has a single class — the score is vacuous (degenerate distribution)"
+        elif val is not None and val == val:
+            maj = ls.get("majority_frac") or 0.0
+            if metric in ("accuracy", "acc", "balanced_accuracy") and val <= maj + 1e-9:
+                note = ("accuracy %.4g is at or below the majority-class baseline %.4g — a constant predictor "
+                        "matches it (no signal)" % (val, maj))
+            elif metric in ("auroc", "auc", "roc_auc", "roc-auc") and val <= 0.5 + 1e-9:
+                note = "AUROC %.4g is at or below chance (0.50) — the model has no discrimination" % val
+        if not note:
+            continue
+        rec.setdefault("validity", {"invalidating": [], "advisory": []})
+        rec["validity"]["invalidating"].append(note)
+        if rec["verdict"] not in (VD.REFUTED, VD.INVALIDATED):
+            rec["verdict"] = VD.INVALIDATED
+            rec["reason"] = note
+
+
 def _apply_anomaly_overlay(records: list[dict], store) -> None:
     """Feature 11 (in place, ADVISORY): flag a claim's value as a cross-run outlier vs the verified-run history
     for its (dataset, metric). It NEVER changes a verdict and NEVER auto-refutes — a genuine SOTA is also an
@@ -959,6 +1001,9 @@ def verify_repo(
     # fold dataset-level leakage back onto each attributed claim's verdict (the validity moat): a number
     # that reproduces perfectly is still INVALIDATED if its held-out split leaked.
     _apply_leakage_overlay(records, leakage)
+    # trivial-baseline / degenerate on the SAME (materialized or committed) split label distribution: an accuracy
+    # at/below the majority-class baseline, an AUROC at/below chance, or a single-class test set is INVALID.
+    _apply_baseline_overlay(records, leakage)
     # inline red-team gate (feature 8): a second, independent screen of every CONFIRMED, downgrade-only.
     _apply_redteam_gate(records, claims, run_result.get("runs") if (opts.deep and run_result) else None)
     # feature 1 second rail: if the repair loop changed repo source, cap CONFIRMED → REPRODUCED-ONLY.
@@ -981,6 +1026,9 @@ def verify_repo(
         receipt = None
 
     trace.stage("done", "verification complete")
+    from core import report as REPORT
+    summary = REPORT.summarize(records, job_run, leakage)      # plain-language explanation (leads the UI)
+    trace.note("summary: " + summary["headline"])
     return {
         "status": "done",
         "stage": "done",
@@ -990,6 +1038,7 @@ def verify_repo(
         "counts": counts,
         "n_claims": len(claims),
         "leakage": leakage,
+        "summary": summary,
         "receipt": receipt,
         "trace": trace.events,
     }

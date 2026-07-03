@@ -30,6 +30,11 @@ function pillClass(verdict: string): string {
   return s[pillTier(verdict)];
 }
 
+// render **bold** spans in a plain-language summary line (the only markup core/report emits).
+function mdBold(text: string): React.ReactNode {
+  return text.split(/\*\*(.+?)\*\*/g).map((part, i) => (i % 2 === 1 ? <b key={i}>{part}</b> : part));
+}
+
 function num(x: unknown): string {
   return typeof x === "number" && Number.isFinite(x) ? Number(x).toPrecision(5) : "—";
 }
@@ -462,6 +467,27 @@ export function VerifyClient() {
 
       {job?.status === "done" && (
         <>
+          {job.summary && (
+            <div
+              className={`${s.banner} ${issueTotal > 0 ? s.bannerWarn : byTier.ok > 0 ? s.bannerOk : s.bannerWarn}`}
+              style={{ display: "flex", flexDirection: "column", gap: 8 }}
+            >
+              <div style={{ fontSize: 16, fontWeight: 700 }}>{job.summary.headline}</div>
+              <div style={{ lineHeight: 1.55 }}>{job.summary.conclusion}</div>
+              {job.summary.findings?.length ? (
+                <ul style={{ margin: "2px 0 0", paddingLeft: 18, lineHeight: 1.6 }}>
+                  {job.summary.findings.map((f, i) => (
+                    <li key={i}>{mdBold(f)}</li>
+                  ))}
+                </ul>
+              ) : null}
+              {job.summary.next_step ? (
+                <div className={dash.muted} style={{ fontSize: 13, marginTop: 2 }}>
+                  → {job.summary.next_step}
+                </div>
+              ) : null}
+            </div>
+          )}
           {job.run && (
             <div className={`${s.banner} ${ranVerifiable ? s.bannerOk : s.bannerWarn}`}>
               {ranVerifiable ? (

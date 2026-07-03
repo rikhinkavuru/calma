@@ -330,7 +330,8 @@ def run_job(job, req: VerifyReq):
             result = PIPE.verify_repo(repo_dir, opts, update=update, log=logf)
         _set(job, status="done", stage="done", claims=result["claims"], counts=result["counts"],
              n_claims=result["n_claims"], leakage=result["leakage"], run=result["run"],
-             receipt=result.get("receipt"), trace=result["trace"], finished=time.time())
+             summary=result.get("summary"), receipt=result.get("receipt"), trace=result["trace"],
+             finished=time.time())
         _log(job, "done — %s" % ", ".join("%s:%d" % (k, v) for k, v in result["counts"].items()))
     except SUP.BudgetExceeded as e:
         # The isolated child was killed or died (OOM / timeout / CPU / crash). The job ends cleanly with a

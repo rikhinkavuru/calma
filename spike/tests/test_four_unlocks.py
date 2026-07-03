@@ -517,3 +517,43 @@ def test_leakage_scan_dir_based_splits(tmp_path):
             (d / f"{i}.txt").write_text(s)
     res = L.scan_locations([str(tmp_path)])
     assert res and any(f["kind"] == "duplicate-row leakage" for r in res for f in r["findings"])
+
+
+# ── trivial-baseline on materialized data + plain-language report ──────────────────────────────────────────────
+def test_baseline_overlay_invalidates_trivial_accuracy():
+    import pipeline as P
+    from core import verdict as VD
+    leakage = [{"dataset": "ds1", "label_stats": {"majority_frac": 0.9, "n_classes": 2, "n": 100}}]
+    recs = [{"id": "c", "metric": "accuracy", "claimed": "0.9", "verdict": VD.CONFIRMED, "reason": "ok",
+             "validity": {"invalidating": [], "advisory": []}, "context": "dataset=ds1"}]
+    P._apply_baseline_overlay(recs, leakage)
+    assert recs[0]["verdict"] == VD.INVALIDATED and "majority-class baseline" in recs[0]["reason"]
+
+
+def test_baseline_overlay_degenerate_single_class():
+    import pipeline as P
+    from core import verdict as VD
+    leakage = [{"dataset": "ds1", "label_stats": {"majority_frac": 1.0, "n_classes": 1, "n": 50}}]
+    recs = [{"id": "c", "metric": "auroc", "claimed": "1.0", "verdict": VD.CONFIRMED, "reason": "ok",
+             "validity": {"invalidating": [], "advisory": []}, "context": "dataset=ds1"}]
+    P._apply_baseline_overlay(recs, leakage)
+    assert recs[0]["verdict"] == VD.INVALIDATED and "single class" in recs[0]["reason"]
+
+
+def test_baseline_overlay_does_not_touch_real_metrics():
+    import pipeline as P
+    from core import verdict as VD
+    leakage = [{"dataset": "ds1", "label_stats": {"majority_frac": 0.55, "n_classes": 2, "n": 100}}]
+    recs = [{"id": "c", "metric": "accuracy", "claimed": "0.89", "verdict": VD.CONFIRMED, "reason": "ok",
+             "validity": {"invalidating": [], "advisory": []}, "context": "dataset=ds1"}]
+    P._apply_baseline_overlay(recs, leakage)
+    assert recs[0]["verdict"] == VD.CONFIRMED      # 0.89 >> 0.55 majority → NOT trivial, untouched
+
+
+def test_report_summary_explains_problems():
+    from core import report as R
+    s = R.summarize([{"verdict": "INVALIDATED"}] * 3 + [{"verdict": "CONFIRMED"}],
+                    run={"ran": True, "entry": "run.py", "calls": 10, "determinism": {"stable": True}},
+                    leakage=[{"dataset": "d", "findings": [{"invalidating": True, "detail": "34% homology"}]}])
+    assert "problem" in s["headline"].lower() and any("leakage" in f.lower() for f in s["findings"])
+    assert s["conclusion"] and s["next_step"]

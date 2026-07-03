@@ -192,7 +192,7 @@ def scan_locations(roots, max_pairs=8, train_cap=1500, test_cap=400):
             if not train or not test or name in seen:
                 continue
             seen.add(name)
-            out.append(_leak_result(name, train, test, train_cap, test_cap))
+            out.append(_leak_result(name, train, test, train_cap, test_cap, _csv_label_col(p["test"])))
         # dataset-dir splits (downloaded data)
         for name, d in list(_split_dirs(root).items())[:max_pairs]:
             if name in seen:
@@ -201,18 +201,80 @@ def scan_locations(roots, max_pairs=8, train_cap=1500, test_cap=400):
             if not train or not test:
                 continue
             seen.add(name)
-            out.append(_leak_result(name, train, test, train_cap, test_cap))
+            out.append(_leak_result(name, train, test, train_cap, test_cap, _dir_label_dist(d["test"])))
     return out
 
 
-def _leak_result(name, train, test, train_cap, test_cap):
+def _leak_result(name, train, test, train_cap, test_cap, test_labels=None):
     n_train, n_test = len(train), len(test)
     train, test = _stride(train, train_cap), _stride(test, test_cap)
     seqs = sum(1 for s in test[:50] if isinstance(s, str) and len(s) > 20
                and s[:30].isalpha()) / max(1, len(test[:50])) > 0.5
-    return {"dataset": name, "n_train": n_train, "n_test": n_test, "sequences": seqs,
-            "sampled": n_train > train_cap or n_test > test_cap,
-            "findings": check_leakage(train, test, sequences=seqs)}
+    out = {"dataset": name, "n_train": n_train, "n_test": n_test, "sequences": seqs,
+           "sampled": n_train > train_cap or n_test > test_cap,
+           "findings": check_leakage(train, test, sequences=seqs)}
+    stats = _label_stats(test_labels)
+    if stats:
+        out["label_stats"] = stats                          # majority-baseline + class count → trivial/degenerate overlay
+    return out
+
+
+def _label_stats(labels):
+    """Test-set label distribution → {majority_frac, n_classes, n}: the majority-class accuracy a CONSTANT
+    predictor achieves (trivial-baseline) and whether the split is single-class (a degenerate, vacuous eval)."""
+    if not labels:
+        return None
+    counts: dict = {}
+    for y in labels:
+        counts[y] = counts.get(y, 0) + 1
+    n = sum(counts.values())
+    if n == 0:
+        return None
+    return {"majority_frac": max(counts.values()) / n, "n_classes": len(counts), "n": n}
+
+
+def _dir_label_dist(test_dir, cap=20000):
+    """Label distribution of a dataset-DIR test split — the class is the immediate subdir (train/test/<class>/…).
+    Returns a list of class labels (one per file), bounded."""
+    labels = []
+    try:
+        for cls in sorted(os.listdir(test_dir)):
+            p = os.path.join(test_dir, cls)
+            if not os.path.isdir(p):
+                continue
+            for _r, _d, fs in os.walk(p):
+                for f in fs:
+                    if f.lower().endswith(_SEQ_EXTS):
+                        labels.append(cls)
+                        if len(labels) >= cap:
+                            return labels
+    except OSError:
+        return None
+    return labels or None
+
+
+_LABEL_COLS = ("label", "y", "target", "class", "y_true", "labels")
+
+
+def _csv_label_col(path, cap=20000):
+    """Label column of a CSV test split (a column named label/y/target/class, else the last column). Bounded."""
+    try:
+        with open(path, errors="replace") as fh:
+            header = fh.readline().strip().split(",")
+            low = [h.strip().lower() for h in header]
+            idx = next((low.index(c) for c in _LABEL_COLS if c in low), len(header) - 1)
+            if idx < 0:
+                return None
+            labels = []
+            for line in fh:
+                parts = line.rstrip("\n").split(",")
+                if idx < len(parts):
+                    labels.append(parts[idx].strip())
+                    if len(labels) >= cap:
+                        break
+            return labels or None
+    except OSError:
+        return None
 
 
 def from_committed_splits(repo_dir, max_pairs=8, train_cap=1500, test_cap=400):
