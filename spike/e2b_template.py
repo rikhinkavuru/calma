@@ -63,9 +63,14 @@ _MICROMAMBA_INSTALL = ("curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/
 # Julia (polyglot variant only): the official static tarball, symlinked onto PATH so `shutil.which("julia")`
 # resolves it for run_lang. Pinned to an LTS for reproducibility.
 _JULIA_VERSION = os.environ.get("CALMA_TEMPLATE_JULIA", "1.10.4")
+# Best-effort (|| true): R is the common non-Python case (bioinformatics); a Julia CDN hiccup must not fail the
+# whole polyglot build and lose R with it. -fL: fail on HTTP error + follow redirects (a silent 302→HTML that
+# tars to garbage is what flaked the first attempt). If Julia is absent at runtime, run_lang degrades honestly.
 _JULIA_INSTALL = (
-    "curl -Ls https://julialang-s3.julialang.org/bin/linux/x64/%s/julia-%s-linux-x86_64.tar.gz "
-    "| tar -xz -C /opt && ln -sf /opt/julia-%s/bin/julia /usr/local/bin/julia && julia --version"
+    "(curl -fL --retry 3 https://julialang-s3.julialang.org/bin/linux/x64/%s/julia-%s-linux-x86_64.tar.gz "
+    "-o /tmp/julia.tgz && tar -xzf /tmp/julia.tgz -C /opt "
+    "&& ln -sf /opt/julia-%s/bin/julia /usr/local/bin/julia && julia --version && rm -f /tmp/julia.tgz) "
+    "|| echo 'julia install skipped (CDN) — R still available'"
     % (_JULIA_VERSION.rsplit(".", 1)[0], _JULIA_VERSION, _JULIA_VERSION)
 )
 
@@ -92,6 +97,9 @@ def main() -> int:
     t = Template()
     builder = (
         t.from_python_image(py)
+        # Build as root so raw run_cmd steps can write /usr/local/bin (the micromamba/Julia binaries). The
+        # microVM's Firecracker boundary — not an in-VM user — is the isolation wall for untrusted verify code.
+        .set_user("root")
         # curl/bzip2/ca-certificates are needed to fetch the micromamba (+ Julia) static binaries.
         .apt_install(["git", "build-essential", "curl", "bzip2", "ca-certificates"])
         .pip_install(["uv"])                              # the fast installer, resident for runtime residuals
