@@ -11,6 +11,8 @@ INCONCLUSIVE (fail closed; "scope the claim"). Zero -> unbound -> INCONCLUSIVE (
 """
 from __future__ import annotations
 
+import re
+
 from . import catalog as C
 from . import conventions as CONV
 from . import formula_diff as FZ
@@ -27,6 +29,34 @@ def _claim_cid(claim) -> tuple[str | None, str]:
     """(canonical metric id or None, raw metric string)."""
     raw = (claim.get("metric") or "").strip()
     return C.canonical(raw), raw
+
+
+# context tokens too generic to identify a specific dataset/model (they appear in every row).
+_CTX_STOP = frozenset({"dataset", "data", "model", "clf", "classifier", "estimator", "method", "split",
+                       "name", "task", "fold", "seed", "run", "the", "a", "of", "on", "for", "test", "train",
+                       "val", "eval", "set", "score", "result", "mean", "std", "avg", "all", "full", "base"})
+
+
+def _ctx_tokens(ctx) -> set:
+    """Normalize a claim/computation context (a 'dataset=X model=Y' string, or a {name: value} dict) into a set
+    of identifying tokens — lowercased alphanumeric runs, minus generic stop-words. This is how a benchmark
+    row's context is matched to the computation's captured context, WITHOUT ever touching the value."""
+    if isinstance(ctx, dict):
+        text = " ".join(str(v) for v in ctx.values())
+    else:
+        text = str(ctx or "")
+    toks = set()
+    for t in re.split(r"[^A-Za-z0-9]+", text.lower()):
+        if t and len(t) >= 2 and t not in _CTX_STOP and not t.isdigit():
+            toks.add(t)
+    return toks
+
+
+def _ctx_overlap(claim_toks: set, call_ctx) -> int:
+    """How many identifying context tokens the claim shares with a captured call (semantic match strength)."""
+    if not claim_toks or not call_ctx:
+        return 0
+    return len(claim_toks & _ctx_tokens(call_ctx))
 
 
 def _matches(call, cid, raw) -> bool:
@@ -93,6 +123,22 @@ def _bound_call(claim, calls):
         cands = user
         if len(cands) == 1:
             return cands[0], "bound", pfx + "unique repo-code candidate"
+
+    # context-aware disambiguation (SAFE — semantic identity, never value): a benchmark computes the SAME metric
+    # for many dataset/model combinations, so a leaderboard row is otherwise unbindable. The claim carries its
+    # row's context (dataset=X model=Y); each captured call carries the semantic context of its call site (the
+    # loop's dataset/model locals). Bind the claim to the call whose context matches — a UNIQUE strongest match
+    # is a clean bind; a tie just narrows the pool for the heuristics below. Recompute still verifies the value,
+    # so this can never fabricate a CONFIRM (unlike binding-by-value, which stays forbidden).
+    claim_toks = _ctx_tokens(claim.get("context"))
+    if claim_toks and len(cands) > 1 and any(c.get("context") for c in cands):
+        scored = [(c, _ctx_overlap(claim_toks, c.get("context"))) for c in cands]
+        best = max(s for _, s in scored)
+        if best > 0:
+            matched = [c for c, s in scored if s == best]
+            if len(matched) == 1:
+                return matched[0], "bound", pfx + "context match (%d shared token(s))" % best
+            cands = matched                                  # narrowed to the best-matching context; continue below
 
     split = (claim.get("split") or "").lower()
     sizes = [c.get("n") for c in cands]

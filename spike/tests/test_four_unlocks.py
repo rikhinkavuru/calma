@@ -468,3 +468,39 @@ def test_pipeline_ranking_empty_for_non_pipeline(tmp_path):
     from orchestrator.tools_static import find_pipeline_entrypoints
     (tmp_path / "eval.py").write_text("print(1)\n")
     assert find_pipeline_entrypoints(str(tmp_path)) == []           # not a numbered pipeline
+
+
+# ── context-aware binding (confirm a whole benchmark table in one run, not number-by-number) ───────────────────
+def test_capture_extracts_semantic_context():
+    import calma_capture as CC
+    ctx = CC._extract_context({"dataset": "human_nontata_promoters", "clf": "rf", "acc": 0.86,
+                               "path": "/tmp/x", "long": "z" * 100})
+    assert ctx == {"dataset": "human_nontata_promoters", "clf": "rf"}   # names/paths/values excluded
+
+
+def test_context_binding_disambiguates_same_metric():
+    """A benchmark computes accuracy for many model×dataset cells → same metric, many captures. The claim's row
+    context binds it to the RIGHT capture (semantic, not value), so a leaderboard confirms in one pass."""
+    from core.diff import _bound_call
+    claim = {"metric": "accuracy", "value": 0.86, "context": "dataset=human_nontata_promoters model=RF"}
+    calls = [
+        {"metric": "accuracy", "result": 0.86, "user_site": True, "site": "a.py:5",
+         "context": {"dataset": "human_nontata_promoters", "clf": "rf"}},
+        {"metric": "accuracy", "result": 0.72, "user_site": True, "site": "a.py:9",
+         "context": {"dataset": "human_enhancers", "clf": "cnn"}},
+    ]
+    call, status, reason = _bound_call(claim, calls)
+    assert status == "bound" and call["result"] == 0.86 and "context match" in reason
+
+
+def test_context_binding_is_not_value_binding():
+    """Safety: context match is by dataset/model tokens, NEVER the value. Two captures with the SAME context but
+    different values stay ambiguous (context can't disambiguate them) — recompute, not value, must decide."""
+    from core.diff import _bound_call
+    claim = {"metric": "accuracy", "value": 0.9, "context": "dataset=d1 model=m1"}
+    calls = [
+        {"metric": "accuracy", "result": 0.9, "user_site": True, "site": "a.py:5", "context": {"dataset": "d1"}},
+        {"metric": "accuracy", "result": 0.4, "user_site": True, "site": "a.py:5", "context": {"dataset": "d1"}},
+    ]
+    _call, status, _reason = _bound_call(claim, calls)
+    assert status != "bound"          # same context both → NOT uniquely bound by context (never picks by value)

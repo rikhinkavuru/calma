@@ -125,16 +125,45 @@ def _result_scalar(r):
 _PREFIXES = tuple(p for p in {sys.prefix, sys.base_prefix} if p)
 
 
-def _call_site():
-    """Walk past this shim's own frames to the real caller. Returns (site, user_site): site = file:line of
-    the call; user_site = True when the call originates in the REPO's own code, False when it comes from
-    inside a library (sklearn's GridSearchCV / CV scorers live in site-packages). This is what lets the
-    binder collapse a metric's 31 library-internal computations down to the one the repo's code computed —
-    the headline number — without ever looking at the value."""
+# local-variable NAMES that identify the SEMANTIC context of a metric call — which dataset / model / split /
+# fold it was computed for. Capturing these lets the binder tell apart the many same-metric computations a
+# benchmark makes (accuracy for model A on dataset X vs model B on dataset Y) — the exact thing that otherwise
+# makes a leaderboard table unbindable. Context is metadata, NEVER the value, so it can only help a BIND, never
+# fabricate a CONFIRM (the recompute still verifies independently).
+_CTX_NAME_HINTS = ("dataset", "data_name", "dataname", "corpus", "model", "clf", "classifier", "estimator",
+                   "method", "algo", "algorithm", "split", "task", "benchmark", "arch", "variant", "fold",
+                   "condition", "setting", "group", "subset", "regime", "scenario", "name", "run_name")
+
+
+def _extract_context(f_locals):
+    """Short string locals whose NAME looks like a dataset/model/split identifier → the call's semantic context.
+    Bounded + defensive (runs in the untrusted hot path): ≤6 entries, ≤64-char values, no paths/newlines. Never
+    reads the metric value. Returns {name: value} or None."""
+    ctx = {}
+    try:
+        for k, v in f_locals.items():
+            if len(ctx) >= 6:
+                break
+            if not isinstance(v, str) or not v or len(v) > 64 or "\n" in v or "/" in v or "\\" in v:
+                continue
+            lk = k.lower()
+            if any(h in lk for h in _CTX_NAME_HINTS):
+                ctx[lk] = v
+    except Exception:  # noqa: BLE001 — a context-scan hiccup must never break capture
+        return None
+    return ctx or None
+
+
+def _call_site(ctx=False):
+    """Walk past this shim's own frames to the real caller. Returns (site, user_site[, context]): site = file:line
+    of the call; user_site = True when the call originates in the REPO's own code, False when it comes from
+    inside a library (sklearn's GridSearchCV / CV scorers live in site-packages). This is what lets the binder
+    collapse a metric's 31 library-internal computations down to the one the repo's code computed — the headline
+    number — without ever looking at the value. With ctx=True, also returns the caller's semantic context."""
     try:
         f = sys._getframe(1)
     except Exception:  # noqa: BLE001
-        return None, True
+        return (None, True, None) if ctx else (None, True)
     while f is not None:
         fn = f.f_code.co_filename
         if fn.endswith("calma_capture.py"):
@@ -143,8 +172,17 @@ def _call_site():
         is_lib = ("site-packages" in fn or "dist-packages" in fn
                   or any(fn.startswith(p) for p in _PREFIXES) or fn.startswith("<"))
         base = fn.rsplit("/", 1)[-1]
-        return "%s:%d" % (base, f.f_lineno), (not is_lib)
-    return None, True
+        site, user = "%s:%d" % (base, f.f_lineno), (not is_lib)
+        if ctx:
+            # context comes from the REPO's frame — the nearest non-library caller (the loop that varies the
+            # dataset/model lives in the repo, even when the metric is invoked from inside a library).
+            rf = f
+            while rf is not None and ("site-packages" in rf.f_code.co_filename
+                                      or "dist-packages" in rf.f_code.co_filename):
+                rf = rf.f_back
+            return site, user, _extract_context((rf or f).f_locals)
+        return site, user
+    return (None, True, None) if ctx else (None, True)
 
 
 def _nsamples(inputs):
@@ -178,7 +216,7 @@ def record(metric, value, *, sink="explicit", label=None, kwargs=None, site=None
 
 
 def _record(metric, value, inputs, *, sink="explicit", label=None, kwargs=None, site=None, user_site=None,
-            n=None):
+            n=None, context=None):
     """Collision-safe recorder: `inputs` is an explicit dict (arbitrary repo param names), never **kwargs.
 
     site/user_site/n may be passed explicitly by a capture tier that already knows the provenance (the
@@ -197,7 +235,9 @@ def _record(metric, value, inputs, *, sink="explicit", label=None, kwargs=None, 
         else:
             ser_inputs[k] = sv
     if site is None and user_site is None:
-        site, user_site = _call_site()
+        site, user_site, ctx = _call_site(ctx=True)
+        if context is None:
+            context = ctx
     entry = {"sink": sink, "metric": metric, "kwargs": _safe_kwargs(kwargs),
              "result": _result_scalar(value), "captured_full": full,
              "site": site, "user_site": bool(user_site), "n": n if n is not None else _nsamples(inputs or {})}
@@ -205,6 +245,8 @@ def _record(metric, value, inputs, *, sink="explicit", label=None, kwargs=None, 
         entry["inputs"] = ser_inputs
     if label is not None:
         entry["label"] = label
+    if context:
+        entry["context"] = context          # semantic identity (dataset/model/…) → context-aware binding
     _emit(entry)
 
 
@@ -544,8 +586,9 @@ def install_targets_monitoring(specs):
                     _mon_pending().pop(key, None)
                 site, user_site = _mon_site(code)
                 sink = ("static:" if spec2.get("static") else "") + "target:" + spec2.get("target", "?")
+                ctx = _extract_context(frame.f_locals) if frame is not None else None
                 _record(spec2.get("metric") or _MON_TARGETS[0][0], retval, inputs,
-                        sink=sink, site=site, user_site=user_site)
+                        sink=sink, site=site, user_site=user_site, context=ctx)
         except Exception:  # noqa: BLE001
             return None
         return None
