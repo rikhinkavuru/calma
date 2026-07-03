@@ -78,7 +78,7 @@ def test_install_once_run_k_times(tmp_path, monkeypatch):
     cmds = _LOG.get("cmds", [])
     assert sum(1 for c in cmds if "scikit-learn" in c) == 1     # the DEP installed ONCE (not k×)
     assert any("uv pip install" in c for c in cmds)            # via uv (the fast installer)
-    assert sum(1 for c in cmds if c.startswith("python ")) == 3  # entrypoint ran k×
+    assert sum(1 for c in cmds if c.startswith("python ") and "/capture/" not in c) == 3  # entrypoint ran k×
     assert len(res["runs"]) == 3 and res["ran_ok"]
     assert res["cost"]["runs"] == 3 and res["cost"]["reused_sandbox"] is True
     assert _LOG.get("killed", 0) == 1                          # sandbox killed once at the end

@@ -539,6 +539,8 @@ def _run_repo_orchestrated(repo_dir: str, opts: VerifyOptions, trace: Trace, k: 
         holder["fuzz"] = r.get("fuzz")
         if r.get("data_auto_resolved"):
             holder["data_auto_resolved"] = True     # carry the auto-fetch flag → mismatch cap downstream
+        if r.get("leakage"):
+            holder["leakage"] = r["leakage"]        # carry materialized-data leakage findings → validity stage
         return ORR(ran_ok=bool(r.get("ran_ok")), runs=(r.get("runs") or []), meta=(r.get("meta") or []),
                    cost=(r.get("cost") or {}), source_modified=[], approach=approach)
 
@@ -647,6 +649,8 @@ def _run_repo_orchestrated(repo_dir: str, opts: VerifyOptions, trace: Trace, k: 
         run_dict["fuzz"] = holder["fuzz"]                  # preserve the un-foolability emit for diff_claim
     if holder.get("data_auto_resolved"):
         run_dict["data_auto_resolved"] = True              # → _diff_claims caps a mismatch to INCONCLUSIVE
+    if holder.get("leakage"):
+        run_dict["leakage"] = holder["leakage"]            # materialized-data leakage → the validity stage
     # unify the source-edit rail with the heuristic path so _apply_agent_modified_cap works identically.
     run_dict["repair_manifest"] = {"source_modified": (result.source_modified or []) + _src_changed,
                                    "orchestrator_trace": result.trace}
@@ -904,6 +908,13 @@ def verify_repo(
     trace.stage("checking data", "checking committed splits and prediction artifacts")
     try:
         leakage = [r for r in LEAK.from_committed_splits(repo_dir) if r["findings"]]
+        # ALSO fold in leakage found on MATERIALIZED data — the in-sandbox probe checked the actual downloaded
+        # train/test split (runner/e2b_runner._run_leakage_probe), which a committed-splits-only scan can't see.
+        mat = [r for r in ((run_result or {}).get("leakage") or []) if r.get("findings")]
+        if mat:
+            have = {r.get("dataset") for r in leakage}
+            leakage.extend(r for r in mat if r.get("dataset") not in have)
+            trace.note("leakage checked on materialized (downloaded) data — %d contaminated dataset(s)" % len(mat))
         if leakage:
             trace.note("data leakage detected in %d dataset(s)" % len(leakage))
     except Exception:  # noqa: BLE001

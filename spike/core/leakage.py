@@ -136,23 +136,89 @@ def _stride(xs, cap):
     return xs[::step][:cap]
 
 
-def from_committed_splits(repo_dir, max_pairs=8, train_cap=1500, test_cap=400):
-    """Run leakage detection on a repo's COMMITTED train/test split files — no re-run. Returns a result per
-    dataset {dataset, n_train, n_test, sampled, findings}. The cheap, data-only validity check; the magnitude
-    is estimated on a bounded sample (a lower bound on the true leak)."""
-    out = []
-    for name, p in list(_split_pairs(repo_dir).items())[:max_pairs]:
-        train, test = _read_seq_col(p["train"]), _read_seq_col(p["test"])
-        if not train or not test:
-            continue
-        n_train, n_test = len(train), len(test)
-        train, test = _stride(train, train_cap), _stride(test, test_cap)
-        seqs = sum(1 for s in test[:50] if isinstance(s, str) and len(s) > 20
-                   and s[:30].isalpha()) / max(1, len(test[:50])) > 0.5
-        out.append({"dataset": name, "n_train": n_train, "n_test": n_test, "sequences": seqs,
-                    "sampled": n_train > train_cap or n_test > test_cap,
-                    "findings": check_leakage(train, test, sequences=seqs)})
+_SEQ_EXTS = (".txt", ".csv", ".tsv", ".seq", ".fa", ".fasta", ".fna")
+
+
+def _read_seqs_under(d, cap):
+    """Read up to `cap` sequences from the files under a split DIR (the dataset-dir format: train/<class>/*.txt).
+    One sequence per non-empty line; FASTA headers skipped; a CSV-ish line takes its first column."""
+    seqs: list[str] = []
+    for root, dirs, files in os.walk(d):
+        dirs[:] = [x for x in dirs if not x.startswith(".")]
+        for fn in sorted(files):
+            if not fn.lower().endswith(_SEQ_EXTS):
+                continue
+            try:
+                with open(os.path.join(root, fn), errors="replace") as fh:
+                    for line in fh:
+                        s = line.strip()
+                        if not s or s.startswith(">"):
+                            continue
+                        seqs.append(s.split(",")[0].split("\t")[0] if ("," in s or "\t" in s) else s)
+                        if len(seqs) >= cap:
+                            return seqs
+            except OSError:
+                continue
+    return seqs
+
+
+def _split_dirs(root):
+    """Find sibling train/ + test/ DIRS (the download/dataset-dir format, e.g. genomic_benchmarks caches
+    <base>/train/<class>/*.txt + <base>/test/...). Returns {name: {train: dir, test: dir}}."""
+    out = {}
+    for r, dirs, _files in os.walk(root):
+        dirs[:] = [d for d in dirs if d not in (".git", "node_modules", "__pycache__")]
+        low = {d.lower(): d for d in dirs}
+        tr = next((low[k] for k in ("train", "training") if k in low), None)
+        te = next((low[k] for k in ("test", "testing", "val", "valid", "validation") if k in low), None)
+        if tr and te:
+            out[os.path.basename(r.rstrip("/")) or "dataset"] = {
+                "train": os.path.join(r, tr), "test": os.path.join(r, te)}
+            dirs[:] = []                                     # a split root found here — don't descend into it
     return out
+
+
+def scan_locations(roots, max_pairs=8, train_cap=1500, test_cap=400):
+    """Leakage detection over one or more ROOT dirs, covering BOTH committed CSV train/test pairs AND the
+    dataset-dir format (train/ + test/ dirs of sequence files) — so it works on MATERIALIZED data (a repo that
+    downloads its splits at runtime), not only committed CSVs. Returns a result per dataset. Bounded samples."""
+    out, seen = [], set()
+    for root in roots:
+        if not root or not os.path.isdir(root):
+            continue
+        # committed CSV pairs
+        for name, p in list(_split_pairs(root).items())[:max_pairs]:
+            train, test = _read_seq_col(p["train"]), _read_seq_col(p["test"])
+            if not train or not test or name in seen:
+                continue
+            seen.add(name)
+            out.append(_leak_result(name, train, test, train_cap, test_cap))
+        # dataset-dir splits (downloaded data)
+        for name, d in list(_split_dirs(root).items())[:max_pairs]:
+            if name in seen:
+                continue
+            train, test = _read_seqs_under(d["train"], train_cap * 4), _read_seqs_under(d["test"], test_cap * 4)
+            if not train or not test:
+                continue
+            seen.add(name)
+            out.append(_leak_result(name, train, test, train_cap, test_cap))
+    return out
+
+
+def _leak_result(name, train, test, train_cap, test_cap):
+    n_train, n_test = len(train), len(test)
+    train, test = _stride(train, train_cap), _stride(test, test_cap)
+    seqs = sum(1 for s in test[:50] if isinstance(s, str) and len(s) > 20
+               and s[:30].isalpha()) / max(1, len(test[:50])) > 0.5
+    return {"dataset": name, "n_train": n_train, "n_test": n_test, "sequences": seqs,
+            "sampled": n_train > train_cap or n_test > test_cap,
+            "findings": check_leakage(train, test, sequences=seqs)}
+
+
+def from_committed_splits(repo_dir, max_pairs=8, train_cap=1500, test_cap=400):
+    """Leakage detection on a repo's COMMITTED train/test splits — no re-run. Delegates to scan_locations over
+    the repo dir (now also catches dataset-dir-format committed splits, not just <name>_train.csv pairs)."""
+    return scan_locations([repo_dir], max_pairs=max_pairs, train_cap=train_cap, test_cap=test_cap)
 
 
 def check_leakage(train, test, *, sequences: bool = False, exact_thresh: float = 0.01,

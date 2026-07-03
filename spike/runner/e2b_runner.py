@@ -28,7 +28,8 @@ import time
 from . import CAPTURE_DIR, build, parse_capture
 from . import effector
 
-_SHIM_FILES = ("calma_capture.py", "sitecustomize.py", "reinvoke.py", "run_notebook_e2b.py")
+_SHIM_FILES = ("calma_capture.py", "sitecustomize.py", "reinvoke.py", "run_notebook_e2b.py",
+               "calma_leakage_probe.py")
 _LANG_INTERP = effector.LANG_INTERP   # canonical map (shared with orchestrator.tools_exec); polyglot template only
 _MAX_SANDBOX_S = effector.MAX_SANDBOX_S   # hard cap on a sandbox's lifetime (build + all k runs); see effector
 _MAX_ARCHIVE_B = 200 * 1024 * 1024   # above this, fall back to per-file upload (keeps the child's memory bounded)
@@ -414,6 +415,34 @@ def _pull_capture(sbx, remote):
         return tf.name
 
 
+def _run_leakage_probe(sbx, pybin, timeout, log=None):
+    """Run the in-sandbox data-validity probe on MATERIALIZED data (after acquire/fetch) and pull its findings.
+    Independently detects train/test contamination (duplicate-row + homology leakage) in data the repo
+    downloaded — the check that catches an inflated held-out number even when the split never touches the host.
+    Returns the findings list (empty on any error — best-effort, never breaks a run)."""
+    try:
+        _note(log, "E2B: checking materialized data for train/test leakage…")
+        sbx.commands.run("%s /capture/calma_leakage_probe.py" % pybin,
+                         envs={"CALMA_LEAKAGE_OUT": "/capture/leakage.json"}, timeout=min(int(timeout), 600))
+        raw = _pull_capture(sbx, "/capture/leakage.json")
+        if not raw:
+            return []
+        with open(raw) as fh:
+            import json as _json
+            results = _json.load(fh)
+        try:
+            os.remove(raw)
+        except OSError:
+            pass
+        hits = sum(len(r.get("findings") or []) for r in (results or []))
+        if hits:
+            _note(log, "E2B: leakage probe — %d contamination finding(s) in materialized data" % hits)
+        return results or []
+    except Exception as e:  # noqa: BLE001
+        _note(log, "E2B: leakage probe skipped (%s)" % str(e)[:120])
+        return []
+
+
 def _install(sbx, pip_install, pip_strict, timeout, pip_cmd="pip install -q", log=None):
     """Install deps ONCE. Strict (requirements.txt) → one command, failure surfaces, deps respected as pinned
     (faithful repro). Tolerant (inferred) → per-package, ignore misses so one bad guess can't abort the env,
@@ -595,6 +624,7 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
     t_start = time.time()
     build_seconds = 0.0
     data_fetched = 0
+    leakage_findings = None
     # heavy deps (torch/tf/…) need a much bigger install budget than the run timeout. With a deferred `resolve`
     # the deps aren't known until after boot, so size the ceiling for the heavy case (harmless — see docstring).
     heavy = True if resolve else build.deps_are_heavy(pip_install)
@@ -614,6 +644,11 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
         for fn in _SHIM_FILES:                                   # stage the capture shim + the repo (once)
             with open(os.path.join(CAPTURE_DIR, fn), "rb") as fh:
                 sbx.files.write("/capture/" + fn, fh.read())
+        try:                                                    # ship the pure-stdlib leakage detector for the probe
+            with open(os.path.join(os.path.dirname(CAPTURE_DIR), "core", "leakage.py"), "rb") as fh:
+                sbx.files.write("/capture/calma_leakage.py", fh.read())
+        except OSError:
+            pass
         _upload_dir(sbx, repo_dir, "/work", log=log)
         if resolve is not None:                                 # join the run-plan NOW — it ran during the boot
             entry, pip_install, pip_strict, targets = resolve()
@@ -732,6 +767,15 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
                     pass
             meta.append({"returncode": rc, "killed": killed, "seconds": dt,
                          "stdout_tail": (out or "")[-2000:], "stderr_tail": (err or "")[-2000:]})
+        # validity on MATERIALIZED data — AFTER the runs, when the data exists (downloaded by acquire OR by the
+        # repo's OWN code during the run, e.g. genomic_benchmarks.download_dataset). Independently checks the
+        # actual train/test split for leakage — the inflated-number bug a committed-splits-only scan can't see.
+        # FCR-safe: read-only; findings route through the existing validity layer (→ INVALIDATED), never a value.
+        if sbx is not None and any(m.get("returncode") == 0 for m in meta):
+            try:
+                leakage_findings = _run_leakage_probe(sbx, pybin, inst_timeout, log=log)
+            except Exception:  # noqa: BLE001
+                pass
     finally:
         if sbx is not None:
             try:
@@ -742,4 +786,6 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
                                    hooks_armed=hooks_armed, fuzz=fuzz_records, python_used=python_used)
     if data_fetched:
         result["data_auto_resolved"] = True     # caller caps a mismatch → INCONCLUSIVE (not the repo's own data)
+    if leakage_findings:
+        result["leakage"] = leakage_findings    # validity on materialized data → surfaced by the pipeline
     return result

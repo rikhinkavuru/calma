@@ -504,3 +504,16 @@ def test_context_binding_is_not_value_binding():
     ]
     _call, status, _reason = _bound_call(claim, calls)
     assert status != "bound"          # same context both → NOT uniquely bound by context (never picks by value)
+
+
+def test_leakage_scan_dir_based_splits(tmp_path):
+    """Materialized-data leakage: the detector now handles the download/dataset-DIR format (train/ + test/ dirs
+    of sequence files), not just committed <name>_train.csv pairs — so it fires on downloaded data."""
+    from core import leakage as L
+    for split, seqs in (("train", ["ACGTACGTAC" * 3] * 20), ("test", ["ACGTACGTAC" * 3] * 5)):
+        d = tmp_path / "ds" / split / "pos"
+        d.mkdir(parents=True)
+        for i, s in enumerate(seqs):
+            (d / f"{i}.txt").write_text(s)
+    res = L.scan_locations([str(tmp_path)])
+    assert res and any(f["kind"] == "duplicate-row leakage" for r in res for f in r["findings"])
