@@ -566,7 +566,8 @@ def test_artifact_verify_no_false_refute_on_unrelated_claim(tmp_path):
     import pipeline as P
     (tmp_path / "results").mkdir()
     with open(tmp_path / "results" / "predictions.csv", "w", newline="") as f:
-        w = csv.writer(f); w.writerow(["id", "y_true", "y_pred"])
+        w = csv.writer(f)
+        w.writerow(["id", "y_true", "y_pred"])
         for i in range(50):
             w.writerow([i, i % 2, i % 2])                    # perfect → recomputes to 1.0
     # a claim for a DIFFERENT number, from an unrelated location, among several claims → must not bind/refute
