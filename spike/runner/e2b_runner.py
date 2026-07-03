@@ -25,9 +25,11 @@ import tempfile
 import time
 
 from . import CAPTURE_DIR, build, parse_capture
+from . import effector
 
-_SHIM_FILES = ("calma_capture.py", "sitecustomize.py", "reinvoke.py")
-_MAX_SANDBOX_S = 3600   # hard cap on a sandbox's lifetime (build + all k runs) — safety bound on cost/E2B limits
+_SHIM_FILES = ("calma_capture.py", "sitecustomize.py", "reinvoke.py", "run_notebook_e2b.py")
+_LANG_INTERP = effector.LANG_INTERP   # canonical map (shared with orchestrator.tools_exec); polyglot template only
+_MAX_SANDBOX_S = effector.MAX_SANDBOX_S   # hard cap on a sandbox's lifetime (build + all k runs); see effector
 _MAX_ARCHIVE_B = 200 * 1024 * 1024   # above this, fall back to per-file upload (keeps the child's memory bounded)
 
 
@@ -135,6 +137,34 @@ def _upload_dir(sbx, local_dir, dest, log=None):
                     sbx.files.write(dest + "/" + rel, fh.read())
             except OSError:
                 pass
+
+
+def _set_egress(sbx, allow_out, log=None):
+    """Restrict the sandbox's outbound traffic to `allow_out` (default-deny everything else) for the acquire
+    phase. Uses E2B's live `update_network` (SNI/Host domain filtering on 443/80). Best-effort: an SDK/plan
+    without it keeps the current posture — logged so it's never a silent security assumption."""
+    fn = getattr(sbx, "update_network", None)
+    if not callable(fn):
+        _note(log, "E2B: egress allowlist unavailable on this SDK — acquire runs with full internet (gated)")
+        return
+    try:
+        fn(allow_out=list(allow_out), deny_out=["0.0.0.0/0"])
+        _note(log, "E2B: acquire egress limited to %s" % ", ".join(list(allow_out)[:8]))
+    except Exception as e:  # noqa: BLE001
+        _note(log, "E2B: could not set egress allowlist (%s) — acquire runs open (gated)" % str(e)[:120])
+
+
+def _clear_egress(sbx, log=None):
+    """Clear the acquire allowlist so the eval run returns to the sandbox's created network posture (the
+    credential is gone by now, so this is behavior-preserving, not a security regression). Best-effort."""
+    fn = getattr(sbx, "update_network", None)
+    if not callable(fn):
+        return
+    try:
+        fn()                                            # empty → clears all allow/deny rules
+        _note(log, "E2B: acquire egress allowlist cleared for the eval run")
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def _pull_capture(sbx, remote):
@@ -257,9 +287,53 @@ def _route_template(cfg, cpu_cores):
     return cfg
 
 
+def _command_for(pybin, entry):
+    """Map an entry argv to the sandbox command. A plain script/module runs under `pybin`; a `nb:` entry runs
+    through the in-sandbox notebook runner (kernel-armed capture); a `lang:` entry (r:/julia:/shell:) runs
+    under its interpreter (four-unlocks §1/§3). The plain path is byte-for-byte the historical command."""
+    head = str(entry[0]) if entry else ""
+    if head.startswith("nb:"):
+        return "%s /capture/run_notebook_e2b.py %s" % (pybin, shlex.quote(head[3:]))
+    for lang, interp in _LANG_INTERP.items():
+        if head.startswith(lang + ":"):
+            rest = [head[len(lang) + 1:]] + [str(a) for a in entry[1:]]
+            return "%s %s" % (interp, " ".join(shlex.quote(a) for a in rest))
+    return pybin + " " + " ".join(entry)
+
+
+def _build_conda_env(sbx, env_file_rel, timeout, log=None):
+    """B2 in the sandbox: solve the repo's environment.yml with micromamba (baked into the image) and return the
+    env's python. Prefers a committed conda lockfile (no solver, deterministic + fast) when present. Returns the
+    interpreter path, or None on failure (caller keeps the default python → honest run/failure)."""
+    prefix = "/opt/calma-conda"
+    pybin = prefix + "/bin/python"
+    # a committed explicit lockfile is the SOTA-reproducible path — create from it without hitting the solver.
+    lock = None
+    for cand in ("conda-lock.yml", "conda-lock.yaml", "conda-linux-64.lock", "environment.lock"):
+        try:
+            if sbx.commands.run("test -f /work/%s" % cand, timeout=20).exit_code == 0:
+                lock = cand
+                break
+        except Exception:  # noqa: BLE001
+            pass
+    src = ("-f /work/%s" % lock) if lock else ("-f /work/%s" % env_file_rel)
+    try:
+        _note(log, "E2B: solving conda env via micromamba (%s)…" % (lock or env_file_rel))
+        r = _cmd_run(sbx, "micromamba create -y -p %s %s" % (prefix, src),
+                     timeout=timeout, log=log, prefix="  conda| ", stream=True)
+        if getattr(r, "exit_code", 1) == 0:
+            if sbx.commands.run("test -x %s" % pybin, timeout=20).exit_code == 0:
+                return pybin
+        _note(log, "E2B: conda solve failed — falling back to the default python")
+    except Exception as e:  # noqa: BLE001
+        _note(log, "E2B: conda error (%s) — default python" % str(e)[:120])
+    return None
+
+
 def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout=600,
             allow_internet=False, pip_install=None, pip_strict=True, python_version=None,
-            cfg=None, max_elems=None, log=None, resolve=None, fuzz=False, cpu_cores=0, acquire=None):
+            cfg=None, max_elems=None, log=None, resolve=None, fuzz=False, cpu_cores=0, acquire=None,
+            builder=None, acquire_env=None, acquire_allow_out=None):
     """ONE sandbox: stage + install ONCE, then run the entrypoint k× inside it (each a fresh process with its
     own capture file). Reusing the sandbox across the determinism runs is the big cost lever — the dominant
     `pip install` is paid once, not k×, and it's MORE correct for determinism (identical env across runs, so
@@ -291,12 +365,13 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
     # the run is killed (StreamReset), capturing nothing. The old code created it with just the per-run
     # timeout, so a repo whose build + k·runs approached one run's timeout silently failed deep verify
     # (gb_kmer: the sandbox died at 600s during run 2 → 0 computations captured → fell back to discovery).
-    sandbox_life = min(inst_timeout + max(1, k) * timeout + 120, _MAX_SANDBOX_S)
+    sandbox_life = effector.size_sandbox_life(inst_timeout, k, timeout, _MAX_SANDBOX_S)
     try:
         _note(log, "E2B: creating microVM (lifetime %dm)…" % (sandbox_life // 60))
         sbx = _create_sandbox(cfg, sandbox_life,
                               allow_internet or resolve is not None or bool(pip_install)
-                              or bool(python_version) or bool(acquire))
+                              or bool(python_version) or bool(acquire)
+                              or builder == "conda-micromamba")   # conda solve needs the package channels
         _note(log, "E2B: microVM up (%.1fs) — uploading repo + capture shim" % (time.time() - t_start))
         for fn in _SHIM_FILES:                                   # stage the capture shim + the repo (once)
             with open(os.path.join(CAPTURE_DIR, fn), "rb") as fh:
@@ -315,16 +390,27 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
                 len(pip_install), " [heavy: up to %dm]" % (inst_timeout // 60) if heavy else "",
                 " ".join(pip_install)[:200]))
         _install(sbx, pip_install, pip_strict, inst_timeout, pip_cmd, log=log)  # install (once)
+        if builder == "conda-micromamba":                       # B2: solve environment.yml in-sandbox via micromamba
+            conda_py = _build_conda_env(sbx, "environment.yml", inst_timeout, log=log)
+            if conda_py:
+                pybin, python_used = conda_py, "conda"
         # data-acquisition (paid, gated upstream): run the repo's OWN download pipeline WITH network so the
         # datasets materialize before the eval. The sandbox was created with internet for this; the eval then
         # runs in the same sandbox (a documented tradeoff — the recompute is still independent, so FCR holds).
         if acquire:
             _note(log, "E2B: acquiring data — %d step(s) with network allowed" % len(acquire))
+            # four-unlocks §8: narrow egress to a default-deny data-host allowlist for the acquire phase, so a
+            # prompt-injected acquire script (or a leaked credential injected below) can only reach the data
+            # hosts — not an attacker-controlled server. Best-effort: an SDK without update_network keeps the
+            # prior full-internet posture (still tier-gated). Secrets (acquire_env) inject into the acquire
+            # commands ONLY — never the eval run below — so the recompute stays credential-free (FCR).
+            if acquire_allow_out:
+                _set_egress(sbx, acquire_allow_out, log=log)
             for argv in acquire:
                 inner = " ".join(shlex.quote(a) for a in argv)
                 cmd = "cd /work && %s %s" % (pybin, inner) if str(argv[0]).endswith(".py") else "cd /work && " + inner
                 try:
-                    ra = sbx.commands.run(cmd, timeout=inst_timeout)
+                    ra = sbx.commands.run(cmd, timeout=inst_timeout, envs=(acquire_env or None))
                     ok = getattr(ra, "exit_code", 1) == 0
                     _note(log, "E2B: acquire `%s` → %s" % (" ".join(argv), "ok" if ok else "failed"))
                     if not ok:
@@ -332,6 +418,12 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
                 except Exception as e:  # noqa: BLE001
                     _note(log, "E2B: acquire error — %s" % str(e)[:160])
                     break
+            # restore the sandbox's created network posture for the EVAL run (clear the acquire allowlist). The
+            # credential is injected ONLY during acquire, so the exfil risk lives in that window (which the
+            # allowlist covered); the eval run carries no secret, so its posture is unchanged from before —
+            # behavior-preserving. Only when we tightened it (else the SDK/posture is already untouched).
+            if acquire_allow_out:
+                _clear_egress(sbx, log=log)
         build_seconds = time.time() - t_start
         _note(log, "E2B: environment ready (%.0fs total)" % build_seconds)
     except Exception as e:  # noqa: BLE001 — setup failed → every run fails identically
@@ -342,13 +434,7 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
                 sbx.kill()
             except Exception:  # noqa: BLE001
                 pass
-        err = "e2b error: %s" % e
-        meta = [{"returncode": -9, "killed": "timeout" in str(e).lower(), "seconds": 0.0,
-                 "stdout_tail": "", "stderr_tail": err} for _ in range(max(1, k))]
-        return {"runs": [[] for _ in range(max(1, k))], "meta": meta, "ran_ok": False,
-                "hooks_armed": None, "n_calls": [], "error": err,
-                "cost": {"sandbox_seconds": round(build_seconds, 2), "build_seconds": round(build_seconds, 2),
-                         "runs": 0, "reused_sandbox": True}}
+        return effector.shape_setup_error("e2b error: %s" % e, k, build_seconds)
 
     run_seconds = 0.0
     try:
@@ -357,20 +443,13 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
             t0 = time.time()
             _note(log, "E2B: running `%s` (run %d/%d)…" % (" ".join(entry), i + 1, max(1, k)))
             try:
-                envs = {"PYTHONPATH": "/capture", "CALMA_CAPTURE_OUT": out_remote,
-                        "CALMA_CAPTURE_HOOKS": hooks, "CALMA_RUN_INDEX": str(i),
-                        # determinism-enforcing env (core.determinism.enforced_env) — freeze hash/tz so a
-                        # deterministic-by-construction repo reproduces cleanly (and adaptive-k is sound).
-                        "PYTHONHASHSEED": "0", "TZ": "UTC"}
-                if targets:
-                    envs["CALMA_CAPTURE_TARGETS"] = json.dumps(targets)
-                if max_elems:
-                    envs["CALMA_CAPTURE_MAX_ELEMS"] = str(max_elems)
-                if fuzz:
-                    envs["CALMA_FUZZ"] = "1"      # arm the feature 2/7/10 re-invocation emitter (writes .fuzz)
+                # the backend-agnostic capture-run env (runner.effector) — freezes hash/tz, points the shim at
+                # this run's fresh JSONL, JSON-encodes targets, arms the fuzz emitter (feature 2/7/10).
+                envs = effector.capture_run_env(i, out_remote, hooks=hooks, targets=targets,
+                                                max_elems=max_elems, fuzz=fuzz)
                 # stream the run's stdout/stderr LIVE into the job log — the repo's own prints are the best
                 # signal for "what is it actually doing" during a long run.
-                r = _cmd_run(sbx, pybin + " " + " ".join(entry), cwd="/work", envs=envs, timeout=timeout,
+                r = _cmd_run(sbx, _command_for(pybin, entry), cwd="/work", envs=envs, timeout=timeout,
                              log=log, prefix="  | ", stream=True)
                 rc = getattr(r, "exit_code", 0) or 0
                 out, err, killed = getattr(r, "stdout", "") or "", getattr(r, "stderr", "") or "", False
@@ -412,9 +491,5 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
                 sbx.kill()
             except Exception:  # noqa: BLE001
                 pass
-    ran_ok = bool(meta) and all(m["returncode"] == 0 for m in meta)
-    return {"runs": runs, "meta": meta, "ran_ok": ran_ok, "hooks_armed": hooks_armed,
-            "fuzz": fuzz_records, "n_calls": [len(r) for r in runs],
-            "cost": {"sandbox_seconds": round(build_seconds + run_seconds, 2),
-                     "build_seconds": round(build_seconds, 2), "run_seconds": round(run_seconds, 2),
-                     "runs": len(meta), "reused_sandbox": True, "python": python_used or "sandbox-default"}}
+    return effector.shape_result(runs, meta, build_seconds=build_seconds, run_seconds=run_seconds,
+                                 hooks_armed=hooks_armed, fuzz=fuzz_records, python_used=python_used)

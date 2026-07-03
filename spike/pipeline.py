@@ -68,12 +68,16 @@ class VerifyOptions:
     cpu_cores: int = 0              # tier vCPU for the sandbox (0 = default E2B template); realised by template routing
     acquire_data: bool = False      # opt-in (paid): run the repo's OWN data-download pipeline in a gated internet
     #                                 phase on a missing-data failure, then re-run + recompute (download-first repos)
+    acquire_env: dict | None = None  # four-unlocks §8: per-tenant secrets (HF_TOKEN/cloud creds) injected into the
+    #                                 ACQUIRE step only — never the eval run (keeps recompute credential-free / FCR)
+    acquire_allow_out: list | None = None  # egress allowlist for the acquire phase (default-deny + these hosts)
     fetch_data: bool = False        # opt-in: on a "missing input file" failure, fetch the data via Exa + retry
     heal_deps: bool = True          # self-heal: pip-install a dep the imports didn't reveal (openpyxl) + retry
     repair: bool = False            # feature 1: iterative env-only repair loop (deps/env/argv/data) until the
     #                                 entrypoint runs. Never edits repo compute; a bad step → DISCOVERED, not a
     #                                 confirm. A post-repair source change caps the verdict at REPRODUCED-ONLY.
     repair_steps: int = 4           # tier-scaled env-repair budget (the loop's max_steps); 0 → repair off.
+    disk_gb: int = 0                # tier ephemeral-disk budget (Modal GPU sandbox; big-dataset acquire). 0=default.
     mem_mb: int = 0                 # per-sandbox RSS cap from the tier; 0 = supervisor's container-derived default.
     #                                 The supervisor caps the child at min(container-derived, this) when set.
     adaptive_k: bool = True         # if the run is statically proven deterministic, verify with k=1 (half the
@@ -87,6 +91,9 @@ class VerifyOptions:
     repo_meta: dict | None = None   # feature 18: {repo, commit} folded into the reproducibility receipt.
     anomaly: bool = False           # feature 11 (dark-launched): flag cross-run outliers vs the verified-run
     #                                 store. ADVISORY only — never changes a verdict, never auto-refutes.
+    allow_gpu: bool = False         # four-unlocks §7: on a `needs-gpu` CPU failure, escalate to the Modal GPU
+    #                                 backend (E2B can't do GPU). Enterprise-gated + GPU-budget-checked upstream;
+    #                                 FCR-safe (the GPU run flows through the same capture→recompute→verdict).
     orchestrate: bool = False       # repo-assessment orchestrator (build plan): replace the fixed make-runnable
     #                                 ladder with assess→rank→bounded execute/observe/revise over a typed tool
     #                                 registry. FCR-safe by construction (§0): it only changes HOW a repo runs;
@@ -305,6 +312,10 @@ def _missing_module_from(run_result):
     """The top-level missing module in a run's stderr, if it's a plausible PyPI package (not a private
     C-extension like _tkinter, not the repo's own module). None → nothing safe to auto-install."""
     err = " ".join(m.get("stderr_tail", "") for m in (run_result.get("meta") or []))
+    # pandas' "Unable to find a usable engine; tried using: 'pyarrow', 'fastparquet'" is a missing parquet
+    # backend — install pyarrow (the standard one). Handled explicitly so it heals regardless of tail wording.
+    if "Unable to find a usable engine" in err or "pyarrow is required" in err:
+        return "pyarrow"
     m = _MODERR_RE.search(err)
     name = next((g for g in m.groups() if g), None) if m else None
     top = name.split(".")[0] if name else None
@@ -371,7 +382,12 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = 
                 pip, why = build.infer_requirements(repo_dir)
                 strict = (why == "requirements.txt")                   # inferred deps install tolerantly (best-effort)
                 if pip and why != "requirements.txt":
-                    pip, era = build.era_pin(pip, repo_dir)            # pin INFERRED deps to the repo's commit-date era
+                    # era-pin INFERRED deps to the repo's commit-date era, THEN relax any pin the run interpreter
+                    # can't load (era_pin_compat defaults to the sandbox Python when the repo declares none).
+                    from orchestrator.tools_exec import era_pin_compat as _epc
+                    pip, era, _notes = _epc(pip, repo_dir, pyver)
+                    for _n in _notes:
+                        trace.note("era-compat: " + _n)
                     if era:
                         trace.note("era-pinned inferred deps to %s" % era)
                 trace.note(("auto-deps (%s): %s" % (why, " ".join(pip)[:160])) if pip
@@ -386,7 +402,9 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = 
         trace.stage("running", "running in E2B microVM")
         result = run_e2b(repo_dir, resolve=_resolve, k=k, hooks=opts.hooks,
                          python_version=pyver, timeout=opts.timeout, log=trace.note, fuzz=opts.fuzz,
-                         cpu_cores=opts.cpu_cores, acquire=acquire)
+                         cpu_cores=opts.cpu_cores, acquire=acquire,
+                         acquire_env=(opts.acquire_env if acquire else None),
+                         acquire_allow_out=(opts.acquire_allow_out if acquire else None))
         entry = holder.get("entry") or _entry(get_plan() if get_plan else None)
         pip, strict, tgts = holder.get("pip"), holder.get("strict", True), holder.get("targets")
         for _ in range(2 if opts.heal_deps else 0):       # self-heal a dep the imports didn't reveal
@@ -519,19 +537,20 @@ def _run_repo_orchestrated(repo_dir: str, opts: VerifyOptions, trace: Trace, k: 
         deps = list(approach.deps)
         head = str(entry[0]) if entry else ""
 
-        # A1: notebook entry → run_notebook (kernel-armed capture). Local only; the E2B notebook image is future.
-        if head.startswith("nb:"):
-            return _wrap(XT.run_notebook(repo_dir, head, k=k, hooks=opts.hooks, targets=targets,
-                                         timeout=opts.timeout), approach)
-        # A3: Makefile target → run_make (recipe's python child auto-arms capture).
+        # A3: Makefile target → run_make (recipe's python child auto-arms capture). Runs host-side (a make
+        # recipe is trusted-repo shape); kept out of the sandbox routing below.
         if head.startswith("make:"):
             return _wrap(XT.run_make(repo_dir, head[5:], k=k, hooks=opts.hooks, targets=targets,
                                      timeout=opts.timeout, env_extra=(approach.env or None)), approach)
 
+        # E2B path: scripts, modules, notebooks (nb:), non-Python (r:/julia:), and conda all dispatch here now
+        # that the image ships the notebook runtime + micromamba + polyglot interpreters (four-unlocks §1-3).
+        # run_e2b picks the right in-sandbox command per entry kind and solves environment.yml for a conda builder.
         if opts.runner == "e2b":
             from runner.e2b_runner import run_e2b
-            pip, strict = deps, (approach.builder == "declared")
-            if pip and approach.builder not in ("declared", "conda-micromamba"):
+            conda = approach.builder == "conda-micromamba"
+            pip, strict = (None if conda else deps), (approach.builder == "declared")
+            if pip and approach.builder != "declared":
                 pip, era, notes = XT.era_pin_compat(pip, repo_dir, pyver)   # C1: interpreter-aware era pin
                 for n in notes:
                     trace.note("era-compat: " + n)
@@ -539,10 +558,22 @@ def _run_repo_orchestrated(repo_dir: str, opts: VerifyOptions, trace: Trace, k: 
                     trace.note("era-pinned inferred deps to %s" % era)
             r = run_e2b(repo_dir, entry, k=k, hooks=opts.hooks, targets=targets, pip_install=pip or None,
                         pip_strict=strict, python_version=pyver, timeout=opts.timeout, log=trace.note,
-                        fuzz=opts.fuzz, cpu_cores=opts.cpu_cores)
+                        fuzz=opts.fuzz, cpu_cores=opts.cpu_cores, builder=approach.builder)
             return _wrap(r, approach)
 
-        # local path. B2: a conda builder provisions the interpreter from environment.yml via micromamba.
+        # ── local path (fixtures / curated) ──────────────────────────────────────────────────────────────────
+        # A1: notebook → run_notebook (kernel-armed capture).
+        if head.startswith("nb:"):
+            return _wrap(XT.run_notebook(repo_dir, head, k=k, hooks=opts.hooks, targets=targets,
+                                         timeout=opts.timeout), approach)
+        # A3 long-tail: non-Python entry (r:/julia:/shell:) → run_lang. The verdict comes from recomputing the
+        # emitted predictions in Python (core.artifacts) — the capture shim can't see R/Julia calls.
+        for _lang in ("r", "julia", "shell", "sh"):
+            if head.startswith(_lang + ":"):
+                argv = [head[len(_lang) + 1:]] + [str(a) for a in entry[1:]]
+                return _wrap(XT.run_lang(repo_dir, _lang, argv, k=k, hooks=opts.hooks, targets=targets,
+                                         timeout=opts.timeout, env_extra=(approach.env or None)), approach)
+        # B2: a conda builder provisions the interpreter from environment.yml via micromamba.
         if approach.builder == "conda-micromamba":
             conda = XT.build_conda(repo_dir, envs_dir=os.path.join(os.path.dirname(os.path.abspath(repo_dir)),
                                                                    ".conda-envs"))
@@ -601,6 +632,8 @@ def _run_repo_orchestrated(repo_dir: str, opts: VerifyOptions, trace: Trace, k: 
         s = str(e)
         if s.startswith("nb:"):
             entry_out.append(s[3:])
+        elif s.startswith(("r:", "julia:", "shell:", "sh:")):
+            entry_out.append(s.split(":", 1)[1])       # strip the lang routing prefix for the human label
         elif s.startswith("make:"):
             continue
         else:
@@ -756,6 +789,36 @@ def verify_repo(
                     run_result, entry = _run_repo(repo_dir, opts, trace, k=eff_k, get_plan=_get_plan, acquire=cmds)
                 else:
                     trace.note("data-acquisition requested but no acquisition scripts / make-data target found")
+        # GPU escalation (four-unlocks §7): a CPU run that failed *because* it needs a GPU escalates to the Modal
+        # GPU backend — E2B's Firecracker microVMs can't do GPU passthrough. Enterprise-gated + GPU-budget-checked
+        # upstream (opts.allow_gpu is only set when the tier allows GPU and budget remains). FCR-safe: the GPU run
+        # flows through the SAME capture→recompute→verdict, so a misroute yields DISCOVERED, never a false CONFIRM.
+        if not run_result.get("ran_ok") and getattr(opts, "allow_gpu", False):
+            _gtxt = " ".join(m.get("stderr_tail", "") for m in run_result.get("meta", []))
+            from runner import gpu as _GPU
+            # REACTIVE (primary): the failure explicitly says needs-gpu. SECONDARY: an ambiguous runtime error in
+            # a repo that STATICALLY reaches for CUDA — but never on a missing-dep/data/entrypoint failure (a GPU
+            # wouldn't fix those), so a CPU repo is never billed for a GPU it didn't need.
+            _fk = build.classify_failure(_gtxt).get("kind")
+            _want_gpu = _GPU.needs_gpu_from_failure(_gtxt) or (
+                _fk in ("errored", "too-heavy") and _GPU.scan_repo_for_gpu(repo_dir)["needs_gpu"])
+            if _want_gpu:
+                from runner.modal_runner import modal_available, run_modal
+                if modal_available():
+                    gpu_pip, _why = build.infer_requirements(repo_dir)
+                    trace.stage("gpu", "escalating to a GPU sandbox (Modal) — the CPU run reported needs-gpu")
+                    gpu_res = run_modal(repo_dir, entry, k=eff_k, hooks=opts.hooks, targets=opts.targets,
+                                        timeout=opts.timeout, pip_install=(gpu_pip or None),
+                                        python_version=build.detect_python_version(repo_dir),
+                                        cpu_cores=opts.cpu_cores, fuzz=opts.fuzz, log=trace.note,
+                                        disk_gb=getattr(opts, "disk_gb", 0))
+                    if gpu_res.get("runs"):
+                        run_result = gpu_res
+                        trace.note("GPU run: %s — %d computation(s) captured"
+                                   % ("ok" if gpu_res.get("ran_ok") else "still failed",
+                                      sum(len(r) for r in gpu_res.get("runs", []))))
+                else:
+                    trace.note("needs-gpu, but no Modal GPU backend is configured — reporting needs-gpu")
         total_calls = sum(len(run) for run in run_result.get("runs", []))
         err, err_full, failure = "", "", None
         if not run_result.get("ran_ok"):

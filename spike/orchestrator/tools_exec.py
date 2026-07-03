@@ -28,6 +28,7 @@ import time
 from core import limits as LIM
 from runner import build
 from runner import capture_env, parse_capture
+from runner.effector import LANG_INTERP as _LANG_INTERP   # one canonical interpreter map (runner layer)
 
 from . import registry as REG
 from .tools_static import _safe_join, _walk
@@ -142,6 +143,10 @@ def era_pin_compat(specs, repo_dir: str, py_version: str | None = None, requires
     than run under a wheel the interpreter can't load. ``requires_python_fn`` is injectable for tests.
     Returns (specs, era_date, notes)."""
     pinned, era = build.era_pin(specs, repo_dir)
+    # When the repo doesn't declare a Python, relax against the SANDBOX's interpreter (build.sandbox_python)
+    # instead of skipping the check — otherwise an era-pin that needs a newer Python than the image ships (e.g.
+    # today's numpy==2.5.0 needs 3.12) installs blind and silently fails the whole run.
+    py_version = py_version or build.sandbox_python()
     if not py_version:
         return pinned, era, []
     fn = requires_python_fn or _pypi_requires_python
@@ -359,8 +364,7 @@ def micromamba_bin() -> str | None:
     return shutil.which("micromamba") or shutil.which("mamba") or shutil.which("conda")
 
 
-# ── A3 long tail: R / Julia / shell interpreters ──────────────────────────────────────────────────────────────
-_LANG_INTERP = {"r": "Rscript", "julia": "julia", "shell": "bash", "sh": "sh"}
+# ── A3 long tail: R / Julia / shell interpreters (_LANG_INTERP imported above from runner.effector) ────────────
 
 
 def lang_available(lang: str) -> bool:

@@ -192,10 +192,13 @@ def _scan_repo_injection(repo_dir: str) -> list[str]:
 
 # ── revise steps (heuristic key-free; LLM best-effort → heuristic) ────────────────────────────────────────────
 def _missing_module(result: RunResult) -> str | None:
-    """The top-level module name from a ModuleNotFoundError in the run's stderr, if any."""
+    """The top-level module name from a ModuleNotFoundError in the run's stderr, if any. Also detects pandas'
+    'Unable to find a usable engine' (a missing parquet backend) → pyarrow, so the revise loop heals it."""
     import re
     for m in (result.meta or []):
         tail = (m.get("stderr_tail") if isinstance(m, dict) else "") or ""
+        if "Unable to find a usable engine" in tail or "pyarrow is required" in tail:
+            return "pyarrow"
         mm = re.search(r"ModuleNotFoundError: No module named ['\"]([\w.]+)['\"]", tail)
         if mm:
             return mm.group(1).split(".")[0]
@@ -335,8 +338,14 @@ def execute(approaches: list[RunApproach], run_approach, *, revise=heuristic_rev
                     trace.append({"event": "hint-learned", "sig": pending[0]})
                 result.trace = trace
                 return result
-            if result.ran_ok and best_effort is None:
-                best_effort = result                       # ran but captured nothing → keep as fallback
+            # Fallback to surface when NOTHING captures: prefer the highest-ranked attempt (the intended
+            # entrypoint) so the user sees its real blocker — not a lower-ranked script that merely ran but
+            # computed no verifiable number (e.g. a figures/plot script). A ran_ok result still upgrades a
+            # purely-failed one at the SAME (first) slot; capture always wins via success() above.
+            if best_effort is None:
+                best_effort = result
+            elif result.ran_ok and not best_effort.ran_ok and best_effort.approach is approach:
+                best_effort = result                       # same approach, now running after a revise
             sig = sig_fn(_stderr(result)) if sig_fn else None
             revised = revise(result, approach, trace)
             if revised is None:

@@ -98,9 +98,17 @@ function renderResults(job) {
               inconclusive: counts["INCONCLUSIVE"] || 0, discovered: counts["DISCOVERED"] || 0 };
 
   const run = job.run;
-  const banner = run ? `<div class="banner ${run.ran ? "ok" : "warn"}">${run.ran
-      ? `Re-ran <code>${esc(run.entry)}</code> · captured ${run.calls} computation(s) · <b>${g.problems} need attention</b>, ${g.clean} hold up.`
-      : `Tried to re-run <code>${esc(run.entry)}</code> but it didn't execute${run.error ? ` — <span class="mono">${esc(run.error)}</span>` : ""}.${run.error_full && run.error_full !== run.error ? `<details style="margin-top:6px"><summary class="muted" style="cursor:pointer;font-size:12px">full error output</summary><pre class="mono" style="white-space:pre-wrap;font-size:11px;margin:6px 0 0;max-height:200px;overflow:auto">${esc(run.error_full)}</pre></details>` : ""}<br/>Showing the ${claims.length} numbers Calma found — give it a runnable entrypoint (and any data/deps) to deep-verify them.`}</div>` : "";
+  // A run that executed but captured 0 computations is NOT a clean result — it produced nothing to verify. Show
+  // that honestly (warn, not ok) and always surface the discovered count, so 519 found never reads as "nothing".
+  const ranVerifiable = run && run.ran && (run.calls > 0);
+  const foundTail = g.discovered ? ` · <b>${g.discovered} found</b> (not deep-verified)` : "";
+  const banner = run ? `<div class="banner ${ranVerifiable ? "ok" : "warn"}">${
+      ranVerifiable
+      ? `Re-ran <code>${esc(run.entry)}</code> · captured ${run.calls} computation(s) · <b>${g.problems} need attention</b>, ${g.clean} hold up${foundTail}.`
+    : run.ran
+      ? `Re-ran <code>${esc(run.entry)}</code> but it produced <b>no verifiable number</b> (0 computations captured). Showing the ${claims.length} number(s) Calma found — point it at the entrypoint that computes the metric (Advanced → Entrypoint), or commit a predictions file, to deep-verify them.`
+      : `Tried to re-run <code>${esc(run.entry)}</code> but it didn't execute${run.error ? ` — <span class="mono">${esc(run.error)}</span>` : ""}.${run.error_full && run.error_full !== run.error ? `<details style="margin-top:6px"><summary class="muted" style="cursor:pointer;font-size:12px">full error output</summary><pre class="mono" style="white-space:pre-wrap;font-size:11px;margin:6px 0 0;max-height:200px;overflow:auto">${esc(run.error_full)}</pre></details>` : ""}<br/>Showing the ${claims.length} numbers Calma found — give it a runnable entrypoint (and any data/deps) to deep-verify them.`
+  }</div>` : "";
 
   // grouped summary: problems first, then clean / couldn't-verify / found
   const card = (n, label, color) => n ? `<div class="sum"><div class="n" style="color:${color}">${n}</div><div class="l">${label}</div></div>` : "";

@@ -207,6 +207,9 @@ class VerifyReq(BaseModel):
     repair_steps: int = 0                # tier env-repair budget (0 = repair off; >0 enables the bounded loop)
     installation_id: str | None = None   # clone via this GitHub App installation's short-lived token
     installation_proof: str | None = None  # stateless binding proof from connect time (see _install_proof)
+    gpu: bool = False                    # opt-in hint to allow GPU escalation (enterprise-gated in clamp_request)
+    allow_gpu: bool = False              # server-internal: set after the tier gate + GPU-budget check (not user-set)
+    disk_gb: int = 0                     # tier ephemeral-disk budget (set from clamp_request; not user-set)
 
 
 def _set(job, **kw):
@@ -275,6 +278,18 @@ def run_job(job, req: VerifyReq):
         _set(job, status="running", stage="cloning")
         dest = os.path.join(_WORKDIR, job["id"])
         repo_dir = _clone(req.repo, dest, job, req.installation_id)   # bounded git subprocess — stays here
+        # four-unlocks §8: for a data-acquisition run, resolve this tenant's stored credentials (injected into the
+        # ACQUIRE step only) and compute the egress allowlist (default-deny + the data hosts those creds reach).
+        acq_env, acq_allow = None, None
+        if req.acquire_data:
+            from runner import egress as _EG
+            from runner import secrets as _SEC
+            tenant = job.get("_tenant", "owner")
+            acq_env = _SEC.get_store().env_for(tenant) or None
+            acq_allow = _EG.allowlist_for(list(acq_env or {}))
+            if acq_env:
+                _log(job, "data-acquisition: injecting %d tenant secret(s), egress limited to %d host(s)"
+                     % (len(acq_env), len(acq_allow)))
         opts = PIPE.VerifyOptions(
             runner=req.runner,
             deep=req.deep,
@@ -289,8 +304,12 @@ def run_job(job, req: VerifyReq):
             acquire_data=req.acquire_data,
             plan=req.plan,
             orchestrate=req.orchestrate,
+            allow_gpu=req.allow_gpu,
+            acquire_env=acq_env,
+            acquire_allow_out=acq_allow,
             cpu_cores=req.cpu_cores,
             mem_mb=req.mem_mb,
+            disk_gb=req.disk_gb,
             repair=req.repair_steps > 0,            # env-repair loop enabled on tiers with a repair budget
             repair_steps=req.repair_steps,
             job_id=job["id"],
@@ -328,8 +347,9 @@ def run_job(job, req: VerifyReq):
             lim = LIM.get_limiter()
             tenant = job.get("_tenant", "anon")
             lim.release_slot(tenant)
-            sec = ((job.get("run") or {}).get("cost") or {}).get("sandbox_seconds") or 0
-            lim.record_sandbox_seconds(tenant, sec)
+            cost = ((job.get("run") or {}).get("cost") or {})
+            lim.record_sandbox_seconds(tenant, cost.get("sandbox_seconds") or 0)
+            lim.record_gpu_seconds(tenant, cost.get("gpu_seconds") or 0)   # GPU-minute meter (four-unlocks §7)
 
 
 @app.post("/api/verify")
@@ -370,6 +390,11 @@ def verify(req: VerifyReq, ident: Identity = Depends(identity)):
     req.cpu_cores = int(clamped.get("cpu_cores", 0))                  # tier vCPU (E2B template routing)
     req.mem_mb = int(clamped.get("mem_mb", 0))                        # tier per-sandbox RSS cap
     req.repair_steps = int(clamped.get("repair_steps", 0))           # tier env-repair budget (0 = off)
+    req.disk_gb = int(clamped.get("disk_gb", 0))                     # tier ephemeral-disk budget
+    # GPU escalation is allowed only when the tier permits GPU AND the monthly GPU-minute budget still has room.
+    # The escalation itself is reactive (fires inside the run on a needs-gpu failure); this just decides whether
+    # to arm it and post-hoc-meters the GPU-seconds the run reports.
+    req.allow_gpu = bool(clamped.get("allow_gpu")) and lim.admit_gpu(ident.tenant, tier).ok
     # sanitize caller-supplied deps to plain PyPI specs (the tolerant install path) — a request can't smuggle
     # `--index-url http://evil/` or a VCS/URL ref into the installer. The repo's own requirements.txt (read
     # from the cloned source, installed faithfully) is unaffected.
@@ -565,9 +590,43 @@ def gh_repos(installation_id: str, installation_proof: str = "", ident: Identity
 
 @app.get("/api/usage")
 def usage(ident: Identity = Depends(identity)):
-    """This tenant's live meter state (scans today, sandbox-minutes this month, in-flight, tier ceilings) — so
-    the dashboard can show remaining budget and an honest 'upgrade' prompt before the ceiling is hit."""
+    """This tenant's live meter state (scans today, sandbox-minutes + GPU-minutes this month, in-flight, tier
+    ceilings) — so the dashboard can show remaining budget and an honest 'upgrade' prompt before the ceiling."""
     return LIM.get_limiter().usage(ident.tenant, ident.tier)
+
+
+class SecretReq(BaseModel):
+    name: str                       # env-var name, e.g. HF_TOKEN
+    value: str                      # the credential (never returned by any endpoint)
+
+
+@app.get("/api/secrets", dependencies=[Depends(require_service_token)])
+def list_secrets(ident: Identity = Depends(identity)):
+    """The NAMES of the credentials this tenant has stored for data-acquisition (never the values). Drives the
+    dashboard's 'connect a data source' state (four-unlocks §8)."""
+    from runner import secrets as _SEC
+    return {"secrets": _SEC.get_store().names(ident.tenant),
+            "supported": sorted(_SEC.KNOWN_SECRETS.keys())}
+
+
+@app.post("/api/secrets", dependencies=[Depends(require_service_token)])
+def set_secret(req: SecretReq, ident: Identity = Depends(identity)):
+    """Store a per-tenant data-acquisition credential (HF_TOKEN, cloud creds …). Paid capability (it only has
+    value on tiers that can run acquisition). Injected into the ACQUIRE sandbox only, never the eval run, and
+    egress-allowlisted to the credential's own hosts — so a leak can't exfiltrate off the data host."""
+    if not ident.tier.allow_data_acquisition:
+        raise HTTPException(402, "storing data credentials is a paid capability (data-acquisition tier)")
+    from runner import secrets as _SEC
+    if not _SEC.get_store().set_secret(ident.tenant, req.name, req.value):
+        raise HTTPException(400, "invalid secret name (use an UPPER_SNAKE env-var name) or empty value")
+    return {"ok": True, "secrets": _SEC.get_store().names(ident.tenant)}
+
+
+@app.delete("/api/secrets/{name}", dependencies=[Depends(require_service_token)])
+def delete_secret(name: str, ident: Identity = Depends(identity)):
+    from runner import secrets as _SEC
+    _SEC.get_store().delete_secret(ident.tenant, name)
+    return {"ok": True, "secrets": _SEC.get_store().names(ident.tenant)}
 
 
 @app.get("/api/catalog")

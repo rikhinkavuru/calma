@@ -61,6 +61,12 @@ class Tier:
     allow_orchestrator: bool = False  # use the assess→rank→bounded-loop make-runnable BRAIN (ranked entrypoints,
     #                                   notebooks/make/conda tools, revise loop) instead of the fixed heuristic
     #                                   ladder. FCR-safe by construction (corpus-proven parity + FCR==0). Paid.
+    allow_gpu: bool = False           # route a GPU-required verify to the Modal GPU backend (E2B can't do GPU).
+    #                                   The most expensive capability we run ($$$/GPU-hr) → enterprise-gated +
+    #                                   metered. FCR-safe: a GPU run only changes WHERE code runs, not the verdict.
+    gpu_minutes_per_month: int = 0    # the GPU COGS meter (Modal GPU-minutes); 0 = no GPU budget (gate is closed)
+    disk_gb: int = 0                  # acquire-phase ephemeral-disk budget (0 = backend default). Bigger tiers
+    #                                   can materialise larger datasets before recompute.
     unmetered: bool = False           # the local operator: no counters drawn down
 
 
@@ -92,6 +98,7 @@ TIERS: dict[str, Tier] = {
         cpu_cores=_i("CALMA_FREE_CORES", 2),
         allow_ai_plan=False,
         allow_data_acquisition=False,
+        disk_gb=_i("CALMA_FREE_DISK_GB", 2),
     ),
     # the public, unauthenticated landing-page demo: fixed sample repo only (enforced by the caller, not
     # here), tight enough that it can't become a free arbitrary-compute proxy. Tenant is an IP hash, not a
@@ -139,6 +146,7 @@ TIERS: dict[str, Tier] = {
         allow_ai_plan=True,
         allow_data_acquisition=True,
         allow_orchestrator=True,
+        disk_gb=_i("CALMA_PRO_DISK_GB", 20),          # GPU stays enterprise-only (allow_gpu defaults False)
     ),
     "enterprise": Tier(
         name="enterprise",
@@ -159,6 +167,9 @@ TIERS: dict[str, Tier] = {
         allow_ai_plan=True,
         allow_data_acquisition=True,
         allow_orchestrator=True,
+        allow_gpu=True,
+        gpu_minutes_per_month=_i("CALMA_ENT_GPU_MIN", 120),
+        disk_gb=_i("CALMA_ENT_DISK_GB", 50),
     ),
     # the local-first operator (token unset): their machine, their keys — unmetered but still concrete-capped so
     # a runaway loop can't fan out unbounded.
@@ -181,6 +192,9 @@ TIERS: dict[str, Tier] = {
         allow_ai_plan=True,
         allow_data_acquisition=True,
         allow_orchestrator=True,
+        allow_gpu=True,
+        gpu_minutes_per_month=10_000_000,
+        disk_gb=_i("CALMA_OWNER_DISK_GB", 100),
         unmetered=True,
     ),
 }
@@ -235,6 +249,7 @@ class Limiter:
         self._api: dict[str, tuple[int, int]] = {}          # tenant -> (window_start_epoch_min, count)
         self._scans: dict[tuple[str, str], int] = {}        # (tenant, day) -> deep-verify count
         self._sandbox: dict[tuple[str, str], float] = {}    # (tenant, month) -> sandbox seconds used
+        self._gpu: dict[tuple[str, str], float] = {}        # (tenant, month) -> GPU seconds used
         self._inflight: dict[str, int] = {}                 # tenant -> live deep verifies
 
     # -- API burst rate --------------------------------------------------------------------------------------
@@ -306,6 +321,34 @@ class Limiter:
         with self._lock:
             self._sandbox[(tenant, month)] = self._sandbox.get((tenant, month), 0.0) + float(seconds)
 
+    # -- GPU-minute admission + meter (the four-unlocks GPU backend; the single most expensive resource) -------
+    def admit_gpu(self, tenant: str, tier: Tier) -> Decision:
+        """Called right before a GPU sandbox is provisioned (after the tier's allow_gpu gate). Refuses when the
+        monthly GPU-minute budget is exhausted — the CPU verify still stands, GPU escalation is just declined."""
+        if tier.unmetered:
+            return Decision(ok=True)
+        if not tier.allow_gpu or tier.gpu_minutes_per_month <= 0:
+            return Decision(ok=False, status=402, kind="gate",
+                            reason="GPU verification is an enterprise capability — not on the %s tier" % tier.name)
+        now = self._clock()
+        month = _month_key(now)
+        with self._lock:
+            used_min = self._gpu.get((tenant, month), 0.0) / 60.0
+        if used_min >= tier.gpu_minutes_per_month:
+            return Decision(ok=False, status=402, kind="gpu",
+                            reason="monthly GPU-minute budget exhausted (%d min on the %s tier) — the CPU "
+                                   "verify still runs; upgrade for more GPU time"
+                                   % (tier.gpu_minutes_per_month, tier.name))
+        return Decision(ok=True)
+
+    def record_gpu_seconds(self, tenant: str, seconds: float) -> None:
+        if not seconds or seconds <= 0:
+            return
+        now = self._clock()
+        month = _month_key(now)
+        with self._lock:
+            self._gpu[(tenant, month)] = self._gpu.get((tenant, month), 0.0) + float(seconds)
+
     # -- observability ---------------------------------------------------------------------------------------
     def usage(self, tenant: str, tier: Tier) -> dict:
         now = self._clock()
@@ -313,6 +356,7 @@ class Limiter:
         with self._lock:
             scans = self._scans.get((tenant, day), 0)
             sandbox_s = self._sandbox.get((tenant, month), 0.0)
+            gpu_s = self._gpu.get((tenant, month), 0.0)
             inflight = self._inflight.get(tenant, 0)
         return {
             "tier": tier.name,
@@ -320,6 +364,8 @@ class Limiter:
             "scans_per_day": tier.deep_verify_per_day,
             "sandbox_minutes_used": round(sandbox_s / 60.0, 2),
             "sandbox_minutes_per_month": tier.sandbox_minutes_per_month,
+            "gpu_minutes_used": round(gpu_s / 60.0, 2),
+            "gpu_minutes_per_month": tier.gpu_minutes_per_month,
             "inflight": inflight,
             "concurrency": tier.concurrency,
         }
@@ -389,6 +435,14 @@ def clamp_request(tier: Tier, req: dict) -> tuple[dict, Decision]:
     out["repair_steps"] = tier.repair_steps
     out["cpu_cores"] = tier.cpu_cores          # sandbox vCPU (realised via E2B template routing)
     out["mem_mb"] = tier.mem_mb                 # per-sandbox RSS cap (supervisor caps the child at min(container, this))
+    out["disk_gb"] = tier.disk_gb              # acquire-phase disk budget
+    # GPU capability passthrough: the reactive escalation (a needs-gpu failure → Modal) checks this in the
+    # pipeline. A GPU sandbox is metered separately (admit_gpu / record_gpu_seconds); nothing here provisions one.
+    # Flag-gated inert by default: the fleet kill-switch CALMA_ENABLE_GPU must be truthy to arm GPU escalation
+    # (mirrors CALMA_ORCHESTRATOR) — so the backend ships GPU-dark until the Modal template is proven.
+    _gpu_on = (os.environ.get("CALMA_ENABLE_GPU", "off").strip().lower() in ("1", "on", "true", "yes"))
+    out["allow_gpu"] = tier.allow_gpu and _gpu_on
+    out["gpu_minutes_per_month"] = tier.gpu_minutes_per_month
 
     # AI run-plan / orchestrator LLM — a paid read ("AI proposes, determinism disposes"). Free tiers run on
     # deterministic heuristics only; still fully correct (FCR unchanged), just without the AI entrypoint/dep read.
@@ -415,6 +469,11 @@ def clamp_request(tier: Tier, req: dict) -> tuple[dict, Decision]:
                                     "verifies self-contained repos (bundled data or committed predictions)"
                                     % tier.name)
     out["acquire_data"] = bool(out.get("acquire_data")) and tier.allow_data_acquisition
+    if out.get("gpu") and not tier.allow_gpu:
+        return out, Decision(ok=False, status=402, kind="gate",
+                             reason="GPU verification is an enterprise capability — the %s tier verifies on "
+                                    "CPU (a GPU-required repo reports needs-gpu instead of a false result)"
+                                    % tier.name)
     if out.get("installation_id") and not tier.private_repos:
         return out, Decision(ok=False, status=402, kind="gate",
                              reason="connecting private repos (GitHub App installs) requires a paid tier — "

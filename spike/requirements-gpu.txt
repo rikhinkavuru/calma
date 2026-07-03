@@ -1,0 +1,6 @@
+# Calma GPU backend (four-unlocks §7) — OPTIONAL. Install only where GPU verification is enabled
+# (`CALMA_ENABLE_GPU=1` + MODAL_TOKEN_ID/SECRET). runner/modal_runner.py import-guards on this, so the default
+# CPU backend runs fine without it — a GPU-required repo just reports needs-gpu instead of escalating.
+#   pip install -r requirements-gpu.txt
+-r requirements.txt
+modal>=0.64

@@ -120,6 +120,9 @@ def ast_imports(repo_dir: str, rel: str) -> list[str]:
 
 
 # ── A4: ranked entrypoint candidates ──────────────────────────────────────────────────────────────────────────
+_LANG_PREFIXES = ("r:", "julia:", "shell:", "sh:")
+
+
 def _entry_kind(argv: list[str]) -> str:
     if not argv:
         return "script"
@@ -127,6 +130,8 @@ def _entry_kind(argv: list[str]) -> str:
         return "module"
     if argv[0].endswith(".ipynb") or argv[0].startswith("nb:"):
         return "notebook"
+    if any(argv[0].startswith(p) for p in _LANG_PREFIXES):
+        return "lang"
     return "script"
 
 
@@ -197,6 +202,11 @@ def find_entrypoints(repo_dir: str) -> list[EntryCand]:
     for nb in find_notebooks(repo_dir):
         add(["nb:" + nb], 0.4, ["jupyter notebook"])
 
+    # non-Python drivers (A3 long-tail: R/Julia) — lowest rank, tried when no Python entry captures. The number
+    # is recomputed from the emitted predictions in Python, so these only need to RUN (four-unlocks §3).
+    for lang, rel in find_lang_entrypoints(repo_dir):
+        add(["%s:%s" % (lang, rel)], 0.35, ["%s script" % lang])
+
     # safety net: guarantee the deterministic detector's authoritative pick is represented (some picks — a
     # subdir/module form — may not have surfaced above), at a mid confidence so it never masks a real tie.
     top = build.detect_entrypoint(repo_dir)
@@ -212,6 +222,31 @@ def find_entrypoints(repo_dir: str) -> list[EntryCand]:
               summary="List *.ipynb files (A1: notebook-driven repos).")
 def find_notebooks(repo_dir: str) -> list[str]:
     return [rel for _abs, rel in _walk(repo_dir) if rel.endswith(".ipynb")]
+
+
+# non-Python entrypoints (A3 long-tail). Ranked below Python/notebook entries; drives run_lang in the polyglot
+# E2B image. A driver-ish name (main/run/analyze/…) is preferred; else the shallowest script of each language.
+_LANG_EXT = {".r": "r", ".jl": "julia"}
+_LANG_DRIVER = ("main", "run", "analyze", "analysis", "eval", "evaluate", "reproduce", "benchmark", "experiment")
+
+
+@REG.register("find_lang_entrypoints", kind="static", cost="free",
+              summary="Ranked R/Julia driver scripts ((lang, relpath)[]) for run_lang (A3 long-tail).")
+def find_lang_entrypoints(repo_dir: str) -> list[tuple[str, str]]:
+    """Return (lang, relpath) candidates for R (.R) and Julia (.jl), one preferred driver per language. A
+    driver-named script wins; otherwise the shallowest (fewest path segments, then shortest) script. Empty when
+    the repo has no such scripts (the common Python case)."""
+    by_lang: dict[str, list[str]] = {}
+    for _abs, rel in _walk(repo_dir):
+        lang = _LANG_EXT.get(os.path.splitext(rel)[1].lower())
+        if lang:
+            by_lang.setdefault(lang, []).append(rel)
+    out: list[tuple[str, str]] = []
+    for lang, rels in by_lang.items():
+        driver = [r for r in rels if os.path.splitext(os.path.basename(r))[0].lower() in _LANG_DRIVER]
+        pick = min(driver or rels, key=lambda r: (r.count("/"), len(r)))
+        out.append((lang, pick))
+    return out
 
 
 # ── A3: make / shell / language ───────────────────────────────────────────────────────────────────────────────

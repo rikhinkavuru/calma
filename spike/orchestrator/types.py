@@ -17,7 +17,9 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 
 # ── the fixed vocabularies (a wrong value is a shape error, never a silent pass) ──────────────────────────────
-RUNNERS = ("local", "e2b", "e2b-gpu")
+# "modal-gpu" is the GPU backend (E2B can't do GPU). "e2b-gpu" is kept as a deprecated alias so no stored
+# approach/config breaks; both resolve to the Modal runner at dispatch.
+RUNNERS = ("local", "e2b", "modal-gpu", "e2b-gpu")
 BUILDERS = ("venv-pip", "uv", "conda-micromamba", "declared", "none")
 # entrypoint kinds the executor knows how to dispatch. Each maps to exactly one execute tool in the registry.
 ENTRY_KINDS = ("script", "module", "notebook", "make", "shell", "lang")

@@ -341,6 +341,10 @@ _FAILURE_TAXONOMY = [
     ("[timeout]", ("too-slow", "exceeded the time budget — scope the run or raise the timeout")),
     ("ModuleNotFoundError", ("missing-dep", "a dependency could not be installed/resolved")),
     ("No matching distribution", ("missing-dep", "a dependency could not be installed/resolved")),
+    # pandas parquet needs pyarrow/fastparquet — an optional extra dep-inference can't see. Now bundled in the
+    # image, but classify it as missing-dep (not a generic error) so the heal/revise can install it if absent.
+    ("Unable to find a usable engine", ("missing-dep", "parquet support needs pyarrow — install it")),
+    ("Missing optional dependency", ("missing-dep", "an optional dependency (e.g. pyarrow) is missing")),
     # The interpreter itself couldn't open the entrypoint SCRIPT (`python: can't open file '…'`). This is a
     # wrong/undetected entrypoint, NOT a missing data file — must be screened BEFORE the generic
     # "No such file or directory" below, which the same stderr line also contains.
@@ -364,6 +368,19 @@ def classify_failure(stderr):
 
 
 _PYVER_RE = re.compile(r"(\d+)\.(\d+)(?:\.\d+)?")
+
+
+def sandbox_python() -> str:
+    """The interpreter the E2B run image actually ships — the floor to relax era-pins against when a repo does
+    NOT declare its own Python. Must track the template's CALMA_TEMPLATE_PY (kept in sync via CALMA_SANDBOX_PY).
+    Without this, a repo with no declared Python got its era-pins (e.g. today's numpy==2.5.0, which needs 3.12)
+    installed blind against whatever the image ships — a silent, total install failure if they mismatch.
+
+    MUST track the DEPLOYED image: set the Fly secret CALMA_SANDBOX_PY to the running template's Python (3.11
+    today; bump to 3.12 when the 3.12 template is rebuilt + pointed at). The default is the conservative 3.11
+    (matches the current prod image): guessing LOWER than reality over-relaxes (harmless — pip resolves a
+    compatible version); guessing HIGHER keeps a pin the interpreter can't load (the exact bug this fixes)."""
+    return (os.environ.get("CALMA_SANDBOX_PY") or "3.11").strip()
 
 
 def detect_python_version(repo_dir):
