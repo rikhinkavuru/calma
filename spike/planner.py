@@ -60,6 +60,17 @@ _SCHEMA = {
                         "description": "pip package specs the run needs (respect requirements.txt if present)."},
         "python_version": {"type": "string", "description": "the Python the repo targets, e.g. '3.11'; '' if unknown."},
         "data_needed": {"type": "string", "description": "external data the repo needs + where from; '' if none/bundled."},
+        "data_sources": {"type": "array", "description": "ONLY for well-known public datasets the repo needs but "
+                         "doesn't bundle: the repo-relative path it expects the file at + the CANONICAL public "
+                         "download URL. Used to fetch data directly when the repo's own download scripts fail. "
+                         "Give a URL only if you are confident it is the exact, current, public source (e.g. "
+                         "ClinVar VCF from NCBI, a HuggingFace dataset file, an ENCODE/UCSC file). Empty if unsure "
+                         "— a wrong URL fetches wrong data, so omit rather than guess.",
+                         "items": {"type": "object", "additionalProperties": False, "properties": {
+                             "path": {"type": "string", "description": "repo-relative path the file goes to, e.g. "
+                                      "'data/clinvar/clinvar.vcf.gz'."},
+                             "url": {"type": "string", "description": "canonical public https download URL."}},
+                             "required": ["path", "url"]}},
         "notes": {"type": "string", "description": "one sentence: what the repo does and how its headline metric is computed."},
         "confidence": {"type": "number", "description": "0..1 confidence that the entrypoint reproduces the headline numbers."},
         "targets": {"type": "array", "description": "functions IN THIS REPO that compute reported metrics with the "
@@ -79,7 +90,8 @@ _SCHEMA = {
                                        "required": ["name", "ref"]}},
                     }, "required": ["target", "metric"]}},
     },
-    "required": ["entrypoint", "pip_install", "python_version", "data_needed", "notes", "confidence", "targets"],
+    "required": ["entrypoint", "pip_install", "python_version", "data_needed", "data_sources", "notes",
+                 "confidence", "targets"],
     "additionalProperties": False,
 }
 
@@ -230,4 +242,27 @@ def plan_repo(repo_dir: str, model: str | None = None) -> dict | None:
         conf = 0.0
     return {"entry": entry, "pip_install": deps, "python_version": pyver,
             "data_needed": str(p.get("data_needed") or ""), "notes": str(p.get("notes") or ""),
-            "confidence": conf, "targets": _valid_targets(p.get("targets"))}
+            "confidence": conf, "targets": _valid_targets(p.get("targets")),
+            "data_sources": _valid_data_sources(p.get("data_sources"))}
+
+
+def _valid_data_sources(items):
+    """Keep only {path, url} where path is a SAFE repo-relative path (no escape / absolute) and url is a plain
+    https:// URL. A prompt-injected plan can't write outside the repo or point the fetcher at an internal host:
+    path traversal and non-https schemes are dropped. Best-effort; capped."""
+    out = []
+    for it in items if isinstance(items, list) else []:
+        if not isinstance(it, dict):
+            continue
+        path, url = str(it.get("path") or "").strip(), str(it.get("url") or "").strip()
+        if not path or not url.lower().startswith("https://"):
+            continue
+        norm = os.path.normpath(path)
+        if norm.startswith("/") or norm.startswith("..") or ".." in norm.split("/"):
+            continue                                        # no absolute / traversal — stays inside the repo
+        if len(url) > 2048:
+            continue
+        out.append({"path": norm, "url": url})
+        if len(out) >= 20:
+            break
+    return out

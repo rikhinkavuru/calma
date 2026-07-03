@@ -165,6 +165,34 @@ def _acquire_deps(repo_dir, acquire):
     return out
 
 
+def _fetch_data_sources(sbx, data_fetch, timeout, log=None):
+    """Download each {path, url} directly into the sandbox at /work/<path> — the bypass for a repo whose own
+    download scripts fail. curl -fL, size-capped (5GB), best-effort per file. Paths are pre-validated by the
+    planner (no traversal / absolute). Returns the count fetched (drives the caller's mismatch→INCONCLUSIVE cap)."""
+    n = 0
+    for it in data_fetch or []:
+        path = str((it or {}).get("path") or "").lstrip("/")
+        url = str((it or {}).get("url") or "")
+        if not path or not url.lower().startswith("https://"):
+            continue
+        dest = "/work/" + path
+        try:
+            _note(log, "E2B: fetching %s ← %s" % (path, url[:90]))
+            r = sbx.commands.run(
+                'mkdir -p "$(dirname %s)" && curl -fL --retry 2 --max-filesize 5000000000 -o %s %s'
+                % (shlex.quote(dest), shlex.quote(dest), shlex.quote(url)), timeout=timeout)
+            if getattr(r, "exit_code", 1) == 0:
+                n += 1
+                _note(log, "E2B: fetched %s → ok" % path)
+            else:
+                _note(log, "E2B: fetch %s → failed (exit %s)" % (path, getattr(r, "exit_code", "?")))
+        except Exception as e:  # noqa: BLE001
+            _note(log, "E2B: fetch %s → error (%s)" % (path, str(e)[:100]))
+    if n:
+        _note(log, "E2B: auto-resolved %d data file(s) — a mismatch will be capped to INCONCLUSIVE, not REFUTED" % n)
+    return n
+
+
 def _set_egress(sbx, allow_out, log=None):
     """Restrict the sandbox's outbound traffic to `allow_out` (default-deny everything else) for the acquire
     phase. Uses E2B's live `update_network` (SNI/Host domain filtering on 443/80). Best-effort: an SDK/plan
@@ -359,7 +387,7 @@ def _build_conda_env(sbx, env_file_rel, timeout, log=None):
 def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout=600,
             allow_internet=False, pip_install=None, pip_strict=True, python_version=None,
             cfg=None, max_elems=None, log=None, resolve=None, fuzz=False, cpu_cores=0, acquire=None,
-            builder=None, acquire_env=None, acquire_allow_out=None):
+            builder=None, acquire_env=None, acquire_allow_out=None, data_fetch=None):
     """ONE sandbox: stage + install ONCE, then run the entrypoint k× inside it (each a fresh process with its
     own capture file). Reusing the sandbox across the determinism runs is the big cost lever — the dominant
     `pip install` is paid once, not k×, and it's MORE correct for determinism (identical env across runs, so
@@ -383,6 +411,7 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
     pybin, python_used = "python", None
     t_start = time.time()
     build_seconds = 0.0
+    data_fetched = 0
     # heavy deps (torch/tf/…) need a much bigger install budget than the run timeout. With a deferred `resolve`
     # the deps aren't known until after boot, so size the ceiling for the heavy case (harmless — see docstring).
     heavy = True if resolve else build.deps_are_heavy(pip_install)
@@ -396,7 +425,7 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
         _note(log, "E2B: creating microVM (lifetime %dm)…" % (sandbox_life // 60))
         sbx = _create_sandbox(cfg, sandbox_life,
                               allow_internet or resolve is not None or bool(pip_install)
-                              or bool(python_version) or bool(acquire)
+                              or bool(python_version) or bool(acquire) or bool(data_fetch)
                               or builder == "conda-micromamba")   # conda solve needs the package channels
         _note(log, "E2B: microVM up (%.1fs) — uploading repo + capture shim" % (time.time() - t_start))
         for fn in _SHIM_FILES:                                   # stage the capture shim + the repo (once)
@@ -423,6 +452,14 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
         # data-acquisition (paid, gated upstream): run the repo's OWN download pipeline WITH network so the
         # datasets materialize before the eval. The sandbox was created with internet for this; the eval then
         # runs in the same sandbox (a documented tradeoff — the recompute is still independent, so FCR holds).
+        if data_fetch:
+            # BYPASS a broken/incomplete repo download pipeline: fetch the AI-identified canonical data files
+            # DIRECTLY into the sandbox at the paths the repo expects, so the eval has its inputs even when the
+            # repo's own scripts fail. Best-effort per file (a 404/other error just leaves it missing → the run
+            # honestly fails on what's still absent). FCR: this only writes inputs — the number is still captured
+            # + recomputed independently. The caller caps a MISMATCH to INCONCLUSIVE (auto-fetched data isn't the
+            # repo's own output, so it must never false-REFUTE a correct claim).
+            data_fetched = _fetch_data_sources(sbx, data_fetch, inst_timeout, log=log)
         if acquire:
             _note(log, "E2B: acquiring data — %d step(s) with network allowed" % len(acquire))
             # the download scripts need their OWN deps (datasets/huggingface_hub/requests/…), installed with open
@@ -528,5 +565,8 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
                 sbx.kill()
             except Exception:  # noqa: BLE001
                 pass
-    return effector.shape_result(runs, meta, build_seconds=build_seconds, run_seconds=run_seconds,
-                                 hooks_armed=hooks_armed, fuzz=fuzz_records, python_used=python_used)
+    result = effector.shape_result(runs, meta, build_seconds=build_seconds, run_seconds=run_seconds,
+                                   hooks_armed=hooks_armed, fuzz=fuzz_records, python_used=python_used)
+    if data_fetched:
+        result["data_auto_resolved"] = True     # caller caps a mismatch → INCONCLUSIVE (not the repo's own data)
+    return result

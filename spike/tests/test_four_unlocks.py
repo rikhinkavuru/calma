@@ -349,3 +349,40 @@ def test_acquire_installs_download_script_deps(tmp_path):
     (tmp_path / "01_get.py").write_text("from datasets import load_dataset\nimport requests\n")
     deps = _acquire_deps(str(tmp_path), [["01_get.py"]])
     assert "datasets" in deps and "huggingface_hub" in deps and "requests" in deps
+
+
+# ── data-source bypass (fetch canonical data directly when the repo's scripts fail) ────────────────────────────
+def test_planner_data_sources_validation():
+    from planner import _valid_data_sources
+    ok = _valid_data_sources([
+        {"path": "data/clinvar/clinvar.vcf.gz", "url": "https://ftp.ncbi.nlm.nih.gov/x/clinvar.vcf.gz"},
+        {"path": "../etc/passwd", "url": "https://evil/x"},          # traversal → dropped
+        {"path": "/abs", "url": "https://evil/x"},                   # absolute → dropped
+        {"path": "data/x", "url": "http://insecure/x"},             # non-https → dropped
+        {"path": "data/y", "url": "file:///etc/shadow"},            # non-https → dropped
+    ])
+    assert ok == [{"path": "data/clinvar/clinvar.vcf.gz", "url": "https://ftp.ncbi.nlm.nih.gov/x/clinvar.vcf.gz"}]
+
+
+def test_auto_resolved_data_caps_refute_to_inconclusive():
+    """A mismatch against AUTO-FETCHED data must not false-REFUTE (it may be a data-version diff). It caps to
+    INCONCLUSIVE; a match would still CONFIRM. Verified via the _diff_claims cap directly."""
+    import pipeline as P
+    from core import verdict as VD
+
+    class _FakeDiff:
+        @staticmethod
+        def diff_claim(claim, runs, **kw):
+            return {"verdict": VD.REFUTED, "reason": "claimed 0.9 != produced 0.7", "diff": {}}
+
+    orig = P.D
+    P.D = _FakeDiff()
+    try:
+        claims = [{"id": "c1", "metric": "roc_auc", "value": "0.9"}]
+        run = {"runs": [[{"metric": "roc_auc", "result": 0.7}]], "data_auto_resolved": True}
+        recs = P._diff_claims(claims, run, {"ran": True})
+        assert recs[0]["verdict"] == VD.INCONCLUSIVE            # capped, not REFUTED
+        run2 = {"runs": [[{"metric": "roc_auc", "result": 0.7}]]}   # no auto-resolve → REFUTED stands
+        assert P._diff_claims(claims, run2, {"ran": True})[0]["verdict"] == VD.REFUTED
+    finally:
+        P.D = orig

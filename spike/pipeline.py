@@ -340,11 +340,11 @@ def _with_static_targets(repo_dir: str, tgts, trace: Trace, entry=None):
 
 
 def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = None, get_plan=None,
-              acquire=None):
+              acquire=None, data_fetch=None):
     k = opts.k if k is None else k                    # adaptive-k passes an effective k (1 when proven det.)
 
     if opts.orchestrate:                              # build plan: assess→rank→bounded execute/observe/revise
-        return _run_repo_orchestrated(repo_dir, opts, trace, k, get_plan, acquire=acquire)
+        return _run_repo_orchestrated(repo_dir, opts, trace, k, get_plan, acquire=acquire, data_fetch=data_fetch)
 
     def _entry(plan):                                 # precedence: explicit opts > AI plan > auto-detect > default
         e = _argv(opts.entry)
@@ -404,7 +404,8 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = 
                          python_version=pyver, timeout=opts.timeout, log=trace.note, fuzz=opts.fuzz,
                          cpu_cores=opts.cpu_cores, acquire=acquire,
                          acquire_env=(opts.acquire_env if acquire else None),
-                         acquire_allow_out=(opts.acquire_allow_out if acquire else None))
+                         acquire_allow_out=(opts.acquire_allow_out if acquire else None),
+                         data_fetch=data_fetch)
         entry = holder.get("entry") or _entry(get_plan() if get_plan else None)
         pip, strict, tgts = holder.get("pip"), holder.get("strict", True), holder.get("targets")
         for _ in range(2 if opts.heal_deps else 0):       # self-heal a dep the imports didn't reveal
@@ -507,7 +508,7 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = 
 
 
 def _run_repo_orchestrated(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int, get_plan=None,
-                           acquire=None):
+                           acquire=None, data_fetch=None):
     """The make-runnable BRAIN (build plan §1): the orchestrator replaces the fixed entrypoint ladder. It
     profiles the repo, ranks typed RunApproach candidates (reusing the background planner turn), and drives a
     bounded execute/observe/revise loop over the real runners — returning the SAME run dict shape the heuristic
@@ -532,6 +533,8 @@ def _run_repo_orchestrated(repo_dir: str, opts: VerifyOptions, trace: Trace, k: 
 
     def _wrap(r, approach):
         holder["fuzz"] = r.get("fuzz")
+        if r.get("data_auto_resolved"):
+            holder["data_auto_resolved"] = True     # carry the auto-fetch flag → mismatch cap downstream
         return ORR(ran_ok=bool(r.get("ran_ok")), runs=(r.get("runs") or []), meta=(r.get("meta") or []),
                    cost=(r.get("cost") or {}), source_modified=[], approach=approach)
 
@@ -563,14 +566,14 @@ def _run_repo_orchestrated(repo_dir: str, opts: VerifyOptions, trace: Trace, k: 
             # data-acquisition (paid "Download the repo's data"): run the repo's own download pipeline WITH
             # network in this approach's sandbox before the eval. Only on the FIRST E2B run (data is re-fetched
             # per microVM, so once is enough to prove it — after which the run either captures or honestly fails).
-            acq = None
-            if acquire and not holder["acquired"]:
-                acq, holder["acquired"] = acquire, True
+            acq, fetch = None, None
+            if (acquire or data_fetch) and not holder["acquired"]:
+                acq, fetch, holder["acquired"] = acquire, data_fetch, True
             r = run_e2b(repo_dir, entry, k=k, hooks=opts.hooks, targets=targets, pip_install=pip or None,
                         pip_strict=strict, python_version=pyver, timeout=opts.timeout, log=trace.note,
                         fuzz=opts.fuzz, cpu_cores=opts.cpu_cores, builder=approach.builder,
                         acquire=acq, acquire_env=(opts.acquire_env if acq else None),
-                        acquire_allow_out=(opts.acquire_allow_out if acq else None))
+                        acquire_allow_out=(opts.acquire_allow_out if acq else None), data_fetch=fetch)
             return _wrap(r, approach)
 
         # ── local path (fixtures / curated) ──────────────────────────────────────────────────────────────────
@@ -634,6 +637,8 @@ def _run_repo_orchestrated(repo_dir: str, opts: VerifyOptions, trace: Trace, k: 
     run_dict = result.to_run_dict()
     if holder.get("fuzz") is not None:
         run_dict["fuzz"] = holder["fuzz"]                  # preserve the un-foolability emit for diff_claim
+    if holder.get("data_auto_resolved"):
+        run_dict["data_auto_resolved"] = True              # → _diff_claims caps a mismatch to INCONCLUSIVE
     # unify the source-edit rail with the heuristic path so _apply_agent_modified_cap works identically.
     run_dict["repair_manifest"] = {"source_modified": (result.source_modified or []) + _src_changed,
                                    "orchestrator_trace": result.trace}
@@ -703,6 +708,14 @@ def _diff_claims(claims: list[dict], run_result: dict, job_run: dict,
                 reason = "the re-run did not recompute this number — " + (fail.get("hint") or "the entrypoint failed to run")
             else:
                 reason = "the re-run did not recompute this number — point Calma at the script/args that compute it"
+        # SAFETY: data Calma auto-fetched (a canonical source, NOT the repo's own committed data) can legitimately
+        # CONFIRM a match — independent data agreeing is strong evidence — but must NEVER false-REFUTE: a mismatch
+        # could be a data-version difference, not a wrong claim. So cap a would-be REFUTED to INCONCLUSIVE.
+        if run_result.get("data_auto_resolved") and verdict == VD.REFUTED:
+            verdict = VD.INCONCLUSIVE
+            reason = ("recomputed against data Calma auto-fetched (not the repo's own) — a mismatch here may be a "
+                      "data-version difference, so this is inconclusive rather than refuted; commit a predictions "
+                      "file or the exact data for a definitive verdict")
         out = _claim_out(claim, verdict, reason, rec.get("diff", {}), provenance=rec.get("recompute_provenance"))
         # carry the always-on validity overlay (trivial-baseline / degenerate-distribution / chance-level)
         # through to the UI — it is what flipped a would-be CONFIRMED to INVALIDATED.
@@ -790,17 +803,27 @@ def verify_repo(
         # opt-in (paid): run the repo's OWN data-acquisition pipeline (numbered download scripts / make-data
         # target), then retry. Distinct from fetch_data (one file via Exa) — this is the download-first research
         # repo case. Only fires on a genuine missing-data failure, so we never pay for a download that isn't needed.
-        if not run_result.get("ran_ok") and opts.acquire_data:
+        if not run_result.get("ran_ok") and (opts.acquire_data or opts.fetch_data):
             _errtxt = " ".join(m.get("stderr_tail", "") for m in run_result.get("meta", []))
             if build.classify_failure(_errtxt).get("kind") == "missing-data":
                 from runner import acquire as _ACQ
-                cmds = _ACQ.find_acquisition(repo_dir)
-                if cmds:
-                    trace.stage("acquiring data",
-                                "running the repo's data-acquisition pipeline (%d step(s), network allowed)" % len(cmds))
-                    run_result, entry = _run_repo(repo_dir, opts, trace, k=eff_k, get_plan=_get_plan, acquire=cmds)
+                cmds = _ACQ.find_acquisition(repo_dir) if opts.acquire_data else []
+                # BYPASS an imperfect repo pipeline: the AI plan's canonical data-source URLs are fetched directly
+                # into the sandbox (opts.fetch_data), so a repo whose own download scripts fail still gets its
+                # inputs. Fetch runs BEFORE the repo's acquire scripts (which then process the materialized files).
+                sources = ((_get_plan() or {}).get("data_sources") or []) if opts.fetch_data else []
+                if cmds or sources:
+                    what = []
+                    if sources:
+                        what.append("fetching %d data file(s) from canonical sources" % len(sources))
+                    if cmds:
+                        what.append("running the repo's %d-step acquisition pipeline" % len(cmds))
+                    trace.stage("acquiring data", " + ".join(what) + " (network allowed)")
+                    run_result, entry = _run_repo(repo_dir, opts, trace, k=eff_k, get_plan=_get_plan,
+                                                  acquire=cmds, data_fetch=sources)
                 else:
-                    trace.note("data-acquisition requested but no acquisition scripts / make-data target found")
+                    trace.note("missing data, but no acquisition scripts found and the plan proposed no data "
+                               "sources — commit the data or a predictions file to verify")
         # GPU escalation (four-unlocks §7): a CPU run that failed *because* it needs a GPU escalates to the Modal
         # GPU backend — E2B's Firecracker microVMs can't do GPU passthrough. Enterprise-gated + GPU-budget-checked
         # upstream (opts.allow_gpu is only set when the tier allows GPU and budget remains). FCR-safe: the GPU run
