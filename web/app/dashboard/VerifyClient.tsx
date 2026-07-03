@@ -468,12 +468,19 @@ export function VerifyClient() {
                 <>
                   Re-ran <code>{job.run.entry}</code> · captured {job.run.calls} computation(s) ·{" "}
                   <b>{issueTotal} need attention</b>, {byTier.ok} confirmed
-                  {byTier.idle > 0 ? (
-                    <>
-                      {" "}· <b>{byTier.idle} found</b> (not deep-verified)
-                    </>
+                  {byTier.warn > 0 ? <>, {byTier.warn} unverifiable</> : null}
+                  {byTier.idle > 0 ? <> · {byTier.idle} found</> : null}.
+                  {byTier.ok === 0 && byTier.warn > 0 ? (
+                    <div className={dash.muted} style={{ marginTop: 8, fontSize: 13, lineHeight: 1.5 }}>
+                      The re-run reproduced <b>deterministically</b> and Calma recomputed its{" "}
+                      {job.run.calls} computations — but this repo reports many numbers for the same metric
+                      (across datasets/models), so each reported number matches several of the re-run&apos;s
+                      computations and Calma won&apos;t guess which one you mean. To confirm a specific number,{" "}
+                      <b>scope it</b> — click a claim below to bind it to one computation (by dataset/model/split),
+                      point Calma at an entrypoint that computes a single headline number, or commit a{" "}
+                      <b>predictions file</b> (<code>id, y_true, y_score</code>) for a direct recompute.
+                    </div>
                   ) : null}
-                  .
                 </>
               ) : job.run.ran ? (
                 <>

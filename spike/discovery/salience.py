@@ -27,6 +27,27 @@ def _clamp(x: float) -> float:
     return 0.0 if x < 0 else 1.0 if x > 1 else x
 
 
+# metric/column names that signal a DELTA/difference column (a change, not a headline absolute value). A
+# near-zero delta is the LEAST interesting cell in a results table, yet the flat base score used to float it to
+# #1 (`accuracy=-0.0` sorting ahead of every real number). These sink instead.
+_DELTA_HINTS = ("delta", "diff", "change", "gap", "drop", "inflation", "inflat", "_d_", "residual", "error_")
+
+
+def _degenerate(claim: dict) -> bool:
+    """A value that is not a headline a human would quote: an exact 0 / -0 (an empty/placeholder cell), or a
+    near-zero DELTA column. Never a real reported metric — so it must not out-rank one."""
+    try:
+        f = float(claim.get("value"))
+    except (TypeError, ValueError):
+        return False
+    if f == 0.0:                                            # exact 0 / -0 — a placeholder, never a headline
+        return True
+    blob = " ".join(str(claim.get(k) or "") for k in ("metric", "location", "context", "source")).lower()
+    if any(h in blob for h in _DELTA_HINTS) and abs(f) < 1e-6:
+        return True
+    return False
+
+
 def score_one(claim: dict) -> float:
     """Transparent 0..1 salience from fields already on the claim. Higher = more headline."""
     src = (claim.get("source") or "stated").lower()
@@ -38,7 +59,10 @@ def score_one(claim: dict) -> float:
     split_adj = 0.12 if split in _HEADLINE_SPLITS else (-0.30 if split in _TRAIN_SPLITS else 0.0)
     loc = (claim.get("location") or "").lower()
     loc_adj = 0.05 if ("readme" in loc or "results.json" in loc or "metrics.json" in loc) else 0.0
-    return round(_clamp(0.55 * base + 0.30 * conf + split_adj + loc_adj), 4)
+    # a degenerate value (0/-0, near-zero delta) is never the headline — sink it below every real metric so a
+    # placeholder cell can't win the salience tie and become "the top claim".
+    degen_adj = -0.6 if _degenerate(claim) else 0.0
+    return round(_clamp(0.55 * base + 0.30 * conf + split_adj + loc_adj + degen_adj), 4)
 
 
 def score_claims(claims: list[dict], repo_dir: str | None = None, *, use_llm: bool = False,
