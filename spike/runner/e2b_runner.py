@@ -265,11 +265,21 @@ def _run_acquire(sbx, acquire, pybin, timeout, acquire_env, log=None, data_resol
         except Exception as e:  # noqa: BLE001 — the SDK raises on a non-zero exit; capture its output
             return False, (getattr(e, "stderr", "") or str(e))[-4000:]
 
+    def _reason(tail):
+        """The most informative line of a failed step (its exception / error) — so a failure is diagnosable in
+        the job log instead of an opaque 'failed'."""
+        lines = [ln.strip() for ln in (tail or "").splitlines() if ln.strip()]
+        for ln in reversed(lines):                          # the exception line is usually last + most specific
+            if any(k in ln for k in ("Error", "error", "Exception", "Failed", "No such", "Errno", "Traceback")):
+                return ln[:200]
+        return (lines[-1][:200] if lines else "")
+
     results = {}
     for argv in acquire:
         ok, tail = run_step(argv)
         results[tuple(argv)] = (argv, ok, tail)
-        _note(log, "E2B: acquire `%s` → %s" % (" ".join(argv), "ok" if ok else "failed"))
+        _note(log, "E2B: acquire `%s` → %s%s"
+              % (" ".join(argv), "ok" if ok else "failed", "" if ok else " — " + _reason(tail)))
 
     resolved: set[str] = set()
     n_resolved = 0
@@ -301,7 +311,8 @@ def _run_acquire(sbx, acquire, pybin, timeout, acquire_env, log=None, data_resol
         for argv, _t in failed:
             ok, tail = run_step(argv)
             results[tuple(argv)] = (argv, ok, tail)
-            _note(log, "E2B: acquire `%s` (retry) → %s" % (" ".join(argv), "ok" if ok else "failed"))
+            _note(log, "E2B: acquire `%s` (retry) → %s%s"
+                  % (" ".join(argv), "ok" if ok else "failed", "" if ok else " — " + _reason(tail)))
 
     n_ok = sum(1 for (_a, ok, _t) in results.values() if ok)
     _note(log, "E2B: acquire complete — %d/%d step(s) succeeded" % (n_ok, len(acquire)))
