@@ -438,18 +438,23 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
             # commands ONLY — never the eval run below — so the recompute stays credential-free (FCR).
             if acquire_allow_out:
                 _set_egress(sbx, acquire_allow_out, log=log)
+            # Run every step BEST-EFFORT: a numbered pipeline isn't strictly linear — a later step may fetch a
+            # dataset an earlier one didn't (e.g. clinvar downloaded by step 07, read by step 03). Stopping at the
+            # first failure loses all of those. So we log each step's outcome and keep going; the eval then either
+            # captures (enough data landed) or fails honestly on what's still missing. FCR-safe: acquire only
+            # writes inputs; the number is still captured + recomputed independently.
+            n_ok = 0
             for argv in acquire:
                 inner = " ".join(shlex.quote(a) for a in argv)
                 cmd = "cd /work && %s %s" % (pybin, inner) if str(argv[0]).endswith(".py") else "cd /work && " + inner
                 try:
                     ra = sbx.commands.run(cmd, timeout=inst_timeout, envs=(acquire_env or None))
                     ok = getattr(ra, "exit_code", 1) == 0
+                    n_ok += 1 if ok else 0
                     _note(log, "E2B: acquire `%s` → %s" % (" ".join(argv), "ok" if ok else "failed"))
-                    if not ok:
-                        break                                # later steps depend on earlier ones
                 except Exception as e:  # noqa: BLE001
-                    _note(log, "E2B: acquire error — %s" % str(e)[:160])
-                    break
+                    _note(log, "E2B: acquire `%s` → error (%s)" % (" ".join(argv), str(e)[:120]))
+            _note(log, "E2B: acquire complete — %d/%d step(s) succeeded" % (n_ok, len(acquire)))
             # restore the sandbox's created network posture for the EVAL run (clear the acquire allowlist). The
             # credential is injected ONLY during acquire, so the exfil risk lives in that window (which the
             # allowlist covered); the eval run carries no secret, so its posture is unchanged from before —
