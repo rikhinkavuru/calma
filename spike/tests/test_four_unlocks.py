@@ -442,3 +442,29 @@ def test_missing_binary_detection_is_allowlisted():
     assert _missing_binaries_from("samtools: command not found") == ["samtools"]
     assert _missing_binaries_from("No such file or directory: 'rm_rf_evil'") == []   # not allowlisted → refused
     assert _missing_binaries_from("No such file or directory: 'data/x.vcf.gz'") == [] # a path, not a bare tool
+
+
+# ── multi-script pipeline entrypoint ranking (metric is in a LATE script, not the obvious one) ─────────────────
+def test_pipeline_ranking_prefers_metric_script(tmp_path):
+    from orchestrator.tools_static import find_entrypoints, find_pipeline_entrypoints
+    code = tmp_path / "code"
+    code.mkdir()
+    (code / "01_download.py").write_text("from datasets import load_dataset\nload_dataset('x')\n")
+    (code / "05_compute_features.py").write_text("import pandas as pd\ndf.to_parquet('feat.parquet')\n")
+    (code / "12_e5_e6.py").write_text("from sklearn.metrics import roc_auc_score\n"
+                                      "a = roc_auc_score(y, p)\nout.to_csv('e5_calibration.csv')\n")
+    (code / "13_figures.py").write_text("import matplotlib.pyplot as plt\nplt.plot(x)\n")
+    ranked = find_pipeline_entrypoints(str(tmp_path))
+    assert ranked and ranked[0][0] == ["code/12_e5_e6.py"]          # the metric computer ranks first
+    # and it beats the data-prep script in the overall entrypoint ranking
+    top = find_entrypoints(str(tmp_path))
+    argvs = [c.argv for c in top]
+    assert ["code/12_e5_e6.py"] in argvs
+    i_metric = argvs.index(["code/12_e5_e6.py"])
+    assert not any(a == ["code/05_compute_features.py"] and argvs.index(a) < i_metric for a in argvs)
+
+
+def test_pipeline_ranking_empty_for_non_pipeline(tmp_path):
+    from orchestrator.tools_static import find_pipeline_entrypoints
+    (tmp_path / "eval.py").write_text("print(1)\n")
+    assert find_pipeline_entrypoints(str(tmp_path)) == []           # not a numbered pipeline

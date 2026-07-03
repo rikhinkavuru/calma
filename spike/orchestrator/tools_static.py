@@ -198,6 +198,13 @@ def find_entrypoints(repo_dir: str) -> list[EntryCand]:
     if sub:
         add(sub, 0.55, ["subdir driver (metric-importing, __main__)"])
 
+    # multi-script pipelines (A4): in a numbered pipeline (01_prep … 12_eval …), the headline metric is usually
+    # computed by a LATE script (an eval/experiment stage), NOT the first/obvious one. Rank the metric-computing
+    # scripts high so the loop runs THEM (after acquire materializes their inputs) and captures the number —
+    # instead of picking a data-prep script that builds features but computes no metric.
+    for argv, conf, signals in find_pipeline_entrypoints(repo_dir):
+        add(argv, conf, signals)
+
     # notebooks (A1) — lowest default rank; the loop escalates to run_notebook when scripts fail
     for nb in find_notebooks(repo_dir):
         add(["nb:" + nb], 0.4, ["jupyter notebook"])
@@ -215,6 +222,94 @@ def find_entrypoints(repo_dir: str) -> list[EntryCand]:
 
     cands.sort(key=lambda c: (-c.confidence, c.argv))
     return cands
+
+
+# ── A4: multi-script pipeline entrypoint ranking ──────────────────────────────────────────────────────────────
+# a numbered pipeline step: 01_x.py, 02-y.py, step3_z.py … (same shape acquire detects).
+_PIPE_NUM = re.compile(r"^(?:step[_-]?)?(\d{1,3})[_.\- ]")
+# metric FUNCTION calls / tokens — a script containing these actually COMPUTES a reported number (vs one that
+# only builds features or downloads data). Deliberately specific (not just "imports sklearn").
+_METRIC_CALLS = (
+    "roc_auc_score", "roc_auc", "auroc", "auprc", "average_precision", "accuracy_score", "f1_score",
+    "precision_score", "recall_score", "r2_score", "mean_squared_error", "mean_absolute_error", "log_loss",
+    "ndcg_score", "matthews_corrcoef", "cohen_kappa", "balanced_accuracy", "confusion_matrix", "brier_score",
+    "pearsonr", "spearmanr", "kendalltau", "sharpe", "classification_report", "precision_recall_curve",
+)
+# name signals: a metric/eval stage vs a data-prep stage.
+_METRIC_NAMES = ("eval", "experiment", "exp", "result", "metric", "score", "auroc", "auc", "analysis",
+                 "benchmark", "report", "assess", "calibration", "recovery", "confound")
+_PREP_NAMES = ("download", "fetch", "get", "prepare", "prep", "preprocess", "clean", "setup", "install",
+               "load", "build", "make", "feature", "featur", "ingest", "data")
+_PIPE_DIRS = ("", "code", "scripts", "src", "pipeline", "analysis", "experiments", "notebooks")
+
+
+def _numbered_scripts(repo_dir: str) -> list[tuple[int, str]]:
+    """(order, repo-relative path) for numbered .py scripts in the first pipeline-ish dir that has them."""
+    for base in _PIPE_DIRS:
+        d = os.path.join(repo_dir, base) if base else repo_dir
+        if not os.path.isdir(d):
+            continue
+        out = []
+        try:
+            for f in sorted(os.listdir(d)):
+                m = _PIPE_NUM.match(f)
+                if m and f.endswith(".py") and f != "__init__.py":
+                    out.append((int(m.group(1)), os.path.join(base, f) if base else f))
+        except OSError:
+            continue
+        if len(out) >= 3:                                    # a real pipeline, not two stray numbered files
+            return out
+    return []
+
+
+def _score_pipeline_script(rel: str, text: str, order: int, n: int) -> tuple[float, list[str]]:
+    """Likelihood a numbered-pipeline script COMPUTES the headline metric (→ the entrypoint to capture), from its
+    metric-call content, name, position, and whether it writes a results file. Data-prep scripts score low."""
+    low_name = os.path.basename(rel).lower()
+    low_text = text.lower()
+    conf, signals = 0.4, []
+    if any(c in low_text for c in _METRIC_CALLS):
+        conf += 0.3
+        signals.append("computes a metric (metric-function call)")
+    if any(w in low_name for w in _METRIC_NAMES):
+        conf += 0.15
+        signals.append("eval/experiment-stage name")
+    if any(w in low_name for w in _PREP_NAMES):
+        conf -= 0.2
+        signals.append("data-prep-stage name")
+    # writes a results/metrics artifact (the source of reported numbers)
+    if re.search(r"(result|metric|score|auroc|calibration|summary)[\w./-]*\.(csv|json|tsv|parquet)", low_text):
+        conf += 0.12
+        signals.append("writes a results file")
+    if n and order >= max(1, int(n * 0.5)):                  # later in the pipeline → likelier the eval stage
+        conf += 0.1
+        signals.append("late pipeline stage")
+    return max(0.0, min(0.92, conf)), signals
+
+
+@REG.register("find_pipeline_entrypoints", kind="static", cost="cheap",
+              summary="Rank the metric-computing scripts of a numbered multi-script pipeline (A4).")
+def find_pipeline_entrypoints(repo_dir: str) -> list[tuple]:
+    """In a numbered pipeline, return (argv, confidence, signals) for the scripts that actually COMPUTE the
+    reported metric — so the loop runs those (their inputs materialized by acquire) rather than a data-prep
+    script. Empty when the repo isn't a numbered pipeline. Only the metric-computing scripts (conf ≥ 0.5) are
+    returned; running them still flows through the unchanged fail-closed verify (a wrong pick → DISCOVERED)."""
+    scripts = _numbered_scripts(repo_dir)
+    if not scripts:
+        return []
+    n = len(scripts)
+    out = []
+    for order, rel in scripts:
+        try:
+            with open(os.path.join(repo_dir, rel), errors="replace") as fh:
+                text = fh.read(60000)
+        except OSError:
+            continue
+        conf, signals = _score_pipeline_script(rel, text, order, n)
+        if conf >= 0.5:
+            out.append(([rel], conf, signals))
+    out.sort(key=lambda c: -c[1])
+    return out[:4]                                           # the top few metric-computing stages
 
 
 # ── A1: notebooks ─────────────────────────────────────────────────────────────────────────────────────────────
