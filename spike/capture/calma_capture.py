@@ -144,6 +144,8 @@ def _extract_context(f_locals):
         for k, v in f_locals.items():
             if len(ctx) >= 6:
                 break
+            if k.startswith("_"):                            # skip dunders/privates (__name__ isn't context)
+                continue
             if not isinstance(v, str) or not v or len(v) > 64 or "\n" in v or "/" in v or "\\" in v:
                 continue
             lk = k.lower()
