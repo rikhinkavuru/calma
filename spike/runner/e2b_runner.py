@@ -169,6 +169,12 @@ def _fetch_data_sources(sbx, data_fetch, timeout, log=None):
     """Download each {path, url} directly into the sandbox at /work/<path> — the bypass for a repo whose own
     download scripts fail. curl -fL, size-capped (5GB), best-effort per file. Paths are pre-validated by the
     planner (no traversal / absolute). Returns the count fetched (drives the caller's mismatch→INCONCLUSIVE cap)."""
+    def _curl(dest, url):
+        r = sbx.commands.run(
+            'mkdir -p "$(dirname %s)" && curl -fL --retry 2 --max-filesize 5000000000 -o %s %s'
+            % (shlex.quote(dest), shlex.quote(dest), shlex.quote(url)), timeout=timeout)
+        return getattr(r, "exit_code", 1) == 0
+
     n = 0
     for it in data_fetch or []:
         path = str((it or {}).get("path") or "").lstrip("/")
@@ -178,14 +184,18 @@ def _fetch_data_sources(sbx, data_fetch, timeout, log=None):
         dest = "/work/" + path
         try:
             _note(log, "E2B: fetching %s ← %s" % (path, url[:90]))
-            r = sbx.commands.run(
-                'mkdir -p "$(dirname %s)" && curl -fL --retry 2 --max-filesize 5000000000 -o %s %s'
-                % (shlex.quote(dest), shlex.quote(dest), shlex.quote(url)), timeout=timeout)
-            if getattr(r, "exit_code", 1) == 0:
+            if _curl(dest, url):
                 n += 1
                 _note(log, "E2B: fetched %s → ok" % path)
+                # genomics: a bgzipped VCF/BED is read with a tabix INDEX (pysam idx_find_and_load). Grab the
+                # companion .tbi/.csi best-effort so index-based reads work — a common repo pipeline shape.
+                if path.lower().endswith((".vcf.gz", ".bgz", ".bed.gz", ".gff.gz", ".gz")):
+                    for ext in (".tbi", ".csi"):
+                        if _curl(dest + ext, url + ext):
+                            _note(log, "E2B: fetched %s%s (index) → ok" % (path, ext))
+                            break
             else:
-                _note(log, "E2B: fetch %s → failed (exit %s)" % (path, getattr(r, "exit_code", "?")))
+                _note(log, "E2B: fetch %s → failed (exit %s — likely a wrong/404 URL)" % (path, "22"))
         except Exception as e:  # noqa: BLE001
             _note(log, "E2B: fetch %s → error (%s)" % (path, str(e)[:100]))
     if n:
