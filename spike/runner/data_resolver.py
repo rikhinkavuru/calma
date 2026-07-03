@@ -171,3 +171,35 @@ def resolve_missing_data(repo_dir, missing_path, key=None):
     if not n:
         return False, "found %s but the download failed" % url
     return True, "fetched %s (%d bytes) from %s" % (name, n, url)
+
+
+def resolve_file_url(path, context="", model=None):
+    """Resolve the canonical public https download URL for a SPECIFIC missing file (given its exact path — from
+    the repo's own error — and context about the repo's datasets), via a small focused model call. Used by the
+    reactive acquire resolve loop when the deterministic catalog doesn't cover the file. Returns the URL or None.
+
+    Best-effort + gated: no ANTHROPIC_API_KEY → None. FCR-safe: a wrong URL fetches wrong data, which is capped
+    to INCONCLUSIVE downstream (never a false verdict) — so this can propose without risking correctness."""
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        return None
+    model = model or os.environ.get("CALMA_PLAN_MODEL", "claude-haiku-4-5")
+    try:
+        import anthropic
+        client = anthropic.Anthropic()
+        system = (
+            "You resolve public research-dataset download URLs. Given the file path a repository needs and "
+            "context about its datasets, output the SINGLE canonical, current, public https:// download URL for "
+            "that EXACT file. Output ONLY the URL and nothing else, or an empty response if you do not know the "
+            "precise URL. Never invent a URL you aren't confident is real — a wrong URL is worse than none. "
+            "For a HuggingFace dataset file use https://huggingface.co/datasets/<org>/<name>/resolve/main/<file>."
+        )
+        msg = "File the repo needs: %s\nRepo dataset context: %s\nCanonical https download URL:" % (
+            path, str(context or "")[:1500])
+        resp = client.messages.create(model=model, max_tokens=300, system=system,
+                                       messages=[{"role": "user", "content": msg}])
+        text = "".join(getattr(b, "text", "") for b in resp.content).strip()
+    except Exception:  # noqa: BLE001 — resolution is best-effort; any failure → no URL
+        return None
+    m = re.search(r"https://[^\s'\"<>)]+", text)
+    url = m.group(0) if m else None
+    return url if (url and len(url) <= 2048) else None

@@ -399,3 +399,38 @@ def test_data_catalog_augments_and_dedupes():
     pre = [{"path": "d/clinvar.vcf.gz", "url": "https://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh38/clinvar.vcf.gz"}]
     out2 = CAT.augment_sources(pre, "clinvar")
     assert sum(1 for s in out2 if "clinvar.vcf.gz" in s["url"]) == 1     # deduped by URL
+
+
+# ── reactive exact-path data resolution (the "imperfect repo" fallback) ────────────────────────────────────────
+def test_missing_files_extracted_from_repo_errors():
+    from runner.e2b_runner import _missing_files_from
+    t = ("FileNotFoundError: [Errno 2] No such file or directory: '/work/data/clinvar/clinvar.vcf.gz'\n"
+         "Reading VCF: /work/data/ref/GRCh38.fa Failed to open")
+    assert _missing_files_from(t) == ["data/clinvar/clinvar.vcf.gz", "data/ref/GRCh38.fa"]
+
+
+def test_reactive_acquire_resolves_missing_file_and_reruns():
+    """The core imperfect-repo fallback: a step fails on a missing file → resolve its URL (catalog) → fetch to the
+    EXACT path the repo reported → re-run the step → it succeeds. No path-guessing (the repo names the path)."""
+    import types
+
+    from runner import e2b_runner as E
+    st = {"clinvar": False}
+
+    class _Cmd:
+        def run(self, cmd, **kw):
+            if "curl" in cmd and "clinvar" in cmd:                 # a fetch of clinvar lands the file
+                st["clinvar"] = True
+                return types.SimpleNamespace(exit_code=0, stdout="", stderr="")
+            if "03_get_clinvar" in cmd:                            # step 03 fails until clinvar is present
+                if st["clinvar"]:
+                    return types.SimpleNamespace(exit_code=0, stdout="", stderr="")
+                return types.SimpleNamespace(exit_code=1, stdout="",
+                                             stderr="FileNotFoundError: '/work/data/clinvar/clinvar.vcf.gz'")
+            return types.SimpleNamespace(exit_code=0, stdout="", stderr="")
+
+    class _Sbx:
+        commands = _Cmd()
+
+    n_ok, n_res = E._run_acquire(_Sbx(), [["03_get_clinvar.py"]], "python", 60, None)
+    assert n_res >= 1 and n_ok == 1                                # resolved via catalog, step then succeeded

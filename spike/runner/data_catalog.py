@@ -12,6 +12,9 @@ AI-driven — a wrong catalog URL would fetch wrong data (capped to INCONCLUSIVE
 """
 from __future__ import annotations
 
+import os
+import re
+
 # key → {match: substrings that identify the dataset, url: canonical https source, path: default repo-relative
 # path the repo is likely to expect it at}. The fetcher auto-grabs a companion .tbi/.csi for bgzipped files.
 _CATALOG: dict[str, dict] = {
@@ -38,6 +41,36 @@ _CATALOG: dict[str, dict] = {
         "path": "data/encode/GRCh38-cCREs.bed",
     },
 }
+
+
+# Filename → canonical URL rules, for REACTIVE resolution: when a repo step fails on a missing file, we know the
+# EXACT path the repo wants (from its error), so we resolve by the file's basename. The value may be a fixed URL
+# or a callable(basename) → URL for files whose URL is a function of the name (a per-chromosome VCF, etc.).
+_FILE_RULES: list[tuple] = [
+    (re.compile(r"clinvar.*\.vcf\.gz$", re.I),
+     "https://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh38/clinvar.vcf.gz"),
+    (re.compile(r"(grch38|hg38).*\.(fa|fasta)(\.gz)?$", re.I),
+     "https://ftp.ensembl.org/pub/release-110/fasta/homo_sapiens/dna/"
+     "Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz"),
+    (re.compile(r"(grch37|hg19).*\.(fa|fasta)(\.gz)?$", re.I),
+     "https://ftp.ensembl.org/pub/grch37/release-110/fasta/homo_sapiens/dna/"
+     "Homo_sapiens.GRCh37.dna.primary_assembly.fa.gz"),
+    (re.compile(r"(ccre|ccres).*\.bed$", re.I),
+     "https://downloads.wenglab.org/Registry-V4/GRCh38-cCREs.bed"),
+]
+
+
+def resolve_path(path: str) -> str | None:
+    """The canonical URL for a missing file, matched on its BASENAME (deterministic). Used by the reactive
+    resolve loop: the repo's error gives the exact path, so we place the fetch exactly where it's read. None if
+    the file isn't a recognized standard dataset (then the AI resolver is tried)."""
+    base = os.path.basename(str(path or ""))
+    if not base:
+        return None
+    for rx, val in _FILE_RULES:
+        if rx.search(base):
+            return val(base) if callable(val) else val
+    return None
 
 
 def _text_of(sources, data_needed) -> str:

@@ -20,6 +20,7 @@ from __future__ import annotations
 import json
 import shlex
 import os
+import re
 import tarfile
 import tempfile
 import time
@@ -165,42 +166,146 @@ def _acquire_deps(repo_dir, acquire):
     return out
 
 
-def _fetch_data_sources(sbx, data_fetch, timeout, log=None):
-    """Download each {path, url} directly into the sandbox at /work/<path> — the bypass for a repo whose own
-    download scripts fail. curl -fL, size-capped (5GB), best-effort per file. Paths are pre-validated by the
-    planner (no traversal / absolute). Returns the count fetched (drives the caller's mismatch→INCONCLUSIVE cap)."""
-    def _curl(dest, url):
-        r = sbx.commands.run(
-            'mkdir -p "$(dirname %s)" && curl -fL --retry 2 --max-filesize 5000000000 -o %s %s'
-            % (shlex.quote(dest), shlex.quote(dest), shlex.quote(url)), timeout=timeout)
-        return getattr(r, "exit_code", 1) == 0
+def _fetch_one(sbx, path, url, timeout, log=None):
+    """curl one url → /work/<path> (size-capped 5GB, follows redirects, fails on HTTP error). For a bgzipped
+    genomics file also grabs the companion tabix index (.tbi/.csi) so pysam index reads work. Returns True on a
+    successful primary fetch. Best-effort — any error is False, never a raise."""
+    path = str(path or "").lstrip("/")
+    url = str(url or "")
+    if not path or not url.lower().startswith("https://"):
+        return False
+    dest = "/work/" + path
 
+    def _curl(d, u):
+        try:
+            r = sbx.commands.run(
+                'mkdir -p "$(dirname %s)" && curl -fL --retry 2 --max-filesize 5000000000 -o %s %s'
+                % (shlex.quote(d), shlex.quote(d), shlex.quote(u)), timeout=timeout)
+            return getattr(r, "exit_code", 1) == 0
+        except Exception:  # noqa: BLE001
+            return False
+
+    if not _curl(dest, url):
+        return False
+    if path.lower().endswith((".vcf.gz", ".bgz", ".bed.gz", ".gff.gz", ".gz")):
+        for ext in (".tbi", ".csi"):
+            if _curl(dest + ext, url + ext):
+                _note(log, "E2B: fetched %s%s (index) → ok" % (path, ext))
+                break
+    return True
+
+
+def _fetch_data_sources(sbx, data_fetch, timeout, log=None):
+    """Proactively download the AI/catalog-identified {path, url} sources into the sandbox before the repo runs.
+    Returns the count fetched (drives the caller's mismatch→INCONCLUSIVE cap)."""
     n = 0
     for it in data_fetch or []:
-        path = str((it or {}).get("path") or "").lstrip("/")
-        url = str((it or {}).get("url") or "")
+        path, url = str((it or {}).get("path") or ""), str((it or {}).get("url") or "")
         if not path or not url.lower().startswith("https://"):
             continue
-        dest = "/work/" + path
-        try:
-            _note(log, "E2B: fetching %s ← %s" % (path, url[:90]))
-            if _curl(dest, url):
-                n += 1
-                _note(log, "E2B: fetched %s → ok" % path)
-                # genomics: a bgzipped VCF/BED is read with a tabix INDEX (pysam idx_find_and_load). Grab the
-                # companion .tbi/.csi best-effort so index-based reads work — a common repo pipeline shape.
-                if path.lower().endswith((".vcf.gz", ".bgz", ".bed.gz", ".gff.gz", ".gz")):
-                    for ext in (".tbi", ".csi"):
-                        if _curl(dest + ext, url + ext):
-                            _note(log, "E2B: fetched %s%s (index) → ok" % (path, ext))
-                            break
-            else:
-                _note(log, "E2B: fetch %s → failed (exit %s — likely a wrong/404 URL)" % (path, "22"))
-        except Exception as e:  # noqa: BLE001
-            _note(log, "E2B: fetch %s → error (%s)" % (path, str(e)[:100]))
+        _note(log, "E2B: fetching %s ← %s" % (path.lstrip("/"), url[:90]))
+        if _fetch_one(sbx, path, url, timeout, log=log):
+            n += 1
+            _note(log, "E2B: fetched %s → ok" % path.lstrip("/"))
+        else:
+            _note(log, "E2B: fetch %s → failed (likely a wrong/404 URL)" % path.lstrip("/"))
     if n:
         _note(log, "E2B: auto-resolved %d data file(s) — a mismatch will be capped to INCONCLUSIVE, not REFUTED" % n)
     return n
+
+
+# missing-file signatures in a step's output — the repo TELLS us the exact path it wants. We resolve + fetch to
+# EXACTLY that path (no path-guessing), then re-run the step.
+_MISSING_FILE_RES = [
+    re.compile(r"No such file or directory:?\s*'([^']+)'"),
+    re.compile(r"FileNotFoundError[^']*'([^']+)'"),
+    re.compile(r"\[Errno 2\][^']*'([^']+)'"),
+    re.compile(r"(?:Failed to open|could not open|cannot open)(?: file)?[:\s]+[\"']?([^\s\"'\n]+\.[\w.]+)", re.I),
+    re.compile(r"Reading [\w ]+:\s*([^\s\"'\n]+\.[\w.]+)"),
+]
+
+
+def _missing_files_from(tail):
+    """Repo-relative paths of the input files a failed step said were missing (from its stderr/stdout). /work/
+    prefix stripped; only real file paths (a basename with an extension) kept; de-duped, order-stable."""
+    out = []
+    for rx in _MISSING_FILE_RES:
+        for m in rx.finditer(tail or ""):
+            p = (m.group(1) or "").strip()
+            if p.startswith("/work/"):
+                p = p[len("/work/"):]
+            p = p.lstrip("/")
+            base = os.path.basename(p)
+            if p and "." in base and 1 < len(base) < 128 and p not in out and ".." not in p.split("/"):
+                out.append(p)
+    return out
+
+
+def _tail_of(ra):
+    """The stderr (else stdout) tail of a commands.run result, for missing-file extraction."""
+    err = getattr(ra, "stderr", "") or ""
+    out = getattr(ra, "stdout", "") or ""
+    return ((err + "\n" + out) if err else out)[-4000:]
+
+
+def _run_acquire(sbx, acquire, pybin, timeout, acquire_env, log=None, data_resolver=None, repo_ctx=""):
+    """Run the repo's acquisition steps, then ITERATIVELY resolve the inputs they're still missing: for each file
+    a failed step named, resolve a URL (deterministic catalog first, then the injected AI resolver), fetch it to
+    the EXACT path the repo reported, and re-run the failed steps. A re-run can reveal the next missing file, so
+    we loop (bounded). This is how an imperfect repo pipeline gets completed — the repo's own error is the source
+    of truth for what's missing and where. Returns the count of steps that ultimately succeeded."""
+    from . import data_catalog as _CAT
+
+    def run_step(argv):
+        inner = " ".join(shlex.quote(a) for a in argv)
+        cmd = "cd /work && %s %s" % (pybin, inner) if str(argv[0]).endswith(".py") else "cd /work && " + inner
+        try:
+            ra = sbx.commands.run(cmd, timeout=timeout, envs=(acquire_env or None))
+            return (getattr(ra, "exit_code", 1) == 0), _tail_of(ra)
+        except Exception as e:  # noqa: BLE001 — the SDK raises on a non-zero exit; capture its output
+            return False, (getattr(e, "stderr", "") or str(e))[-4000:]
+
+    results = {}
+    for argv in acquire:
+        ok, tail = run_step(argv)
+        results[tuple(argv)] = (argv, ok, tail)
+        _note(log, "E2B: acquire `%s` → %s" % (" ".join(argv), "ok" if ok else "failed"))
+
+    resolved: set[str] = set()
+    n_resolved = 0
+    for _round in range(3):                                  # bounded resolve↔retry loop
+        failed = [(a, t) for (a, ok, t) in results.values() if not ok]
+        missing = []
+        for _a, tail in failed:
+            for p in _missing_files_from(tail):
+                if p not in resolved and p not in missing:
+                    missing.append(p)
+        if not missing:
+            break
+        got = []
+        for p in missing:
+            url = _CAT.resolve_path(p)                       # deterministic catalog (by filename) first
+            if not url and data_resolver:                    # then the injected AI resolver (given the exact path)
+                try:
+                    url = data_resolver(p, repo_ctx)
+                except Exception:  # noqa: BLE001
+                    url = None
+            resolved.add(p)                                  # attempted — don't retry an unresolvable file each round
+            if url and _fetch_one(sbx, p, url, timeout, log=log):
+                got.append(p)
+                n_resolved += 1
+                _note(log, "E2B: resolved missing `%s` ← %s" % (p, str(url)[:80]))
+        if not got:
+            break
+        _note(log, "E2B: re-running %d acquire step(s) after resolving %d file(s)" % (len(failed), len(got)))
+        for argv, _t in failed:
+            ok, tail = run_step(argv)
+            results[tuple(argv)] = (argv, ok, tail)
+            _note(log, "E2B: acquire `%s` (retry) → %s" % (" ".join(argv), "ok" if ok else "failed"))
+
+    n_ok = sum(1 for (_a, ok, _t) in results.values() if ok)
+    _note(log, "E2B: acquire complete — %d/%d step(s) succeeded" % (n_ok, len(acquire)))
+    return n_ok, n_resolved
 
 
 def _set_egress(sbx, allow_out, log=None):
@@ -397,7 +502,8 @@ def _build_conda_env(sbx, env_file_rel, timeout, log=None):
 def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout=600,
             allow_internet=False, pip_install=None, pip_strict=True, python_version=None,
             cfg=None, max_elems=None, log=None, resolve=None, fuzz=False, cpu_cores=0, acquire=None,
-            builder=None, acquire_env=None, acquire_allow_out=None, data_fetch=None):
+            builder=None, acquire_env=None, acquire_allow_out=None, data_fetch=None,
+            data_resolver=None, repo_ctx=""):
     """ONE sandbox: stage + install ONCE, then run the entrypoint k× inside it (each a fresh process with its
     own capture file). Reusing the sandbox across the determinism runs is the big cost lever — the dominant
     `pip install` is paid once, not k×, and it's MORE correct for determinism (identical env across runs, so
@@ -485,23 +591,13 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
             # commands ONLY — never the eval run below — so the recompute stays credential-free (FCR).
             if acquire_allow_out:
                 _set_egress(sbx, acquire_allow_out, log=log)
-            # Run every step BEST-EFFORT: a numbered pipeline isn't strictly linear — a later step may fetch a
-            # dataset an earlier one didn't (e.g. clinvar downloaded by step 07, read by step 03). Stopping at the
-            # first failure loses all of those. So we log each step's outcome and keep going; the eval then either
-            # captures (enough data landed) or fails honestly on what's still missing. FCR-safe: acquire only
-            # writes inputs; the number is still captured + recomputed independently.
-            n_ok = 0
-            for argv in acquire:
-                inner = " ".join(shlex.quote(a) for a in argv)
-                cmd = "cd /work && %s %s" % (pybin, inner) if str(argv[0]).endswith(".py") else "cd /work && " + inner
-                try:
-                    ra = sbx.commands.run(cmd, timeout=inst_timeout, envs=(acquire_env or None))
-                    ok = getattr(ra, "exit_code", 1) == 0
-                    n_ok += 1 if ok else 0
-                    _note(log, "E2B: acquire `%s` → %s" % (" ".join(argv), "ok" if ok else "failed"))
-                except Exception as e:  # noqa: BLE001
-                    _note(log, "E2B: acquire `%s` → error (%s)" % (" ".join(argv), str(e)[:120]))
-            _note(log, "E2B: acquire complete — %d/%d step(s) succeeded" % (n_ok, len(acquire)))
+            # Run the steps, then ITERATIVELY resolve the inputs they're still missing (catalog + AI, fetched to
+            # the EXACT path the repo reports) and re-run — so an imperfect repo pipeline gets completed instead
+            # of stopping at the first broken download. FCR-safe: acquire only writes inputs; the number is still
+            # captured + recomputed independently. Any file we auto-resolve flips the mismatch cap on downstream.
+            _n_ok, _n_resolved = _run_acquire(sbx, acquire, pybin, inst_timeout, acquire_env, log=log,
+                                              data_resolver=data_resolver, repo_ctx=repo_ctx)
+            data_fetched += _n_resolved   # reactively-resolved inputs also flip the mismatch→INCONCLUSIVE cap
             # restore the sandbox's created network posture for the EVAL run (clear the acquire allowlist). The
             # credential is injected ONLY during acquire, so the exfil risk lives in that window (which the
             # allowlist covered); the eval run carries no secret, so its posture is unchanged from before —

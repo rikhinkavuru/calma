@@ -400,12 +400,15 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = 
             return entry, pip, strict, tgts
 
         trace.stage("running", "running in E2B microVM")
+        from runner import data_resolver as _DR
         result = run_e2b(repo_dir, resolve=_resolve, k=k, hooks=opts.hooks,
                          python_version=pyver, timeout=opts.timeout, log=trace.note, fuzz=opts.fuzz,
                          cpu_cores=opts.cpu_cores, acquire=acquire,
                          acquire_env=(opts.acquire_env if acquire else None),
                          acquire_allow_out=(opts.acquire_allow_out if acquire else None),
-                         data_fetch=data_fetch)
+                         data_fetch=data_fetch,
+                         data_resolver=(_DR.resolve_file_url if (acquire and opts.fetch_data) else None),
+                         repo_ctx=((get_plan() or {}).get("data_needed", "") if get_plan else ""))
         entry = holder.get("entry") or _entry(get_plan() if get_plan else None)
         pip, strict, tgts = holder.get("pip"), holder.get("strict", True), holder.get("targets")
         for _ in range(2 if opts.heal_deps else 0):       # self-heal a dep the imports didn't reveal
@@ -518,6 +521,7 @@ def _run_repo_orchestrated(repo_dir: str, opts: VerifyOptions, trace: Trace, k: 
     from orchestrator import orchestrate as ORCH
     from orchestrator import tools_exec as XT
     from orchestrator.types import RunResult as ORR
+    from runner import data_resolver as _DR
 
     venvs_dir = os.path.abspath(opts.venvs_dir or os.path.join(os.path.dirname(os.path.abspath(repo_dir)),
                                                                ".venvs"))
@@ -569,11 +573,15 @@ def _run_repo_orchestrated(repo_dir: str, opts: VerifyOptions, trace: Trace, k: 
             acq, fetch = None, None
             if (acquire or data_fetch) and not holder["acquired"]:
                 acq, fetch, holder["acquired"] = acquire, data_fetch, True
+            # the reactive resolver (AI-backed) fetches inputs a failed acquire step names, to the exact path;
+            # gated on fetch_data (paid). repo_ctx = the plan's data description, so the resolver knows the sources.
+            _resolver = _DR.resolve_file_url if (acq and opts.fetch_data) else None
             r = run_e2b(repo_dir, entry, k=k, hooks=opts.hooks, targets=targets, pip_install=pip or None,
                         pip_strict=strict, python_version=pyver, timeout=opts.timeout, log=trace.note,
                         fuzz=opts.fuzz, cpu_cores=opts.cpu_cores, builder=approach.builder,
                         acquire=acq, acquire_env=(opts.acquire_env if acq else None),
-                        acquire_allow_out=(opts.acquire_allow_out if acq else None), data_fetch=fetch)
+                        acquire_allow_out=(opts.acquire_allow_out if acq else None), data_fetch=fetch,
+                        data_resolver=_resolver, repo_ctx=(plan or {}).get("data_needed", ""))
             return _wrap(r, approach)
 
         # ── local path (fixtures / curated) ──────────────────────────────────────────────────────────────────
