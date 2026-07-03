@@ -33,19 +33,23 @@ def _clamp(x: float) -> float:
 _DELTA_HINTS = ("delta", "diff", "change", "gap", "drop", "inflation", "inflat", "_d_", "residual", "error_")
 
 
+def _is_delta(claim: dict) -> bool:
+    """The claim is a DELTA / comparison column (a change between conditions), not a primary reported metric.
+    A delta CAN be a headline ('removes 15.6 accuracy points') but a near-zero one is table filler, so deltas
+    rank below absolute metrics and are ordered by magnitude — the big effect leads, the noise sinks."""
+    blob = " ".join(str(claim.get(k) or "") for k in ("metric", "location", "context")).lower()
+    return any(h in blob for h in _DELTA_HINTS)
+
+
 def _degenerate(claim: dict) -> bool:
-    """A value that is not a headline a human would quote: an exact 0 / -0 (an empty/placeholder cell), or a
-    near-zero DELTA column. Never a real reported metric — so it must not out-rank one."""
+    """A value no human would quote as a headline: an exact 0 / -0 (placeholder cell), or a near-zero delta."""
     try:
         f = float(claim.get("value"))
     except (TypeError, ValueError):
         return False
-    if f == 0.0:                                            # exact 0 / -0 — a placeholder, never a headline
+    if f == 0.0:
         return True
-    blob = " ".join(str(claim.get(k) or "") for k in ("metric", "location", "context", "source")).lower()
-    if any(h in blob for h in _DELTA_HINTS) and abs(f) < 1e-6:
-        return True
-    return False
+    return _is_delta(claim) and abs(f) < 1e-3               # a delta within ~0.1 point is noise, not a result
 
 
 def score_one(claim: dict) -> float:
@@ -60,8 +64,9 @@ def score_one(claim: dict) -> float:
     loc = (claim.get("location") or "").lower()
     loc_adj = 0.05 if ("readme" in loc or "results.json" in loc or "metrics.json" in loc) else 0.0
     # a degenerate value (0/-0, near-zero delta) is never the headline — sink it below every real metric so a
-    # placeholder cell can't win the salience tie and become "the top claim".
-    degen_adj = -0.6 if _degenerate(claim) else 0.0
+    # placeholder cell can't win the salience tie and become "the top claim". A delta/comparison column is a
+    # secondary result vs the absolute metric it compares, so it ranks a notch lower (a BIG delta still surfaces).
+    degen_adj = -0.6 if _degenerate(claim) else (-0.12 if _is_delta(claim) else 0.0)
     return round(_clamp(0.55 * base + 0.30 * conf + split_adj + loc_adj + degen_adj), 4)
 
 
@@ -79,7 +84,16 @@ def score_claims(claims: list[dict], repo_dir: str | None = None, *, use_llm: bo
             CC.merge(claims, repo_dir, model=model)
         except Exception:  # noqa: BLE001 — best-effort; the P0 ranking stands on any failure
             pass
-    claims.sort(key=lambda c: (-c.get("salience", 0.0), c.get("metric") or "", str(c.get("value"))))
+    # Tie-break among equal-salience claims by MAGNITUDE, not the raw value string: the old `str(value)` key
+    # floated the most negative/degenerate cell (`-0.0003` — leading '-' sorts before digits) to #1. Larger
+    # |value| = a more notable result (a 15-point effect beats a 0.0003 one), then metric name for stability.
+    def _mag(c):
+        try:
+            return -abs(float(c.get("value")))
+        except (TypeError, ValueError):
+            return 0.0
+
+    claims.sort(key=lambda c: (-c.get("salience", 0.0), _mag(c), c.get("metric") or "", str(c.get("value"))))
     return claims
 
 
