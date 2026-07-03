@@ -712,6 +712,28 @@ def _run_repo_orchestrated(repo_dir: str, opts: VerifyOptions, trace: Trace, k: 
     return run_dict, entry_out
 
 
+_ARTIFACT_BAN_TOKENS = {"", "csv", "tsv", "json", "parquet", "npy", "npz", "results", "result", "predictions",
+                        "preds", "pred", "data", "output", "outputs", "test", "train", "val", "eval", "final"}
+
+
+def _artifact_binds(claim: dict, path: str, n_metric_claims: int, n_files: int) -> bool:
+    """Does this claim plausibly correspond to THIS committed predictions file? Recomputing a number from a
+    predictions file and matching/mismatching a claim only means something if the claim is ABOUT that file —
+    otherwise it's a mis-bind: a stray number (a config value, a table cell from another experiment, a bare
+    number in prose) glued to the nearest recomputable artifact, giving a false REFUTED *or* a false CONFIRMED
+    (value-coincidence). Confident when: (a) UNIQUE — exactly one claim of this metric + one predictions file
+    (so there's no question which computation the claim refers to); or (b) the claim's location/context shares
+    an identifying token with the file's path (locality). A benchmark that reports the SAME metric hundreds of
+    times across datasets (n_metric_claims ≫ 1) must NOT bind them all to one file — the homology-repo mis-bind."""
+    if n_files == 1 and n_metric_claims == 1:
+        return True
+    ptoks = {t for t in re.split(r"[^a-z0-9]+", str(path).lower()) if t not in _ARTIFACT_BAN_TOKENS}
+    ctoks = {t for t in re.split(r"[^a-z0-9]+",
+                                 (str(claim.get("location") or "") + " " + str(claim.get("context") or "")).lower())
+             if t not in _ARTIFACT_BAN_TOKENS}
+    return bool(ptoks & ctoks)
+
+
 def _artifact_verify(repo_dir: str, claims: list[dict]) -> dict:
     out: dict = {}
     # Scan the repo for committed prediction files ONCE — it's a pure function of repo_dir. Doing it inside
@@ -720,10 +742,19 @@ def _artifact_verify(repo_dir: str, claims: list[dict]) -> dict:
     pred_files = A.find_prediction_files(repo_dir)
     if not pred_files:
         return out
+    metric_counts: dict = {}
+    for c in claims:
+        m = (c.get("metric") or "").lower()
+        metric_counts[m] = metric_counts.get(m, 0) + 1
     for claim in claims:
         for path, cols in pred_files:
             res = A.recompute_from_cols(cols, claim.get("metric"), SYNTH.recompute_any)
             if not res:
+                continue
+            # only give an artifact verdict when the claim confidently corresponds to THIS file — never glue a
+            # stray number to an unrelated predictions file (the false-REFUTED / value-coincidence-CONFIRMED hole).
+            if not _artifact_binds(claim, path, metric_counts.get((claim.get("metric") or "").lower(), 1),
+                                   len(pred_files)):
                 continue
             recomputed = res["value"]
             ok, _ = T.claim_close(claim.get("value"), recomputed)

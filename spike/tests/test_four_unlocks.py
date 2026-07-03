@@ -557,3 +557,20 @@ def test_report_summary_explains_problems():
                     leakage=[{"dataset": "d", "findings": [{"invalidating": True, "detail": "34% homology"}]}])
     assert "problem" in s["headline"].lower() and any("leakage" in f.lower() for f in s["findings"])
     assert s["conclusion"] and s["next_step"]
+
+
+def test_artifact_verify_no_false_refute_on_unrelated_claim(tmp_path):
+    """A stray number that doesn't correspond to a committed predictions file must NOT be REFUTED against it
+    (the mis-bind that false-refuted a prose constant against an unrelated fixture)."""
+    import csv
+    import pipeline as P
+    (tmp_path / "results").mkdir()
+    with open(tmp_path / "results" / "predictions.csv", "w", newline="") as f:
+        w = csv.writer(f); w.writerow(["id", "y_true", "y_pred"])
+        for i in range(50):
+            w.writerow([i, i % 2, i % 2])                    # perfect → recomputes to 1.0
+    # a claim for a DIFFERENT number, from an unrelated location, among several claims → must not bind/refute
+    claims = [{"id": "c1", "metric": "accuracy", "value": "0.82", "location": "docs/notes.md", "context": ""},
+              {"id": "c2", "metric": "accuracy", "value": "0.5", "location": "other.md", "context": ""}]
+    out = P._artifact_verify(str(tmp_path), claims)
+    assert "c1" not in out and "c2" not in out               # neither is confidently about the predictions file
