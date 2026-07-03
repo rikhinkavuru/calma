@@ -42,9 +42,20 @@ def test_tiers_are_monotonic_free_le_pro_le_enterprise():
 def test_paid_features_off_on_free_on_on_paid():
     free = L.TIERS["free"]
     assert not free.allow_ai_plan and not free.allow_data_acquisition and not free.private_repos
+    assert not free.allow_orchestrator
     for name in ("pro", "enterprise", "owner"):
         t = L.TIERS[name]
         assert t.allow_ai_plan and t.allow_data_acquisition and t.private_repos, name
+        assert t.allow_orchestrator, name
+
+
+def test_orchestrator_gated_and_kill_switchable(monkeypatch):
+    # paid → orchestrated brain on; free → heuristic ladder
+    assert L.clamp_request(L.TIERS["enterprise"], {})[0]["orchestrate"] is True
+    assert L.clamp_request(L.TIERS["free"], {})[0]["orchestrate"] is False
+    # env kill-switch flips paid back to the heuristic path fleet-wide, no redeploy
+    monkeypatch.setenv("CALMA_ORCHESTRATOR", "off")
+    assert L.clamp_request(L.TIERS["enterprise"], {})[0]["orchestrate"] is False
 
 
 def test_clamp_carries_every_limit_into_the_run():

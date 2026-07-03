@@ -58,6 +58,9 @@ class Tier:
     allow_data_acquisition: bool = False  # run the repo's OWN data-download pipeline in a gated, bounded,
     #                                   allowlisted-internet phase, then recompute (the download-first research
     #                                   repo case). Paid only; FCR-safe (a wrong fetch → DISCOVERED, never CONFIRM)
+    allow_orchestrator: bool = False  # use the assess→rank→bounded-loop make-runnable BRAIN (ranked entrypoints,
+    #                                   notebooks/make/conda tools, revise loop) instead of the fixed heuristic
+    #                                   ladder. FCR-safe by construction (corpus-proven parity + FCR==0). Paid.
     unmetered: bool = False           # the local operator: no counters drawn down
 
 
@@ -135,6 +138,7 @@ TIERS: dict[str, Tier] = {
         cpu_cores=_i("CALMA_PRO_CORES", 8),
         allow_ai_plan=True,
         allow_data_acquisition=True,
+        allow_orchestrator=True,
     ),
     "enterprise": Tier(
         name="enterprise",
@@ -154,6 +158,7 @@ TIERS: dict[str, Tier] = {
         cpu_cores=_i("CALMA_ENT_CORES", 16),
         allow_ai_plan=True,
         allow_data_acquisition=True,
+        allow_orchestrator=True,
     ),
     # the local-first operator (token unset): their machine, their keys — unmetered but still concrete-capped so
     # a runaway loop can't fan out unbounded.
@@ -175,6 +180,7 @@ TIERS: dict[str, Tier] = {
         cpu_cores=_i("CALMA_OWNER_CORES", 8),
         allow_ai_plan=True,
         allow_data_acquisition=True,
+        allow_orchestrator=True,
         unmetered=True,
     ),
 }
@@ -392,6 +398,11 @@ def clamp_request(tier: Tier, req: dict) -> tuple[dict, Decision]:
         if out.get("plan"):
             d.notes.append("the AI run-plan is a paid capability — running on deterministic heuristics")
         out["plan"] = False
+
+    # the assess→rank→loop make-runnable brain (paid tiers). Env kill-switch CALMA_ORCHESTRATOR=off disables it
+    # fleet-wide without a redeploy → instant fall back to the proven heuristic ladder if it ever misbehaves.
+    out["orchestrate"] = (tier.allow_orchestrator
+                          and (os.environ.get("CALMA_ORCHESTRATOR", "on").strip().lower() != "off"))
 
     # feature GATES — refuse, don't silently downgrade
     if out.get("fetch_data") and not tier.allow_fetch_data:

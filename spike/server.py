@@ -201,6 +201,7 @@ class VerifyReq(BaseModel):
     acquire_data: bool = False           # opt-in (paid): run the repo's own data-download pipeline (numbered
     #                                      acquisition scripts / make target) in a gated internet phase, then recompute
     plan: bool = True                    # AI run-plan pre-stage (tier-gated in clamp_request; free → heuristics)
+    orchestrate: bool = False            # assess→rank→loop make-runnable brain (tier-gated; env kill-switch)
     cpu_cores: int = 0                   # sandbox vCPU (tier; realised via E2B template routing). 0 = default template
     mem_mb: int = 0                      # per-sandbox RSS cap (tier; supervisor caps the child at min(container, this))
     repair_steps: int = 0                # tier env-repair budget (0 = repair off; >0 enables the bounded loop)
@@ -287,6 +288,7 @@ def run_job(job, req: VerifyReq):
             fetch_data=req.fetch_data,
             acquire_data=req.acquire_data,
             plan=req.plan,
+            orchestrate=req.orchestrate,
             cpu_cores=req.cpu_cores,
             mem_mb=req.mem_mb,
             repair=req.repair_steps > 0,            # env-repair loop enabled on tiers with a repair budget
@@ -364,6 +366,7 @@ def verify(req: VerifyReq, ident: Identity = Depends(identity)):
     req.fetch_data = bool(clamped.get("fetch_data", req.fetch_data))
     req.acquire_data = bool(clamped.get("acquire_data", False))      # tier-gated above (402 for free)
     req.plan = bool(clamped.get("plan", req.plan))                    # AI run-plan off on free tiers
+    req.orchestrate = bool(clamped.get("orchestrate", False))         # make-runnable brain on paid tiers
     req.cpu_cores = int(clamped.get("cpu_cores", 0))                  # tier vCPU (E2B template routing)
     req.mem_mb = int(clamped.get("mem_mb", 0))                        # tier per-sandbox RSS cap
     req.repair_steps = int(clamped.get("repair_steps", 0))           # tier env-repair budget (0 = off)
