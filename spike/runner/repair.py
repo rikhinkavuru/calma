@@ -108,7 +108,7 @@ def _llm_action(result, history, model):
         ctx = "FAILURE:\n%s\n\nACTIONS ALREADY TRIED:\n%s" % (
             _err(result), [(s.get("type"), s.get("arg")) for s in history])
         resp = client.messages.create(
-            model=model or os.environ.get("CALMA_REPAIR_MODEL", "claude-sonnet-5"), max_tokens=1024,
+            model=model or os.environ.get("CALMA_REPAIR_MODEL", "claude-haiku-4-5"), max_tokens=1024,
             system=_SYSTEM, output_config={"format": {"type": "json_schema", "schema": _SCHEMA}},
             messages=[{"role": "user", "content": ctx}])
         if resp.stop_reason == "max_tokens":

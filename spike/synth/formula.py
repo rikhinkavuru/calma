@@ -173,7 +173,7 @@ def _registry_metric(metric: str):
 # oracle on random inputs — so a wrong/prompt-injected formula fails validation and is discarded (the FCR gate
 # is the validation, not the model). The synthesized code still runs only in the restricted exec_formula
 # namespace (safe builtins + math, no imports).
-_SYNTH_MODEL = os.environ.get("CALMA_SYNTH_MODEL", "claude-sonnet-5").strip() or "claude-sonnet-5"
+_SYNTH_MODEL = os.environ.get("CALMA_SYNTH_MODEL", "claude-haiku-4-5").strip() or "claude-haiku-4-5"
 
 _SYNTH_SYSTEM = (
     "You implement a single metric as PURE PYTHON. Return ONLY a function `def recompute(I, K) -> float` "
