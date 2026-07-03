@@ -60,12 +60,16 @@ _SCHEMA = {
                         "description": "pip package specs the run needs (respect requirements.txt if present)."},
         "python_version": {"type": "string", "description": "the Python the repo targets, e.g. '3.11'; '' if unknown."},
         "data_needed": {"type": "string", "description": "external data the repo needs + where from; '' if none/bundled."},
-        "data_sources": {"type": "array", "description": "ONLY for well-known public datasets the repo needs but "
-                         "doesn't bundle: the repo-relative path it expects the file at + the CANONICAL public "
-                         "download URL. Used to fetch data directly when the repo's own download scripts fail. "
-                         "Give a URL only if you are confident it is the exact, current, public source (e.g. "
-                         "ClinVar VCF from NCBI, a HuggingFace dataset file, an ENCODE/UCSC file). Empty if unsure "
-                         "— a wrong URL fetches wrong data, so omit rather than guess.",
+        "data_sources": {"type": "array", "description": "For each external dataset the repo needs but doesn't "
+                         "bundle, give the repo-relative path it expects the file at + the CANONICAL public "
+                         "download URL. This is used to fetch data DIRECTLY when the repo's own download scripts "
+                         "fail, so DO populate it for standard public datasets you recognize — ClinVar VCF "
+                         "(https://ftp.ncbi.nlm.nih.gov/pub/clinvar/vcf_GRCh38/clinvar.vcf.gz), gnomAD, ENCODE "
+                         "cCREs, UCSC/Ensembl reference genomes, HuggingFace dataset files "
+                         "(https://huggingface.co/datasets/<org>/<name>/resolve/main/<file>), Zenodo/figshare "
+                         "DOIs. Match the path to what the repo's code reads (grep for read_parquet/open/ "
+                         "load_dataset paths). Only OMIT an entry when you genuinely don't know the real URL — a "
+                         "wrong URL fetches wrong data (which is capped to inconclusive, never a false verdict).",
                          "items": {"type": "object", "additionalProperties": False, "properties": {
                              "path": {"type": "string", "description": "repo-relative path the file goes to, e.g. "
                                       "'data/clinvar/clinvar.vcf.gz'."},
