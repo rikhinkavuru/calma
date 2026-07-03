@@ -340,3 +340,12 @@ def test_execute_stops_on_missing_data_instead_of_grinding_the_ladder():
     res = execute(approaches, run_approach, budget=Budget(step_cap=6, max_approaches=4))
     assert tried == ["compute.py"]                            # stopped — never burned a sandbox on figures.py
     assert not res.ran_ok
+
+
+def test_acquire_installs_download_script_deps(tmp_path):
+    """The download scripts need their OWN deps (datasets/huggingface_hub) — without them the first acquire step
+    ImportErrors before a byte downloads (composition-confound-vep: '01_get_traitgym.py: from datasets import')."""
+    from runner.e2b_runner import _acquire_deps
+    (tmp_path / "01_get.py").write_text("from datasets import load_dataset\nimport requests\n")
+    deps = _acquire_deps(str(tmp_path), [["01_get.py"]])
+    assert "datasets" in deps and "huggingface_hub" in deps and "requests" in deps

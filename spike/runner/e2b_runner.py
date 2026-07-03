@@ -139,6 +139,32 @@ def _upload_dir(sbx, local_dir, dest, log=None):
                 pass
 
 
+def _acquire_deps(repo_dir, acquire):
+    """The deps the DOWNLOAD scripts need — distinct from the eval's. A research acquire pipeline almost always
+    pulls from HuggingFace (`from datasets import …`, `huggingface_hub`) or over HTTP (`requests`); those aren't
+    the eval's inferred deps, so without this the very first acquire step ImportErrors before a byte downloads
+    (the composition-confound-vep failure: `01_get_traitgym.py: from datasets import …`). We seed the common
+    data-fetch toolkit + whatever the acquire scripts actually import (mapped to PyPI dists, stdlib/local dropped)."""
+    base = ["huggingface_hub", "datasets", "requests"]
+    roots: set[str] = set()
+    for argv in acquire or []:
+        p = str(argv[0]) if argv else ""
+        if p.endswith(".py"):
+            fp = os.path.join(repo_dir, p)
+            if os.path.isfile(fp):
+                roots |= build._imported_roots(fp)
+    stdlib = set(getattr(__import__("sys"), "stdlib_module_names", ())) | {"__future__"}
+    local = build._local_module_names(repo_dir)
+    extra = [build._PKG_ALIASES.get(r, r) for r in sorted(roots)
+             if r and not r.startswith("_") and r not in stdlib and r not in local]
+    out, seen = [], set()
+    for d in base + extra:
+        if d not in seen:
+            seen.add(d)
+            out.append(d)
+    return out
+
+
 def _set_egress(sbx, allow_out, log=None):
     """Restrict the sandbox's outbound traffic to `allow_out` (default-deny everything else) for the acquire
     phase. Uses E2B's live `update_network` (SNI/Host domain filtering on 443/80). Best-effort: an SDK/plan
@@ -148,7 +174,7 @@ def _set_egress(sbx, allow_out, log=None):
         _note(log, "E2B: egress allowlist unavailable on this SDK — acquire runs with full internet (gated)")
         return
     try:
-        fn(allow_out=list(allow_out), deny_out=["0.0.0.0/0"])
+        fn({"allow_out": list(allow_out), "deny_out": ["0.0.0.0/0"]})   # SDK takes ONE SandboxNetworkUpdate dict
         _note(log, "E2B: acquire egress limited to %s" % ", ".join(list(allow_out)[:8]))
     except Exception as e:  # noqa: BLE001
         _note(log, "E2B: could not set egress allowlist (%s) — acquire runs open (gated)" % str(e)[:120])
@@ -161,7 +187,7 @@ def _clear_egress(sbx, log=None):
     if not callable(fn):
         return
     try:
-        fn()                                            # empty → clears all allow/deny rules
+        fn({})                                          # empty update → clears all allow/deny rules
         _note(log, "E2B: acquire egress allowlist cleared for the eval run")
     except Exception:  # noqa: BLE001
         pass
@@ -399,6 +425,12 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
         # runs in the same sandbox (a documented tradeoff — the recompute is still independent, so FCR holds).
         if acquire:
             _note(log, "E2B: acquiring data — %d step(s) with network allowed" % len(acquire))
+            # the download scripts need their OWN deps (datasets/huggingface_hub/requests/…), installed with open
+            # net BEFORE the egress allowlist clamps down (the allowlist includes pypi, but install-first is safe).
+            acq_deps = _acquire_deps(repo_dir, acquire)
+            if acq_deps:
+                _note(log, "E2B: installing %d acquire dep(s) — %s" % (len(acq_deps), " ".join(acq_deps)[:160]))
+                _install(sbx, acq_deps, False, inst_timeout, pip_cmd, log=log)
             # four-unlocks §8: narrow egress to a default-deny data-host allowlist for the acquire phase, so a
             # prompt-injected acquire script (or a leaked credential injected below) can only reach the data
             # hosts — not an attacker-controlled server. Best-effort: an SDK without update_network keeps the
