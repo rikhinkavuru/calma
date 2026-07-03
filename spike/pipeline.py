@@ -344,7 +344,7 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = 
     k = opts.k if k is None else k                    # adaptive-k passes an effective k (1 when proven det.)
 
     if opts.orchestrate:                              # build plan: assess→rank→bounded execute/observe/revise
-        return _run_repo_orchestrated(repo_dir, opts, trace, k, get_plan)
+        return _run_repo_orchestrated(repo_dir, opts, trace, k, get_plan, acquire=acquire)
 
     def _entry(plan):                                 # precedence: explicit opts > AI plan > auto-detect > default
         e = _argv(opts.entry)
@@ -506,7 +506,8 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = 
     return result, entry
 
 
-def _run_repo_orchestrated(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int, get_plan=None):
+def _run_repo_orchestrated(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int, get_plan=None,
+                           acquire=None):
     """The make-runnable BRAIN (build plan §1): the orchestrator replaces the fixed entrypoint ladder. It
     profiles the repo, ranks typed RunApproach candidates (reusing the background planner turn), and drives a
     bounded execute/observe/revise loop over the real runners — returning the SAME run dict shape the heuristic
@@ -524,7 +525,10 @@ def _run_repo_orchestrated(repo_dir: str, opts: VerifyOptions, trace: Trace, k: 
     if pyver:
         trace.note("declared Python %s" % pyver)
     plan = get_plan() if get_plan else None                # reuse the background planner turn (boot-overlap)
-    holder: dict = {}                                      # carries the winning run's fuzz emit + raw cost
+    holder: dict = {"acquired": False}                     # carries the winning run's fuzz emit + raw cost;
+    #                                                        `acquired` runs the download pipeline ONCE (data
+    #                                                        doesn't persist across microVMs, but re-downloading
+    #                                                        per approach is wasteful — do it on the first E2B run)
 
     def _wrap(r, approach):
         holder["fuzz"] = r.get("fuzz")
@@ -556,9 +560,17 @@ def _run_repo_orchestrated(repo_dir: str, opts: VerifyOptions, trace: Trace, k: 
                     trace.note("era-compat: " + n)
                 if era:
                     trace.note("era-pinned inferred deps to %s" % era)
+            # data-acquisition (paid "Download the repo's data"): run the repo's own download pipeline WITH
+            # network in this approach's sandbox before the eval. Only on the FIRST E2B run (data is re-fetched
+            # per microVM, so once is enough to prove it — after which the run either captures or honestly fails).
+            acq = None
+            if acquire and not holder["acquired"]:
+                acq, holder["acquired"] = acquire, True
             r = run_e2b(repo_dir, entry, k=k, hooks=opts.hooks, targets=targets, pip_install=pip or None,
                         pip_strict=strict, python_version=pyver, timeout=opts.timeout, log=trace.note,
-                        fuzz=opts.fuzz, cpu_cores=opts.cpu_cores, builder=approach.builder)
+                        fuzz=opts.fuzz, cpu_cores=opts.cpu_cores, builder=approach.builder,
+                        acquire=acq, acquire_env=(opts.acquire_env if acq else None),
+                        acquire_allow_out=(opts.acquire_allow_out if acq else None))
             return _wrap(r, approach)
 
         # ── local path (fixtures / curated) ──────────────────────────────────────────────────────────────────

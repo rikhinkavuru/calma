@@ -320,3 +320,23 @@ def test_orchestrator_missing_module_detects_pyarrow():
     from orchestrator.types import RunResult
     rr = RunResult(ran_ok=False, meta=[{"stderr_tail": "Unable to find a usable engine; tried using: 'pyarrow'"}])
     assert _missing_module(rr) == "pyarrow"
+
+
+def test_execute_stops_on_missing_data_instead_of_grinding_the_ladder():
+    """Repetition fix: a missing-data failure on the top entrypoint must STOP the loop (a different entrypoint
+    can't conjure the file) — not grind every fallback (figures/notebook) in its own microVM, twice."""
+    from orchestrator.orchestrate import Budget, execute
+    from orchestrator.types import RunApproach, RunResult
+    tried = []
+
+    def run_approach(a):
+        tried.append(a.entry[0])
+        if a.entry[0] == "compute.py":
+            return RunResult(ran_ok=False, runs=[],
+                             meta=[{"stderr_tail": "FileNotFoundError: data/clinvar.parquet", "returncode": -9}])
+        return RunResult(ran_ok=True, runs=[[{"metric": "acc"}]], meta=[{"returncode": 0}])
+
+    approaches = [RunApproach(entry=["compute.py"]), RunApproach(entry=["figures.py"])]
+    res = execute(approaches, run_approach, budget=Budget(step_cap=6, max_approaches=4))
+    assert tried == ["compute.py"]                            # stopped — never burned a sandbox on figures.py
+    assert not res.ran_ok

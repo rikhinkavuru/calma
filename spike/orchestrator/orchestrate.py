@@ -346,6 +346,17 @@ def execute(approaches: list[RunApproach], run_approach, *, revise=heuristic_rev
                 best_effort = result
             elif result.ran_ok and not best_effort.ran_ok and best_effort.approach is approach:
                 best_effort = result                       # same approach, now running after a revise
+            # ENVIRONMENTAL failure (missing data / needs-GPU): trying MORE entrypoints can't conjure a missing
+            # file or a GPU — it only burns sandboxes (05 fail → 13_figures → notebook-timeout, ×2). Stop and
+            # surface it so the caller acts (run the data-acquisition pipeline, or report missing-data honestly)
+            # instead of grinding the whole ladder. A dep/argv/entrypoint failure still revises + tries the rest.
+            from runner import build as _B
+            if _B.classify_failure(_stderr(result)).get("kind") in ("missing-data", "needs-gpu"):
+                trace.append({"event": "environmental-stop", "approach": idx})
+                if log:
+                    log("orchestrator: missing data/GPU — a different entrypoint can't fix that; surfacing it")
+                result.trace = trace
+                return result
             sig = sig_fn(_stderr(result)) if sig_fn else None
             revised = revise(result, approach, trace)
             if revised is None:
