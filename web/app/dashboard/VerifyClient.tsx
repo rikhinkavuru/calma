@@ -293,6 +293,10 @@ export function VerifyClient() {
   const counts = job?.counts || {};
   const byTier = tierCounts(counts);
   const issueTotal = ISSUE_TIERS.reduce((n, t) => n + byTier[t], 0);
+  // A run that executed but captured 0 computations is NOT a clean result — it produced nothing to verify.
+  // Treat only a run that actually captured a computation as "ran" for the banner (else it reads as clean when
+  // the metric-computing entrypoint really failed). byTier.idle = DISCOVERED (found, not deep-verified).
+  const ranVerifiable = !!job?.run?.ran && (job?.run?.calls ?? 0) > 0;
   const leak = job?.leakage || [];
   const connected = !!installationId || !!cfg?.connected;   // a known install (client-remembered or backend)
 
@@ -459,11 +463,23 @@ export function VerifyClient() {
       {job?.status === "done" && (
         <>
           {job.run && (
-            <div className={`${s.banner} ${job.run.ran ? s.bannerOk : s.bannerWarn}`}>
-              {job.run.ran ? (
+            <div className={`${s.banner} ${ranVerifiable ? s.bannerOk : s.bannerWarn}`}>
+              {ranVerifiable ? (
                 <>
                   Re-ran <code>{job.run.entry}</code> · captured {job.run.calls} computation(s) ·{" "}
-                  <b>{issueTotal} need attention</b>, {byTier.ok} confirmed.
+                  <b>{issueTotal} need attention</b>, {byTier.ok} confirmed
+                  {byTier.idle > 0 ? (
+                    <>
+                      {" "}· <b>{byTier.idle} found</b> (not deep-verified)
+                    </>
+                  ) : null}
+                  .
+                </>
+              ) : job.run.ran ? (
+                <>
+                  Re-ran <code>{job.run.entry}</code> but it produced <b>no verifiable number</b> (0 computations
+                  captured). Showing the {job.n_claims} number(s) Calma found — point it at the entrypoint that
+                  computes the metric (Advanced → Entrypoint), or commit a predictions file, to deep-verify them.
                 </>
               ) : (
                 <>
