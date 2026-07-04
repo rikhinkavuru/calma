@@ -208,11 +208,14 @@ def resolve_data_path(repo_dir: str, stderr: str):
     miss = _DR.missing_data_path(stderr or "")
     if not miss:
         return False, "no missing data file named in the failure"
-    placed = _DR.relink_committed_data(repo_dir, miss)
+    placed, modified = _DR.make_data_available(repo_dir, miss)   # relink (free) or place+rewrite (capped)
     if placed:
-        return True, "relinked committed data → %s" % placed
+        how = ("relinked committed data → %s" % placed if not modified
+               else "placed committed data at %s + rewrote %d path literal(s) — verdict capped to REPRODUCED-ONLY"
+               % (placed, len(modified)))
+        return True, how
     try:
-        ok, note = _DR.resolve_missing_data(repo_dir, miss)
+        ok, note = _DR.resolve_missing_data(repo_dir, miss)      # best-effort catalog/Exa fetch to the read path
         return bool(ok), note
     except Exception as e:  # noqa: BLE001 — a fetch hiccup must not break the orchestrate loop
         return False, "data fetch unavailable: %s" % str(e)[:120]

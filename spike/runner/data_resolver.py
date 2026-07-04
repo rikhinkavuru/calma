@@ -177,6 +177,87 @@ def relink_committed_data(repo_dir, missing_path):
         return None
 
 
+def _norm(p):
+    return str(p or "").replace("\\", "/").rstrip("/")
+
+
+def _find_committed(repo_dir, base):
+    for root, dirs, files in os.walk(repo_dir):
+        dirs[:] = [d for d in dirs if not d.startswith(".") and d not in ("node_modules", "__pycache__")]
+        if base in files and os.path.isfile(os.path.join(root, base)):
+            return os.path.join(root, base)
+    return None
+
+
+def rewrite_data_path(repo_dir, missing_path, new_rel):
+    """Rewrite the hardcoded data-path STRING LITERAL `missing_path` (an absolute 'C:\\ml\\x.csv' or a Colab
+    '/content/x.csv') to `new_rel` in the repo's .py, so the run finds data placed at new_rel. This IS a source
+    edit — used only in the orchestrate path, where the surrounding before/after snapshot flags it and the rail
+    caps the verdict at REPRODUCED-ONLY (a REFUTED misreport is unaffected). Only the EXACT matching path
+    literal is touched (AST-located, single-line span replacement; formatting/comments preserved). Returns the
+    list of modified repo-relative files."""
+    import ast
+    target = _norm(missing_path)
+    modified: list = []
+    for root, dirs, files in os.walk(repo_dir):
+        dirs[:] = [d for d in dirs if not d.startswith(".") and d not in ("node_modules", "__pycache__")]
+        for fn in files:
+            if not fn.endswith(".py"):
+                continue
+            path = os.path.join(root, fn)
+            try:
+                src = open(path, errors="replace").read()
+                tree = ast.parse(src)
+            except (OSError, SyntaxError, ValueError):
+                continue
+            spans = [(n.lineno, n.col_offset, n.end_lineno, n.end_col_offset)
+                     for n in ast.walk(tree)
+                     if isinstance(n, ast.Constant) and isinstance(n.value, str) and _norm(n.value) == target
+                     and getattr(n, "end_col_offset", None) is not None]
+            spans = [s for s in spans if s[0] == s[2]]        # single-line literals only
+            if not spans:
+                continue
+            lines = src.split("\n")
+            for lineno, c1, _l2, c2 in sorted(spans, reverse=True):
+                line = lines[lineno - 1]
+                lines[lineno - 1] = line[:c1] + repr(new_rel) + line[c2:]
+            try:
+                with open(path, "w") as fh:
+                    fh.write("\n".join(lines))
+                modified.append(os.path.relpath(path, repo_dir))
+            except OSError:
+                pass
+    return modified
+
+
+def make_data_available(repo_dir, missing_path):
+    """Make a missing input available so a run proceeds. Returns (placed_rel, modified_files). Two modes:
+      • RELATIVE read mismatch → relink the committed file in place (no source edit → full verdict).
+      • ABSOLUTE read (Colab /content, hardcoded C:\\…) → copy the committed file to repo-root/basename AND
+        rewrite the literal (source edit → orchestrate snapshot caps it to REPRODUCED-ONLY; REFUTED unaffected).
+    Committed data only here (no network); a wrong file can only mismatch, never a false CONFIRM."""
+    placed = relink_committed_data(repo_dir, missing_path)
+    if placed:
+        return placed, []
+    raw = str(missing_path or "").replace("\\", "/")
+    if not (raw.startswith("/") or re.match(r"^[a-zA-Z]:", str(missing_path or ""))):
+        return None, []                                       # relative + relink already failed → not committed
+    base = os.path.basename(raw)
+    if not base or "." not in base:
+        return None, []
+    src = _find_committed(repo_dir, base)
+    if not src:
+        return None, []                                       # (a catalog/Exa fetch could place it — separate)
+    dst = os.path.join(repo_dir, base)
+    try:
+        if os.path.abspath(dst) != os.path.abspath(src) and not os.path.exists(dst):
+            shutil.copy2(src, dst)
+    except OSError:
+        return None, []
+    modified = rewrite_data_path(repo_dir, missing_path, base)
+    return (base, modified) if modified else (None, [])
+
+
 def resolve_missing_data(repo_dir, missing_path, key=None):
     """Find + fetch the dataset a repo expects at `missing_path` (e.g. '/content/data.csv') via Exa, and place
     it at repo_dir/<basename> — the safe, primary path (the re-run's CWD is repo_dir, so a relative or a

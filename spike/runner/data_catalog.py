@@ -57,6 +57,26 @@ _FILE_RULES: list[tuple] = [
      "Homo_sapiens.GRCh37.dna.primary_assembly.fa.gz"),
     (re.compile(r"(ccre|ccres).*\.bed$", re.I),
      "https://downloads.wenglab.org/Registry-V4/GRCh38-cCREs.bed"),
+    # ── common ML / UCI datasets (classical-ML beachhead) — best-effort mirrors; a dead URL just fails the
+    # fetch → DISCOVERED, never a wrong verdict. The reactive resolver places these at the exact read path.
+    (re.compile(r"^magic04\.data$", re.I),
+     "https://archive.ics.uci.edu/ml/machine-learning-databases/magic/magic04.data"),
+    (re.compile(r"^adult\.data$", re.I),
+     "https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.data"),
+    (re.compile(r"^adult\.test$", re.I),
+     "https://archive.ics.uci.edu/ml/machine-learning-databases/adult/adult.test"),
+    (re.compile(r"^iris\.data$", re.I),
+     "https://archive.ics.uci.edu/ml/machine-learning-databases/iris/iris.data"),
+    (re.compile(r"^wine\.data$", re.I),
+     "https://archive.ics.uci.edu/ml/machine-learning-databases/wine/wine.data"),
+    (re.compile(r"^winequality-red\.csv$", re.I),
+     "https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-red.csv"),
+    (re.compile(r"^winequality-white\.csv$", re.I),
+     "https://archive.ics.uci.edu/ml/machine-learning-databases/wine-quality/winequality-white.csv"),
+    (re.compile(r"^wdbc\.data$", re.I),
+     "https://archive.ics.uci.edu/ml/machine-learning-databases/breast-cancer-wisconsin/wdbc.data"),
+    (re.compile(r"^breast-cancer-wisconsin\.data$", re.I),
+     "https://archive.ics.uci.edu/ml/machine-learning-databases/breast-cancer-wisconsin/breast-cancer-wisconsin.data"),
 ]
 
 
