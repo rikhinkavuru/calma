@@ -259,3 +259,15 @@ repos:
     pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn]
     meta: {domain: ml, tier: T3, split: dev, license: unknown, commit_date: unknown, capability: multi-candidate}
     discover: true              # no written number; prints "Accuracy: {x:.4f}" per model; load_iris seed 42
+
+  # Real leaderboard repo, curated 2026-07-03 (slice 1+2 corpus growth). A committed README WIDE table —
+  # LR/KNN/SVM × accuracy/precision/recall (9 cells) — the exact shape slice 1b (from_markdown_tables) was
+  # built for; on the pre-slice engine this table discovered ZERO claims. Notebook entrypoint over the
+  # committed UCI_Adult_Income_Dataset.csv. discover:true (no hand-grade); the win here is per-cell,
+  # context-carrying discovery on a real leaderboard (binding depends on the notebook running).
+  - name: adult-income-leaderboard
+    source: {kind: git, url: https://github.com/Sristi1123/Adult-Income-Prediction-Using-ML.git, commit: 1fd5c07124acfa966a30a2a7866e98dd860404db}
+    entry: ["adult_income.ipynb"]
+    pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn, nbconvert, nbformat, jupyter]
+    meta: {domain: ml, tier: T3, split: dev, license: unknown, commit_date: unknown, capability: leaderboard-table}
+    discover: true
