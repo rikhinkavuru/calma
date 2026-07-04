@@ -355,3 +355,22 @@ repos:
     pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn]
     meta: {domain: ml, tier: T2, split: dev, license: unknown, commit_date: unknown}
     discover: true
+
+  - name: heart-nripstein
+    source: {kind: git, url: https://github.com/nripstein/Heart-Disease-Prediction.git, commit: 779d9bd7af6bb269ca61b10184024186e2d9b2e7}
+    pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn]
+    meta: {domain: ml, tier: T2, split: dev, license: unknown, commit_date: unknown}
+    discover: true
+
+  - name: heart-som
+    source: {kind: git, url: https://github.com/Som-02/HeartDiseasePrediction-MachineLearningProject.git, commit: d5d3876b208c0f92f935ed6412e00fe05997cbf9}
+    entry: ["Heart Prediction System/train_model.py"]
+    pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn]
+    meta: {domain: ml, tier: T2, split: dev, license: unknown, commit_date: unknown}
+    discover: true
+
+  - name: heart-sarika
+    source: {kind: git, url: https://github.com/sarika296/HeartDiseasePrediction-Machine-Learning.git, commit: 373be49ecc0ccff3485dc0d196ca46426f5ebced}
+    pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn, nbclient, nbformat, ipykernel]
+    meta: {domain: ml, tier: T2, split: dev, license: unknown, commit_date: unknown}
+    discover: true
