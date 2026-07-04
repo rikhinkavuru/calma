@@ -696,18 +696,38 @@ def downgrade_science(specs):
     return out
 
 
-def compat_python(era_date=None):
-    """A base interpreter with the widest wheel coverage for building a per-repo venv. The harness python can
-    be too NEW (3.14) for an era-pinned 2023-2025 science stack — no wheels → the era pin gets relaxed back to
-    latest and the version-drift failure returns. Prefer a discovered 3.12/3.11 (broadest wheel coverage for
-    the reproduction corpus); fall back to the harness python. `era_date` is accepted for future era-specific
-    selection; today 3.12 covers both old and current repos well."""
+def _find_python(names):
     import shutil
-    for nm in _COMPAT_PYTHONS:
+    for nm in names:
         p = shutil.which(nm) or os.path.expanduser("~/.local/bin/%s" % nm)
         if p and os.path.isfile(p):
             return p
-    return sys.executable
+    return None
+
+
+def compat_python(era_date=None):
+    """An ERA-APPROPRIATE interpreter for building a per-repo venv. A repo's era stack needs an era python: a
+    2019 sklearn/pandas has no py3.14 (or even py3.12) wheels, so the pin gets relaxed and the version-drift
+    failure returns. The E2B product provisions any Python; locally we use uv-installed 3.9/3.10/3.12. Maps
+    the commit era → a python that HAS wheels for that era, newest-first with fallbacks. Defaults to 3.12."""
+    order = list(_COMPAT_PYTHONS)                          # 3.12, 3.11, 3.10 (current + recent)
+    if era_date:
+        if era_date < "2021":
+            order = ["python3.8", "python3.9", "python3.10"] + order   # 2016-2020 stacks (sklearn 0.x/pandas 0-1)
+        elif era_date < "2023":
+            order = ["python3.9", "python3.10"] + order     # 2021-2022 stacks
+    return _find_python(order) or sys.executable
+
+
+def python_version(py):
+    """The 'X.Y' version of an interpreter path (for era_pin_compat's requires-python relax), or None."""
+    try:
+        out = subprocess.run([py, "-c", "import sys;print('%d.%d'%sys.version_info[:2])"],
+                             capture_output=True, text=True, timeout=15)
+        v = (out.stdout or "").strip()
+        return v if re.match(r"^\d+\.\d+$", v) else None
+    except (OSError, subprocess.SubprocessError):
+        return None
 
 
 def ensure_venv(name, pip_install, venvs_dir, base_python=None):

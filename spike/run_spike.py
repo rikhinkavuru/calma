@@ -101,12 +101,16 @@ def run_one(spec, args, venvs_dir):
             # no wheel for the build python (sklearn 0.23 on py3.12) — requires-python metadata says it's fine,
             # yet it won't build. So if the era-pinned install fails, fall back to unpinned/latest (which
             # installs and often still runs the old code). Best of both, no regression.
-            base_py = build.compat_python(None)
+            # era FIRST → an era-appropriate PYTHON (a 2019 stack needs py3.9, not py3.12) → pin deps to the
+            # era, relaxing only pins incompatible with THAT python. Matches the E2B product (any python).
+            era0 = build.repo_commit_date(repo_dir)
+            base_py = build.compat_python(era0)
+            pyver = build.python_version(base_py) or "3.12"
             era = None
             try:
                 if pip_install:
                     from orchestrator import tools_exec as _XT
-                    pinned, era, _notes = _XT.era_pin_compat(pip_install, repo_dir, py_version="3.12")
+                    pinned, era, _notes = _XT.era_pin_compat(pip_install, repo_dir, py_version=pyver)
                 else:
                     pinned = pip_install
                 python, env_note = build.ensure_venv(name, pinned, venvs_dir, base_python=base_py)
@@ -115,7 +119,7 @@ def run_one(spec, args, venvs_dir):
                 env_note += " (era-pin install failed → latest)"
                 era = None
             if era:
-                env_note += " era=%s" % era
+                env_note += " era=%s py=%s" % (era, pyver)
             # dispatch (notebook vs script) behind one _do_run so the data-resolution retries apply to BOTH.
             from runner import data_resolver as _DR
             is_nb = bool(entry and str(entry[0]).startswith("nb:"))
