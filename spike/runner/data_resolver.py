@@ -191,6 +191,40 @@ def _find_committed(repo_dir, base):
     return None
 
 
+def _rewrite_notebook(nb_path, forms, new_rel):
+    """Replace a hardcoded data path (in any of `forms` — raw/escaped/forward-slash) with `new_rel` inside a
+    notebook's code-cell sources. String replace (cells aren't cleanly AST-parseable line-by-line). Returns
+    True if it changed anything."""
+    try:
+        with open(nb_path, errors="replace") as fh:
+            nb = json.load(fh)
+    except (OSError, ValueError):
+        return False
+    changed = False
+    for cell in nb.get("cells", []):
+        if cell.get("cell_type") != "code":
+            continue
+        srcs = cell.get("source")
+        seq = srcs if isinstance(srcs, list) else [srcs or ""]
+        out = []
+        for line in seq:
+            new = line
+            for f in forms:
+                if f and f in new:
+                    new = new.replace(f, new_rel)
+            if new != line:
+                changed = True
+            out.append(new)
+        cell["source"] = out if isinstance(srcs, list) else out[0]
+    if changed:
+        try:
+            with open(nb_path, "w") as fh:
+                json.dump(nb, fh)
+        except OSError:
+            return False
+    return changed
+
+
 def rewrite_data_path(repo_dir, missing_path, new_rel):
     """Rewrite the hardcoded data-path STRING LITERAL `missing_path` (an absolute 'C:\\ml\\x.csv' or a Colab
     '/content/x.csv') to `new_rel` in the repo's .py, so the run finds data placed at new_rel. This IS a source
@@ -200,10 +234,19 @@ def rewrite_data_path(repo_dir, missing_path, new_rel):
     list of modified repo-relative files."""
     import ast
     target = _norm(missing_path)
+    # the literal as it may appear in source (raw/escaped/forward-slash) — for notebook cell string replace
+    _raw = str(missing_path or "")
+    _forms = sorted({_raw, _raw.replace("\\", "/"), _raw.replace("\\", "\\\\"), _raw.replace("/", "\\")},
+                    key=len, reverse=True)
     modified: list = []
     for root, dirs, files in os.walk(repo_dir):
         dirs[:] = [d for d in dirs if not d.startswith(".") and d not in ("node_modules", "__pycache__")]
         for fn in files:
+            if fn.endswith(".ipynb"):
+                nbp = os.path.join(root, fn)
+                if _rewrite_notebook(nbp, _forms, new_rel):
+                    modified.append(os.path.relpath(nbp, repo_dir))
+                continue
             if not fn.endswith(".py"):
                 continue
             path = os.path.join(root, fn)
@@ -232,32 +275,70 @@ def rewrite_data_path(repo_dir, missing_path, new_rel):
     return modified
 
 
+# csv basenames that are OUTPUTS, not the input dataset — never the sole-dataset source
+_OUTPUT_CSV = ("result", "metric", "score", "pred", "output", "summary", "leaderboard", "submission",
+               "sample_submission")
+_DATA_SUFFIX = (".csv", ".tsv", ".data", ".xlsx", ".parquet")
+
+
+def _sole_committed_dataset(repo_dir):
+    """The ONE committed input dataset (excluding results/predictions outputs), if EXACTLY one exists — for a
+    repo that hardcodes a data path to a differently-named file that is nonetheless its single committed
+    dataset. 0 or >1 candidates → ambiguous → None (refuse, never guess between datasets). FCR-safe: a wrong
+    dataset can only mismatch the recompute, never manufacture a CONFIRM."""
+    cands = []
+    for root, dirs, files in os.walk(repo_dir):
+        dirs[:] = [d for d in dirs if not d.startswith(".") and d not in ("node_modules", "__pycache__")]
+        for fn in files:
+            low = fn.lower()
+            if low.endswith(_DATA_SUFFIX) and not any(t in low for t in _OUTPUT_CSV):
+                cands.append(os.path.join(root, fn))
+                if len(cands) > 1:
+                    return None
+    return cands[0] if len(cands) == 1 else None
+
+
 def make_data_available(repo_dir, missing_path):
-    """Make a missing input available so a run proceeds. Returns (placed_rel, modified_files). Two modes:
-      • RELATIVE read mismatch → relink the committed file in place (no source edit → full verdict).
+    """Make a missing input available so a run proceeds. Returns (placed_rel, modified_files). Modes:
+      • RELATIVE read of a committed basename → relink in place (no source edit → full verdict).
       • ABSOLUTE read (Colab /content, hardcoded C:\\…) → copy the committed file to repo-root/basename AND
         rewrite the literal (source edit → orchestrate snapshot caps it to REPRODUCED-ONLY; REFUTED unaffected).
+      • basename not committed, but the missing file is data AND the repo has exactly ONE committed dataset →
+        use that (a hardcoded path to a renamed/moved single dataset).
     Committed data only here (no network); a wrong file can only mismatch, never a false CONFIRM."""
     placed = relink_committed_data(repo_dir, missing_path)
     if placed:
         return placed, []
     raw = str(missing_path or "").replace("\\", "/")
-    if not (raw.startswith("/") or re.match(r"^[a-zA-Z]:", str(missing_path or ""))):
-        return None, []                                       # relative + relink already failed → not committed
     base = os.path.basename(raw)
     if not base or "." not in base:
         return None, []
+    is_abs = bool(raw.startswith("/") or re.match(r"^[a-zA-Z]:", str(missing_path or "")))
     src = _find_committed(repo_dir, base)
+    if not src and base.lower().endswith(_DATA_SUFFIX):
+        src = _sole_committed_dataset(repo_dir)               # differently-named single committed dataset
     if not src:
         return None, []                                       # (a catalog/Exa fetch could place it — separate)
-    dst = os.path.join(repo_dir, base)
+    if is_abs:
+        dst = os.path.join(repo_dir, base)
+        try:
+            if os.path.abspath(dst) != os.path.abspath(src) and not os.path.exists(dst):
+                shutil.copy2(src, dst)
+        except OSError:
+            return None, []
+        modified = rewrite_data_path(repo_dir, missing_path, base)
+        return (base, modified) if modified else (None, [])
+    # relative read, basename not committed but a sole dataset found → place it at the exact read path
+    dst = os.path.normpath(os.path.join(repo_dir, raw))
+    if not _contained(dst, repo_dir):
+        return None, []
     try:
-        if os.path.abspath(dst) != os.path.abspath(src) and not os.path.exists(dst):
+        os.makedirs(os.path.dirname(dst) or repo_dir, exist_ok=True)
+        if not os.path.exists(dst):
             shutil.copy2(src, dst)
     except OSError:
         return None, []
-    modified = rewrite_data_path(repo_dir, missing_path, base)
-    return (base, modified) if modified else (None, [])
+    return os.path.relpath(dst, repo_dir), []
 
 
 def resolve_missing_data(repo_dir, missing_path, key=None):

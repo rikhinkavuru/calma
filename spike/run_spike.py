@@ -93,52 +93,53 @@ def run_one(spec, args, venvs_dir):
                 era = None
             if era:
                 env_note += " era=%s" % era
-            if entry and str(entry[0]).startswith("nb:"):    # a notebook entry — kernel-armed capture, not python file.ipynb
-                from orchestrator import tools_exec as XT
-                r = XT.run_notebook(repo_dir, entry[0], k=args.k, hooks=hooks, targets=targets,
-                                    timeout=spec.get("timeout", 600), python=python)
-                env_note += "+nb"
-            else:
-                r = run_local(repo_dir, entry, k=args.k, python=python, hooks=hooks, targets=targets,
-                              timeout=spec.get("timeout", 600))
-                # data-resolution parity with the product pipeline. A missing input is often committed under a
-                # different path (code reads data/x.csv, it's in a subdir) → relink it where the code reads +
-                # re-run. Loop a few times (multi-artifact repos miss more than one file). Then, if still
-                # missing-data and the entry is nested, re-run from the entry's OWN dir (a self-contained
-                # subproject that assumes CWD = its dir, e.g. `../data/x.csv`). Make-runnable; FCR-safe.
-                from runner import data_resolver as _DR
-                for _ in range(3):
-                    if r.get("ran_ok"):
-                        break
-                    miss = _DR.missing_data_path(" ".join(m.get("stderr_tail", "") for m in r.get("meta", [])))
-                    if not miss or not _DR.make_data_available(repo_dir, miss)[0]:
-                        break
-                    r = run_local(repo_dir, entry, k=args.k, python=python, hooks=hooks, targets=targets,
-                                  timeout=spec.get("timeout", 600))
-                # not committed anywhere, but a recognised public dataset (UCI magic04/adult/wine/…): fetch it
-                # to the exact read path (deterministic catalog, no key) + rewrite a hardcoded abs path literal.
-                if not r.get("ran_ok"):
-                    miss = _DR.missing_data_path(" ".join(m.get("stderr_tail", "") for m in r.get("meta", [])))
-                    if miss:
-                        from runner import data_catalog as _DC
-                        url = _DC.resolve_path(miss)
-                        if url:
-                            b = os.path.basename(str(miss).replace("\\", "/"))
-                            if _DR.fetch_to(url, os.path.join(repo_dir, b)):
-                                _DR.rewrite_data_path(repo_dir, miss, b)   # abs/nested read literal → basename
-                                r = run_local(repo_dir, entry, k=args.k, python=python, hooks=hooks,
-                                              targets=targets, timeout=spec.get("timeout", 600))
-                                env_note += " +fetch"
-                    env_note += " +data"
-                if not r.get("ran_ok") and entry and os.path.dirname(str(entry[0])):
-                    stderr = " ".join(m.get("stderr_tail", "") for m in r.get("meta", []))
-                    if _DR.missing_data_path(stderr) or "No such file" in stderr:
-                        edir = os.path.join(repo_dir, os.path.dirname(str(entry[0])))
-                        r2 = run_local(repo_dir, [os.path.basename(str(entry[0]))], k=args.k, python=python,
-                                       hooks=hooks, targets=targets, timeout=spec.get("timeout", 600), cwd=edir)
-                        if r2.get("ran_ok"):
-                            r, entry = r2, [os.path.basename(str(entry[0]))]
-                            env_note += " +cwd"
+            # dispatch (notebook vs script) behind one _do_run so the data-resolution retries apply to BOTH.
+            from runner import data_resolver as _DR
+            is_nb = bool(entry and str(entry[0]).startswith("nb:"))
+
+            def _do_run():
+                if is_nb:
+                    from orchestrator import tools_exec as XT
+                    return XT.run_notebook(repo_dir, entry[0], k=args.k, hooks=hooks, targets=targets,
+                                           timeout=spec.get("timeout", 600), python=python)
+                return run_local(repo_dir, entry, k=args.k, python=python, hooks=hooks, targets=targets,
+                                 timeout=spec.get("timeout", 600))
+
+            env_note += "+nb" if is_nb else ""
+            r = _do_run()
+            _stderr = lambda: " ".join(m.get("stderr_tail", "") for m in r.get("meta", []))  # noqa: E731
+            # chained committed-data relink (multi-artifact repos miss >1 file; also a sole differently-named
+            # committed dataset) — place where the code reads + re-run. Make-runnable, FCR-safe.
+            for _ in range(3):
+                if r.get("ran_ok"):
+                    break
+                miss = _DR.missing_data_path(_stderr())
+                if not miss or not _DR.make_data_available(repo_dir, miss)[0]:
+                    break
+                r = _do_run()
+                env_note += " +data"
+            # not committed, but a recognised public dataset (UCI magic04/adult/wine/…) → fetch to the read
+            # path (deterministic catalog, no key) + rewrite a hardcoded abs path literal.
+            if not r.get("ran_ok"):
+                miss = _DR.missing_data_path(_stderr())
+                if miss:
+                    from runner import data_catalog as _DC
+                    url = _DC.resolve_path(miss)
+                    if url:
+                        b = os.path.basename(str(miss).replace("\\", "/"))
+                        if _DR.fetch_to(url, os.path.join(repo_dir, b)):
+                            _DR.rewrite_data_path(repo_dir, miss, b)
+                            r = _do_run()
+                            env_note += " +fetch"
+            # a nested SCRIPT that assumes CWD = its own dir (reads ../data/x.csv) → re-run from there
+            if not r.get("ran_ok") and not is_nb and entry and os.path.dirname(str(entry[0])):
+                if _DR.missing_data_path(_stderr()) or "No such file" in _stderr():
+                    edir = os.path.join(repo_dir, os.path.dirname(str(entry[0])))
+                    r2 = run_local(repo_dir, [os.path.basename(str(entry[0]))], k=args.k, python=python,
+                                   hooks=hooks, targets=targets, timeout=spec.get("timeout", 600), cwd=edir)
+                    if r2.get("ran_ok"):
+                        r, entry = r2, [os.path.basename(str(entry[0]))]
+                        env_note += " +cwd"
     except Exception as e:  # noqa: BLE001 — a build failure is a non-running repo, scored as such
         return {"name": name, "ran": False, "build_error": "%s: %s" % (type(e).__name__, str(e)[:200]),
                 "seconds": round(time.time() - t0, 1), "claims": [], "runner": runner}
