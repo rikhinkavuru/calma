@@ -1,0 +1,23 @@
+# Calma validity check — runs on every PR. Catches data leakage / trivial baselines / misreports with no
+# run, and posts a report-card comment. Fail-closed: nothing to check is INCOMPLETE, never a false verdict.
+name: Calma validity check
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write        # to post the report-card comment
+
+jobs:
+  validity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Calma validity check
+        uses: ./                # this repo's action (published: rikhinkavuru/calma@<tag>)
+        with:
+          path: spike/fixtures  # scan a path with committed data/predictions to check; '.' for the whole repo
+          fail-on: fail
+          comment: 'true'

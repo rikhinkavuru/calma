@@ -116,19 +116,72 @@ def _fmt_text(card: dict) -> str:
     return "\n".join(lines)
 
 
+_GRADE_ICON = {"PASS": "✅", "FAIL": "❌", "INCOMPLETE": "◻️"}
+_STATUS_ICON = {"pass": "✅", "fail": "❌", "not-applicable": "◻️"}
+_CHECK_LABEL = {"leakage": "Data leakage", "trivial-baseline": "Trivial baseline", "misreport": "Misreport"}
+
+
+def fmt_markdown(card: dict, title: str = "Calma validity check") -> str:
+    """A GitHub-flavored-markdown report card — for a PR comment or a CI job summary."""
+    g = card["grade"]
+    lines = ["## %s %s — **%s**" % (_GRADE_ICON.get(g, "?"), title, g), ""]
+    blurb = {"PASS": "No leakage, trivial baseline, or misreport found in what could be checked without a run.",
+             "FAIL": "A validity problem was found — see below.",
+             "INCOMPLETE": "Nothing committed to check statically (connect data / run a deep verify)."}
+    lines += [blurb.get(g, ""), "", "| Check | Result |", "|---|---|"]
+    for c in card["checks"]:
+        lines.append("| %s | %s %s |" % (_CHECK_LABEL.get(c["name"], c["name"]),
+                                         _STATUS_ICON.get(c["status"], "?"), c["status"]))
+    findings = [(c["name"], f) for c in card["checks"] for f in c["findings"]]
+    if findings:
+        lines += ["", "### Findings"]
+        lines += ["- **%s** — %s" % (_CHECK_LABEL.get(n, n), f) for n, f in findings]
+    if (card.get("summary") or {}).get("headline"):
+        lines += ["", "> %s" % card["summary"]["headline"]]
+    lines += ["", "_Calma re-computes the numbers from raw outputs — deterministic, fail-closed. "
+              "No signup, no data leaves CI._"]
+    return "\n".join(lines)
+
+
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Fast, no-reproduction validity report card for a repo.")
-    ap.add_argument("repo_dir")
+    ap = argparse.ArgumentParser(
+        description="Calma — fast, no-reproduction validity report card for a repo (leakage / trivial "
+                    "baseline / misreport). Fail-closed: nothing to check is INCOMPLETE, never a false verdict.")
+    ap.add_argument("repo_dir", nargs="?", default=".", help="repo to scan (default: current dir)")
     ap.add_argument("--claim", help="an externally-stated claimed value to also check")
     ap.add_argument("--metric", help="the claim's metric id (with --claim)")
-    ap.add_argument("--json", action="store_true", help="emit the report card as JSON")
+    ap.add_argument("--format", choices=("text", "json", "md"), default="text", help="output format")
+    ap.add_argument("--json", action="store_true", help="shorthand for --format json")
+    ap.add_argument("--fail-on", choices=("fail", "incomplete", "never"), default="fail",
+                    help="exit non-zero on: a FAIL (default), a FAIL-or-INCOMPLETE, or never (report-only)")
+    ap.add_argument("--summary-file", help="append the markdown report to this file (e.g. $GITHUB_STEP_SUMMARY)")
+    ap.add_argument("--out", help="also write the JSON card to this path")
     args = ap.parse_args()
-    claims = None
-    if args.claim:
-        claims = [{"metric": args.metric, "value": args.claim, "id": "hook_claim"}]
+
+    claims = [{"metric": args.metric, "value": args.claim, "id": "cli_claim"}] if args.claim else None
     card = scan(args.repo_dir, claims=claims)
-    print(json.dumps(card) if args.json else _fmt_text(card))
-    return 1 if card["grade"] == "FAIL" else 0
+
+    fmt = "json" if args.json else args.format
+    print(json.dumps(card, indent=2) if fmt == "json" else fmt_markdown(card) if fmt == "md" else _fmt_text(card))
+    if args.summary_file:
+        try:
+            with open(args.summary_file, "a") as fh:
+                fh.write(fmt_markdown(card) + "\n")
+        except OSError:
+            pass
+    if args.out:
+        try:
+            with open(args.out, "w") as fh:
+                json.dump(card, fh)
+        except OSError:
+            pass
+
+    grade = card["grade"]
+    if args.fail_on == "never":
+        return 0
+    if args.fail_on == "incomplete":
+        return 1 if grade in ("FAIL", "INCOMPLETE") else 0
+    return 1 if grade == "FAIL" else 0
 
 
 if __name__ == "__main__":

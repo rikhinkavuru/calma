@@ -1,0 +1,37 @@
+name: 'Calma Validity Check'
+description: >-
+  Catch data leakage, trivial/degenerate baselines, and misreported numbers in a repo — no run, fail-closed.
+  Calma re-computes reported numbers from raw outputs (deterministic, never a false confirm). Free.
+author: 'Calma'
+branding:
+  icon: 'check-circle'
+  color: 'purple'
+inputs:
+  path:
+    description: 'Path within the repo to scan.'
+    required: false
+    default: '.'
+  fail-on:
+    description: 'When to fail the check: "fail" (a validity problem), "incomplete" (also when nothing could be checked), or "never" (report only).'
+    required: false
+    default: 'fail'
+  comment:
+    description: 'Post/update a report-card comment on the PR (needs a token + pull-requests: write).'
+    required: false
+    default: 'true'
+  github-token:
+    description: 'Token used to post the PR comment.'
+    required: false
+    default: ${{ github.token }}
+outputs:
+  grade:
+    description: 'The overall validity grade: PASS | FAIL | INCOMPLETE.'
+runs:
+  using: 'docker'
+  image: 'action/Dockerfile'
+  args:
+    - ${{ inputs.path }}
+    - ${{ inputs.fail-on }}
+    - ${{ inputs.comment }}
+  env:
+    GITHUB_TOKEN: ${{ inputs.github-token }}
