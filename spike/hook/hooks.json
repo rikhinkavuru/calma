@@ -1,0 +1,16 @@
+{
+  "_comment": "Stop-hook guardrail on the spike engine. Wire this into a Claude Code settings.json (or a packaged skill's hooks.json) to run a fast, no-reproduction validity scan when an agent finishes. Fail-closed: it never blocks the agent (exit 0) and never REFUTES a number the repo did not produce.",
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python ${CALMA_SPIKE:-.}/hook/hook_stop.py"
+          }
+        ]
+      }
+    ]
+  }
+}
