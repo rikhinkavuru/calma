@@ -45,6 +45,7 @@ from connect import github_app as GH  # noqa: E402  — the GitHub App connector
 from core import limits as LIM  # noqa: E402  — tiered rate limits / quotas / feature gates (PRICING.md)
 import graph as GRAPH  # noqa: E402
 import pipeline as PIPE  # noqa: E402  — the verification orchestration (discover → run → diff → validity)
+import validity_scan as VS  # noqa: E402  — the no-reproduction report card (GTM validity wedge / stop-hook)
 from runner import supervisor as SUP  # noqa: E402  — process-isolation: heavy work runs in a capped child
 from synth import formula as SYNTH  # noqa: E402  — the catalog flywheel (store → Exa-synth → validate)
 from synth import store as SYNTH_STORE  # noqa: E402
@@ -328,10 +329,13 @@ def run_job(job, req: VerifyReq):
             result = SUP.run_isolated(repo_dir, opts, update=update, log=logf)
         else:
             result = PIPE.verify_repo(repo_dir, opts, update=update, log=logf)
+        # a shallow (no-reproduction) run IS the validity wedge — attach the report card (leakage /
+        # trivial-baseline / committed-predictions misreport, graded) so the front door renders it directly.
+        validity_card = VS.card_from_result(result) if not req.deep else None
         _set(job, status="done", stage="done", claims=result["claims"], counts=result["counts"],
              n_claims=result["n_claims"], leakage=result["leakage"], run=result["run"],
              summary=result.get("summary"), receipt=result.get("receipt"), trace=result["trace"],
-             finished=time.time())
+             validity_card=validity_card, finished=time.time())
         _log(job, "done — %s" % ", ".join("%s:%d" % (k, v) for k, v in result["counts"].items()))
     except SUP.BudgetExceeded as e:
         # The isolated child was killed or died (OOM / timeout / CPU / crash). The job ends cleanly with a
