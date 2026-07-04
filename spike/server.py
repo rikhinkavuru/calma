@@ -77,6 +77,11 @@ _FORCE_E2B = os.environ.get("CALMA_FORCE_E2B", "").strip().lower() not in ("", "
 # while the API stays up. On by default; CALMA_ISOLATE=0 reverts to the legacy in-thread path (dev only).
 _ISOLATE = os.environ.get("CALMA_ISOLATE", "1").strip().lower() not in ("0", "false", "no")
 
+# DEV TOGGLE: force-enable the opt-in predictions-synthesis fallback (a synthesized predict-and-dump driver when
+# no entrypoint captures a number) for owner validation. FCR-safe regardless (a synthesized driver is a source
+# modification → verdict capped at REPRODUCED-ONLY, never CONFIRMED). Requires orchestrate. Off in production.
+_SYNTHESIZE = os.environ.get("CALMA_SYNTHESIZE_PREDICTIONS", "").strip().lower() not in ("", "0", "false", "no")
+
 
 def _token_ok(supplied: str | None) -> bool:
     """Constant-time service-token check (hmac.compare_digest) so a byte-by-byte timing side channel can't be
@@ -203,6 +208,8 @@ class VerifyReq(BaseModel):
     #                                      acquisition scripts / make target) in a gated internet phase, then recompute
     plan: bool = True                    # AI run-plan pre-stage (tier-gated in clamp_request; free → heuristics)
     orchestrate: bool = False            # assess→rank→loop make-runnable brain (tier-gated; env kill-switch)
+    synthesize_predictions: bool = False  # opt-in: synthesize a predict-and-dump driver when nothing captures a
+    #                                      number (owner/dev only; requires orchestrate; capped REPRODUCED-ONLY)
     cpu_cores: int = 0                   # sandbox vCPU (tier; realised via E2B template routing). 0 = default template
     mem_mb: int = 0                      # per-sandbox RSS cap (tier; supervisor caps the child at min(container, this))
     repair_steps: int = 0                # tier env-repair budget (0 = repair off; >0 enables the bounded loop)
@@ -309,6 +316,7 @@ def run_job(job, req: VerifyReq):
             acquire_data=req.acquire_data,
             plan=req.plan,
             orchestrate=req.orchestrate,
+            synthesize_predictions=req.synthesize_predictions,
             allow_gpu=req.allow_gpu,
             acquire_env=acq_env,
             acquire_allow_out=acq_allow,
@@ -396,6 +404,10 @@ def verify(req: VerifyReq, ident: Identity = Depends(identity)):
     req.acquire_data = bool(clamped.get("acquire_data", False))      # tier-gated above (402 for free)
     req.plan = bool(clamped.get("plan", req.plan))                    # AI run-plan off on free tiers
     req.orchestrate = bool(clamped.get("orchestrate", False))         # make-runnable brain on paid tiers
+    # predictions-synthesis: owner/dev only (env toggle or an internal request), and only when orchestrate is on.
+    # FCR-safe regardless (capped REPRODUCED-ONLY), but kept off the end-user path until corpus-proven.
+    req.synthesize_predictions = ((_SYNTHESIZE or (bool(req.synthesize_predictions) and _internal()))
+                                  and req.orchestrate)
     req.cpu_cores = int(clamped.get("cpu_cores", 0))                  # tier vCPU (E2B template routing)
     req.mem_mb = int(clamped.get("mem_mb", 0))                        # tier per-sandbox RSS cap
     req.repair_steps = int(clamped.get("repair_steps", 0))           # tier env-repair budget (0 = off)
