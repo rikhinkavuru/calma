@@ -178,7 +178,9 @@ def relink_committed_data(repo_dir, missing_path):
 
 
 def _norm(p):
-    return str(p or "").replace("\\", "/").rstrip("/")
+    # backslashes → forward, then COLLAPSE repeats: a traceback shows an escaped 'D:\\a\\b' (double
+    # backslash), so a naive replace yields 'D://a//b' — collapse to match the source literal's 'D:/a/b'.
+    return re.sub(r"/+", "/", str(p or "").replace("\\", "/")).rstrip("/")
 
 
 def _find_committed(repo_dir, base):

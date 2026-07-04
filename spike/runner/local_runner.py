@@ -47,8 +47,11 @@ def run_local(repo_dir, entry, *, k=2, python=None, hooks="sklearn", targets=Non
         env = capture_env(base, out_path, hooks=hooks, targets=targets, max_elems=max_elems)
         t0 = time.time()
         try:
+            # Feed newlines to stdin: many scripts end with input("Press Enter to exit…") — on a headless
+            # sandbox that raises EOFError and crashes the run AFTER the metrics were already computed. A
+            # bounded newline feed lets such prompts return so the run finishes cleanly (harmless otherwise).
             p = subprocess.run([python, *entry], cwd=run_cwd, env=env, timeout=timeout,
-                               capture_output=True, text=True)
+                               capture_output=True, text=True, input="\n" * 500)
             rc, out, err, killed = p.returncode, p.stdout, p.stderr, False
         except subprocess.TimeoutExpired as e:
             # TimeoutExpired.stdout/stderr can be BYTES even under text=True (the kill races the decoder), so
