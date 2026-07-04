@@ -231,30 +231,37 @@ def _apply_baseline_overlay(records: list[dict], leakage: list[dict]) -> None:
         ls = d.get("label_stats")
         if ls:
             stats[_norm_ds(d.get("dataset"))] = ls
-    if not stats:
-        return
     # exactly ONE labelled dataset → it applies to EVERY classification claim in the repo (there is no other
     # dataset to mis-attribute to). This is the common "one committed CSV" shape, where the dataset-name match
     # below would otherwise miss a leaderboard claim keyed by model, not dataset — and so the baseline never
     # fired. Multiple datasets keep the strict name match (no cross-attribution).
     single = next(iter(stats.values())) if len(stats) == 1 else None
     for rec in records:
-        toks = _claim_dataset_tokens(rec)
-        ls = next((s for ds, s in stats.items() if ds in toks), None) or single
-        if not ls:
-            continue
         metric = (rec.get("metric") or "").lower()
         val = _as_fraction(rec.get("claimed", rec.get("value")))   # "80%" / "80" / 0.8 → 0.80 (baseline is 0..1)
         note = None
-        if ls.get("n_classes", 2) <= 1:
-            note = "the test set has a single class — the score is vacuous (degenerate distribution)"
-        elif val is not None and val == val:
-            maj = ls.get("majority_frac") or 0.0
-            if metric in ("accuracy", "acc", "balanced_accuracy") and val <= maj + 1e-9:
-                note = ("accuracy %.4g is at or below the majority-class baseline %.4g — a constant predictor "
-                        "matches it (no signal)" % (val, maj))
-            elif metric in ("auroc", "auc", "roc_auc", "roc-auc") and val <= 0.5 + 1e-9:
-                note = "AUROC %.4g is at or below chance (0.50) — the model has no discrimination" % val
+        # data-INDEPENDENT degenerate metric: a regression R² ≤ 0 is no better than predicting the mean —
+        # vacuous regardless of the dataset (no label distribution needed). Parse raw (R² is never a percent).
+        if metric in ("r2", "rsquared", "r_squared", "r^2"):
+            try:
+                rv = float(str(rec.get("claimed", rec.get("value"))).strip().rstrip("%"))
+            except (TypeError, ValueError):
+                rv = None
+            if rv is not None and rv <= 0.0:
+                note = "R² %.4g ≤ 0 — the model is no better than predicting the mean (no explanatory power)" % rv
+        # data-DEPENDENT trivial-baseline (needs a committed/materialized label distribution)
+        if note is None and stats:
+            toks = _claim_dataset_tokens(rec)
+            ls = next((s for ds, s in stats.items() if ds in toks), None) or single
+            if ls and ls.get("n_classes", 2) <= 1:
+                note = "the test set has a single class — the score is vacuous (degenerate distribution)"
+            elif ls and val is not None and val == val:
+                maj = ls.get("majority_frac") or 0.0
+                if metric in ("accuracy", "acc", "balanced_accuracy") and val <= maj + 1e-9:
+                    note = ("accuracy %.4g is at or below the majority-class baseline %.4g — a constant "
+                            "predictor matches it (no signal)" % (val, maj))
+                elif metric in ("auroc", "auc", "roc_auc", "roc-auc") and val <= 0.5 + 1e-9:
+                    note = "AUROC %.4g is at or below chance (0.50) — the model has no discrimination" % val
         if not note:
             continue
         rec.setdefault("validity", {"invalidating": [], "advisory": []})

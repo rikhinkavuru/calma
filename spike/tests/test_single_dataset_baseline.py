@@ -48,3 +48,25 @@ def test_results_csv_is_not_treated_as_dataset():
     with open(os.path.join(d, "model_results.csv"), "w") as fh:
         fh.write("model,accuracy,class\nlr,0.8,0\nknn,0.7,1\n")
     assert L.from_committed_dataset(d) == []
+
+
+def test_negative_r2_is_degenerate_no_dataset_needed():
+    # a regression R2 <= 0 is no better than predicting the mean — invalid regardless of the dataset (no
+    # committed labels needed). Data-independent catch.
+    import tempfile
+    d = tempfile.mkdtemp()
+    with open(os.path.join(d, "README.md"), "w") as fh:
+        fh.write("Our model reaches an R2 of -0.05 on the held-out set.\n")
+    card = VS.scan(d)
+    assert card["grade"] == "FAIL", card
+    tb = next(c for c in card["checks"] if c["name"] == "trivial-baseline")
+    assert tb["status"] == "fail"
+
+
+def test_positive_r2_passes():
+    import tempfile
+    d = tempfile.mkdtemp()
+    with open(os.path.join(d, "README.md"), "w") as fh:
+        fh.write("R2 of 0.84 on the test set.\n")
+    tb = next(c for c in VS.scan(d)["checks"] if c["name"] == "trivial-baseline")
+    assert tb["status"] != "fail"

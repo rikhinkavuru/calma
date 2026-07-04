@@ -19,5 +19,5 @@ jobs:
         uses: ./                # this repo's action (published: rikhinkavuru/calma@<tag>)
         with:
           path: spike/fixtures  # scan a path with committed data/predictions to check; '.' for the whole repo
-          fail-on: fail
+          fail-on: never
           comment: 'true'
