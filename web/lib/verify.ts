@@ -118,6 +118,22 @@ export type Job = {
   failure_kind?: string;        // memory | timeout | cpu | crashed | error — why an ISOLATED job was killed
                                  // (the supervisor's resource monitor, not the entrypoint's own failure)
   truncated?: number;
+  // the no-reproduction validity report card (spike/validity_scan.py) — present on shallow (deep=false)
+  // runs, i.e. the "check my repo for leakage / trivial-baseline / misreport" front door.
+  validity_card?: ValidityCard | null;
+};
+
+export type ValidityCheck = {
+  name: string;                 // "leakage" | "trivial-baseline" | "misreport"
+  status: "pass" | "fail" | "not-applicable";
+  findings: string[];
+};
+
+export type ValidityCard = {
+  grade: "PASS" | "FAIL" | "INCOMPLETE";
+  checks: ValidityCheck[];
+  summary?: Job["summary"];
+  counts?: Record<string, number>;
 };
 
 export type Usage = {

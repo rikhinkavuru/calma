@@ -10,6 +10,7 @@ import type { Claim, Job } from "@/lib/verify";
 import { ISSUE_TIERS, ORDER, TIER_META, pillTier, tierCounts, verdictLabel, type PillTier } from "@/lib/verdict";
 import { LogConsole } from "./LogConsole";
 import { repoLabel } from "./scan-ui";
+import ValidityCard from "@/components/ValidityCard";
 import dash from "./dashboard.module.css";
 import s from "./verify.module.css";
 
@@ -155,6 +156,12 @@ export function ScanDetailClient({ id }: { id: string }) {
         <div className={dash.section}>
           <div className={dash.sectionTitle}>Run log</div>
           <LogConsole job={job} />
+        </div>
+      )}
+
+      {job.status === "done" && job.validity_card && (
+        <div className={dash.section} style={{ marginTop: 4 }}>
+          <ValidityCard card={job.validity_card} />
         </div>
       )}
 

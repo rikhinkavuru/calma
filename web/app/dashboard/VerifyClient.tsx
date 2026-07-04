@@ -9,6 +9,7 @@ import { ISSUE_TIERS, ORDER, TIER_META, pillTier, tierCounts, verdictLabel, type
 import { recordScan } from "@/lib/scan-history";
 import { LogConsole } from "./LogConsole";
 import { UpgradeModal } from "./UpgradeModal";
+import ValidityCard from "@/components/ValidityCard";
 import dash from "./dashboard.module.css";
 import s from "./verify.module.css";
 
@@ -345,6 +346,11 @@ export function VerifyClient() {
           <input type="checkbox" checked={deep} onChange={(e) => setDeep(e.target.checked)} />
           Deep verify (re-run the code to recompute the numbers)
         </label>
+        {!deep && (
+          <div className={dash.muted} style={{ fontSize: 11.5, marginTop: -2 }}>
+            Off = a fast validity check: leakage / trivial baseline / misreport, without running the repo.
+          </div>
+        )}
         {deep && (
           <label title="Runs the repo's own data-download scripts (numbered NN_*.py or a `make data` target) before verifying — for repos whose datasets aren't bundled. A paid capability.">
             <input type="checkbox" checked={acquire} onChange={(e) => setAcquire(e.target.checked)} />
@@ -467,6 +473,11 @@ export function VerifyClient() {
 
       {job?.status === "done" && (
         <>
+          {job.validity_card && (
+            <div style={{ marginBottom: 4 }}>
+              <ValidityCard card={job.validity_card} />
+            </div>
+          )}
           {job.summary && (
             <div
               className={`${s.banner} ${issueTotal > 0 ? s.bannerWarn : byTier.ok > 0 ? s.bannerOk : s.bannerWarn}`}
