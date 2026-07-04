@@ -51,7 +51,12 @@ def run_local(repo_dir, entry, *, k=2, python=None, hooks="sklearn", targets=Non
                                capture_output=True, text=True)
             rc, out, err, killed = p.returncode, p.stdout, p.stderr, False
         except subprocess.TimeoutExpired as e:
-            rc, out, err, killed = -9, (e.stdout or ""), (e.stderr or "") + "\n[timeout]", True
+            # TimeoutExpired.stdout/stderr can be BYTES even under text=True (the kill races the decoder), so
+            # coerce before concatenating — otherwise a repo that HANGS crashes the whole run with a
+            # str/bytes TypeError instead of being cleanly classified as a timeout.
+            def _s(v):
+                return v.decode("utf-8", "replace") if isinstance(v, bytes) else (v or "")
+            rc, out, err, killed = -9, _s(e.stdout), _s(e.stderr) + "\n[timeout]", True
         dt = time.time() - t0
         runs.append(parse_capture(out_path))
         if hooks_armed is None and os.path.isfile(out_path + ".hooks"):
