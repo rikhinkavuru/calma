@@ -7,6 +7,7 @@ both call this module so the architecture is exercised outside the web UI.
 from __future__ import annotations
 
 import concurrent.futures
+import math
 import os
 import re
 import subprocess
@@ -202,6 +203,23 @@ def _apply_leakage_overlay(records: list[dict], leakage: list[dict]) -> None:
             rec["reason"] = "reproducible but invalid: %s" % "; ".join(notes)
 
 
+def _as_fraction(raw):
+    """Normalize a reported classification score to a 0..1 fraction for the baseline compare: '80%' and '80'
+    and 0.8 all → 0.80. A bare number > 1.5 is read as a percentage (an accuracy of '85' means 85%). Returns
+    None if unparseable or non-finite."""
+    try:
+        s = str(raw).strip()
+        pct = s.endswith("%")
+        v = float(s.rstrip("%").strip())
+    except (TypeError, ValueError):
+        return None
+    if not math.isfinite(v):
+        return None
+    if pct or v > 1.5:
+        v = v / 100.0
+    return v
+
+
 def _apply_baseline_overlay(records: list[dict], leakage: list[dict]) -> None:
     """Trivial-baseline / degenerate-distribution overlay from a split's LABEL distribution (in place). A number
     that reproduces perfectly is still INVALID if it's no better than a constant predictor, at/below chance, or
@@ -215,16 +233,18 @@ def _apply_baseline_overlay(records: list[dict], leakage: list[dict]) -> None:
             stats[_norm_ds(d.get("dataset"))] = ls
     if not stats:
         return
+    # exactly ONE labelled dataset → it applies to EVERY classification claim in the repo (there is no other
+    # dataset to mis-attribute to). This is the common "one committed CSV" shape, where the dataset-name match
+    # below would otherwise miss a leaderboard claim keyed by model, not dataset — and so the baseline never
+    # fired. Multiple datasets keep the strict name match (no cross-attribution).
+    single = next(iter(stats.values())) if len(stats) == 1 else None
     for rec in records:
         toks = _claim_dataset_tokens(rec)
-        ls = next((s for ds, s in stats.items() if ds in toks), None)
+        ls = next((s for ds, s in stats.items() if ds in toks), None) or single
         if not ls:
             continue
         metric = (rec.get("metric") or "").lower()
-        try:
-            val = float(rec.get("claimed", rec.get("value")))
-        except (TypeError, ValueError):
-            val = None
+        val = _as_fraction(rec.get("claimed", rec.get("value")))   # "80%" / "80" / 0.8 → 0.80 (baseline is 0..1)
         note = None
         if ls.get("n_classes", 2) <= 1:
             note = "the test set has a single class — the score is vacuous (degenerate distribution)"
@@ -1001,7 +1021,12 @@ def verify_repo(
 
     trace.stage("checking data", "checking committed splits and prediction artifacts")
     try:
-        leakage = [r for r in LEAK.from_committed_splits(repo_dir) if r["findings"]]
+        scans = LEAK.from_committed_splits(repo_dir)
+        # ALSO scan a single committed DATASET (not a split) for its label distribution — the trivial-baseline
+        # overlay then catches an inflated accuracy claim on the common "one committed CSV" repo shape, no run.
+        scans += LEAK.from_committed_dataset(repo_dir)
+        leakage = [r for r in scans if r["findings"]]              # findings-only → leakage overlay + UI
+        baseline_sources = [r for r in scans if r.get("label_stats")]  # ALL label distributions → baseline overlay
         # ALSO fold in leakage found on MATERIALIZED data — the in-sandbox probe checked the actual downloaded
         # train/test split (runner/e2b_runner._run_leakage_probe), which a committed-splits-only scan can't see.
         mat = [r for r in ((run_result or {}).get("leakage") or []) if r.get("findings")]
@@ -1009,10 +1034,14 @@ def verify_repo(
             have = {r.get("dataset") for r in leakage}
             leakage.extend(r for r in mat if r.get("dataset") not in have)
             trace.note("leakage checked on materialized (downloaded) data — %d contaminated dataset(s)" % len(mat))
+        b_have = {b.get("dataset") for b in baseline_sources}
+        baseline_sources.extend(r for r in ((run_result or {}).get("leakage") or [])
+                                if r.get("label_stats") and r.get("dataset") not in b_have)
         if leakage:
             trace.note("data leakage detected in %d dataset(s)" % len(leakage))
     except Exception:  # noqa: BLE001
         leakage = []
+        baseline_sources = []
 
     # tier top-K gate (PRICING.md): with claims already sorted most-salient first, deep-verify only the K
     # highest-salience claims; hold the rest as DISCOVERED ("upgrade to verify"). Purely fail-closed — an
@@ -1055,7 +1084,7 @@ def verify_repo(
     _apply_leakage_overlay(records, leakage)
     # trivial-baseline / degenerate on the SAME (materialized or committed) split label distribution: an accuracy
     # at/below the majority-class baseline, an AUROC at/below chance, or a single-class test set is INVALID.
-    _apply_baseline_overlay(records, leakage)
+    _apply_baseline_overlay(records, baseline_sources)
     # inline red-team gate (feature 8): a second, independent screen of every CONFIRMED, downgrade-only.
     _apply_redteam_gate(records, claims, run_result.get("runs") if (opts.deep and run_result) else None)
     # feature 1 second rail: if the repair loop changed repo source, cap CONFIRMED → REPRODUCED-ONLY.

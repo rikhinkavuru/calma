@@ -283,6 +283,79 @@ def from_committed_splits(repo_dir, max_pairs=8, train_cap=1500, test_cap=400):
     return scan_locations([repo_dir], max_pairs=max_pairs, train_cap=train_cap, test_cap=test_cap)
 
 
+# label column names common in real committed datasets (STRICT — a single dataset has no split to cross-check,
+# so we only trust a NAMED label column, never a last-column guess)
+_DATASET_LABEL_COLS = ("label", "labels", "y", "target", "class", "y_true", "outcome", "diagnosis",
+                       "category", "churn", "survived", "income", "default", "fraud", "spam", "sentiment",
+                       "quality", "status", "disease", "attrition", "response", "conversion")
+# csv basenames that are OUTPUTS (a results/predictions table), not the input dataset — never a baseline source
+_NON_DATASET_CSV = ("results", "result", "metrics", "metric", "scores", "score", "predictions", "preds",
+                    "pred", "output", "summary", "leaderboard", "eval", "history", "log", "report")
+
+
+def _named_label_col(path, cap=20000):
+    """The label column of a CSV, ONLY when a recognised label NAME is in the header (no last-column guess —
+    too risky to invalidate on a single dataset if we picked a feature). Returns the labels or None."""
+    try:
+        with open(path, errors="replace") as fh:
+            header = fh.readline().strip().split(",")
+            low = [h.strip().strip('"').lower() for h in header]
+            idx = next((low.index(c) for c in _DATASET_LABEL_COLS if c in low), None)
+            if idx is None:
+                return None
+            labels = []
+            for line in fh:
+                parts = line.rstrip("\n").split(",")
+                if idx < len(parts):
+                    labels.append(parts[idx].strip())
+                    if len(labels) >= cap:
+                        break
+            return labels or None
+    except OSError:
+        return None
+
+
+def from_committed_dataset(repo_dir, cap_files=12):
+    """A single committed DATASET csv (not a train/test split, not a results/predictions file) → its label
+    distribution, so the trivial-baseline / degenerate overlay can CATCH an inflated accuracy claim even when
+    the repo ships ONE dataset (the most common shape) and never ran. Conservative on purpose: only a NAMED
+    categorical label column (2..50 classes, ≥10 rows) — so we never fabricate a baseline from a feature.
+    Returns leak-result-shaped entries (findings=[], label_stats, single_dataset=True)."""
+    out: list = []
+    pair_members = set()
+    for p in _split_pairs(repo_dir).values():
+        pair_members.update(os.path.basename(v).lower() for v in p.values())
+    n = 0
+    for sub in ("", "data", "datasets", "dataset", "input", "raw"):
+        root = os.path.join(repo_dir, sub) if sub else repo_dir
+        if not os.path.isdir(root):
+            continue
+        try:
+            names = sorted(os.listdir(root))
+        except OSError:
+            continue
+        for fn in names:
+            if n >= cap_files:
+                break
+            low = fn.lower()
+            if not low.endswith(".csv") or low in pair_members:
+                continue
+            if any(t in low for t in _NON_DATASET_CSV) or low.endswith(("_train.csv", "_test.csv",
+                                                                        "train.csv", "test.csv")):
+                continue
+            p = os.path.join(root, fn)
+            if not os.path.isfile(p):
+                continue
+            n += 1
+            stats = _label_stats(_named_label_col(p))
+            if not stats or stats["n"] < 10 or not (2 <= stats["n_classes"] <= 50):
+                continue
+            out.append({"dataset": fn.rsplit(".", 1)[0], "n_train": 0, "n_test": stats["n"],
+                        "sequences": False, "sampled": False, "findings": [], "label_stats": stats,
+                        "single_dataset": True})
+    return out
+
+
 def check_leakage(train, test, *, sequences: bool = False, exact_thresh: float = 0.01,
                   homology_thresh: float = 0.05) -> list[dict]:
     """Return leakage findings (possibly empty). Exact-row overlap always; homology overlap when the data is
