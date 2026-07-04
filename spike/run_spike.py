@@ -70,8 +70,14 @@ def run_one(spec, args, venvs_dir):
             env_note = "e2b" + ("+pip" if pip_install else "")
         else:
             python, env_note = build.ensure_venv(name, pip_install, venvs_dir)
-            r = run_local(repo_dir, entry, k=args.k, python=python, hooks=hooks, targets=targets,
-                          timeout=spec.get("timeout", 600))
+            if entry and str(entry[0]).startswith("nb:"):    # a notebook entry — kernel-armed capture, not python file.ipynb
+                from orchestrator import tools_exec as XT
+                r = XT.run_notebook(repo_dir, entry[0], k=args.k, hooks=hooks, targets=targets,
+                                    timeout=spec.get("timeout", 600), python=python)
+                env_note += "+nb"
+            else:
+                r = run_local(repo_dir, entry, k=args.k, python=python, hooks=hooks, targets=targets,
+                              timeout=spec.get("timeout", 600))
     except Exception as e:  # noqa: BLE001 — a build failure is a non-running repo, scored as such
         return {"name": name, "ran": False, "build_error": "%s: %s" % (type(e).__name__, str(e)[:200]),
                 "seconds": round(time.time() - t0, 1), "claims": [], "runner": runner}

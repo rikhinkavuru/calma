@@ -30,6 +30,13 @@ _SKIP_DIRS = {"test", "tests", "testing", "docs", "doc", "examples", "example", 
 # import roots that signal a file actually computes/reports numbers (vs a config/util module)
 _METRIC_LIBS = frozenset({"sklearn", "numpy", "scipy", "pandas", "torch", "tensorflow", "xgboost",
                           "lightgbm", "catboost", "statsmodels", "jax"})
+# web-app / server frameworks: a script that imports one is a SERVER (a demo UI / API), never the script
+# that produced a committed headline metric — and worse, its blocking `.run()`/`serve` HANGS the sandbox
+# until the timeout. Never pick one as an entrypoint (real ICP repos ship a streamlit/flask demo next to the
+# actual eval; picking the demo is both wrong and a hang). General across the whole market, not ML-specific.
+_SERVER_LIBS = frozenset({"streamlit", "flask", "gradio", "dash", "fastapi", "uvicorn", "django", "bottle",
+                          "tornado", "aiohttp", "sanic", "starlette", "chainlit", "panel", "shiny", "flet",
+                          "nicegui", "reflex", "waitress", "gunicorn"})
 # driver-ish stems, most-likely-the-headline first (mirrors _ENTRY_NAMES, sans .py)
 _DRIVER_STEMS = ("reproduce", "runall", "run", "main", "eval", "evaluate", "runeval", "benchmark",
                  "runbenchmark", "experiment", "analysis", "analyze", "figures", "results", "score")
@@ -88,6 +95,37 @@ def _readme_run_command(repo_dir):
             if base != tok and os.path.isfile(os.path.join(repo_dir, base)):
                 return [base]
     return None
+
+
+def _is_server_script(path):
+    """True if the script imports a web-server / app framework — a demo UI or API, never the producer of a
+    committed headline metric, and a blocking-serve hang risk. Cheap: reuses the import scan."""
+    return bool(_imported_roots(path) & _SERVER_LIBS)
+
+
+def _notebook_entry(repo_dir):
+    """A runnable notebook to use when no .py entrypoint exists — huge in the real market (a repo whose whole
+    analysis IS a .ipynb). Returns ['nb:<path>'] (routed to the kernel-armed notebook runner), ranked by a
+    driver-ish stem; checkpoint/Untitled notebooks are deprioritized. Roots + a notebooks/ dir."""
+    cands: list[tuple[int, str]] = []
+    for sub in ("", "notebooks", "notebook", "nb"):
+        d = os.path.join(repo_dir, sub) if sub else repo_dir
+        if not os.path.isdir(d):
+            continue
+        try:
+            files = sorted(f for f in os.listdir(d) if f.endswith(".ipynb") and not f.startswith("."))
+        except OSError:
+            continue
+        for f in files:
+            stem = re.sub(r"[^a-z0-9]", "", f[:-6].lower())
+            rank = next((i for i, s in enumerate(_DRIVER_STEMS) if s in stem), len(_DRIVER_STEMS))
+            if "checkpoint" in f.lower() or "untitled" in stem:
+                rank += 100                                  # scratch notebooks are rarely the reproduction
+            cands.append((rank, os.path.join(sub, f) if sub else f))
+    if not cands:
+        return None
+    cands.sort()
+    return ["nb:" + cands[0][1]]
 
 
 def _runnable_package(repo_dir):
@@ -279,13 +317,15 @@ def detect_entrypoint(repo_dir):
     prod = artifact_producer(repo_dir)
     if prod:
         return prod
-    # 3) a known entrypoint filename present at the repo root
+    # 3) a known entrypoint filename present at the repo root (but never a server-framework script)
     for name in _ENTRY_NAMES:
-        if os.path.isfile(os.path.join(repo_dir, name)):
+        p = os.path.join(repo_dir, name)
+        if os.path.isfile(p) and not _is_server_script(p):
             return [name]
-    # 4) heuristics over the root scripts (the README/known-name paths missed it)
-    roots = _root_scripts(repo_dir)
-    if len(roots) == 1:                                  # the only script — almost certainly it
+    # 4) heuristics over the root scripts (the README/known-name paths missed it) — with server apps
+    #    (streamlit/flask demos) filtered out: they never produced the committed metric and would hang.
+    roots = [f for f in _root_scripts(repo_dir) if not _is_server_script(os.path.join(repo_dir, f))]
+    if len(roots) == 1:                                  # the only (non-server) script — almost certainly it
         return [roots[0]]
     base = re.sub(r"[^a-z0-9]", "", os.path.basename(repo_dir.rstrip("/")).lower())
     for f in roots:                                      # a script whose name matches the repo (iris-svm.py)
@@ -295,11 +335,16 @@ def detect_entrypoint(repo_dir):
     for f in roots:                                      # a script with an `if __name__ == "__main__"` guard
         if _has_main_guard(os.path.join(repo_dir, f)):
             return [f]
-    # 5) a package-shaped repo (no root script): `python -m <pkg>` when `<pkg>/__main__.py` exists
+    # 5) no runnable .py entry — a notebook IS the analysis in a huge share of real repos; run it as one
+    #    (kernel-armed capture) rather than feeding raw .ipynb JSON to python (which NameErrors on `null`).
+    nb = _notebook_entry(repo_dir)
+    if nb:
+        return nb
+    # 6) a package-shaped repo (no root script): `python -m <pkg>` when `<pkg>/__main__.py` exists
     pkg = _runnable_package(repo_dir)
     if pkg:
         return ["-m", pkg]
-    # 6) a __main__-guarded driver hiding in a source subdir (code/, src/, scripts/, the repo-name package)
+    # 7) a __main__-guarded driver hiding in a source subdir (code/, src/, scripts/, the repo-name package)
     return _subdir_driver_script(repo_dir)
 
 

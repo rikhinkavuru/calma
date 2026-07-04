@@ -153,6 +153,20 @@ def test_detect_entrypoint_readme_still_beats_artifact_producer(tmp_path):
     assert build.detect_entrypoint(str(tmp_path)) == ["reproduce.py"]
 
 
+def test_detect_skips_streamlit_app_prefers_eval(tmp_path):
+    # a repo shipping a streamlit demo next to the real eval must pick the eval, not the server (which would
+    # hang on .run() and never produced the committed metric).
+    (tmp_path / "app.py").write_text("import streamlit as st\nif __name__ == '__main__':\n    st.title('demo')\n")
+    (tmp_path / "run_eval.py").write_text("import sklearn\nif __name__ == '__main__':\n    print('acc', 0.9)\n")
+    assert build.detect_entrypoint(str(tmp_path)) == ["run_eval.py"]
+
+
+def test_detect_none_when_only_a_server_script(tmp_path):
+    # only a flask app.py, no eval → do NOT return the server (a blocking .run() would hang the sandbox).
+    (tmp_path / "app.py").write_text("from flask import Flask\napp = Flask(__name__)\napp.run()\n")
+    assert build.detect_entrypoint(str(tmp_path)) is None
+
+
 def test_era_pin_nongit_and_pinned_passthrough(tmp_path):
     # not a git repo -> no era detected -> packages unchanged (no network call)
     pkgs, era = build.era_pin(["scikit-learn", "numpy==1.24.0", "pandas>=2"], str(tmp_path))
@@ -277,3 +291,16 @@ def test_infer_excludes_local_modules_in_subdirs(tmp_path):
     reqs, src_note = build.infer_requirements(str(tmp_path))
     assert "model" not in reqs and "dataset" not in reqs and "embed" not in reqs   # local, excluded
     assert "torch" in reqs and "numpy" in reqs                                      # real deps kept
+
+
+def test_detect_notebook_when_no_py_entry(tmp_path):
+    # a repo whose only runnable artifact is a notebook -> nb: routing (not `python file.ipynb`).
+    (tmp_path / "analysis.ipynb").write_text('{"cells": [], "metadata": {}, "nbformat": 4, "nbformat_minor": 5}')
+    assert build.detect_entrypoint(str(tmp_path)) == ["nb:analysis.ipynb"]
+
+
+def test_py_entry_beats_notebook(tmp_path):
+    # a real .py eval outranks a notebook sitting beside it.
+    (tmp_path / "explore.ipynb").write_text('{"cells": [], "metadata": {}, "nbformat": 4, "nbformat_minor": 5}')
+    (tmp_path / "run.py").write_text("import sklearn\nif __name__ == '__main__':\n    pass\n")
+    assert build.detect_entrypoint(str(tmp_path)) == ["run.py"]
