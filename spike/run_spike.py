@@ -115,6 +115,20 @@ def run_one(spec, args, venvs_dir):
                         break
                     r = run_local(repo_dir, entry, k=args.k, python=python, hooks=hooks, targets=targets,
                                   timeout=spec.get("timeout", 600))
+                # not committed anywhere, but a recognised public dataset (UCI magic04/adult/wine/…): fetch it
+                # to the exact read path (deterministic catalog, no key) + rewrite a hardcoded abs path literal.
+                if not r.get("ran_ok"):
+                    miss = _DR.missing_data_path(" ".join(m.get("stderr_tail", "") for m in r.get("meta", [])))
+                    if miss:
+                        from runner import data_catalog as _DC
+                        url = _DC.resolve_path(miss)
+                        if url:
+                            b = os.path.basename(str(miss).replace("\\", "/"))
+                            if _DR.fetch_to(url, os.path.join(repo_dir, b)):
+                                _DR.rewrite_data_path(repo_dir, miss, b)   # abs/nested read literal → basename
+                                r = run_local(repo_dir, entry, k=args.k, python=python, hooks=hooks,
+                                              targets=targets, timeout=spec.get("timeout", 600))
+                                env_note += " +fetch"
                     env_note += " +data"
                 if not r.get("ran_ok") and entry and os.path.dirname(str(entry[0])):
                     stderr = " ".join(m.get("stderr_tail", "") for m in r.get("meta", []))
