@@ -9,7 +9,6 @@
 import { SiteNav } from "./SiteNav";
 import { Hero } from "./Hero";
 import { BpProgress } from "./home/BpProgress";
-import { BpValidityWedge } from "./home/BpValidityWedge";
 import { BpFlow } from "./home/BpFlow";
 import { BpMoats } from "./home/BpMoats";
 import { BpFaq } from "./home/BpFaq";
@@ -25,7 +24,6 @@ export default function App() {
 
       <main>
         <Hero />
-        <BpValidityWedge />
         <BpFlow />
         <BpMoats />
         <section className="flowsec faqsec">
