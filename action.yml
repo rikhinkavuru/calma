@@ -28,7 +28,7 @@ outputs:
     description: 'The overall validity grade: PASS | FAIL | INCOMPLETE.'
 runs:
   using: 'docker'
-  image: 'action/Dockerfile'
+  image: 'Dockerfile'
   args:
     - ${{ inputs.path }}
     - ${{ inputs.fail-on }}
