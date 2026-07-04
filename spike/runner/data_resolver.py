@@ -233,11 +233,10 @@ def rewrite_data_path(repo_dir, missing_path, new_rel):
     literal is touched (AST-located, single-line span replacement; formatting/comments preserved). Returns the
     list of modified repo-relative files."""
     import ast
-    target = _norm(missing_path)
-    # the literal as it may appear in source (raw/escaped/forward-slash) — for notebook cell string replace
-    _raw = str(missing_path or "")
-    _forms = sorted({_raw, _raw.replace("\\", "/"), _raw.replace("\\", "\\\\"), _raw.replace("/", "\\")},
-                    key=len, reverse=True)
+    target = _norm(missing_path)                             # forward-single-slash canonical, e.g. D:/a/b.csv
+    # every backslash variant the SAME path can take in source (json.load gives the cell value 1 backslash;
+    # the traceback text has 2) — built from the canonical so 1-bs, 2-bs and forward-slash all match.
+    _forms = sorted({target, target.replace("/", "\\"), target.replace("/", "\\\\")}, key=len, reverse=True)
     modified: list = []
     for root, dirs, files in os.walk(repo_dir):
         dirs[:] = [d for d in dirs if not d.startswith(".") and d not in ("node_modules", "__pycache__")]
