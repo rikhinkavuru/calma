@@ -50,13 +50,18 @@ def classify_failure(stderr_tail):
 def run_one(spec, args, venvs_dir):
     name = spec["name"]
     runner = spec.get("runner", "local")
-    entry = spec.get("entry", ["eval.py"])
+    entry = spec.get("entry")                      # None -> auto-detect below (exercises the reverse map)
     hooks = spec.get("hooks", "sklearn")
     targets = spec.get("targets")
     pip_install = spec.get("pip_install")
     t0 = time.time()
     repo_dir, src_note = build.ensure_repo(spec, os.path.join(args.out, "repos"))
     build_note, env_note = src_note, ""
+    if not entry:
+        # no hand-specified entry: use the same detection the product does — README run-command, then the
+        # artifact->producer reverse map (run the script that WROTE the committed table, not a quickstart),
+        # then name heuristics. Lets a real corpus repo carry only its URL+SHA and still run the right script.
+        entry = build.detect_entrypoint(repo_dir) or ["eval.py"]
     try:
         if runner == "e2b":
             from runner.e2b_runner import run_e2b
