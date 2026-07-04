@@ -85,6 +85,18 @@ def run_one(spec, args, venvs_dir):
             else:
                 r = run_local(repo_dir, entry, k=args.k, python=python, hooks=hooks, targets=targets,
                               timeout=spec.get("timeout", 600))
+                # data-resolution parity with the product pipeline: a missing input that's actually committed
+                # under a different path (code reads data/x.csv, it's at a subdir) is relinked where the code
+                # reads it — then re-run. Make-runnable, no source change on the relink path → full verdict.
+                if not r.get("ran_ok"):
+                    from runner import data_resolver as _DR
+                    miss = _DR.missing_data_path(" ".join(m.get("stderr_tail", "") for m in r.get("meta", [])))
+                    if miss:
+                        placed, _mod = _DR.make_data_available(repo_dir, miss)
+                        if placed:
+                            r = run_local(repo_dir, entry, k=args.k, python=python, hooks=hooks,
+                                          targets=targets, timeout=spec.get("timeout", 600))
+                            env_note += " +data"
     except Exception as e:  # noqa: BLE001 — a build failure is a non-running repo, scored as such
         return {"name": name, "ran": False, "build_error": "%s: %s" % (type(e).__name__, str(e)[:200]),
                 "seconds": round(time.time() - t0, 1), "claims": [], "runner": runner}
