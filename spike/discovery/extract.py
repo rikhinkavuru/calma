@@ -89,9 +89,27 @@ def _flatten(obj, prefix=""):
     if isinstance(obj, dict):
         for k, v in obj.items():
             out.extend(_flatten(v, "%s.%s" % (prefix, k) if prefix else str(k)))
+    elif isinstance(obj, list):
+        # a list of homogeneous result dicts (e.g. [{"model": "resnet", "accuracy": 0.9}, ...]) — index it so
+        # the path stays unique; a row's own id fields become that cell's context downstream.
+        for i, v in enumerate(obj):
+            out.extend(_flatten(v, "%s.%d" % (prefix, i) if prefix else str(i)))
     elif isinstance(obj, (int, float)) and not isinstance(obj, bool):
         out.append((prefix, obj))
     return out
+
+
+def _metric_in_path(components):
+    """A nested results.json encodes a leaderboard: {"resnet": {"cifar10": {"accuracy": 0.9}}} or the
+    transpose {"accuracy": {"cifar10": 0.9}}. Find WHICH path component is the metric (prefer the leaf, then
+    search inward) — the rest are the cell's context (dataset/model/split labels). Returns
+    (metric_idx, cid, split, conf) or (None, None, None, 0.0). This is what lets a nested leaderboard bind
+    per-cell instead of collapsing to one ambiguous metric."""
+    for idx in range(len(components) - 1, -1, -1):
+        cid, split, conf = map_metric(components[idx])
+        if cid:
+            return idx, cid, split, conf
+    return None, None, None, 0.0
 
 
 def from_results_json(path) -> list[dict]:
@@ -102,15 +120,20 @@ def from_results_json(path) -> list[dict]:
         return []
     claims = []
     for name, val in _flatten(data):
-        leaf = name.split(".")[-1]
-        cid, split, conf = map_metric(leaf)
+        components = name.split(".")
+        idx, cid, split, conf = _metric_in_path(components)
         if not cid:
             continue
         vs = _value_str(val)
         if vs is None:
             continue
+        # every path component other than the metric one labels this cell — join as context so the
+        # context-aware binder can pin each leaderboard entry to its own computation (SAFE: names, never value)
+        ctx = " ".join(c for i, c in enumerate(components) if i != idx and not c.isdigit())[:90]
         claim = {"metric": cid, "value": vs, "location": "%s::%s" % (os.path.basename(path), name),
                  "source": "results-json", "confidence": conf}
+        if ctx:
+            claim["context"] = ctx
         if split:
             claim["split"] = split
         claims.append(claim)
@@ -135,6 +158,88 @@ _SPLIT_W = (r"(?:test|testing|val|valid|validation|holdout|held[\s-]*out|train|t
 _PROSE_VM = re.compile(_VAL + r"[\s-]+(?:" + _SPLIT_W + r"[\s-]+){0,2}" + _MW, re.I)
 # metric then value via a connector: "F1 score of 0.72", "accuracy of 0.83", "AUC was 0.91", "came out to 95%"
 _PROSE_MV = re.compile(_MW + r"[\w\s,'\-]{0,25}?(?:\bof\b|\bwas\b|\bis\b|\bto\b|[:=])\s*" + _VAL, re.I)
+
+
+def _is_num(s):
+    """A results-cell numeric value (accepts a trailing % and surrounding whitespace). Returns the cleaned
+    string to use as the claim value, or None."""
+    v = (s or "").strip()
+    if not v:
+        return None
+    try:
+        float(v[:-1] if v.endswith("%") else v)
+    except ValueError:
+        return None
+    return v
+
+
+# a GFM table separator row: | --- | :--: | --- |  (cells are only dashes/colons/spaces)
+_SEP_RE = re.compile(r"^\s*\|?[\s:|-]*-[\s:|-]*\|[\s:|-]*$")
+
+
+def _split_row(line):
+    """Split a markdown table row into trimmed cells, dropping the empty edges from leading/trailing pipes."""
+    cells = [c.strip() for c in line.strip().strip("|").split("|")]
+    return cells
+
+
+def from_markdown_tables(text, location="text") -> list[dict]:
+    """Parse WIDE leaderboard tables — the 'paper Table 3' shape where metrics are COLUMN headers and each row
+    is a model/dataset:
+
+        | Model  | Dataset | Accuracy | Macro F1 |
+        |--------|---------|----------|----------|
+        | ResNet | CIFAR10 | 0.912    | 0.889    |
+
+    Metric columns map to the catalog; the remaining labelled columns become each row's context
+    (Model=ResNet Dataset=CIFAR10) so the binder can pin each cell to its own computation. The 2-column
+    transpose form (| Metric | Value |) is intentionally left to from_text's _ROW_RE — its headers don't map
+    to a metric, so those tables are skipped here (no double-count). Pure stdlib."""
+    if not text or "|" not in text:
+        return []
+    lines = text.splitlines()
+    claims: list = []
+    i = 0
+    while i < len(lines) - 1:
+        line = lines[i]
+        if "|" not in line or not _SEP_RE.match(lines[i + 1]):
+            i += 1
+            continue
+        header = _split_row(line)
+        metric_cols = {}          # col-index → (cid, split)
+        ctx_idx = []              # col-indexes that label the row (non-metric, non-empty headers)
+        for ci, h in enumerate(header):
+            cid, split, _conf = map_metric(h)
+            if cid:
+                metric_cols[ci] = (cid, split)
+            elif h:
+                ctx_idx.append(ci)
+        if not metric_cols:
+            i += 2                # header + separator; not a wide metrics table (transpose/other)
+            continue
+        j = i + 2
+        while j < len(lines) and "|" in lines[j] and not _SEP_RE.match(lines[j]):
+            cells = _split_row(lines[j])
+            if len(cells) >= len(header):
+                ctx = " ".join("%s=%s" % (header[c], cells[c]) for c in ctx_idx
+                               if c < len(cells) and cells[c])[:90]
+                for ci, (cid, split) in metric_cols.items():
+                    if ci >= len(cells):
+                        continue
+                    vs = _is_num(cells[ci])
+                    if vs is None:
+                        continue
+                    claim = {"metric": cid, "value": vs, "location": "%s::%s%s" % (
+                        location, header[ci], " [%s]" % ctx if ctx else ""),
+                        "source": "md-table", "confidence": 0.85}
+                    if ctx:
+                        claim["context"] = ctx
+                    if split:
+                        claim["split"] = split
+                    claims.append(claim)
+            j += 1
+        i = j
+    return claims
 
 
 def from_text(text, location="text") -> list[dict]:
@@ -172,6 +277,10 @@ def from_text(text, location="text") -> list[dict]:
             if split:
                 claim["split"] = split
             claims.append(claim)
+    # wide leaderboard tables (metric COLUMNS, one row per model/dataset). These carry per-row context, so
+    # they bypass the (metric, value) seen-gate above — two rows sharing a metric+value for different
+    # datasets are distinct claims, not a dup; discover()'s (metric, value, context) dedupe is the backstop.
+    claims.extend(from_markdown_tables(text, location=location))
     return claims
 
 

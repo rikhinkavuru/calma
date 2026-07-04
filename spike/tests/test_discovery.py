@@ -48,6 +48,64 @@ def test_from_text_table_and_kv():
     assert ("accuracy", "0.92") in vals and ("accuracy", "96.67%") in vals  # both, deduped on value
 
 
+def test_from_results_json_nested_carries_context():
+    """A nested leaderboard JSON must bind per-cell: each metric leaf keeps its dataset/model ancestors as
+    context, so identical metric+value cells across datasets stay distinct (fixes the ambiguous→INCONCLUSIVE
+    collapse). Handles both metric-inner and metric-outer nestings."""
+    import json as _j
+    import tempfile
+    import os as _os
+    data = {"resnet": {"cifar10": {"test_accuracy": 0.91}, "mnist": {"test_accuracy": 0.99}},
+            "accuracy": {"svhn": 0.88}}   # metric-outer transpose too
+    fd, p = tempfile.mkstemp(suffix=".json")
+    _os.write(fd, _j.dumps(data).encode())
+    _os.close(fd)
+    claims = D.from_results_json(p)
+    _os.unlink(p)
+    by_ctx = {frozenset(c.get("context", "").split()): c for c in claims if c["metric"] == "accuracy"}
+    # three distinct cells, each with its own context — none collapsed
+    assert any("cifar10" in k and "resnet" in k for k in by_ctx)
+    assert any("mnist" in k and "resnet" in k for k in by_ctx)
+    assert any("svhn" in k for k in by_ctx)
+    cif = next(c for k, c in by_ctx.items() if "cifar10" in k)
+    assert cif["value"] == "0.91" and cif["split"] == "test"
+
+
+def test_from_markdown_wide_leaderboard_table():
+    """The 'paper Table 3' shape: metrics as COLUMNS, one row per model/dataset. Each cell → its own claim
+    carrying Model=/Dataset= context; the 2-col transpose form is left to _ROW_RE (not double-counted)."""
+    text = """
+    ## Leaderboard
+    | Model  | Dataset | Accuracy | Macro F1 |
+    |--------|---------|----------|----------|
+    | ResNet | CIFAR10 | 0.912    | 0.889    |
+    | ViT    | CIFAR10 | 0.934    | 0.901    |
+    | ResNet | MNIST   | 0.993    | 0.990    |
+    """
+    claims = D.from_markdown_tables(text, location="README.md")
+    # each cell's context (as the binder sees it, after stop-word stripping) must carry its row's identifiers
+    cells = {(c["metric"], c["value"]): _ctx_toks(c.get("context", "")) for c in claims}
+    assert {"resnet", "cifar10"} <= cells[("accuracy", "0.912")]
+    assert {"vit", "cifar10"} <= cells[("accuracy", "0.934")]
+    assert {"resnet", "mnist"} <= cells[("f1", "0.990")]
+    # six data cells (3 rows × 2 metric cols), none collapsed
+    assert len([c for c in claims if c["metric"] in ("accuracy", "f1")]) == 6
+
+
+def test_from_markdown_skips_transpose_table():
+    """A | Metric | Value | table has no metric-mapped header → skipped here (handled by from_text/_ROW_RE),
+    so it isn't double-counted."""
+    text = "| Metric | Value |\n|---|---|\n| Accuracy | 0.92 |\n"
+    assert D.from_markdown_tables(text) == []
+    # but from_text still catches it via _ROW_RE
+    assert any(c["metric"] == "accuracy" and c["value"] == "0.92" for c in D.from_text(text))
+
+
+def _ctx_toks(s):
+    import re as _re
+    return {t for t in _re.split(r"[^a-z0-9]+", (s or "").lower()) if len(t) >= 2 and not t.isdigit()}
+
+
 def test_discover_realistic_repo():
     # the realistic fixture ships a results.json (written by train.py) — discover its headline numbers
     claims = D.discover(os.path.join(FIX, "realistic_sklearn"),
