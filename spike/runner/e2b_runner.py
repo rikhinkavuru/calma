@@ -29,7 +29,7 @@ from . import CAPTURE_DIR, build, parse_capture
 from . import effector
 
 _SHIM_FILES = ("calma_capture.py", "sitecustomize.py", "reinvoke.py", "run_notebook_e2b.py",
-               "calma_leakage_probe.py")
+               "calma_leakage_probe.py", "colab_shim.py")
 _LANG_INTERP = effector.LANG_INTERP   # canonical map (shared with orchestrator.tools_exec); polyglot template only
 _MAX_SANDBOX_S = effector.MAX_SANDBOX_S   # hard cap on a sandbox's lifetime (build + all k runs); see effector
 _MAX_ARCHIVE_B = 200 * 1024 * 1024   # above this, fall back to per-file upload (keeps the child's memory bounded)

@@ -12,6 +12,15 @@ try:
 except Exception:  # noqa: BLE001 — never let instrumentation break the interpreter
     pass
 
+# Colab-exported notebooks open with `from google.colab import files` / `drive.mount(...)`; outside Colab
+# that import kills the notebook on cell 1. Shim it (against the repo's own committed data) so a whole class
+# of real notebook repos actually runs. Fail-soft; a real google package is preserved.
+try:
+    import colab_shim
+    colab_shim.install()
+except Exception:  # noqa: BLE001
+    pass
+
 # Chain to a pre-existing sitecustomize the base image may ship (we prepend to PYTHONPATH, shadowing it).
 try:  # pragma: no cover
     import importlib.util as _u
