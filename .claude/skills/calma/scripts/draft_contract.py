@@ -1269,10 +1269,14 @@ def draft(target, claim=None, metric=None):
                     grade = a["columns"][bench]["grade"]
                     break
         # The claim TARGET is confirmed only when the caller stated the number AND the metric is
-        # unambiguous (named explicitly / in the claim text) or the binding is independently sane-checked.
-        # An auto-picked metric under a bare-number claim stays unconfirmed: REFUTED is then blocked
-        # (degrades to INCONCLUSIVE), so a wrong auto-binding can never manufacture a refutation.
-        target_confirmed = claim_value is not None and (metric is not None or grade == "independently-bound")
+        # unambiguous (named explicitly / in the claim text) or the binding is independently sane-checked
+        # AND there is producing code we actually re-executed (entrypoint != MANUAL). The last clause closes
+        # the stop-hook false-REFUTE: a bare number scraped from a message, with no runnable entrypoint,
+        # bound to an auto-picked metric, used to set this True and reach REFUTED. It must stay unconfirmed
+        # so REFUTED degrades to INCONCLUSIVE — you cannot refute a number nothing in the repo produced.
+        target_confirmed = (claim_value is not None
+                            and (metric is not None or grade == "independently-bound")
+                            and contract["run"]["entrypoint"] != "MANUAL")
         contract["metrics"].append({
             "metric_id": mid, "artifact": art, "binding": binding,
             "convention": infer_convention(claim, mid),
