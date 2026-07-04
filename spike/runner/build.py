@@ -679,6 +679,21 @@ def ensure_repo(spec, workdir):
 
 
 _COMPAT_PYTHONS = ("python3.12", "python3.11", "python3.10")
+# a proven-lenient older science stack (wheels on py3.12) to RETRY a run that failed purely because the
+# LATEST stack tightened behavior the repo relied on (sklearn rejecting label types / NaN it once tolerated,
+# a removed API). Env-only repair — the repo's compute is untouched, so it's FCR-safe.
+_COMPAT_STACK = {"scikit-learn": "scikit-learn==1.3.2", "sklearn": "scikit-learn==1.3.2",
+                 "pandas": "pandas==2.2.3", "numpy": "numpy==1.26.4", "scipy": "scipy==1.11.4"}
+
+
+def downgrade_science(specs):
+    """Return `specs` with the core science libs pinned to a proven-compatible older stack (leaving other
+    deps and already-constrained pins alone). Used to retry a version-drift failure in its era's environment."""
+    out = []
+    for s in specs or []:
+        name = re.split(r"[<>=!~ ]", str(s), 1)[0].strip().lower()
+        out.append(_COMPAT_STACK.get(name, s) if not re.search(r"[<>=!~]", str(s)) else s)
+    return out
 
 
 def compat_python(era_date=None):

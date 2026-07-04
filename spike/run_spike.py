@@ -140,6 +140,25 @@ def run_one(spec, args, venvs_dir):
                     if r2.get("ran_ok"):
                         r, entry = r2, [os.path.basename(str(entry[0]))]
                         env_note += " +cwd"
+            # version-incompat ENV-repair (scripts): the run can fail purely because the latest science stack
+            # tightened behavior the repo relied on (sklearn rejecting a label type / NaN it once tolerated, a
+            # removed API) — an ENVIRONMENT problem, not the repo's compute. Retry once in a proven-compatible
+            # older stack. FCR-safe (env-only, no source touched); recovers version-drift latest can't run.
+            if not r.get("ran_ok") and not is_nb and pip_install:
+                _e = _stderr().lower()
+                if any(s in _e for s in ("unknown label type", "estimators that handle nan", "input contains nan",
+                                         "cannot import name", "no attribute 'plot_", "not a valid feature")):
+                    try:
+                        _dg = build.downgrade_science(pip_install)
+                        _pyc, _ = build.ensure_venv(name + "-compat", _dg, venvs_dir,
+                                                    base_python=build.compat_python(None))
+                        _r2 = run_local(repo_dir, entry, k=args.k, python=_pyc, hooks=hooks, targets=targets,
+                                        timeout=spec.get("timeout", 600))
+                        if _r2.get("ran_ok"):
+                            r = _r2
+                            env_note += " +downgrade"
+                    except Exception:  # noqa: BLE001 — repair is best-effort
+                        pass
     except Exception as e:  # noqa: BLE001 — a build failure is a non-running repo, scored as such
         return {"name": name, "ran": False, "build_error": "%s: %s" % (type(e).__name__, str(e)[:200]),
                 "seconds": round(time.time() - t0, 1), "claims": [], "runner": runner}
