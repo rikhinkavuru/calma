@@ -283,7 +283,7 @@ repos:
   - name: employee-attrition
     source: {kind: git, url: https://github.com/bahimehdi/Employee_Attrition_Prediction.git, commit: 17eaa02158c2f49f2c56d94d92ceb997b397562e}
     pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn, nbclient, nbformat, ipykernel]
-    meta: {domain: ml, tier: T3, split: dev, license: unknown, commit_date: unknown, capability: leaderboard-table}
+    meta: {domain: ml, tier: T3, split: dev, license: unknown, commit_date: unknown, capability: leaderboard-table, repro_class: broken-code}
     discover: true              # committed HR CSV + model_comparison_results.csv; notebook entry
 
   - name: quality-quest-ml
@@ -301,7 +301,7 @@ repos:
   - name: hate-speech-classifier
     source: {kind: git, url: https://github.com/FarhadNuri/Hate-Speech-Classifier-v1.git, commit: c5665cd37bd1b0f34dbddde51b9c40decfe99b74}
     pip_install: [scikit-learn, pandas, numpy, nltk]
-    meta: {domain: nlp, tier: T3, split: dev, license: unknown, commit_date: unknown, capability: leaderboard-table}
+    meta: {domain: nlp, tier: T3, split: dev, license: unknown, commit_date: unknown, capability: leaderboard-table, repro_class: no-eval}
     discover: true              # committed Model_Results.csv + app.py (TF-IDF text classifier)
 
   # ===== corpus expansion (2026-07-04) — real classical-ML repos with committed data + a runnable script.
@@ -354,7 +354,7 @@ repos:
     timeout: 90
     entry: [main.py]
     pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn]
-    meta: {domain: ml, tier: T2, split: dev, license: unknown, commit_date: unknown}
+    meta: {domain: ml, tier: T2, split: dev, license: unknown, commit_date: unknown, repro_class: pathological}
     discover: true
 
   - name: heart-nripstein
@@ -380,12 +380,12 @@ repos:
   - name: heart-adityathakkar
     source: {kind: git, url: https://github.com/adityathakkar/Heart-Disease-Prediction-Machine-Learning.git, commit: 2a35f21f8c1445133502cfa435519844f70d17ca}
     pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn, nbclient, nbformat, ipykernel]
-    meta: {domain: ml, tier: T2, split: dev, license: unknown, commit_date: unknown}
+    meta: {domain: ml, tier: T2, split: dev, license: unknown, commit_date: unknown, repro_class: ancient-py}
     discover: true
   - name: heart-ripon
     source: {kind: git, url: https://github.com/ripon2488/heart-disease-prediction-machine-learning.git, commit: c6c9732f2d8f9f81508470ced650d01793f2ba85}
     pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn, nbclient, nbformat, ipykernel]
-    meta: {domain: ml, tier: T2, split: dev, license: unknown, commit_date: unknown}
+    meta: {domain: ml, tier: T2, split: dev, license: unknown, commit_date: unknown, repro_class: no-eval}
     discover: true
   - name: heart-ayushrawat
     source: {kind: git, url: https://github.com/ayushrawat0210/Heart-Disease-Prediction-Machine-Learning-.git, commit: fe6023ef396a6882c5e9f92922350a1241e652fd}
@@ -400,7 +400,7 @@ repos:
   - name: heart-kvns
     source: {kind: git, url: https://github.com/kvnsreevalli123/Heart-Disease-Prediction-Machine_Learning.git, commit: 7ec1912a6541613081aeaa1dfd008c17e955baa7}
     pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn, nbclient, nbformat, ipykernel]
-    meta: {domain: ml, tier: T2, split: dev, license: unknown, commit_date: unknown}
+    meta: {domain: ml, tier: T2, split: dev, license: unknown, commit_date: unknown, repro_class: broken-code}
     discover: true
   - name: heart-kananu
     source: {kind: git, url: https://github.com/kananugik/heart-disease-prediction_machine_learning.git, commit: 02c1866a1a44c1840e70b03a1799a1e03462d22c}

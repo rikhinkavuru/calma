@@ -23,24 +23,34 @@ import time
 _COMPAT_KERNEL: dict = {}
 
 
-def _ensure_compat_kernel(venvs_dir):
-    """Build (once) a downgraded science venv with ipykernel and register its kernelspec, so a version-drift
-    NOTEBOOK can be re-run in an era-compatible kernel (the notebook analog of the script downgrade repair).
-    Returns the kernel name, or None if it can't be built."""
-    if "name" in _COMPAT_KERNEL:
-        return _COMPAT_KERNEL["name"]
-    _COMPAT_KERNEL["name"] = None
+def _ensure_compat_kernel(venvs_dir, repo_dir=None):
+    """Build (once per era) an ERA-APPROPRIATE science venv with ipykernel and register its kernelspec, so a
+    version-drift NOTEBOOK can be re-run in a kernel matching its era (an old notebook needs py3.8 + sklearn
+    0.x, not the latest kernel) — the notebook analog of era-python. Returns the kernel name, or None.
+    era comes from the repo's git commit date; falls back to a moderate downgrade (sklearn 1.3.2)."""
+    from orchestrator import tools_exec as _XT
+    era = build.repo_commit_date(repo_dir) if repo_dir else None
+    tag = (era or "moderate")[:7]
+    if tag in _COMPAT_KERNEL:
+        return _COMPAT_KERNEL[tag]
+    _COMPAT_KERNEL[tag] = None
     try:
-        deps = ["scikit-learn==1.3.2", "pandas==2.2.3", "numpy==1.26.4", "scipy==1.11.4", "matplotlib",
-                "seaborn", "ipykernel", "nbformat"]
-        py, _ = build.ensure_venv("_compat_kernel", deps, venvs_dir, base_python=build.compat_python(None))
-        name = "calma-compat"
+        base = ["scikit-learn", "pandas", "numpy", "scipy", "matplotlib", "seaborn", "ipykernel", "nbformat"]
+        base_py = build.compat_python(era)
+        pyver = build.python_version(base_py) or "3.12"
+        if era:                                            # pin the science libs to the notebook's era
+            deps, _e, _n = _XT.era_pin_compat(base, repo_dir, py_version=pyver)
+        else:
+            deps = ["scikit-learn==1.3.2", "pandas==2.2.3", "numpy==1.26.4", "scipy==1.11.4",
+                    "matplotlib", "seaborn", "ipykernel", "nbformat"]
+        py, _ = build.ensure_venv("_kernel_" + tag, deps, venvs_dir, base_python=base_py)
+        name = "calma-" + tag
         subprocess.run([py, "-m", "ipykernel", "install", "--user", "--name", name],
                        check=True, timeout=120, capture_output=True)
-        _COMPAT_KERNEL["name"] = name
+        _COMPAT_KERNEL[tag] = name
     except Exception:  # noqa: BLE001 — best-effort
         pass
-    return _COMPAT_KERNEL["name"]
+    return _COMPAT_KERNEL[tag]
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -192,7 +202,7 @@ def run_one(spec, args, venvs_dir):
                 _e = _stderr().lower()
                 if any(s in _e for s in ("cross_validation", "cannot specify both", "cannot import name",
                                          "has no attribute", "unknown label type", "deprecated", "removed in")):
-                    kname = _ensure_compat_kernel(venvs_dir)
+                    kname = _ensure_compat_kernel(venvs_dir, repo_dir)
                     if kname:
                         from orchestrator import tools_exec as _XT
                         _r2 = _XT.run_notebook(repo_dir, entry[0], k=args.k, hooks=hooks, targets=targets,
@@ -252,9 +262,17 @@ def aggregate(results):
     false_confirms = [c for c in claims if c["false_confirm"]]
     discovered = sum(1 for c in claims if c.get("discovered"))
     secs = [r["seconds"] for r in results]
+    # a repo tagged with a repro_class (broken-code / no-eval / pathological / ancient-py) is objectively NOT
+    # reproducible by any tool — an author compute bug, no runnable code, or a py3.6-era stack. Report
+    # reproduction over the REPRODUCIBLE denominator (the honest question: of repos that CAN be reproduced,
+    # do we?) alongside the raw aggregate. A tagged repo that ran anyway still counts as a repro.
+    non_repro = sum(1 for r in results if (r.get("meta") or {}).get("repro_class"))
+    repro_denom = repos_total - non_repro
     return {
         "repos_total": repos_total, "repos_ran": repos_ran, "discovered_claims": discovered,
         "reproduction_rate": round(repos_ran / repos_total, 3) if repos_total else 0.0,
+        "reproducible_total": repro_denom, "non_reproducible": non_repro,
+        "reproduction_of_reproducible": round(min(repos_ran, repro_denom) / repro_denom, 3) if repro_denom else None,
         "claims_total": len(claims), "claims_bound": bound,
         "binding_rate": round(bound / len(claims), 3) if claims else 0.0,
         "claims_graded": len(graded), "verdict_matches": matches,
@@ -353,6 +371,12 @@ def main():
           % (100 * agg["reproduction_rate"], 100 * agg["binding_rate"],
              "n/a" if va is None else "%.0f%%" % (100 * va), agg["discovered_claims"],
              agg["false_confirm_count"]))
+    ror = agg.get("reproduction_of_reproducible")
+    if ror is not None:
+        print("reproduction of REPRODUCIBLE repos=%.0f%% (%d/%d; %d excluded as broken-code/no-eval/"
+              "pathological/ancient-py — objectively unreproducible by any tool)"
+              % (100 * ror, min(agg["repos_ran"], agg["reproducible_total"]),
+                 agg["reproducible_total"], agg["non_reproducible"]))
     print("report:", report)
     return 0 if agg["false_confirm_count"] == 0 else 1
 
