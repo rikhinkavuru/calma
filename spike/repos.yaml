@@ -351,6 +351,7 @@ repos:
 
   - name: titanic-mobina
     source: {kind: git, url: https://github.com/Mobina-Omid/Titanic-Survival-Prediction-Machine-Learning.git, commit: 62f21654fe0e49c9f2f89bc47ebe993d4cc1e7c9}
+    timeout: 90
     entry: [main.py]
     pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn]
     meta: {domain: ml, tier: T2, split: dev, license: unknown, commit_date: unknown}
