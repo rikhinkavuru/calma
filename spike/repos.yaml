@@ -316,7 +316,7 @@ repos:
 
   - name: heart-disease-rajkadam
     source: {kind: git, url: https://github.com/Rajkadam21/Heart-disease-prediction-classification.git, commit: 97f11a49dfa68e78fd9584d8cc37b597f2f428ce}
-    entry: [heart_disease_prediction_.py]
+    entry: [mymodel.py]
     pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn]
     meta: {domain: ml, tier: T2, split: dev, license: unknown, commit_date: unknown}
     discover: true

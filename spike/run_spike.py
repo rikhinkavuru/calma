@@ -73,8 +73,24 @@ def run_one(spec, args, venvs_dir):
             # gets sklearn ~1.3, not today's 1.9 that rejects its label types) and build the venv with a
             # compatible interpreter (py3.14 lacks wheels for an era-old stack). The E2B product already does
             # this; the local corpus measurement must too, else version drift reads as a false non-repro.
-            pinned, era = build.era_pin(pip_install, repo_dir) if pip_install else (pip_install, None)
-            python, env_note = build.ensure_venv(name, pinned, venvs_dir, base_python=build.compat_python(era))
+            # era-appropriate reproduction with a latest-FALLBACK. Pin to the commit era (fixes version drift,
+            # e.g. sklearn 1.9 rejecting a 2023 repo's label types), but an ANCIENT era can pin a version with
+            # no wheel for the build python (sklearn 0.23 on py3.12) — requires-python metadata says it's fine,
+            # yet it won't build. So if the era-pinned install fails, fall back to unpinned/latest (which
+            # installs and often still runs the old code). Best of both, no regression.
+            base_py = build.compat_python(None)
+            era = None
+            try:
+                if pip_install:
+                    from orchestrator import tools_exec as _XT
+                    pinned, era, _notes = _XT.era_pin_compat(pip_install, repo_dir, py_version="3.12")
+                else:
+                    pinned = pip_install
+                python, env_note = build.ensure_venv(name, pinned, venvs_dir, base_python=base_py)
+            except Exception:  # noqa: BLE001 — era-pinned install failed → try latest (a fresh venv name)
+                python, env_note = build.ensure_venv(name + "-latest", pip_install, venvs_dir, base_python=base_py)
+                env_note += " (era-pin install failed → latest)"
+                era = None
             if era:
                 env_note += " era=%s" % era
             if entry and str(entry[0]).startswith("nb:"):    # a notebook entry — kernel-armed capture, not python file.ipynb
