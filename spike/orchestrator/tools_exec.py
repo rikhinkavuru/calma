@@ -326,7 +326,8 @@ def notebook_available() -> bool:
               summary="Execute a Jupyter notebook with the capture shim armed in the kernel env; per-cell "
                       "timeout, errors surface (A1).")
 def run_notebook(repo_dir: str, nb_rel: str, *, k: int = 2, hooks: str = "sklearn", targets=None,
-                 timeout: int = 600, cell_timeout: int = 300, python: str | None = None) -> dict:
+                 timeout: int = 600, cell_timeout: int = 300, python: str | None = None,
+                 kernel_name: str = "python3") -> dict:
     """A1: run a notebook end-to-end and capture the metric calls its cells make. The kernel is launched with
     the SAME capture env as a script subprocess (PYTHONPATH + CALMA_CAPTURE_OUT), so the shim auto-arms — no
     in-cell injection. Per SOTA notebook-as-a-job practice: pin kernel python3, enforce a per-cell timeout,
@@ -358,7 +359,7 @@ def run_notebook(repo_dir: str, nb_rel: str, *, k: int = 2, hooks: str = "sklear
         try:
             os.environ.update(env)                          # the kernel inherits os.environ → capture auto-arms
             nb = nbformat.read(nb_path, as_version=4)
-            client = NotebookClient(nb, timeout=cell_timeout, kernel_name="python3",
+            client = NotebookClient(nb, timeout=cell_timeout, kernel_name=kernel_name,
                                     allow_errors=False, resources={"metadata": {"path": repo_dir}})
             client.execute()
         except CellExecutionError as e:

@@ -16,8 +16,31 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import subprocess
 import sys
 import time
+
+_COMPAT_KERNEL: dict = {}
+
+
+def _ensure_compat_kernel(venvs_dir):
+    """Build (once) a downgraded science venv with ipykernel and register its kernelspec, so a version-drift
+    NOTEBOOK can be re-run in an era-compatible kernel (the notebook analog of the script downgrade repair).
+    Returns the kernel name, or None if it can't be built."""
+    if "name" in _COMPAT_KERNEL:
+        return _COMPAT_KERNEL["name"]
+    _COMPAT_KERNEL["name"] = None
+    try:
+        deps = ["scikit-learn==1.3.2", "pandas==2.2.3", "numpy==1.26.4", "scipy==1.11.4", "matplotlib",
+                "seaborn", "ipykernel", "nbformat"]
+        py, _ = build.ensure_venv("_compat_kernel", deps, venvs_dir, base_python=build.compat_python(None))
+        name = "calma-compat"
+        subprocess.run([py, "-m", "ipykernel", "install", "--user", "--name", name],
+                       check=True, timeout=120, capture_output=True)
+        _COMPAT_KERNEL["name"] = name
+    except Exception:  # noqa: BLE001 — best-effort
+        pass
+    return _COMPAT_KERNEL["name"]
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -159,6 +182,20 @@ def run_one(spec, args, venvs_dir):
                             env_note += " +downgrade"
                     except Exception:  # noqa: BLE001 — repair is best-effort
                         pass
+            # notebook version-drift: the kernel ran the LATEST stack (removed sklearn.cross_validation,
+            # changed pandas API) → retry in a downgraded kernel — the notebook analog of the script downgrade.
+            if not r.get("ran_ok") and is_nb:
+                _e = _stderr().lower()
+                if any(s in _e for s in ("cross_validation", "cannot specify both", "cannot import name",
+                                         "has no attribute", "unknown label type", "deprecated", "removed in")):
+                    kname = _ensure_compat_kernel(venvs_dir)
+                    if kname:
+                        from orchestrator import tools_exec as _XT
+                        _r2 = _XT.run_notebook(repo_dir, entry[0], k=args.k, hooks=hooks, targets=targets,
+                                               timeout=spec.get("timeout", 600), kernel_name=kname)
+                        if _r2.get("ran_ok"):
+                            r = _r2
+                            env_note += " +nbcompat"
     except Exception as e:  # noqa: BLE001 — a build failure is a non-running repo, scored as such
         return {"name": name, "ran": False, "build_error": "%s: %s" % (type(e).__name__, str(e)[:200]),
                 "seconds": round(time.time() - t0, 1), "claims": [], "runner": runner}
