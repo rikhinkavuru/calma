@@ -97,6 +97,62 @@ def test_detect_none_when_no_signal(tmp_path):
     assert build.detect_entrypoint(str(tmp_path)) is None
 
 
+def test_artifact_producer_reverse_map(tmp_path):
+    # A committed results.csv + two scripts: run_all.py WRITES it (df.to_csv), quickstart.py only reads a
+    # slice. The reverse map must pick the producer of the committed table, not the first runnable file.
+    (tmp_path / "results.csv").write_text("model,accuracy\nresnet,0.91\n")
+    (tmp_path / "quickstart.py").write_text(
+        "import pandas as pd\nif __name__ == '__main__':\n    pd.read_csv('results.csv').head()\n")
+    (tmp_path / "run_all.py").write_text(
+        "import pandas as pd\nif __name__ == '__main__':\n"
+        "    pd.DataFrame({'accuracy': [0.91]}).to_csv('results.csv')\n")
+    assert build.artifact_producer(str(tmp_path)) == ["run_all.py"]
+
+
+def test_artifact_producer_json_dump_under_results_dir(tmp_path):
+    # metrics.json under results/ written via json.dump(open(...,"w")); the producer names the path indirectly.
+    (tmp_path / "results").mkdir()
+    (tmp_path / "results" / "metrics.json").write_text('{"accuracy": 0.9}')
+    (tmp_path / "evaluate.py").write_text(
+        "import json, numpy as np\nif __name__ == '__main__':\n"
+        "    json.dump({'accuracy': float(np.mean([0.9]))}, open('results/metrics.json', 'w'))\n")
+    assert build.artifact_producer(str(tmp_path)) == ["evaluate.py"]
+
+
+def test_artifact_producer_none_without_committed_artifact(tmp_path):
+    # No committed result file → no reverse map (fail-closed; name heuristics take over).
+    (tmp_path / "run.py").write_text("import pandas as pd\npd.DataFrame().to_csv('out.csv')\n")
+    assert build.artifact_producer(str(tmp_path)) is None
+
+
+def test_artifact_producer_ignores_pure_reader(tmp_path):
+    # A committed artifact but the only script merely READS it (no write call) → not a producer.
+    (tmp_path / "summary.csv").write_text("a,accuracy\nx,0.8\n")
+    (tmp_path / "plot.py").write_text("import pandas as pd\npd.read_csv('summary.csv').plot()\n")
+    assert build.artifact_producer(str(tmp_path)) is None
+
+
+def test_detect_entrypoint_prefers_artifact_producer_over_name(tmp_path):
+    # Ladder integration: a generic-named train.py exists (would win by _ENTRY_NAMES), but run_all.py is the
+    # proven producer of the committed results.csv → the evidence-based pick wins.
+    (tmp_path / "results.csv").write_text("model,accuracy\nr,0.9\n")
+    (tmp_path / "train.py").write_text("import sklearn\nif __name__ == '__main__':\n    pass\n")
+    (tmp_path / "run_all.py").write_text(
+        "import pandas as pd\nif __name__ == '__main__':\n"
+        "    pd.DataFrame({'accuracy': [0.9]}).to_csv('results.csv')\n")
+    assert build.detect_entrypoint(str(tmp_path)) == ["run_all.py"]
+
+
+def test_detect_entrypoint_readme_still_beats_artifact_producer(tmp_path):
+    # An explicit README run-command (human intent) still outranks the reverse map.
+    (tmp_path / "results.csv").write_text("model,accuracy\nr,0.9\n")
+    (tmp_path / "README.md").write_text("Run it:\n```\npython reproduce.py\n```\n")
+    (tmp_path / "reproduce.py").write_text("print(1)\n")
+    (tmp_path / "run_all.py").write_text(
+        "import pandas as pd\npd.DataFrame().to_csv('results.csv')\n")
+    assert build.detect_entrypoint(str(tmp_path)) == ["reproduce.py"]
+
+
 def test_era_pin_nongit_and_pinned_passthrough(tmp_path):
     # not a git repo -> no era detected -> packages unchanged (no network call)
     pkgs, era = build.era_pin(["scikit-learn", "numpy==1.24.0", "pandas>=2"], str(tmp_path))

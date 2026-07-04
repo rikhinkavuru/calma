@@ -27,6 +27,17 @@ def test_valid_plan_is_parsed_and_entry_kept_when_it_exists(tmp_path, monkeypatc
     assert plan["python_version"] == "3.11" and plan["confidence"] == 0.9
 
 
+def test_context_surfaces_the_artifact_producer_hint(tmp_path):
+    # When a committed results.csv is written by run_all.py, the planner context must name it as the producer
+    # hint so the model prefers the reproduction script over a quickstart (bucket B).
+    (tmp_path / "results.csv").write_text("model,accuracy\nr,0.9\n")
+    (tmp_path / "run_all.py").write_text(
+        "import pandas as pd\nif __name__ == '__main__':\n"
+        "    pd.DataFrame({'accuracy': [0.9]}).to_csv('results.csv')\n")
+    ctx = PLAN._gather_context(str(tmp_path))
+    assert "producer" in ctx.lower() and "run_all.py" in ctx
+
+
 def test_hallucinated_entrypoint_is_dropped(tmp_path, monkeypatch):
     """THE guardrail: an entrypoint the model invented that doesn't exist in the repo must NOT be trusted —
     it's dropped so the deterministic detector takes over. A made-up entry is worse than none."""

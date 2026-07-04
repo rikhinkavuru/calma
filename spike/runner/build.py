@@ -142,21 +142,148 @@ def _subdir_driver_script(repo_dir):
     return [cands[0][1]]
 
 
+# committed result artifacts whose numbers ARE the headline table (bucket B: "ran a quickstart, not the
+# suite that wrote the committed table"). Root result-named files + any tabular file under a results/ dir.
+_ARTIFACT_DIRS = ("results", "result", "output", "outputs", "artifacts", "reports", "logs")
+_ARTIFACT_ROOT_NAMES = ("results.json", "metrics.json", "result.json", "scores.json", "eval.json",
+                        "results.csv", "metrics.csv", "scores.csv", "summary.csv", "leaderboard.csv",
+                        "leaderboard.json", "benchmark.json", "benchmarks.csv")
+_ARTIFACT_EXTS = (".csv", ".json", ".parquet", ".tsv")
+# method/builtin calls that EMIT a results file — so the script that calls one with the artifact's name is
+# its producer (df.to_csv("results.csv"), json.dump(x, open("metrics.json","w")), np.savez(...), plt.savefig)
+_WRITE_METHODS = frozenset({"to_csv", "to_json", "to_parquet", "to_pickle", "to_feather", "to_hdf",
+                            "to_excel", "savefig", "save", "savez", "savez_compressed", "savetxt", "dump",
+                            "write_csv", "write_parquet", "write_json", "write_ndjson"})
+
+
+def _result_artifacts(repo_dir):
+    """Committed result files present in the repo. Returns a set of basenames (the distinctive filenames a
+    producer script would name), bounded."""
+    names = set()
+    for name in _ARTIFACT_ROOT_NAMES:
+        if os.path.isfile(os.path.join(repo_dir, name)):
+            names.add(name)
+    for d in _ARTIFACT_DIRS:
+        dd = os.path.join(repo_dir, d)
+        if os.path.isdir(dd):
+            try:
+                for fn in sorted(os.listdir(dd)):
+                    if fn.lower().endswith(_ARTIFACT_EXTS) and os.path.isfile(os.path.join(dd, fn)):
+                        names.add(fn)
+            except OSError:
+                pass
+            if len(names) > 60:
+                break
+    return names
+
+
+def _strings_under(node):
+    """Every string-constant fragment anywhere under an AST node — covers os.path.join('results','x.csv')
+    and f-strings (whose literal parts are Constants)."""
+    return [n.value for n in ast.walk(node) if isinstance(n, ast.Constant) and isinstance(n.value, str)]
+
+
+def _is_write_open(call):
+    """open(path, 'w'|'a'|'x') — a file opened for writing (positional or mode= keyword)."""
+    if not (isinstance(call.func, ast.Name) and call.func.id == "open"):
+        return False
+    mode = ""
+    if len(call.args) >= 2 and isinstance(call.args[1], ast.Constant) and isinstance(call.args[1].value, str):
+        mode = call.args[1].value
+    for kw in call.keywords:
+        if kw.arg == "mode" and isinstance(kw.value, ast.Constant) and isinstance(kw.value.value, str):
+            mode = kw.value.value
+    return any(c in mode for c in ("w", "a", "x"))
+
+
+def _writes_artifact(py_path, basenames):
+    """How tightly a script writes any of `basenames`: 2 = the filename is an argument to a write call
+    (df.to_csv("results.csv"), open("metrics.json","w")); 1 = the file has a write call AND names the
+    artifact somewhere (path built indirectly); 0 = no. Reverse map: which .py produces the committed table."""
+    try:
+        tree = ast.parse(open(py_path, errors="replace").read(1_000_000))
+    except (OSError, SyntaxError, ValueError):
+        return 0
+    has_write = False
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and (
+                _is_write_open(node) or (isinstance(node.func, ast.Attribute)
+                                         and node.func.attr in _WRITE_METHODS)):
+            has_write = True
+            for s in _strings_under(node):
+                if any(b in s for b in basenames):
+                    return 2
+    if has_write and any(b in s for s in _strings_under(tree) for b in basenames):
+        return 1
+    return 0
+
+
+def _candidate_scripts(repo_dir):
+    """Runnable .py to test as producers: root scripts + one level into source dirs (skip test/doc dirs)."""
+    out = list(_root_scripts(repo_dir))
+    for sub in _SRC_DIRS:
+        d = os.path.join(repo_dir, sub)
+        if not os.path.isdir(d):
+            continue
+        try:
+            for f in sorted(os.listdir(d)):
+                if f.endswith(".py") and f not in _NOT_ENTRY and os.path.isfile(os.path.join(d, f)):
+                    out.append(os.path.join(sub, f))
+        except OSError:
+            pass
+    return out[:200]
+
+
+def artifact_producer(repo_dir):
+    """The script that WRITES the repo's committed result artifact — the true reproduction entrypoint, found
+    by reverse-mapping (which .py writes results/summary.csv?) instead of guessing by filename. Closes the
+    'ran a quickstart, not the suite that produced the committed table' gap (bucket B). Returns a
+    repo-relative argv (['run_all.py'], ['src/evaluate.py']) or None. Fail-closed: only fires on a clear
+    producer; otherwise the caller's name heuristics proceed. Run-planning ONLY — never the verdict."""
+    basenames = _result_artifacts(repo_dir)
+    if not basenames:
+        return None
+    best = None    # (score-tuple, argv)
+    for rel in _candidate_scripts(repo_dir):
+        path = os.path.join(repo_dir, rel)
+        tight = _writes_artifact(path, basenames)
+        if tight == 0:
+            continue
+        score = tight * 100
+        if _has_main_guard(path):
+            score += 20
+        if _imported_roots(path) & _METRIC_LIBS:
+            score += 10
+        stem = re.sub(r"[^a-z0-9]", "", os.path.basename(rel)[:-3].lower())
+        rank = next((i for i, s in enumerate(_DRIVER_STEMS) if s in stem), len(_DRIVER_STEMS))
+        score += len(_DRIVER_STEMS) - rank                 # driver-ish name bonus
+        cand = (score, -rel.count(os.sep))                 # tie-break: prefer a shallower (root) script
+        if best is None or cand > best[0]:
+            best = (cand, [rel])
+    return best[1] if best else None
+
+
 def detect_entrypoint(repo_dir):
     """Best-effort: find the script that produces the headline numbers, so deep verify works without the
-    user naming it. In order of trust: a README run-command → a known entrypoint name at root → root-script
-    heuristics (only script / repo-name match / __main__ guard) → a runnable package (`-m pkg` when
-    `pkg/__main__.py` exists) → a __main__-guarded driver in a source subdir (code/, src/, …). Returns an
-    argv list (e.g. ['iris-svm.py'], ['-m', 'code'], ['code/run.py']) or None. (make-runnable, guide §5.)"""
+    user naming it. In order of trust: a README run-command → the script that writes the committed result
+    artifact (reverse map) → a known entrypoint name at root → root-script heuristics (only script /
+    repo-name match / __main__ guard) → a runnable package (`-m pkg` when `pkg/__main__.py` exists) → a
+    __main__-guarded driver in a source subdir (code/, src/, …). Returns an argv list (e.g. ['iris-svm.py'],
+    ['-m', 'code'], ['code/run.py']) or None. (make-runnable, guide §5.)"""
     # 1) a README run command that points at a file/module present in the repo (path- and module-validated)
     cmd = _readme_run_command(repo_dir)
     if cmd:
         return cmd
-    # 2) a known entrypoint filename present at the repo root
+    # 2) the script that WRITES the committed result artifact — evidence ("this .py produced results.csv")
+    #    beats the filename guesses below. The real reproduction script, not a quickstart (bucket B).
+    prod = artifact_producer(repo_dir)
+    if prod:
+        return prod
+    # 3) a known entrypoint filename present at the repo root
     for name in _ENTRY_NAMES:
         if os.path.isfile(os.path.join(repo_dir, name)):
             return [name]
-    # 3) heuristics over the root scripts (the README/known-name paths missed it)
+    # 4) heuristics over the root scripts (the README/known-name paths missed it)
     roots = _root_scripts(repo_dir)
     if len(roots) == 1:                                  # the only script — almost certainly it
         return [roots[0]]
@@ -168,11 +295,11 @@ def detect_entrypoint(repo_dir):
     for f in roots:                                      # a script with an `if __name__ == "__main__"` guard
         if _has_main_guard(os.path.join(repo_dir, f)):
             return [f]
-    # 4) a package-shaped repo (no root script): `python -m <pkg>` when `<pkg>/__main__.py` exists
+    # 5) a package-shaped repo (no root script): `python -m <pkg>` when `<pkg>/__main__.py` exists
     pkg = _runnable_package(repo_dir)
     if pkg:
         return ["-m", pkg]
-    # 5) a __main__-guarded driver hiding in a source subdir (code/, src/, scripts/, the repo-name package)
+    # 6) a __main__-guarded driver hiding in a source subdir (code/, src/, scripts/, the repo-name package)
     return _subdir_driver_script(repo_dir)
 
 

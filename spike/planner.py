@@ -19,6 +19,7 @@ import re
 
 from core import limits as _LIM  # noqa: E402 — pip-spec sanitizer (drops a prompt-injected --index-url / VCS ref)
 from orchestrator import envelope as _ENV  # noqa: E402 — spotlight untrusted repo text (defense-in-depth)
+from runner import build as _BUILD  # noqa: E402 — reverse-map: which script writes the committed result table
 
 # The planner earns its keep on HARD repos (ambiguous entrypoints, monorepos, unusual repro steps, deps not
 # declared) — easy repos already resolve from heuristics — so the read quality matters, and since the output
@@ -145,6 +146,13 @@ def _gather_context(repo_dir: str) -> str:
                    if f.endswith(".py")) [:_MAX_SCRIPTS]
     for f in roots:
         parts.append("## %s (head)\n%s" % (f, _read(os.path.join(repo_dir, f), _MAX_SCRIPT)))
+    # reverse map: the script that WRITES a committed result artifact (results.csv, metrics.json) is the
+    # likely reproduction entrypoint — not a quickstart that recomputes one dataset (bucket B). Surface it as
+    # a hint; the model still decides and the entry-exists validation is the hard rail.
+    prod = _BUILD.artifact_producer(repo_dir)
+    if prod:
+        parts.append("## Committed-result producer (hint)\nThe committed result file(s) appear to be written "
+                     "by: %s — prefer this entrypoint if it produces the headline metrics." % " ".join(prod))
     # spotlight the whole repo-derived context as one break-out-resistant untrusted span (a README that says
     # "ignore your instructions" is neutralized; the entry validation + pip sanitizer are the hard rails).
     return _ENV.wrap_untrusted("\n\n".join(parts), "repo")
