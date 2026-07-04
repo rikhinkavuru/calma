@@ -719,8 +719,22 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
         return effector.shape_setup_error("e2b error: %s" % e, k, build_seconds)
 
     run_seconds = 0.0
+    last_dt = 0.0
     try:
         for i in range(max(1, k)):
+            # time-boxed adaptive-k: never START a run that can't finish before the sandbox's end-of-life. A run
+            # killed mid-way (StreamReset/SIGKILL) captures nothing AND makes a deterministic repo look
+            # non-deterministic (a full run 1 vs an empty run 2) — strictly worse than not re-running. When the
+            # prior run's duration won't fit the remaining budget, stop and verify with the run(s) that COMPLETED
+            # (fewer runs = more conservative; the determinism gate stays unproven, never a false confirm). Heavy
+            # benchmarks (a 51-min genomics run in a 60-min microVM) hit exactly this — the re-run can't fit.
+            if i > 0:
+                remaining = sandbox_life - (time.time() - t_start)
+                if remaining < last_dt * 1.15 + 60:
+                    _note(log, "E2B: skipping run %d/%d — prior run %.0fs won't fit the remaining %.0fs sandbox "
+                               "budget; verifying with the %d completed run(s) (determinism re-check skipped for "
+                               "a too-long run)" % (i + 1, max(1, k), last_dt, max(0.0, remaining), i))
+                    break
             out_remote = "/capture/calls_%d.jsonl" % i           # fresh capture file per run
             t0 = time.time()
             _note(log, "E2B: running `%s` (run %d/%d)…" % (" ".join(entry), i + 1, max(1, k)))
@@ -756,6 +770,7 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
                 rc, out, err, killed, out_local = -9, "", "e2b error: %s" % e, "timeout" in str(e).lower(), None
             dt = time.time() - t0
             run_seconds += dt
+            last_dt = dt                                         # gate the next run against the budget (above)
             parsed = parse_capture(out_local) if out_local else []
             _note(log, "E2B: run %d/%d done — %.0fs, exit %d, %d computation(s) captured%s"
                   % (i + 1, max(1, k), dt, rc, len(parsed), " [killed: timeout]" if killed else ""))
