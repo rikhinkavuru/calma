@@ -905,10 +905,19 @@ def verify_repo(
             committed_file_claims = [c for c in DISC.discover(repo_dir)
                                      if c.get("source") in ("results-json", "results-csv")]
         run_result, entry = _run_repo(repo_dir, opts, trace, k=eff_k, get_plan=_get_plan)
-        if not run_result.get("ran_ok") and opts.fetch_data:    # opt-in: grab a single missing file, then retry
+        if not run_result.get("ran_ok"):
             from runner import data_resolver as _DR
-            miss = _DR.missing_data_path(" ".join(m.get("stderr_tail", "") for m in run_result.get("meta", [])))
+            _stderr = " ".join(m.get("stderr_tail", "") for m in run_result.get("meta", []))
+            miss = _DR.missing_data_path(_stderr)
+            # FREE first: the file is often committed elsewhere in the repo (code reads data/x.csv, it's at
+            # x.csv). Relink it where the code reads — no network, no cost, no source change → full verdict.
             if miss:
+                placed = _DR.relink_committed_data(repo_dir, miss)
+                if placed:
+                    trace.note("data relink: placed committed '%s' where the entrypoint reads it" % placed)
+                    run_result, entry = _run_repo(repo_dir, opts, trace, k=eff_k, get_plan=_get_plan)
+            # opt-in fetch: a single missing file from a mirror (paid), then retry
+            if not run_result.get("ran_ok") and opts.fetch_data and miss:
                 ok, note = _DR.resolve_missing_data(repo_dir, miss)
                 trace.note("data-fetch: %s" % note)
                 if ok:

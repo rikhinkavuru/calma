@@ -194,6 +194,30 @@ def rescan_outputs(repo_dir: str, before: dict) -> list[str]:
     return changed
 
 
+@REG.register("resolve_data_path", kind="exec", cost="cheap",
+              summary="Make a missing-data run runnable: relink a file already committed under a different "
+                      "path to where the code reads it (free), else fetch a known public dataset. Supplies "
+                      "INPUTS only — never edits compute, so it can't fabricate a verdict.")
+def resolve_data_path(repo_dir: str, stderr: str):
+    """C2 data-resolution: a run failed on a missing input file. Supply it WITHOUT touching the repo's compute
+    — first by relinking a file already committed elsewhere in the repo (free, no network, no source change →
+    full verdict), then best-effort by fetching a recognised public dataset to the exact read path. Returns
+    (placed: bool, note: str). Fail-closed: a wrong file only yields a value mismatch (→ REFUTED /
+    INCONCLUSIVE, guarded by data_auto_resolved), never a false CONFIRM — the recompute still verifies."""
+    from runner import data_resolver as _DR
+    miss = _DR.missing_data_path(stderr or "")
+    if not miss:
+        return False, "no missing data file named in the failure"
+    placed = _DR.relink_committed_data(repo_dir, miss)
+    if placed:
+        return True, "relinked committed data → %s" % placed
+    try:
+        ok, note = _DR.resolve_missing_data(repo_dir, miss)
+        return bool(ok), note
+    except Exception as e:  # noqa: BLE001 — a fetch hiccup must not break the orchestrate loop
+        return False, "data fetch unavailable: %s" % str(e)[:120]
+
+
 # ── A2/A4: cheap probe gate (EnvBench static missing-import + import smoke) ────────────────────────────────────
 @REG.register("probe_run", kind="exec", cost="cheap",
               summary="Fast pre-run gate: byte-compile the entry + import its third-party roots to catch "

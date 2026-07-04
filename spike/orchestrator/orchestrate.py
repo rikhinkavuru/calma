@@ -289,7 +289,7 @@ def _stderr(result: RunResult) -> str:
 
 
 def execute(approaches: list[RunApproach], run_approach, *, revise=heuristic_revise,
-            success=None, budget: Budget | None = None, hints=None, log=None) -> RunResult:
+            success=None, budget: Budget | None = None, hints=None, log=None, resolve_data=None) -> RunResult:
     """Try ranked ``approaches`` in order, revising each until it runs with captures or the budget stops us.
 
     ``run_approach(approach) -> RunResult`` is the INJECTED effector (build + probe + k-run). ``revise`` maps a
@@ -303,6 +303,7 @@ def execute(approaches: list[RunApproach], run_approach, *, revise=heuristic_rev
     trace: list[dict] = []
     best_effort: RunResult | None = None
     tried: set[tuple] = set()
+    resolved: set[tuple] = set()                            # approaches whose missing-data we already tried to fix
     sig_fn: Callable[[str], str | None] | None = None
     if hints is not None:
         from .cache import error_signature as sig_fn
@@ -351,7 +352,23 @@ def execute(approaches: list[RunApproach], run_approach, *, revise=heuristic_rev
             # surface it so the caller acts (run the data-acquisition pipeline, or report missing-data honestly)
             # instead of grinding the whole ladder. A dep/argv/entrypoint failure still revises + tries the rest.
             from runner import build as _B
-            if _B.classify_failure(_stderr(result)).get("kind") in ("missing-data", "needs-gpu"):
+            _fk = _B.classify_failure(_stderr(result)).get("kind")
+            # missing data: a DIFFERENT entrypoint can't conjure the file — but the data-resolution tool can
+            # (relink a committed file to where the code reads it, or fetch a known dataset). Try it ONCE per
+            # approach, then re-run the SAME approach now the input exists; only surface if it can't be fixed.
+            if _fk == "missing-data" and resolve_data is not None and key not in resolved:
+                resolved.add(key)
+                try:
+                    fixed = bool(resolve_data(_stderr(result)))
+                except Exception:  # noqa: BLE001 — a resolver hiccup must not break the loop
+                    fixed = False
+                if fixed:
+                    trace.append({"event": "data-resolved", "approach": idx})
+                    if log:
+                        log("orchestrator: resolved missing data — retrying the run")
+                    tried.discard(key)                     # let the same approach run again now data exists
+                    continue
+            if _fk in ("missing-data", "needs-gpu"):
                 trace.append({"event": "environmental-stop", "approach": idx})
                 if log:
                     log("orchestrator: missing data/GPU — a different entrypoint can't fix that; surfacing it")
@@ -430,7 +447,13 @@ def orchestrate(repo_dir: str, run_approach, *, profile=None, use_llm: bool = Tr
             if log:
                 log("orchestrator: flywheel cache hit — trying the known-good approach first")
 
-    result = execute(approaches, run_approach, revise=revise, budget=budget, hints=hints, log=log)
+    from . import registry as _REG
+    # HOW-only data resolution: relink a committed file / fetch a known dataset so a missing-data run proceeds.
+    # Verdict-free by construction (the registry forbids a verdict-touching tool), so it stays behind the firewall.
+    def _resolve_data(err):
+        return _REG.call("resolve_data_path", repo_dir, err)[0] if _REG.has("resolve_data_path") else False
+    result = execute(approaches, run_approach, revise=revise, budget=budget, hints=hints, log=log,
+                     resolve_data=_resolve_data)
 
     if cache is not None and result.ran_ok and result.approach is not None:
         cache.put(profile.fingerprint, result.approach)   # remember the winner for the next repeat/sibling

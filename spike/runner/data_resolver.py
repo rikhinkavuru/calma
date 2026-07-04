@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 import urllib.request
 
 _EXA_SEARCH = "https://api.exa.ai/search"
@@ -138,6 +139,42 @@ def _contained(path, root):
     except OSError:
         return False
     return p == r or p.startswith(r + os.sep)
+
+
+def relink_committed_data(repo_dir, missing_path):
+    """A run failed reading `missing_path`, but that file's basename IS committed elsewhere in the repo (a
+    different subdir than the code reads). Place a copy where the code reads it — supplying the input WITHOUT
+    editing the repo's compute, so the verdict stays fully eligible (no source change, no network, no cost).
+
+    Only handles a RELATIVE read path (a real in-repo mismatch: code reads 'data/train.csv', file committed at
+    'train.csv'); an ABSOLUTE read (a hardcoded C:\\… or a Colab /content/…) is out of scope here — it needs
+    sandbox placement or a source rewrite (which the snapshot rail then caps). Writes ONLY inside repo_dir.
+    Returns the placed repo-relative path, or None. Fail-closed: a wrong copy can only produce a mismatch
+    (→ REFUTED / INCONCLUSIVE), never a false CONFIRM (the recompute still verifies the value)."""
+    raw = str(missing_path or "").replace("\\", "/")
+    base = os.path.basename(raw)
+    if not base or "." not in base:
+        return None
+    if raw.startswith("/") or re.match(r"^[a-zA-Z]:", raw):       # absolute — relink can't honor it in-repo
+        return None
+    src = None
+    for root, dirs, files in os.walk(repo_dir):
+        dirs[:] = [d for d in dirs if not d.startswith(".") and d not in ("node_modules", "__pycache__")]
+        if base in files and os.path.isfile(os.path.join(root, base)):
+            src = os.path.join(root, base)
+            break
+    if not src:
+        return None
+    dst = os.path.normpath(os.path.join(repo_dir, raw))
+    if not _contained(dst, repo_dir) or os.path.abspath(dst) == os.path.abspath(src):
+        return None
+    try:
+        os.makedirs(os.path.dirname(dst) or repo_dir, exist_ok=True)
+        if not os.path.exists(dst):
+            shutil.copy2(src, dst)
+        return os.path.relpath(dst, repo_dir)
+    except OSError:
+        return None
 
 
 def resolve_missing_data(repo_dir, missing_path, key=None):
