@@ -85,18 +85,30 @@ def run_one(spec, args, venvs_dir):
             else:
                 r = run_local(repo_dir, entry, k=args.k, python=python, hooks=hooks, targets=targets,
                               timeout=spec.get("timeout", 600))
-                # data-resolution parity with the product pipeline: a missing input that's actually committed
-                # under a different path (code reads data/x.csv, it's at a subdir) is relinked where the code
-                # reads it — then re-run. Make-runnable, no source change on the relink path → full verdict.
-                if not r.get("ran_ok"):
-                    from runner import data_resolver as _DR
+                # data-resolution parity with the product pipeline. A missing input is often committed under a
+                # different path (code reads data/x.csv, it's in a subdir) → relink it where the code reads +
+                # re-run. Loop a few times (multi-artifact repos miss more than one file). Then, if still
+                # missing-data and the entry is nested, re-run from the entry's OWN dir (a self-contained
+                # subproject that assumes CWD = its dir, e.g. `../data/x.csv`). Make-runnable; FCR-safe.
+                from runner import data_resolver as _DR
+                for _ in range(3):
+                    if r.get("ran_ok"):
+                        break
                     miss = _DR.missing_data_path(" ".join(m.get("stderr_tail", "") for m in r.get("meta", [])))
-                    if miss:
-                        placed, _mod = _DR.make_data_available(repo_dir, miss)
-                        if placed:
-                            r = run_local(repo_dir, entry, k=args.k, python=python, hooks=hooks,
-                                          targets=targets, timeout=spec.get("timeout", 600))
-                            env_note += " +data"
+                    if not miss or not _DR.make_data_available(repo_dir, miss)[0]:
+                        break
+                    r = run_local(repo_dir, entry, k=args.k, python=python, hooks=hooks, targets=targets,
+                                  timeout=spec.get("timeout", 600))
+                    env_note += " +data"
+                if not r.get("ran_ok") and entry and os.path.dirname(str(entry[0])):
+                    stderr = " ".join(m.get("stderr_tail", "") for m in r.get("meta", []))
+                    if _DR.missing_data_path(stderr) or "No such file" in stderr:
+                        edir = os.path.join(repo_dir, os.path.dirname(str(entry[0])))
+                        r2 = run_local(repo_dir, [os.path.basename(str(entry[0]))], k=args.k, python=python,
+                                       hooks=hooks, targets=targets, timeout=spec.get("timeout", 600), cwd=edir)
+                        if r2.get("ran_ok"):
+                            r, entry = r2, [os.path.basename(str(entry[0]))]
+                            env_note += " +cwd"
     except Exception as e:  # noqa: BLE001 — a build failure is a non-running repo, scored as such
         return {"name": name, "ran": False, "build_error": "%s: %s" % (type(e).__name__, str(e)[:200]),
                 "seconds": round(time.time() - t0, 1), "claims": [], "runner": runner}

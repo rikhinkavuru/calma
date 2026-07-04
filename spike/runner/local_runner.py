@@ -18,9 +18,10 @@ from . import capture_env, parse_capture
 
 
 def run_local(repo_dir, entry, *, k=2, python=None, hooks="sklearn", targets=None,
-              env_extra=None, timeout=600, max_elems=None, fuzz=False):
+              env_extra=None, timeout=600, max_elems=None, fuzz=False, cwd=None):
     python = python or sys.executable
     entry = list(entry)
+    run_cwd = cwd or repo_dir      # a nested-project script often assumes CWD = its own dir (reads ../data/x)
     runs, meta = [], []
     hooks_armed = None
     fuzz_records = None
@@ -46,7 +47,7 @@ def run_local(repo_dir, entry, *, k=2, python=None, hooks="sklearn", targets=Non
         env = capture_env(base, out_path, hooks=hooks, targets=targets, max_elems=max_elems)
         t0 = time.time()
         try:
-            p = subprocess.run([python, *entry], cwd=repo_dir, env=env, timeout=timeout,
+            p = subprocess.run([python, *entry], cwd=run_cwd, env=env, timeout=timeout,
                                capture_output=True, text=True)
             rc, out, err, killed = p.returncode, p.stdout, p.stderr, False
         except subprocess.TimeoutExpired as e:
