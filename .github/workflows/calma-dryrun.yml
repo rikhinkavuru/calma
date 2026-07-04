@@ -1,0 +1,24 @@
+# Dry-run of the Calma validity Action against a committed-leakage fixture — validates the Docker build, the
+# scan, the PR report-card comment, and the fail-on gate end-to-end. (Temporary; remove after v1 is tagged.)
+name: Calma action dry-run
+
+on:
+  pull_request:
+    branches: ['**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  dryrun:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Calma validity check (leak fixture)
+        uses: ./
+        with:
+          path: spike/fixtures/dryrun_leakage
+          fail-on: fail
+          comment: 'true'
