@@ -678,6 +678,23 @@ def ensure_repo(spec, workdir):
     raise ValueError("unknown source kind %r" % kind)
 
 
+_COMPAT_PYTHONS = ("python3.12", "python3.11", "python3.10")
+
+
+def compat_python(era_date=None):
+    """A base interpreter with the widest wheel coverage for building a per-repo venv. The harness python can
+    be too NEW (3.14) for an era-pinned 2023-2025 science stack — no wheels → the era pin gets relaxed back to
+    latest and the version-drift failure returns. Prefer a discovered 3.12/3.11 (broadest wheel coverage for
+    the reproduction corpus); fall back to the harness python. `era_date` is accepted for future era-specific
+    selection; today 3.12 covers both old and current repos well."""
+    import shutil
+    for nm in _COMPAT_PYTHONS:
+        p = shutil.which(nm) or os.path.expanduser("~/.local/bin/%s" % nm)
+        if p and os.path.isfile(p):
+            return p
+    return sys.executable
+
+
 def ensure_venv(name, pip_install, venvs_dir, base_python=None):
     """Create (once) a per-repo venv and install deps. Returns the venv's python path. If no deps are
     declared, returns the base python (the harness venv, which already has numpy/sklearn for fixtures)."""

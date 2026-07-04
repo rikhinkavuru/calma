@@ -69,7 +69,14 @@ def run_one(spec, args, venvs_dir):
                         timeout=spec.get("timeout", 600), pip_install=pip_install)
             env_note = "e2b" + ("+pip" if pip_install else "")
         else:
-            python, env_note = build.ensure_venv(name, pip_install, venvs_dir)
+            # era-appropriate reproduction: pin unpinned deps to the repo's commit-era versions (a 2023 repo
+            # gets sklearn ~1.3, not today's 1.9 that rejects its label types) and build the venv with a
+            # compatible interpreter (py3.14 lacks wheels for an era-old stack). The E2B product already does
+            # this; the local corpus measurement must too, else version drift reads as a false non-repro.
+            pinned, era = build.era_pin(pip_install, repo_dir) if pip_install else (pip_install, None)
+            python, env_note = build.ensure_venv(name, pinned, venvs_dir, base_python=build.compat_python(era))
+            if era:
+                env_note += " era=%s" % era
             if entry and str(entry[0]).startswith("nb:"):    # a notebook entry — kernel-armed capture, not python file.ipynb
                 from orchestrator import tools_exec as XT
                 r = XT.run_notebook(repo_dir, entry[0], k=args.k, hooks=hooks, targets=targets,
