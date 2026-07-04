@@ -426,9 +426,47 @@ def launch_command(approach: RunApproach, repo_dir: str) -> str:
     return " && ".join(parts)
 
 
+def _synthesize_predictions_run(repo_dir, run_approach, profile, model, log):
+    """Last resort when NOTHING captured a number: ask the planner for a predict-and-dump driver that uses the
+    repo's OWN model to write calma_predictions.csv, run it, and let the pipeline's artifact layer recompute the
+    metric INDEPENDENTLY from those predictions. Returns the run result (with the driver recorded in
+    source_modified → verdict capped at REPRODUCED-ONLY), or None if synthesis wasn't possible.
+
+    FCR: a synthesized harness can NEVER reach CONFIRMED (the source_modified cap forces REPRODUCED-ONLY); the
+    number itself is recomputed by core.artifacts, not by the driver — so a wrong/injected driver can only fail
+    to match (nothing upgrades) or coincidentally match a continuous metric (still capped). Best-effort."""
+    try:
+        from planner import plan_predictions
+    except Exception:  # noqa: BLE001
+        return None
+    plan = plan_predictions(repo_dir, model=model)
+    if not plan or plan.get("confidence", 0) < 0.5 or not plan.get("driver"):
+        return None
+    driver_rel = "calma_eval.py"
+    try:
+        with open(os.path.join(repo_dir, driver_rel), "w") as fh:
+            fh.write(plan["driver"])
+    except OSError:
+        return None
+    if log:
+        log("orchestrator: no runnable entrypoint captured a number — synthesized a predict-and-dump driver "
+            "(%.0f%% conf); predictions recomputed INDEPENDENTLY, verdict capped at REPRODUCED-ONLY"
+            % (100 * plan["confidence"]))
+    deps = LIM.sanitize_pip(list(profile.declared_deps)
+                            or S.entry_seeded_imports(repo_dir, [driver_rel]))
+    appr = RunApproach(runner="local", builder=_builder_for(profile) if deps else "none",
+                       entry=[driver_rel], deps=deps, capture_targets=[], env={},
+                       notes="synthesized predict-and-dump driver (predictions recomputed independently)",
+                       confidence=float(plan["confidence"]))
+    result = run_approach(appr)
+    result.approach = appr
+    result.source_modified = list(result.source_modified or []) + [driver_rel]   # guarantee the REPRODUCED-ONLY cap
+    return result
+
+
 def orchestrate(repo_dir: str, run_approach, *, profile=None, use_llm: bool = True, model: str | None = None,
                 plan: dict | None = None, revise=None, budget: Budget | None = None,
-                cache=None, hints=None, log=None) -> RunResult:
+                cache=None, hints=None, log=None, synthesize: bool = False) -> RunResult:
     """assess → rank → execute. ``run_approach`` is the injected build+run effector (the pipeline supplies one
     wired to the real runners; tests supply a fake). ``plan`` reuses the pipeline's background-thread planner
     turn. ``cache``/``hints`` are the flywheel stores (fingerprint→approach, error→fix) — HOW-only, never a
@@ -454,6 +492,13 @@ def orchestrate(repo_dir: str, run_approach, *, profile=None, use_llm: bool = Tr
         return _REG.call("resolve_data_path", repo_dir, err)[0] if _REG.has("resolve_data_path") else False
     result = execute(approaches, run_approach, revise=revise, budget=budget, hints=hints, log=log,
                      resolve_data=_resolve_data)
+
+    # last resort (opt-in): no declared/AI entrypoint captured a number → synthesize a predict-and-dump driver
+    # and recompute the metric independently from the predictions it writes. Verdict-capped at REPRODUCED-ONLY.
+    if synthesize and not _captured(result):
+        syn = _synthesize_predictions_run(repo_dir, run_approach, profile, model, log)
+        if syn is not None and (_captured(syn) or syn.ran_ok):
+            result = syn
 
     if cache is not None and result.ran_ok and result.approach is not None:
         cache.put(profile.fingerprint, result.approach)   # remember the winner for the next repeat/sibling

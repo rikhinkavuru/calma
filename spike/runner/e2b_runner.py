@@ -791,6 +791,16 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
                 leakage_findings = _run_leakage_probe(sbx, pybin, inst_timeout, log=log)
             except Exception:  # noqa: BLE001
                 pass
+        # pull back a synthesized predictions file (the opt-in predict-and-dump driver writes
+        # /work/calma_predictions.csv) so the HOST-side artifact layer can recompute the metric independently.
+        # Harmless when absent (no driver / no file). Read-only; never affects a normal run.
+        if sbx is not None:
+            try:
+                pred = sbx.files.read("/work/calma_predictions.csv")
+                with open(os.path.join(repo_dir, "calma_predictions.csv"), "wb") as fh:
+                    fh.write(pred if isinstance(pred, bytes) else str(pred).encode())
+            except Exception:  # noqa: BLE001 — no predictions file → nothing to pull
+                pass
     finally:
         if sbx is not None:
             try:

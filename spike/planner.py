@@ -158,9 +158,12 @@ def _gather_context(repo_dir: str) -> str:
     return _ENV.wrap_untrusted("\n\n".join(parts), "repo")
 
 
-def _call_model(context: str, model: str) -> str | None:
+def _call_model(context: str, model: str, system: str | None = None, schema: dict | None = None) -> str | None:
     """Return the model's raw JSON string, or None on any failure. Isolated so tests can stub it without the
-    SDK or a network call. Lazy-imports `anthropic` so the module loads even when the SDK isn't installed."""
+    SDK or a network call. Lazy-imports `anthropic` so the module loads even when the SDK isn't installed.
+    `system`/`schema` default to the run-plan prompt; plan_predictions passes its own."""
+    system = system or _SYSTEM
+    schema = schema or _SCHEMA
     if not os.environ.get("ANTHROPIC_API_KEY"):
         return None
     try:
@@ -176,8 +179,8 @@ def _call_model(context: str, model: str) -> str | None:
         # complex repo — and adding targets pushed it over exactly on the multi-domain repos we most want a
         # plan for. A truncated (max_tokens) response is unparseable JSON → a silent None, so give real headroom.
         resp = client.messages.create(
-            model=model, max_tokens=4096, system=_SYSTEM,
-            output_config={"format": {"type": "json_schema", "schema": _SCHEMA}},
+            model=model, max_tokens=4096, system=system,
+            output_config={"format": {"type": "json_schema", "schema": schema}},
             messages=[{"role": "user", "content": context}],
         )
         if resp.stop_reason == "max_tokens":                          # truncated → JSON won't parse
@@ -256,6 +259,70 @@ def plan_repo(repo_dir: str, model: str | None = None) -> dict | None:
             "data_needed": str(p.get("data_needed") or ""), "notes": str(p.get("notes") or ""),
             "confidence": conf, "targets": _valid_targets(p.get("targets")),
             "data_sources": _valid_data_sources(p.get("data_sources"))}
+
+
+# ── predictions synthesis (last-resort: no runnable eval + no committed predictions) ───────────────────────────
+_PRED_SYSTEM = (
+    _ENV.SYSTEM_PREAMBLE + " "
+    "You are the environment-synthesis step of a verification system. This repository reports a metric but has "
+    "NO runnable eval entrypoint and NO committed predictions file. Write a SHORT, self-contained Python script "
+    "that uses the repo's OWN code to produce PREDICTIONS on the repo's TEST split and writes them to "
+    "'calma_predictions.csv' in the current directory, with columns EXACTLY: y_true,y_pred (add a y_score column "
+    "if the model exposes a probability/score for the positive class). "
+    "HARD RULES: (1) Reproduce how THIS repo builds its model and loads its TEST data — import the repo's own "
+    "modules/functions; never substitute a different model or the training split. (2) Do NOT compute, print, or "
+    "hardcode ANY metric value — output ONLY the predictions CSV; the verification system computes the metric "
+    "itself and a hardcoded number is useless to it. (3) Use only the repo's files and libraries it already "
+    "depends on; no network. (4) If you cannot determine how to run the repo's model on LABELLED test data, "
+    "return an empty driver — a wrong script is worse than none."
+)
+_PRED_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "driver": {"type": "string", "description": "a complete standalone Python script (or empty string if "
+                   "not possible) that writes calma_predictions.csv with columns y_true,y_pred[,y_score] using "
+                   "the repo's OWN model on its TEST split. It must NOT compute or print any metric value."},
+        "metric": {"type": "string", "description": "the metric the reported number uses "
+                   "(accuracy/roc_auc/f1/...), '' if unknown."},
+        "confidence": {"type": "number", "description": "0..1 confidence the script produces correct "
+                       "test-split predictions using the repo's own model."},
+    },
+    "required": ["driver", "metric", "confidence"],
+    "additionalProperties": False,
+}
+_PRED_MAX_DRIVER = 8000
+
+
+def plan_predictions(repo_dir: str, model: str | None = None) -> dict | None:
+    """AI-synthesize a predict-and-dump driver for a repo that reports a metric but has NO runnable eval and NO
+    committed predictions. Returns {driver, metric, confidence} or None.
+
+    FCR: the driver ONLY produces predictions — the metric is recomputed INDEPENDENTLY by core.artifacts from
+    (y_true, y_pred) — and because a synthesized driver is a source modification, the verdict is capped at
+    REPRODUCED-ONLY. So a broken/wrong/injected driver can never false-CONFIRM: worst case it writes garbage
+    predictions whose recompute doesn't match the claim (→ nothing upgraded) or coincidentally matches (→ capped
+    at REPRODUCED-ONLY, never CONFIRMED). The driver runs only inside the isolated sandbox."""
+    if not os.path.isdir(repo_dir):
+        return None
+    raw = _call_model(_gather_context(repo_dir), (model or _MODEL), system=_PRED_SYSTEM, schema=_PRED_SCHEMA)
+    if not raw:
+        return None
+    try:
+        p = json.loads(raw)
+    except (json.JSONDecodeError, ValueError):
+        return None
+    if not isinstance(p, dict):
+        return None
+    driver = p.get("driver")
+    if not (isinstance(driver, str) and driver.strip() and "calma_predictions.csv" in driver):
+        return None                                          # must actually write the predictions file
+    if len(driver) > _PRED_MAX_DRIVER:
+        return None                                          # runaway output → distrust
+    try:
+        conf = max(0.0, min(1.0, float(p.get("confidence", 0))))
+    except (TypeError, ValueError):
+        conf = 0.0
+    return {"driver": driver, "metric": str(p.get("metric") or ""), "confidence": conf}
 
 
 def _valid_data_sources(items):

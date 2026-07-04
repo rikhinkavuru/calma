@@ -100,6 +100,11 @@ class VerifyOptions:
     #                                 registry. FCR-safe by construction (§0): it only changes HOW a repo runs;
     #                                 the RunResult flows through the UNCHANGED diff/verdict. Flag-gated behind
     #                                 the heuristic default (owner/enterprise) until the corpus clears it.
+    synthesize_predictions: bool = False   # opt-in last resort: when NO entrypoint captures a number, AI-synthesize
+    #                                 a predict-and-dump driver (repo's OWN model → predictions), recompute the
+    #                                 metric INDEPENDENTLY from those predictions. The driver is a source
+    #                                 modification → verdict capped at REPRODUCED-ONLY (a synthesized harness can
+    #                                 never CONFIRM). Requires opts.orchestrate. Default OFF until corpus-proven.
 
 
 def _argv(entry) -> list[str]:
@@ -707,7 +712,8 @@ def _run_repo_orchestrated(repo_dir: str, opts: VerifyOptions, trace: Trace, k: 
     from runner import repair as _REPAIR
     _src_before = _REPAIR.snapshot_pyfiles(repo_dir)
     result = ORCH.orchestrate(repo_dir, run_approach, use_llm=opts.plan, plan=plan, budget=budget,
-                              cache=cache, hints=hints, log=trace.note)
+                              cache=cache, hints=hints, log=trace.note,
+                              synthesize=opts.synthesize_predictions)
     _src_changed = _REPAIR._changed(_src_before, _REPAIR.snapshot_pyfiles(repo_dir))
     for line in (result.cost.get("assessment") or []):
         trace.note(line)
