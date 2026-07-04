@@ -31,3 +31,17 @@ def test_camelcase_context_matches_human_label():
     # captured "LogisticRegression" must overlap a README "Logistic Regression"
     toks = D._ctx_tokens("Model=Logistic Regression")
     assert D._ctx_overlap(toks, {"clf": "LogisticRegression"}) == 2
+
+
+def test_model_class_name_aliases_match_readme_labels():
+    # an estimator class name binds to its human README label across the common sklearn zoo
+    cases = [("SVC", "SVM"), ("KNeighborsClassifier", "KNN"), ("GaussianNB", "Naive Bayes"),
+             ("XGBClassifier", "XGBoost"), ("RandomForestClassifier", "Random Forest")]
+    for cls, label in cases:
+        assert D._ctx_overlap(D._ctx_tokens("Model=" + label), {"clf": cls}) >= 1, (cls, label)
+
+
+def test_model_alias_no_false_match():
+    # a dataset/feature token must not trip a short model alias (rf/svm/knn) as a substring
+    assert D._ctx_overlap(D._ctx_tokens("dataset=surface"), {"clf": "GaussianNB"}) == 0
+    assert D._ctx_overlap(D._ctx_tokens("dataset=cifar10"), {"model": "SVC"}) == 0

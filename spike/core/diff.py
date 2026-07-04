@@ -37,6 +37,29 @@ _CTX_STOP = frozenset({"dataset", "data", "model", "clf", "classifier", "estimat
                        "val", "eval", "set", "score", "result", "mean", "std", "avg", "all", "full", "base"})
 
 
+# An estimator's CLASS NAME and its README LABEL name the same model: capture sees "SVC"/"KNeighborsClassifier",
+# the leaderboard row says "SVM"/"KNN". Map both to one canonical token so a model-comparison claim binds to
+# its own computation instead of going ambiguous. Identity only — never the value (FCR-safe). Long keys (≥6
+# chars, the full class names) match as a substring of the compacted context; short aliases (rf/knn/svm/…)
+# match only as a standalone token, so "surface" can't accidentally trip "rf".
+_MODEL_ALIASES = {
+    "svm": ("supportvectormachine", "supportvector", "linearsvc", "svc", "svm"),
+    "knn": ("kneighborsclassifier", "kneighborsregressor", "kneighbors", "nearestneighbor", "knearest", "knn"),
+    "randomforest": ("randomforestclassifier", "randomforestregressor", "randomforest", "rf"),
+    "logistic": ("logisticregression", "logreg", "logistic"),
+    "decisiontree": ("decisiontreeclassifier", "decisiontreeregressor", "decisiontree", "dtree"),
+    "naivebayes": ("gaussiannb", "multinomialnb", "bernoullinb", "complementnb", "naivebayes"),
+    "gradientboosting": ("gradientboostingclassifier", "gradientboosting", "histgradientboosting", "xgbclassifier",
+                         "xgbregressor", "xgboost", "lightgbm", "catboost", "lgbm", "xgb", "gbm"),
+    "neuralnet": ("mlpclassifier", "mlpregressor", "neuralnetwork", "neuralnet", "mlp"),
+    "adaboost": ("adaboostclassifier", "adaboost"),
+    "extratrees": ("extratreesclassifier", "extratrees"),
+    "sgd": ("sgdclassifier", "sgdregressor"),
+    "ridge": ("ridgeclassifier", "ridge"),
+    "linear": ("linearregression",),
+}
+
+
 def _ctx_tokens(ctx) -> set:
     """Normalize a claim/computation context (a 'dataset=X model=Y' string, or a {name: value} dict) into a set
     of identifying tokens — lowercased alphanumeric runs, minus generic stop-words. This is how a benchmark
@@ -52,6 +75,12 @@ def _ctx_tokens(ctx) -> set:
     for t in re.split(r"[^A-Za-z0-9]+", text.lower()):
         if t and len(t) >= 2 and t not in _CTX_STOP and not t.isdigit():
             toks.add(t)
+    # canonicalize model names so an estimator class name binds to its README label (SVC ↔ SVM, KNN ↔
+    # KNeighborsClassifier). Long class names match the compacted string; short aliases only a whole token.
+    compact = re.sub(r"[^a-z0-9]", "", text.lower())
+    for canon, keys in _MODEL_ALIASES.items():
+        if any((len(k) >= 6 and k in compact) or k in toks for k in keys):
+            toks.add(canon)
     return toks
 
 
