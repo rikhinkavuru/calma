@@ -133,12 +133,21 @@ _PREFIXES = tuple(p for p in {sys.prefix, sys.base_prefix} if p)
 _CTX_NAME_HINTS = ("dataset", "data_name", "dataname", "corpus", "model", "clf", "classifier", "estimator",
                    "method", "algo", "algorithm", "split", "task", "benchmark", "arch", "variant", "fold",
                    "condition", "setting", "group", "subset", "regime", "scenario", "name", "run_name")
+# names whose VALUE is usually an estimator OBJECT (not a string) — its class name is the model identity
+_MODEL_OBJ_HINTS = ("model", "clf", "classifier", "estimator", "regressor", "pipe", "pipeline", "algo",
+                    "algorithm", "net", "booster")
+# class names too generic to identify a model (a container/array holding results, not the estimator itself)
+_GENERIC_TYPES = frozenset({"dict", "list", "tuple", "set", "str", "int", "float", "bool", "ndarray",
+                            "DataFrame", "Series", "Index", "function", "NoneType", "type"})
 
 
 def _extract_context(f_locals):
-    """Short string locals whose NAME looks like a dataset/model/split identifier → the call's semantic context.
-    Bounded + defensive (runs in the untrusted hot path): ≤6 entries, ≤64-char values, no paths/newlines. Never
-    reads the metric value. Returns {name: value} or None."""
+    """Locals that identify the call's semantic context (which dataset/model/split it was computed for) →
+    lets the binder tell apart the many same-metric computations a leaderboard makes. Two sources: (1) a
+    short STRING local whose name looks like a dataset/model/split id; (2) an ESTIMATOR OBJECT named
+    model/clf/… — its CLASS NAME ("LogisticRegression") is the model identity, which binds a model-comparison
+    loop that never stored a name string. Both are metadata, NEVER the metric value, so they can only help a
+    BIND, never fabricate a CONFIRM (the recompute still verifies independently). Bounded + defensive."""
     ctx = {}
     try:
         for k, v in f_locals.items():
@@ -146,11 +155,22 @@ def _extract_context(f_locals):
                 break
             if k.startswith("_"):                            # skip dunders/privates (__name__ isn't context)
                 continue
-            if not isinstance(v, str) or not v or len(v) > 64 or "\n" in v or "/" in v or "\\" in v:
-                continue
             lk = k.lower()
-            if any(h in lk for h in _CTX_NAME_HINTS):
-                ctx[lk] = v
+            if isinstance(v, str):
+                if v and len(v) <= 64 and "\n" not in v and "/" not in v and "\\" not in v \
+                        and any(h in lk for h in _CTX_NAME_HINTS):
+                    ctx[lk] = v
+                continue
+            # an estimator object named model/clf/… → its class name identifies the model (fit/predict duck-type)
+            if any(h in lk for h in _MODEL_OBJ_HINTS):
+                try:
+                    is_estimator = hasattr(v, "predict") or hasattr(v, "fit")
+                except Exception:  # noqa: BLE001 — a weird __getattr__ must not break capture
+                    is_estimator = False
+                if is_estimator:
+                    cn = type(v).__name__
+                    if cn and cn.isidentifier() and len(cn) <= 64 and cn not in _GENERIC_TYPES:
+                        ctx[lk] = cn
     except Exception:  # noqa: BLE001 — a context-scan hiccup must never break capture
         return None
     return ctx or None

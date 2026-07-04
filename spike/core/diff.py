@@ -45,6 +45,9 @@ def _ctx_tokens(ctx) -> set:
         text = " ".join(str(v) for v in ctx.values())
     else:
         text = str(ctx or "")
+    # split CamelCase before lowercasing so an estimator class name matches its human label:
+    # "LogisticRegression" → "logistic regression" ↔ a README "Logistic Regression".
+    text = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", text)
     toks = set()
     for t in re.split(r"[^A-Za-z0-9]+", text.lower()):
         if t and len(t) >= 2 and t not in _CTX_STOP and not t.isdigit():
