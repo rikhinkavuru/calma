@@ -303,3 +303,55 @@ repos:
     pip_install: [scikit-learn, pandas, numpy, nltk]
     meta: {domain: nlp, tier: T3, split: dev, license: unknown, commit_date: unknown, capability: leaderboard-table}
     discover: true              # committed Model_Results.csv + app.py (TF-IDF text classifier)
+
+  # ===== corpus expansion (2026-07-04) — real classical-ML repos with committed data + a runnable script.
+  # A larger, representative sample; era-pin (git-commit-era version pinning) carries the reproduction. Entry
+  # set for reliability. discover:true (measure repro/binding/validity + FCR=0).
+  - name: heart-disease-snap
+    source: {kind: git, url: https://github.com/Snap1423/Heart-Disease-Prediction-Classification-.git, commit: 111b524fca}
+    entry: [main.py]
+    pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn]
+    meta: {domain: ml, tier: T2, split: dev, license: unknown, commit_date: unknown}
+    discover: true
+
+  - name: heart-disease-rajkadam
+    source: {kind: git, url: https://github.com/Rajkadam21/Heart-disease-prediction-classification.git, commit: 97f11a49df}
+    entry: [heart_disease_prediction_.py]
+    pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn]
+    meta: {domain: ml, tier: T2, split: dev, license: unknown, commit_date: unknown}
+    discover: true
+
+  - name: heart-disease-ezad
+    source: {kind: git, url: https://github.com/EzadAhamed/heart-disease-prediction-classification.git, commit: a13b648fa6}
+    entry: [src/evaluate.py]
+    pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn]
+    meta: {domain: ml, tier: T2, split: dev, license: unknown, commit_date: unknown}
+    discover: true
+
+  - name: titanic-janvi
+    source: {kind: git, url: https://github.com/JanviMerugu/Titanic-Survival-Prediction-Machine-Learning-Project-.git, commit: ceaeb13073}
+    entry: [titanic-survival-prediction/main.py]
+    pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn]
+    meta: {domain: ml, tier: T2, split: dev, license: unknown, commit_date: unknown}
+    discover: true
+
+  - name: titanic-abarseghian
+    source: {kind: git, url: https://github.com/abarseghian2005-collab/titanic-ml-project.git, commit: 99ad75f5fc}
+    entry: [Notebooks/codeee.py]
+    pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn]
+    meta: {domain: ml, tier: T2, split: dev, license: unknown, commit_date: unknown}
+    discover: true
+
+  - name: titanic-asq
+    source: {kind: git, url: https://github.com/ASQ315/Titanic-Survival-Prediction-Machine-Learning-.git, commit: b72ce061f6}
+    entry: [titanic_ML.py]
+    pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn]
+    meta: {domain: ml, tier: T2, split: dev, license: unknown, commit_date: unknown}
+    discover: true
+
+  - name: titanic-mobina
+    source: {kind: git, url: https://github.com/Mobina-Omid/Titanic-Survival-Prediction-Machine-Learning.git, commit: 62f21654fe}
+    entry: [main.py]
+    pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn]
+    meta: {domain: ml, tier: T2, split: dev, license: unknown, commit_date: unknown}
+    discover: true
