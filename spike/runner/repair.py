@@ -37,14 +37,16 @@ ACTIONS = {"PIP", "APT", "SETENV", "ENTRYPOINT_ARG", "FETCH_DATA", GIVE_UP}
 
 
 def snapshot_pyfiles(repo_dir: str) -> dict:
-    """Fingerprint every compute-path `.py` (sha1 of contents) so a post-repair source change is detectable.
-    Skips venvs / caches / results."""
+    """Fingerprint every compute-path source file (sha1 of contents) so a post-repair source change is
+    detectable. Covers `.py` AND `.ipynb` — a data-path rewrite of a notebook cell is a source edit that must
+    trip the REPRODUCED-ONLY cap just like a `.py` edit (run_notebook executes the in-memory copy and never
+    writes the file back, so hashing the whole `.ipynb` yields no false positive). Skips venvs / caches / results."""
     skip = {".git", ".venvs", "venv", ".venv", "__pycache__", "results", "node_modules", ".calma"}
     out: dict[str, str] = {}
     for root, dirs, files in os.walk(repo_dir):
         dirs[:] = [d for d in dirs if d not in skip]
         for fn in files:
-            if not fn.endswith(".py"):
+            if not (fn.endswith(".py") or fn.endswith(".ipynb")):
                 continue
             p = os.path.join(root, fn)
             try:

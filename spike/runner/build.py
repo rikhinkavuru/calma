@@ -6,8 +6,10 @@ env-synthesis (Repo2Run; cache the synthesized env per repo — the reproduction
 from __future__ import annotations
 
 import ast
+import hashlib
 import os
 import re
+import shutil
 import subprocess
 import sys
 
@@ -691,7 +693,7 @@ def downgrade_science(specs):
     deps and already-constrained pins alone). Used to retry a version-drift failure in its era's environment."""
     out = []
     for s in specs or []:
-        name = re.split(r"[<>=!~ ]", str(s), 1)[0].strip().lower()
+        name = re.split(r"[<>=!~ ]", str(s), maxsplit=1)[0].strip().lower()
         out.append(_COMPAT_STACK.get(name, s) if not re.search(r"[<>=!~]", str(s)) else s)
     return out
 
@@ -738,10 +740,25 @@ def ensure_venv(name, pip_install, venvs_dir, base_python=None):
         return base_python, "harness python"
     venv_dir = os.path.join(venvs_dir, name)
     py = os.path.join(venv_dir, "bin", "python")
-    if os.path.isfile(py):
-        return py, "cached venv"
+    # A success sentinel keyed on the exact dep set. `python -m venv` creates bin/python BEFORE the deps install,
+    # so gating the cache on bin/python alone (the old bug) returns a half-built venv with NO deps if the install
+    # failed — a ModuleNotFoundError on the NEXT run that also defeats the caller's latest-fallback. And keying by
+    # `name` alone reuses a venv built for a DIFFERENT (e.g. pre-era-pin) dep set. The sentinel — written only
+    # AFTER a successful install — fixes both: cache-hit iff it exists and matches this run's dep hash.
+    sentinel = os.path.join(venv_dir, ".calma_installed")
+    want = hashlib.sha1("\n".join(sorted(str(d) for d in pip_install)).encode()).hexdigest()
+    if os.path.isfile(py) and os.path.isfile(sentinel):
+        try:
+            if open(sentinel).read().strip() == want:
+                return py, "cached venv"
+        except OSError:
+            pass
+    if os.path.isdir(venv_dir):                    # half-built or stale-dep venv → rebuild from scratch
+        shutil.rmtree(venv_dir, ignore_errors=True)
     os.makedirs(venvs_dir, exist_ok=True)
     subprocess.run([base_python, "-m", "venv", venv_dir], check=True, timeout=180)
     subprocess.run([py, "-m", "pip", "install", "-q", "--upgrade", "pip"], check=False, timeout=300)
     subprocess.run([py, "-m", "pip", "install", "-q", *pip_install], check=True, timeout=1800)
+    with open(sentinel, "w") as fh:                # only now is the venv usable (a failed install raises above)
+        fh.write(want)
     return py, "built venv"

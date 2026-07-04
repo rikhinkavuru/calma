@@ -108,15 +108,31 @@ def _url_is_safe(url) -> bool:
     return True
 
 
+def _safe_opener():
+    """A urllib opener that RE-VALIDATES every redirect hop with _url_is_safe. Plain urlopen validates only the
+    ORIGINAL url, then silently follows 30x — so a host that passes the guard can 302 to 169.254.169.254 or an
+    internal address. This handler blocks that: an unsafe redirect target raises instead of being fetched."""
+    import urllib.error  # noqa: PLC0415
+
+    class _NoUnsafeRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, req, fp, code, msg, headers, newurl):
+            if not _url_is_safe(newurl):
+                raise urllib.error.HTTPError(newurl, code, "redirect to a disallowed host blocked", headers, fp)
+            return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+    return urllib.request.build_opener(_NoUnsafeRedirect)
+
+
 def fetch_to(url, dest, timeout=40, max_bytes=80_000_000):
     """Download a data URL to dest (size-capped, creating parent dirs best-effort). Returns bytes or None.
-    Refuses non-http(s) schemes and internal/private hosts (SSRF/LFI guard) — the URL comes from untrusted
-    search results, so it is never trusted to reach the local filesystem or an internal service."""
+    Refuses non-http(s) schemes and internal/private hosts (SSRF/LFI guard), and re-validates every redirect hop
+    — the URL comes from untrusted search results, so it is never trusted to reach the local filesystem or an
+    internal service, even via a redirect."""
     safe_url = _raw(url)
     if not _url_is_safe(safe_url):
         return None
     try:
-        with urllib.request.urlopen(safe_url, timeout=timeout) as fh:  # noqa: S310 - scheme+host validated above
+        with _safe_opener().open(safe_url, timeout=timeout) as fh:  # noqa: S310 - scheme+host validated + redirects re-checked
             data = fh.read(max_bytes + 1)
     except Exception:  # noqa: BLE001
         return None
@@ -297,6 +313,17 @@ def _sole_committed_dataset(repo_dir):
     return cands[0] if len(cands) == 1 else None
 
 
+def _substitution_marker(src: str, requested_base: str, requested_raw: str) -> list[str]:
+    """A non-file marker (list, so it flows into ``source_modified`` and trips ``_apply_agent_modified_cap``)
+    when the placed file's basename differs from the one the code asked for — i.e. a DATA SUBSTITUTION, which
+    must cap the verdict at REPRODUCED-ONLY. Empty when the basenames match (a genuine relink of the repo's own
+    file → no cap). The marker is bracketed so a reader (and the cap note) can tell it apart from a real path."""
+    placed_base = os.path.basename(src or "")
+    if placed_base.lower() == (requested_base or "").lower():
+        return []
+    return ["<data-substituted: %s → %s>" % (placed_base, requested_raw or requested_base)]
+
+
 def make_data_available(repo_dir, missing_path):
     """Make a missing input available so a run proceeds. Returns (placed_rel, modified_files). Modes:
       • RELATIVE read of a committed basename → relink in place (no source edit → full verdict).
@@ -318,6 +345,11 @@ def make_data_available(repo_dir, missing_path):
         src = _sole_committed_dataset(repo_dir)               # differently-named single committed dataset
     if not src:
         return None, []                                       # (a catalog/Exa fetch could place it — separate)
+    # FCR: a DIFFERENT-named file placed for the requested one is a data SUBSTITUTION — the run no longer
+    # verifies the original claim on the original data, so it must cap AFFIRMATIVE→REPRODUCED-ONLY. A wrong file
+    # usually mismatches, but coarse/rounded metrics (or an adversarial single-dataset choice) can coincidentally
+    # match — so we never leave the match side uncapped. Same-basename relink is the repo's own file (no cap).
+    sub = _substitution_marker(src, base, raw)                # [] if same basename, else a cap marker
     if is_abs:
         dst = os.path.join(repo_dir, base)
         try:
@@ -325,8 +357,8 @@ def make_data_available(repo_dir, missing_path):
                 shutil.copy2(src, dst)
         except OSError:
             return None, []
-        modified = rewrite_data_path(repo_dir, missing_path, base)
-        return (base, modified) if modified else (None, [])
+        modified = rewrite_data_path(repo_dir, missing_path, base)   # source edit → already caps
+        return (base, sorted(set(modified) | set(sub))) if modified else (None, [])
     # relative read, basename not committed but a sole dataset found → place it at the exact read path
     dst = os.path.normpath(os.path.join(repo_dir, raw))
     if not _contained(dst, repo_dir):
@@ -337,7 +369,7 @@ def make_data_available(repo_dir, missing_path):
             shutil.copy2(src, dst)
     except OSError:
         return None, []
-    return os.path.relpath(dst, repo_dir), []
+    return os.path.relpath(dst, repo_dir), sub
 
 
 def resolve_missing_data(repo_dir, missing_path, key=None):

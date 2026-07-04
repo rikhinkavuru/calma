@@ -37,8 +37,9 @@ def test_relink_none_when_not_committed():
 def test_resolve_data_path_tool_registered_and_relinks():
     assert REG.has("resolve_data_path")
     d = _repo()
-    placed, note = REG.call("resolve_data_path", d, "FileNotFoundError: [Errno 2] No such file or directory: 'sub/iris.csv'")
+    placed, note, modified = REG.call("resolve_data_path", d, "FileNotFoundError: [Errno 2] No such file or directory: 'sub/iris.csv'")
     assert placed and "relinked" in note
+    assert modified == []                               # same-basename relink → no cap (repo's own file)
 
 
 def test_tool_is_verdict_free():
@@ -62,6 +63,20 @@ def test_make_data_available_absolute_places_and_rewrites():
     placed, modified = DR.make_data_available(d, "/content/magic04.data")
     assert placed == "magic04.data" and modified == ["run.py"]   # source edit -> caller caps to REPRODUCED-ONLY
     assert 'read_csv(\'magic04.data\')' in open(os.path.join(d, "run.py")).read()
+
+
+def test_sole_dataset_substitution_is_capped():
+    """FCR (B1): a DIFFERENT-named sole committed dataset placed for the requested relative path is a data
+    SUBSTITUTION — make_data_available must return a marker so the verdict caps at REPRODUCED-ONLY, never a
+    silent CONFIRM on the wrong file. Same-basename relink stays uncapped (tested above)."""
+    import tempfile
+    d = tempfile.mkdtemp()
+    with open(os.path.join(d, "heart_cleveland.csv"), "w") as fh:   # the ONE committed dataset, different name
+        fh.write("age,target\n60,1\n")
+    placed, modified = DR.make_data_available(d, "data/heart.csv")  # code asks for heart.csv (not committed)
+    assert placed == os.path.join("data", "heart.csv")             # placed at the requested read path
+    assert modified and any("data-substituted" in m for m in modified)   # → source_modified → REPRODUCED-ONLY cap
+    assert "heart_cleveland.csv" in modified[0]                     # discloses which file was actually used
 
 
 def test_rewrite_only_touches_the_matching_literal():

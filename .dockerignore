@@ -1,0 +1,18 @@
+# Build context for the validity-check Action image. The scan runs `pipeline.verify_repo(deep=False)` over the
+# core engine (core/ runner/ orchestrator/ capture/ planner.py pipeline.py validity_scan.py) — nothing else is
+# needed at runtime. Excluding the rest keeps the image small AND, critically, keeps the trip-wire fixtures (repos
+# designed to FAIL the checks) out of the shipped scanner.
+.git
+web/
+**/__pycache__/
+**/*.pyc
+**/.pytest_cache/
+
+# spike/: keep the engine, drop everything the scan never imports
+spike/fixtures/
+spike/tests/
+spike/results/
+spike/optimize/
+spike/.venvs/
+spike/.conda-envs/
+spike/docs/

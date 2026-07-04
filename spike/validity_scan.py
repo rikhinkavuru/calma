@@ -50,8 +50,11 @@ def _baseline_check(result: dict) -> dict:
         for note in inval:
             if any(m in note.lower() for m in _BASELINE_MARKS):
                 findings.append("%s=%s: %s" % (c.get("metric"), c.get("claimed"), note))
-        # a claim whose value was compared against the label distribution was baseline-checkable
-        if c.get("claimed") is not None:
+        # "pass" requires that a REAL comparison basis existed (a label distribution, or a grounded degeneracy
+        # check that actually ran) — the engine stamps `baseline_checked` when it did. A bare claimed value with
+        # nothing to compare against is NOT a pass: it stays not-applicable so the card grades INCOMPLETE, never
+        # a false clean bill (fail-closed — the whole point of the no-run wedge).
+        if c.get("baseline_checked"):
             checkable = True
     status = "fail" if findings else ("pass" if checkable else "not-applicable")
     return {"name": "trivial-baseline", "status": status, "findings": findings}
@@ -159,7 +162,13 @@ def main() -> int:
     args = ap.parse_args()
 
     claims = [{"metric": args.metric, "value": args.claim, "id": "cli_claim"}] if args.claim else None
-    card = scan(args.repo_dir, claims=claims)
+    try:
+        card = scan(args.repo_dir, claims=claims)
+    except Exception as e:  # noqa: BLE001 — a scanner crash must be distinguishable from a validity FAIL
+        # exit 2 (not 1): a scanner ERROR is NOT the same as "your number is invalid". A CI gate keyed on
+        # exit 1 (FAIL) must not be tripped — and blamed on the repo — by a bug in the scanner itself.
+        print("validity scan could not run on %s: %s" % (args.repo_dir, str(e)[:200]), file=sys.stderr)
+        return 2
 
     fmt = "json" if args.json else args.format
     print(json.dumps(card, indent=2) if fmt == "json" else fmt_markdown(card) if fmt == "md" else _fmt_text(card))

@@ -426,6 +426,36 @@ def launch_command(approach: RunApproach, repo_dir: str) -> str:
     return " && ".join(parts)
 
 
+# Reserved Calma filenames the synthesis path writes into a repo. They are Calma's own artifacts, never the
+# repo's — so a pre-existing one can only be a leftover from an earlier synthesis run on a REUSED checkout. Left
+# in place, a stale calma_predictions.csv would be read as a "committed" artifact on a later run where synthesis
+# does NOT fire (so its calma_eval.py is unchanged → not in the snapshot diff → no cap) → an uncapped CONFIRMED
+# on stale AI predictions. We purge them before every orchestrate run so they can only ever be this-run's output.
+_RESERVED_ARTIFACTS = ("calma_eval.py", "calma_predictions.csv")
+
+
+def _purge_reserved(repo_dir: str) -> None:
+    for fn in _RESERVED_ARTIFACTS:
+        try:
+            os.remove(os.path.join(repo_dir, fn))
+        except OSError:
+            pass
+
+
+def _has_committed_predictions(repo_dir: str) -> bool:
+    """True if the repo already commits a real predictions file (excluding Calma's reserved name). Such a repo
+    should be verified against its OWN artifact — synthesizing a driver would both waste a sandbox run and cap
+    the legitimately-committed CONFIRMED down to REPRODUCED-ONLY (source_modified caps ALL affirmatives)."""
+    try:
+        from core import artifacts as _A
+    except Exception:  # noqa: BLE001
+        return False
+    for p, _cols in (_A.find_prediction_files(repo_dir) or []):
+        if os.path.basename(p) not in _RESERVED_ARTIFACTS:
+            return True
+    return False
+
+
 def _synthesize_predictions_run(repo_dir, run_approach, profile, model, log):
     """Last resort when NOTHING captured a number: ask the planner for a predict-and-dump driver that uses the
     repo's OWN model to write calma_predictions.csv, run it, and let the pipeline's artifact layer recompute the
@@ -441,6 +471,10 @@ def _synthesize_predictions_run(repo_dir, run_approach, profile, model, log):
         return None
     plan = plan_predictions(repo_dir, model=model)
     if not plan or plan.get("confidence", 0) < 0.5 or not plan.get("driver"):
+        if log:
+            conf = (plan or {}).get("confidence", 0)
+            log("orchestrator: synthesis declined — the planner could not produce a confident predict-and-dump "
+                "driver (%.0f%% conf, need ≥50%%)" % (100 * conf))
         return None
     driver_rel = "calma_eval.py"
     try:
@@ -474,6 +508,7 @@ def orchestrate(repo_dir: str, run_approach, *, profile=None, use_llm: bool = Tr
     Report + a re-runnable launch command on ``result.cost`` for the UI/audit."""
     profile = profile or assess(repo_dir)
     revise = revise if revise is not None else make_revise(hints)
+    _purge_reserved(repo_dir)   # drop any stale calma_eval.py/calma_predictions.csv from a prior run on a reused checkout
     approaches = rank_approaches(profile, repo_dir, use_llm=use_llm, model=model, plan=plan, log=log)
 
     # flywheel: a known-good approach for this exact tree jumps to the front of the queue (LLM already skipped
@@ -488,17 +523,41 @@ def orchestrate(repo_dir: str, run_approach, *, profile=None, use_llm: bool = Tr
     from . import registry as _REG
     # HOW-only data resolution: relink a committed file / fetch a known dataset so a missing-data run proceeds.
     # Verdict-free by construction (the registry forbids a verdict-touching tool), so it stays behind the firewall.
+    # We DO collect the tool's `modified` list (edited files + any data-substitution marker) and fold it into
+    # source_modified below — a substituted/rewritten input must cap AFFIRMATIVE→REPRODUCED-ONLY (FCR), and the
+    # pipeline's .py snapshot rail can't see a data swap or a notebook edit that this list records.
+    _data_modified: list[str] = []
     def _resolve_data(err):
-        return _REG.call("resolve_data_path", repo_dir, err)[0] if _REG.has("resolve_data_path") else False
+        if not _REG.has("resolve_data_path"):
+            return False
+        placed, _note, modified = _REG.call("resolve_data_path", repo_dir, err)
+        if placed and modified:
+            _data_modified.extend(m for m in modified if m not in _data_modified)
+        return placed
     result = execute(approaches, run_approach, revise=revise, budget=budget, hints=hints, log=log,
                      resolve_data=_resolve_data)
 
     # last resort (opt-in): no declared/AI entrypoint captured a number → synthesize a predict-and-dump driver
     # and recompute the metric independently from the predictions it writes. Verdict-capped at REPRODUCED-ONLY.
     if synthesize and not _captured(result):
-        syn = _synthesize_predictions_run(repo_dir, run_approach, profile, model, log)
-        if syn is not None and (_captured(syn) or syn.ran_ok):
-            result = syn
+        _stop = budget.stop_reason() if budget is not None else None
+        if _stop:                                              # don't start a doomed run at the budget/EOL wall
+            if log:
+                log("orchestrator: synthesis skipped — %s (no budget for another run)" % _stop)
+        elif _has_committed_predictions(repo_dir):             # verify the real artifact, don't cap it with a synth
+            if log:
+                log("orchestrator: synthesis skipped — the repo already commits a predictions file (verified "
+                    "directly, no synthesized driver)")
+        else:
+            syn = _synthesize_predictions_run(repo_dir, run_approach, profile, model, log)
+            if syn is not None and (_captured(syn) or syn.ran_ok):
+                result = syn
+
+    # fold any data substitution/rewrite the resolver performed into the FINAL result (after a possible synthesis
+    # swap) so the REPRODUCED-ONLY cap always fires — a swapped/fetched input verified on the wrong data is capped.
+    if _data_modified:
+        result.source_modified = list(result.source_modified or []) + [m for m in _data_modified
+                                                                       if m not in (result.source_modified or [])]
 
     if cache is not None and result.ran_ok and result.approach is not None:
         cache.put(profile.fingerprint, result.approach)   # remember the winner for the next repeat/sibling

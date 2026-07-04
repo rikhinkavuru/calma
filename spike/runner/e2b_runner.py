@@ -33,6 +33,13 @@ _SHIM_FILES = ("calma_capture.py", "sitecustomize.py", "reinvoke.py", "run_noteb
 _LANG_INTERP = effector.LANG_INTERP   # canonical map (shared with orchestrator.tools_exec); polyglot template only
 _MAX_SANDBOX_S = effector.MAX_SANDBOX_S   # hard cap on a sandbox's lifetime (build + all k runs); see effector
 _MAX_ARCHIVE_B = 200 * 1024 * 1024   # above this, fall back to per-file upload (keeps the child's memory bounded)
+_MAX_PREDICTIONS_BYTES = 256 * 1024 * 1024   # cap the synthesized-predictions read-back so a runaway driver can't OOM the host
+# time-boxed adaptive-k: a determinism re-run is only STARTED when the remaining sandbox budget fits an estimate
+# of MARGIN×(slowest run so far) + FLOOR seconds of headroom. FLOOR also bounds the per-run timeout so a started
+# re-run is cut cleanly by our own timeout BEFORE the microVM SIGKILLs it mid-network-stream (which would leave a
+# misleading partial capture). Tune together with effector.size_sandbox_life's build/run margin.
+_ADAPTIVE_K_MARGIN = 1.15
+_ADAPTIVE_K_FLOOR_S = 60
 
 
 def _load_dotenv(path):
@@ -720,21 +727,29 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
 
     run_seconds = 0.0
     last_dt = 0.0
+    max_dt = 0.0
+    adaptive_k_capped = False
     try:
         for i in range(max(1, k)):
             # time-boxed adaptive-k: never START a run that can't finish before the sandbox's end-of-life. A run
             # killed mid-way (StreamReset/SIGKILL) captures nothing AND makes a deterministic repo look
             # non-deterministic (a full run 1 vs an empty run 2) — strictly worse than not re-running. When the
-            # prior run's duration won't fit the remaining budget, stop and verify with the run(s) that COMPLETED
+            # slowest run so far won't fit the remaining budget, stop and verify with the run(s) that COMPLETED
             # (fewer runs = more conservative; the determinism gate stays unproven, never a false confirm). Heavy
             # benchmarks (a 51-min genomics run in a 60-min microVM) hit exactly this — the re-run can't fit.
+            run_timeout = timeout
             if i > 0:
                 remaining = sandbox_life - (time.time() - t_start)
-                if remaining < last_dt * 1.15 + 60:
-                    _note(log, "E2B: skipping run %d/%d — prior run %.0fs won't fit the remaining %.0fs sandbox "
+                est = max(last_dt, max_dt)               # estimate the next run by the SLOWEST seen, not just the last
+                if remaining < est * _ADAPTIVE_K_MARGIN + _ADAPTIVE_K_FLOOR_S:
+                    adaptive_k_capped = True
+                    _note(log, "E2B: skipping run %d/%d — a ~%.0fs run won't fit the remaining %.0fs sandbox "
                                "budget; verifying with the %d completed run(s) (determinism re-check skipped for "
-                               "a too-long run)" % (i + 1, max(1, k), last_dt, max(0.0, remaining), i))
+                               "a too-long run)" % (i + 1, max(1, k), est, max(0.0, remaining), i))
                     break
+                # safety net: cap this re-run's timeout to the remaining budget so it is cut cleanly by OUR timeout
+                # (a controlled kill we discard) rather than SIGKILLed mid-stream by the microVM.
+                run_timeout = max(1, min(timeout, int(remaining - _ADAPTIVE_K_FLOOR_S)))
             out_remote = "/capture/calls_%d.jsonl" % i           # fresh capture file per run
             t0 = time.time()
             _note(log, "E2B: running `%s` (run %d/%d)…" % (" ".join(entry), i + 1, max(1, k)))
@@ -745,7 +760,7 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
                                                 max_elems=max_elems, fuzz=fuzz)
                 # stream the run's stdout/stderr LIVE into the job log — the repo's own prints are the best
                 # signal for "what is it actually doing" during a long run.
-                r = _cmd_run(sbx, _command_for(pybin, entry), cwd="/work", envs=envs, timeout=timeout,
+                r = _cmd_run(sbx, _command_for(pybin, entry), cwd="/work", envs=envs, timeout=run_timeout,
                              log=log, prefix="  | ", stream=True)
                 rc = getattr(r, "exit_code", 0) or 0
                 out, err, killed = getattr(r, "stdout", "") or "", getattr(r, "stderr", "") or "", False
@@ -771,7 +786,13 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
             dt = time.time() - t0
             run_seconds += dt
             last_dt = dt                                         # gate the next run against the budget (above)
+            max_dt = max(max_dt, dt)                             # conservative estimate for the NEXT run's gate
             parsed = parse_capture(out_local) if out_local else []
+            if i > 0 and killed:                                 # a re-run we had to cut short at the budget can't
+                parsed = []                                      # be a determinism sample — its partial capture
+                adaptive_k_capped = True                         # would falsely read as NON-DETERMINISTIC
+                _note(log, "E2B: run %d/%d hit the sandbox budget — discarding its partial capture (determinism "
+                           "re-check not counted)" % (i + 1, max(1, k)))
             _note(log, "E2B: run %d/%d done — %.0fs, exit %d, %d computation(s) captured%s"
                   % (i + 1, max(1, k), dt, rc, len(parsed), " [killed: timeout]" if killed else ""))
             runs.append(parsed)
@@ -797,9 +818,12 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
         if sbx is not None:
             try:
                 pred = sbx.files.read("/work/calma_predictions.csv")
+                buf = pred if isinstance(pred, bytes) else str(pred).encode()
+                if len(buf) > _MAX_PREDICTIONS_BYTES:          # a runaway driver must not OOM the host on read-back
+                    raise ValueError("predictions file too large (%d bytes)" % len(buf))
                 with open(os.path.join(repo_dir, "calma_predictions.csv"), "wb") as fh:
-                    fh.write(pred if isinstance(pred, bytes) else str(pred).encode())
-            except Exception:  # noqa: BLE001 — no predictions file → nothing to pull
+                    fh.write(buf)
+            except Exception:  # noqa: BLE001 — no predictions file / oversized → nothing to pull
                 pass
     finally:
         if sbx is not None:
@@ -807,8 +831,13 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
                 sbx.kill()
             except Exception:  # noqa: BLE001
                 pass
+    # surface an adaptive-k budget cap in the machine-readable cost: "we WANTED k≥2 but the microVM couldn't fit
+    # the re-run" is materially different from a user who chose k=1 — the user can re-run with a larger budget.
+    _extra = {"adaptive_k_capped": True, "runs_completed": len(runs), "runs_requested": max(1, k)} \
+        if adaptive_k_capped else None
     result = effector.shape_result(runs, meta, build_seconds=build_seconds, run_seconds=run_seconds,
-                                   hooks_armed=hooks_armed, fuzz=fuzz_records, python_used=python_used)
+                                   hooks_armed=hooks_armed, fuzz=fuzz_records, python_used=python_used,
+                                   extra_cost=_extra)
     if data_fetched:
         result["data_auto_resolved"] = True     # caller caps a mismatch → INCONCLUSIVE (not the repo's own data)
     if leakage_findings:

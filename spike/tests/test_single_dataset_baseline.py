@@ -70,3 +70,16 @@ def test_positive_r2_passes():
         fh.write("R2 of 0.84 on the test set.\n")
     tb = next(c for c in VS.scan(d)["checks"] if c["name"] == "trivial-baseline")
     assert tb["status"] != "fail"
+
+
+def test_contrasted_baseline_r2_is_not_a_false_fail():
+    # a ≤0 R2 that is a CONTRASTED baseline (the repo reports a better R2 as its result) must NOT be branded
+    # INVALIDATED — that is a false accusation on an honest paper. Only the headline/only degenerate R2 fails.
+    import tempfile
+    d = tempfile.mkdtemp()
+    with open(os.path.join(d, "README.md"), "w") as fh:
+        fh.write("The naive mean baseline gives an R2 of -0.03, while our model reaches an R2 of 0.87.\n")
+    card = VS.scan(d)
+    tb = next(c for c in card["checks"] if c["name"] == "trivial-baseline")
+    assert tb["status"] != "fail", card              # the -0.03 baseline must not trigger a FAIL
+    assert card["grade"] != "FAIL", card

@@ -27,7 +27,7 @@ class _Cmds:
     def __init__(self, log):
         self.log = log
 
-    def run(self, cmd, on_stdout=None, on_stderr=None, **kw):
+    def run(self, cmd, on_stdout=None, **kw):        # on_stderr etc. absorbed by **kw (mock only streams stdout)
         self.log.setdefault("cmds", []).append(cmd)
         if "envs" in kw:
             self.log.setdefault("run_envs", []).append(kw["envs"])
@@ -249,3 +249,30 @@ def test_python_provision_falls_back_gracefully(tmp_path, monkeypatch):
     cmds = _LOG.get("cmds", [])
     assert any(c.startswith("python ") for c in cmds)            # fell back to the sandbox python
     assert res["cost"]["python"] == "sandbox-default" and res["ran_ok"]
+
+
+def test_adaptive_k_skips_a_run_that_wont_fit_the_budget(tmp_path, monkeypatch):
+    """FCR / time-box: when a re-run can't fit the remaining sandbox budget, it is NOT started — the verdict is
+    formed from the completed run(s), never a false NON-DETERMINISTIC, and the cap is surfaced in cost."""
+    _install_fake_e2b(monkeypatch)
+
+    # a monotonic fake clock the run advances by a big step, so run 1 leaves no budget for run 2
+    clock = {"t": 1000.0}
+    monkeypatch.setattr(e2b_runner.time, "time", lambda: clock["t"])
+    monkeypatch.setattr(e2b_runner.effector, "size_sandbox_life", lambda *a, **k: 300)   # small microVM budget
+
+    real_run = _Cmds.run
+    def slow_run(self, cmd, *a, **kw):
+        if "eval.py" in cmd:                                    # only the entrypoint (not pip) burns wall time
+            clock["t"] += 250.0
+        return real_run(self, cmd, *a, **kw)
+    monkeypatch.setattr(_Cmds, "run", slow_run)
+
+    (tmp_path / "eval.py").write_text("print('hi')\n")
+    cfg = {"api_key": "x", "domain": None, "template": None}
+    res = e2b_runner.run_e2b(str(tmp_path), ["eval.py"], k=3, pip_install=["numpy"], cfg=cfg)
+
+    assert res["cost"]["runs"] == 1                             # only run 1 completed; runs 2-3 skipped for budget
+    assert res["cost"].get("adaptive_k_capped") is True         # surfaced to the consumer (not a user-chosen k=1)
+    assert res["cost"]["runs_requested"] == 3
+    assert res["ran_ok"]                                        # the completed run verifies; no false non-det

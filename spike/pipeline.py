@@ -225,6 +225,16 @@ def _as_fraction(raw):
     return v
 
 
+def _r2_value(rec: dict) -> float | None:
+    """The record's R² as a float (raw — R² is never a percent), or None if it isn't an R² claim / won't parse."""
+    if (rec.get("metric") or "").lower() not in ("r2", "rsquared", "r_squared", "r^2"):
+        return None
+    try:
+        return float(str(rec.get("claimed", rec.get("value"))).strip().rstrip("%"))
+    except (TypeError, ValueError):
+        return None
+
+
 def _apply_baseline_overlay(records: list[dict], leakage: list[dict]) -> None:
     """Trivial-baseline / degenerate-distribution overlay from a split's LABEL distribution (in place). A number
     that reproduces perfectly is still INVALID if it's no better than a constant predictor, at/below chance, or
@@ -241,23 +251,35 @@ def _apply_baseline_overlay(records: list[dict], leakage: list[dict]) -> None:
     # below would otherwise miss a leaderboard claim keyed by model, not dataset — and so the baseline never
     # fired. Multiple datasets keep the strict name match (no cross-attribution).
     single = next(iter(stats.values())) if len(stats) == 1 else None
+    # A repo that reports a positive R² somewhere AND a ≤0 R² elsewhere is almost always contrasting its result
+    # (0.87) against a weak baseline / ablation (-0.03). Branding that -0.03 INVALIDATED is a false accusation on
+    # an honest paper. So a ≤0 R² only invalidates when it is the repo's headline/only R² (no better R² present)
+    # or when Calma actually recomputed it ≤0; otherwise it is an advisory. (Precomputed once over all records.)
+    _has_better_r2 = any(v is not None and v > 0.0 for v in (_r2_value(r) for r in records))
     for rec in records:
         metric = (rec.get("metric") or "").lower()
         val = _as_fraction(rec.get("claimed", rec.get("value")))   # "80%" / "80" / 0.8 → 0.80 (baseline is 0..1)
         note = None
-        # data-INDEPENDENT degenerate metric: a regression R² ≤ 0 is no better than predicting the mean —
-        # vacuous regardless of the dataset (no label distribution needed). Parse raw (R² is never a percent).
+        checked = False              # did a REAL comparison basis exist for this claim? (drives the wedge card)
+        # data-INDEPENDENT degenerate metric: a regression R² ≤ 0 is no better than predicting the mean. Invalidate
+        # only the repo's headline/only degenerate R² (or one Calma recomputed ≤0) — never a contrasted baseline.
         if metric in ("r2", "rsquared", "r_squared", "r^2"):
-            try:
-                rv = float(str(rec.get("claimed", rec.get("value"))).strip().rstrip("%"))
-            except (TypeError, ValueError):
-                rv = None
+            rv = _r2_value(rec)
             if rv is not None and rv <= 0.0:
-                note = "R² %.4g ≤ 0 — the model is no better than predicting the mean (no explanatory power)" % rv
+                txt = "R² %.4g ≤ 0 — no better than predicting the mean (no explanatory power)" % rv
+                grounded = (str(rec.get("provenance") or "").startswith("artifact")
+                            or (rec.get("diff") or {}).get("recomputed") is not None)
+                if grounded or not _has_better_r2:
+                    note, checked = txt, True         # headline/only degenerate R², or recomputed ≤0 → real catch
+                else:
+                    rec.setdefault("validity", {"invalidating": [], "advisory": []})["advisory"].append(
+                        txt + " — a contrasted baseline (the repo reports a better R² elsewhere)")
         # data-DEPENDENT trivial-baseline (needs a committed/materialized label distribution)
         if note is None and stats:
             toks = _claim_dataset_tokens(rec)
             ls = next((s for ds, s in stats.items() if ds in toks), None) or single
+            if ls:
+                checked = True                        # a real label distribution existed to compare against
             if ls and ls.get("n_classes", 2) <= 1:
                 note = "the test set has a single class — the score is vacuous (degenerate distribution)"
             elif ls and val is not None and val == val:
@@ -267,6 +289,8 @@ def _apply_baseline_overlay(records: list[dict], leakage: list[dict]) -> None:
                             "predictor matches it (no signal)" % (val, maj))
                 elif metric in ("auroc", "auc", "roc_auc", "roc-auc") and val <= 0.5 + 1e-9:
                     note = "AUROC %.4g is at or below chance (0.50) — the model has no discrimination" % val
+        if checked:
+            rec["baseline_checked"] = True            # positive signal the wedge card reads (checked-clean ≠ unchecked)
         if not note:
             continue
         rec.setdefault("validity", {"invalidating": [], "advisory": []})
@@ -864,6 +888,14 @@ def verify_repo(
     opts = opts or VerifyOptions()
     trace = Trace(update=update, log=log)
     trace.stage("initializing", "starting verification")
+    # FCR hygiene: drop any reserved Calma artifacts (calma_eval.py / calma_predictions.csv) left in a REUSED
+    # checkout by an earlier synthesis run — they are Calma's own output, never the repo's. Purging here (before
+    # ANY run, on every path) means the artifact recompute can only ever read predictions produced in THIS
+    # verify — where the synthesized driver is recorded in source_modified and the verdict is capped. Without
+    # this, a stale calma_predictions.csv would be read as a "committed" artifact on a later non-synthesis run
+    # (its calma_eval.py unchanged → no cap) → an uncapped CONFIRMED on stale AI predictions.
+    from orchestrator.orchestrate import _purge_reserved as _PURGE_RESERVED
+    _PURGE_RESERVED(repo_dir)
 
     run_result, entry = None, _argv(opts.entry)
     job_run = None

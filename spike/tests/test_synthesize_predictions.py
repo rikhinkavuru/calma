@@ -106,3 +106,33 @@ def test_synthesis_not_reached_when_a_number_was_captured(tmp_path, monkeypatch)
     res = ORCH.orchestrate(str(tmp_path), fake_effector, use_llm=False, synthesize=True)
     assert called["n"] == 0                                     # captured → synthesis skipped
     assert "calma_eval.py" not in (res.source_modified or [])
+
+
+def test_synthesis_skipped_when_repo_commits_predictions(tmp_path, monkeypatch):
+    """A repo that already commits a real predictions file must be verified against its OWN artifact — synthesis
+    would waste a run AND cap the legitimate CONFIRMED to REPRODUCED-ONLY (source_modified caps all affirmatives)."""
+    (tmp_path / "model.py").write_text("x = 1\n")
+    (tmp_path / "predictions.csv").write_text("y_true,y_pred\n1,1\n0,0\n")   # a genuine committed artifact
+    called = {"n": 0}
+    monkeypatch.setattr(planner, "plan_predictions", lambda *a, **k: called.__setitem__("n", called["n"] + 1))
+
+    def fake_effector(appr):
+        return RunResult(ran_ok=False, runs=[], meta=[{"returncode": 1}], approach=appr, source_modified=[])
+
+    ORCH.orchestrate(str(tmp_path), fake_effector, use_llm=False, synthesize=True)
+    assert called["n"] == 0                                     # committed predictions present → synthesis skipped
+    assert not os.path.exists(os.path.join(tmp_path, "calma_eval.py"))
+
+
+def test_purge_reserved_drops_stale_artifacts(tmp_path):
+    """Reserved Calma artifacts left by a prior synthesis run on a REUSED checkout are purged at orchestrate
+    start, so a later non-synthesis run can never read a stale calma_predictions.csv as a committed artifact."""
+    (tmp_path / "calma_eval.py").write_text("# stale\n")
+    (tmp_path / "calma_predictions.csv").write_text("y_true,y_pred\n1,0\n")   # stale AI output from a prior run
+
+    def fake_effector(appr):
+        return RunResult(ran_ok=False, runs=[], meta=[{"returncode": 1}], approach=appr, source_modified=[])
+
+    ORCH.orchestrate(str(tmp_path), fake_effector, use_llm=False)   # synthesize off → must not consume stale files
+    assert not os.path.exists(os.path.join(tmp_path, "calma_eval.py"))
+    assert not os.path.exists(os.path.join(tmp_path, "calma_predictions.csv"))
