@@ -275,31 +275,31 @@ repos:
   # results/ICP-2026-07-03.md). `entry` intentionally OMITTED to exercise the reverse-map auto-detect on
   # real data. discover:true (no hand-grade); the measure is repro / binding / validity behaviour + FCR=0.
   - name: eval-classification-models
-    source: {kind: git, url: https://github.com/AhmedMahmoudMetwally/Evaluating-classification-models.git, commit: 1d97f0f00c}
+    source: {kind: git, url: https://github.com/AhmedMahmoudMetwally/Evaluating-classification-models.git, commit: 1d97f0f00c3d0bd582d63efdcfbe4cc1cd0481c5}
     pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn]
     meta: {domain: ml, tier: T3, split: dev, license: unknown, commit_date: unknown, capability: leaderboard-table}
     discover: true              # 1.py writes model_results.csv (reverse-map target); data NOT committed (repro-gap test)
 
   - name: employee-attrition
-    source: {kind: git, url: https://github.com/bahimehdi/Employee_Attrition_Prediction.git, commit: 17eaa02158}
+    source: {kind: git, url: https://github.com/bahimehdi/Employee_Attrition_Prediction.git, commit: 17eaa02158c2f49f2c56d94d92ceb997b397562e}
     pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn, nbclient, nbformat, ipykernel]
     meta: {domain: ml, tier: T3, split: dev, license: unknown, commit_date: unknown, capability: leaderboard-table}
     discover: true              # committed HR CSV + model_comparison_results.csv; notebook entry
 
   - name: quality-quest-ml
-    source: {kind: git, url: https://github.com/ajmalalikhan07/Quality-Quest-ML-Comparison.git, commit: e95a815edb}
+    source: {kind: git, url: https://github.com/ajmalalikhan07/Quality-Quest-ML-Comparison.git, commit: e95a815edbc5ff7a1d5f6bcce36026abcd167ea4}
     pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn]
     meta: {domain: ml, tier: T2, split: dev, license: unknown, commit_date: unknown}
     discover: true              # quality_quest.py single script + requirements.txt
 
   - name: student-performance
-    source: {kind: git, url: https://github.com/Alvira-Parveen/student-performance-system.git, commit: a3777c5514}
+    source: {kind: git, url: https://github.com/Alvira-Parveen/student-performance-system.git, commit: a3777c5514b0d5027e612b54e1ebfd97ba7f75cc}
     pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn, nbclient, nbformat, ipykernel]
     meta: {domain: ml, tier: T2, split: dev, license: unknown, commit_date: unknown}
     discover: true              # committed xAPI-Edu-Data.csv + app.py
 
   - name: hate-speech-classifier
-    source: {kind: git, url: https://github.com/FarhadNuri/Hate-Speech-Classifier-v1.git, commit: c5665cd37b}
+    source: {kind: git, url: https://github.com/FarhadNuri/Hate-Speech-Classifier-v1.git, commit: c5665cd37bd1b0f34dbddde51b9c40decfe99b74}
     pip_install: [scikit-learn, pandas, numpy, nltk]
     meta: {domain: nlp, tier: T3, split: dev, license: unknown, commit_date: unknown, capability: leaderboard-table}
     discover: true              # committed Model_Results.csv + app.py (TF-IDF text classifier)
@@ -308,49 +308,49 @@ repos:
   # A larger, representative sample; era-pin (git-commit-era version pinning) carries the reproduction. Entry
   # set for reliability. discover:true (measure repro/binding/validity + FCR=0).
   - name: heart-disease-snap
-    source: {kind: git, url: https://github.com/Snap1423/Heart-Disease-Prediction-Classification-.git, commit: 111b524fca}
+    source: {kind: git, url: https://github.com/Snap1423/Heart-Disease-Prediction-Classification-.git, commit: 111b524fcadc38c6f63a0ba06823fa026b308ae6}
     entry: [main.py]
     pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn]
     meta: {domain: ml, tier: T2, split: dev, license: unknown, commit_date: unknown}
     discover: true
 
   - name: heart-disease-rajkadam
-    source: {kind: git, url: https://github.com/Rajkadam21/Heart-disease-prediction-classification.git, commit: 97f11a49df}
+    source: {kind: git, url: https://github.com/Rajkadam21/Heart-disease-prediction-classification.git, commit: 97f11a49dfa68e78fd9584d8cc37b597f2f428ce}
     entry: [heart_disease_prediction_.py]
     pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn]
     meta: {domain: ml, tier: T2, split: dev, license: unknown, commit_date: unknown}
     discover: true
 
   - name: heart-disease-ezad
-    source: {kind: git, url: https://github.com/EzadAhamed/heart-disease-prediction-classification.git, commit: a13b648fa6}
+    source: {kind: git, url: https://github.com/EzadAhamed/heart-disease-prediction-classification.git, commit: a13b648fa65ab521c6afb8d1d8e88e8b99ba7820}
     entry: [src/evaluate.py]
     pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn]
     meta: {domain: ml, tier: T2, split: dev, license: unknown, commit_date: unknown}
     discover: true
 
   - name: titanic-janvi
-    source: {kind: git, url: https://github.com/JanviMerugu/Titanic-Survival-Prediction-Machine-Learning-Project-.git, commit: ceaeb13073}
+    source: {kind: git, url: https://github.com/JanviMerugu/Titanic-Survival-Prediction-Machine-Learning-Project-.git, commit: ceaeb130738979e842d745a5563b5cb26c942894}
     entry: [titanic-survival-prediction/main.py]
     pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn]
     meta: {domain: ml, tier: T2, split: dev, license: unknown, commit_date: unknown}
     discover: true
 
   - name: titanic-abarseghian
-    source: {kind: git, url: https://github.com/abarseghian2005-collab/titanic-ml-project.git, commit: 99ad75f5fc}
+    source: {kind: git, url: https://github.com/abarseghian2005-collab/titanic-ml-project.git, commit: 99ad75f5fc679fb1580507035e0f8bb6e3bb562e}
     entry: [Notebooks/codeee.py]
     pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn]
     meta: {domain: ml, tier: T2, split: dev, license: unknown, commit_date: unknown}
     discover: true
 
   - name: titanic-asq
-    source: {kind: git, url: https://github.com/ASQ315/Titanic-Survival-Prediction-Machine-Learning-.git, commit: b72ce061f6}
+    source: {kind: git, url: https://github.com/ASQ315/Titanic-Survival-Prediction-Machine-Learning-.git, commit: b72ce061f64562f4ac1eed38995fede50a054d58}
     entry: [titanic_ML.py]
     pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn]
     meta: {domain: ml, tier: T2, split: dev, license: unknown, commit_date: unknown}
     discover: true
 
   - name: titanic-mobina
-    source: {kind: git, url: https://github.com/Mobina-Omid/Titanic-Survival-Prediction-Machine-Learning.git, commit: 62f21654fe}
+    source: {kind: git, url: https://github.com/Mobina-Omid/Titanic-Survival-Prediction-Machine-Learning.git, commit: 62f21654fe0e49c9f2f89bc47ebe993d4cc1e7c9}
     entry: [main.py]
     pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn]
     meta: {domain: ml, tier: T2, split: dev, license: unknown, commit_date: unknown}
