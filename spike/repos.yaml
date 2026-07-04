@@ -271,3 +271,36 @@ repos:
     pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn, nbconvert, nbformat, jupyter]
     meta: {domain: ml, tier: T3, split: dev, license: unknown, commit_date: unknown, capability: leaderboard-table}
     discover: true
+
+  # ===== ICP hardening batch (2026-07-03) — real classical-ML "model-comparison" repos (see
+  # results/ICP-2026-07-03.md). `entry` intentionally OMITTED to exercise the reverse-map auto-detect on
+  # real data. discover:true (no hand-grade); the measure is repro / binding / validity behaviour + FCR=0.
+  - name: eval-classification-models
+    source: {kind: git, url: https://github.com/AhmedMahmoudMetwally/Evaluating-classification-models.git, commit: 1d97f0f00c}
+    pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn]
+    meta: {domain: ml, tier: T3, split: dev, license: unknown, commit_date: unknown, capability: leaderboard-table}
+    discover: true              # 1.py writes model_results.csv (reverse-map target); data NOT committed (repro-gap test)
+
+  - name: employee-attrition
+    source: {kind: git, url: https://github.com/bahimehdi/Employee_Attrition_Prediction.git, commit: 17eaa02158}
+    pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn, nbconvert, nbformat, jupyter]
+    meta: {domain: ml, tier: T3, split: dev, license: unknown, commit_date: unknown, capability: leaderboard-table}
+    discover: true              # committed HR CSV + model_comparison_results.csv; notebook entry
+
+  - name: quality-quest-ml
+    source: {kind: git, url: https://github.com/ajmalalikhan07/Quality-Quest-ML-Comparison.git, commit: e95a815edb}
+    pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn]
+    meta: {domain: ml, tier: T2, split: dev, license: unknown, commit_date: unknown}
+    discover: true              # quality_quest.py single script + requirements.txt
+
+  - name: student-performance
+    source: {kind: git, url: https://github.com/Alvira-Parveen/student-performance-system.git, commit: a3777c5514}
+    pip_install: [scikit-learn, pandas, numpy, matplotlib, seaborn]
+    meta: {domain: ml, tier: T2, split: dev, license: unknown, commit_date: unknown}
+    discover: true              # committed xAPI-Edu-Data.csv + app.py
+
+  - name: hate-speech-classifier
+    source: {kind: git, url: https://github.com/FarhadNuri/Hate-Speech-Classifier-v1.git, commit: c5665cd37b}
+    pip_install: [scikit-learn, pandas, numpy, nltk]
+    meta: {domain: nlp, tier: T3, split: dev, license: unknown, commit_date: unknown, capability: leaderboard-table}
+    discover: true              # committed Model_Results.csv + app.py (TF-IDF text classifier)
