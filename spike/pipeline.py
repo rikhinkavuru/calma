@@ -646,7 +646,7 @@ def _run_repo_orchestrated(repo_dir: str, opts: VerifyOptions, trace: Trace, k: 
     def run_approach(approach):
         entry = list(approach.entry)
         targets = opts.targets or approach.capture_targets or None
-        deps = list(approach.deps)
+        deps = build.dedup_pip(list(approach.deps))            # 'numpy==2.4.6' + 'numpy' -> one install
         head = str(entry[0]) if entry else ""
 
         # A3: Makefile target → run_make (recipe's python child auto-arms capture). Runs host-side (a make
@@ -721,13 +721,17 @@ def _run_repo_orchestrated(repo_dir: str, opts: VerifyOptions, trace: Trace, k: 
     trace.stage("assessing", "assessing the repo (static profile → run approach)")
     # tier-scaled budget: no repair budget → a single approach, no revise (free tier); else the full loop.
     if opts.repair:
-        budget = ORCH.Budget(step_cap=6, max_approaches=4)
+        budget = ORCH.Budget(step_cap=8, max_approaches=5)
     else:
-        budget = ORCH.Budget(step_cap=1, max_approaches=1)
+        budget = ORCH.Budget(step_cap=3, max_approaches=2)     # even with no repair budget, actually run the loop
     # flywheel (env-gated so it stays off in the hermetic test suite; prod enables it): fingerprint→approach
     # cache + error→fix hint store. HOW-only — a cache hit still flows through the full fail-closed verify.
     cache = hints = None
-    if os.environ.get("CALMA_ORCH_FLYWHEEL") == "1":
+    # the flywheel is ON by default: the reproduction cache (fingerprint→approach) + experience store
+    # (error→fix) make repeat/sibling repos cheaper and carry a learned fix across runs — HOW-only, so a stale
+    # entry can only cost coverage, never a verdict. Kept OUT of the hermetic test suite (cache persistence
+    # would couple tests); force off with CALMA_ORCH_FLYWHEEL=0.
+    if os.environ.get("CALMA_ORCH_FLYWHEEL", "1") != "0" and "PYTEST_CURRENT_TEST" not in os.environ:
         from orchestrator import cache as OCACHE
         cache, hints = OCACHE.approach_cache(), OCACHE.hint_store()
     trace.stage("running", "running the chosen approach")
