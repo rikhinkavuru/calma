@@ -774,14 +774,16 @@ def _run_repo_orchestrated(repo_dir: str, opts: VerifyOptions, trace: Trace, k: 
         budget = ORCH.Budget(step_cap=3, max_approaches=2)     # even with no repair budget, actually run the loop
     # flywheel (env-gated so it stays off in the hermetic test suite; prod enables it): fingerprint→approach
     # cache + error→fix hint store. HOW-only — a cache hit still flows through the full fail-closed verify.
-    cache = hints = None
+    cache = hints = xpu = None
     # the flywheel is ON by default: the reproduction cache (fingerprint→approach) + experience store
     # (error→fix) make repeat/sibling repos cheaper and carry a learned fix across runs — HOW-only, so a stale
     # entry can only cost coverage, never a verdict. Kept OUT of the hermetic test suite (cache persistence
     # would couple tests); force off with CALMA_ORCH_FLYWHEEL=0.
     if os.environ.get("CALMA_ORCH_FLYWHEEL", "1") != "0" and "PYTEST_CURRENT_TEST" not in os.environ:
         from orchestrator import cache as OCACHE
+        from orchestrator.xpu import xpu_store as _XPU_STORE
         cache, hints = OCACHE.approach_cache(), OCACHE.hint_store()
+        xpu = _XPU_STORE()                                # dual-modality experience store (S3): Helix or local
     trace.stage("running", "running the chosen approach")
     # belt-and-suspenders FCR rail (parity with the heuristic repair loop): fingerprint repo compute source
     # before/after; if the build/run changed any .py (a package post-install, a fetched file), cap AFFIRMATIVE
@@ -790,7 +792,7 @@ def _run_repo_orchestrated(repo_dir: str, opts: VerifyOptions, trace: Trace, k: 
     _src_before = _REPAIR.snapshot_pyfiles(repo_dir)
     result = ORCH.orchestrate(repo_dir, run_approach, use_llm=opts.plan, plan=plan, budget=budget,
                               cache=cache, hints=hints, log=trace.note,
-                              synthesize=opts.synthesize_predictions)
+                              synthesize=opts.synthesize_predictions, xpu=xpu)
     _src_changed = _REPAIR._changed(_src_before, _REPAIR.snapshot_pyfiles(repo_dir))
     for line in (result.cost.get("assessment") or []):
         trace.note(line)
@@ -846,7 +848,7 @@ def _artifact_binds(claim: dict, path: str, n_metric_claims: int, n_files: int) 
     return bool(ptoks & ctoks)
 
 
-def _artifact_verify(repo_dir: str, claims: list[dict]) -> dict:
+def _artifact_verify(repo_dir: str, claims: list[dict], model: str | None = None) -> dict:
     out: dict = {}
     # Scan the repo for committed prediction files ONCE — it's a pure function of repo_dir. Doing it inside
     # the per-claim loop re-walked + re-read the repo for every claim; a benchmark that discovers hundreds of
@@ -854,13 +856,42 @@ def _artifact_verify(repo_dir: str, claims: list[dict]) -> dict:
     pred_files = A.find_prediction_files(repo_dir)
     if not pred_files:
         return out
+    # S4: read each pred file's boolean scope columns ONCE (row-aligned roles + scope cols) so a subset-scoped
+    # claim ("sensitivity on the testable subset") can recompute over the right rows. Bounded to the ≤12 pred
+    # files find_prediction_files already returns, so this adds no per-claim re-scan.
+    scoped_index = {path: A.read_scoped(path) for path, _ in pred_files}
     metric_counts: dict = {}
     for c in claims:
         m = (c.get("metric") or "").lower()
         metric_counts[m] = metric_counts.get(m, 0) + 1
     for claim in claims:
+        # a subset qualifier ('..._testable') rides in the claim's raw name (location = "file::rawname") + context
+        _qtext = str(claim.get("location", "")).split("::", 1)[-1] + " " + str(claim.get("context", ""))
         for path, cols in pred_files:
-            res = A.recompute_from_cols(cols, claim.get("metric"), SYNTH.recompute_any)
+            scoped_col = None
+            res = None
+            sidx = scoped_index.get(path)
+            if sidx is not None:
+                # S4 part 1: if the claim names a subset that binds LEXICALLY to a real column/value in THIS
+                # file, the SCOPED recompute is the correct one — a subset claim recomputed over all rows would
+                # false-REFUTE.
+                sres, scol = A.bind_and_recompute_scoped(_qtext, sidx[0], sidx[1], claim.get("metric"),
+                                                         SYNTH.recompute_any)
+                if not sres and model and sidx[1] and A.scope_qualifiers(_qtext):
+                    # S4 part 2: the lexical bind missed a subset claim → a BLIND LLM proposal (it never sees the
+                    # claim's VALUE, so it can't p-hack a subset to match), validated by the SAME independent
+                    # recompute. A wrong/hallucinated subset → REFUTED or rejected, never a false CONFIRM.
+                    bound = PLAN.propose_scope(claim.get("metric"), _qtext, sidx[1], model)
+                    if bound:
+                        r = A.recompute_scoped(sidx[0], sidx[1][bound[0]], bound[1], claim.get("metric"),
+                                               SYNTH.recompute_any)
+                        if r:
+                            sres = r
+                            scol = "AI:" + (bound[0] if bound[1] is None else "%s==%s" % (bound[0], bound[1]))
+                if sres:
+                    res, scoped_col = sres, scol
+            if res is None:
+                res = A.recompute_from_cols(cols, claim.get("metric"), SYNTH.recompute_any)
             if not res:
                 continue
             # only give an artifact verdict when the claim confidently corresponds to THIS file — never glue a
@@ -876,6 +907,8 @@ def _artifact_verify(repo_dir: str, claims: list[dict]) -> dict:
             # the source_modified cap already forces to REPRODUCED-ONLY) from "matches the repo's committed file".
             synth = fname == "calma_predictions.csv"
             kind = "synthesized predictions" if synth else "committed predictions"
+            if scoped_col:
+                kind += " on the '%s' subset" % scoped_col     # audit: which rows the scoped metric used
             reason = (
                 "claim matches the %s (%s · recomputed %.5g)" % (kind, fname, recomputed)
                 if ok
@@ -960,6 +993,7 @@ def verify_repo(
     job_run = None
     static_det = False
     committed_file_claims: list = []   # committed result-file claims snapshotted pre-run (see the deep block)
+    _data_modified: list[str] = []     # abs-path rewrites / dataset substitutions from the data relink → FCR cap
     if opts.deep:
         # AI run-plan pre-stage ("AI proposes, determinism disposes"): a fast model reads the repo and proposes
         # how to RUN it (entrypoint / deps). Kicked off in a BACKGROUND THREAD so it runs CONCURRENTLY with the
@@ -1013,12 +1047,20 @@ def verify_repo(
             from runner import data_resolver as _DR
             _stderr = " ".join(m.get("stderr_tail", "") for m in run_result.get("meta", []))
             miss = _DR.missing_data_path(_stderr)
-            # FREE first: the file is often committed elsewhere in the repo (code reads data/x.csv, it's at
-            # x.csv). Relink it where the code reads — no network, no cost, no source change → full verdict.
+            # FREE first: the file is often committed elsewhere in the repo. make_data_available (vs the old
+            # relative-only relink_committed_data) relinks a RELATIVE read (code reads data/x.csv, it's at
+            # x.csv — no edit, full verdict) AND honors an ABSOLUTE hardcoded path (copy the committed file to
+            # repo root + rewrite the path literal) and a sole-committed-dataset substitution. The absolute case
+            # is the ebv-ms hardcode (/Users/…/results/x.csv) the relative-only relink silently skipped. `_mod`
+            # = the .py/.ipynb edits + any substitution marker (empty for a same-basename relink); folded into
+            # source_modified below so a rewrite/substitution caps AFFIRMATIVE→REPRODUCED-ONLY. FCR-safe:
+            # supplies INPUTS only — a wrong file just mismatches the recompute, never a false CONFIRM.
             if miss:
-                placed = _DR.relink_committed_data(repo_dir, miss)
+                placed, _mod = _DR.make_data_available(repo_dir, miss)
                 if placed:
-                    trace.note("data relink: placed committed '%s' where the entrypoint reads it" % placed)
+                    _data_modified.extend(m for m in _mod if m not in _data_modified)
+                    trace.note("data relink: placed committed '%s' where the entrypoint reads it%s"
+                               % (placed, " (rewrote a hardcoded path → capped REPRODUCED-ONLY)" if _mod else ""))
                     run_result, entry = _run_repo(repo_dir, opts, trace, k=eff_k, get_plan=_get_plan)
             # opt-in fetch: a single missing file from a mirror (paid), then retry
             if not run_result.get("ran_ok") and opts.fetch_data and miss:
@@ -1086,6 +1128,14 @@ def verify_repo(
                                       sum(len(r) for r in gpu_res.get("runs", []))))
                 else:
                     trace.note("needs-gpu, but no Modal GPU backend is configured — reporting needs-gpu")
+        # fold any absolute-path rewrite / dataset substitution the relink performed into the FINAL run's
+        # manifest, so _apply_agent_modified_cap caps the verdict at REPRODUCED-ONLY. The .py snapshot rail
+        # can't catch these: an .ipynb edit, a data-substitution marker, and a rewrite applied BEFORE the
+        # re-run's snapshot are all invisible to it. Mirrors the orchestrate loop's data-substitution fold; a
+        # same-basename relink leaves _data_modified empty → full verdict, unchanged.
+        if _data_modified and run_result is not None:
+            _rm = run_result.setdefault("repair_manifest", {})
+            _rm["source_modified"] = list(dict.fromkeys((_rm.get("source_modified") or []) + _data_modified))
         total_calls = sum(len(run) for run in run_result.get("runs", []))
         err, err_full, failure = "", "", None
         if not run_result.get("ran_ok"):
@@ -1119,6 +1169,15 @@ def verify_repo(
             if regenerated:
                 trace.note("pinned %d committed result-file claim(s) — the run regenerated its results table"
                            % regenerated)
+        # S4 part 2b: AI "search ALL outputs" (CORE-Bench) — when the deterministic scan found NOTHING, an LLM
+        # locates REPORTED metric values the patterns missed (an odd file, a log, notebook prose). Each is gated
+        # through map_metric + a numeric value + a file we actually showed it; it stays only a CLAIM the recompute
+        # validates INDEPENDENTLY, so a misread/hallucinated number → REFUTED/DISCOVERED, never a false CONFIRM.
+        if opts.plan and not discovered:
+            located = PLAN.locate_claims(repo_dir, model=PLAN._MODEL)
+            if located:
+                trace.note("AI located %d reported metric(s) the deterministic scan missed" % len(located))
+                discovered = located
         trace.note("discovered %d claim(s)" % len(discovered))
         claims.extend(discovered)
 
@@ -1166,7 +1225,8 @@ def verify_repo(
         trace.note("tier cap: deep-verifying the top %d of %d claims by salience; %d held as DISCOVERED"
                    % (top_k, len(claims), len(held)))
 
-    artifacts = _artifact_verify(repo_dir, deep_claims) if deep_claims else {}
+    artifacts = _artifact_verify(repo_dir, deep_claims,
+                                 model=(PLAN._MODEL if opts.plan else None)) if deep_claims else {}
     if artifacts:
         trace.note("recomputed %d claim(s) from committed predictions" % len(artifacts))
 

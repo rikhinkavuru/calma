@@ -27,6 +27,7 @@ import time
 
 from . import CAPTURE_DIR, build, parse_capture
 from . import effector
+from . import snapshot   # E2B pause/resume warm-snapshot flywheel (S5); gated OFF by CALMA_E2B_SNAPSHOT
 
 _SHIM_FILES = ("calma_capture.py", "sitecustomize.py", "reinvoke.py", "run_notebook_e2b.py",
                "calma_leakage_probe.py", "colab_shim.py")
@@ -613,7 +614,7 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
             allow_internet=False, pip_install=None, pip_strict=True, python_version=None,
             cfg=None, max_elems=None, log=None, resolve=None, fuzz=False, cpu_cores=0, acquire=None,
             builder=None, acquire_env=None, acquire_allow_out=None, data_fetch=None,
-            data_resolver=None, repo_ctx=""):
+            data_resolver=None, repo_ctx="", fingerprint=None):
     """ONE sandbox: stage + install ONCE, then run the entrypoint k× inside it (each a fresh process with its
     own capture file). Reusing the sandbox across the determinism runs is the big cost lever — the dominant
     `pip install` is paid once, not k×, and it's MORE correct for determinism (identical env across runs, so
@@ -649,68 +650,106 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
     # (gb_kmer: the sandbox died at 600s during run 2 → 0 computations captured → fell back to discovery).
     sandbox_life = effector.size_sandbox_life(inst_timeout, k, timeout, _MAX_SANDBOX_S)
     try:
-        _note(log, "E2B: creating microVM (lifetime %dm)…" % (sandbox_life // 60))
-        sbx = _create_sandbox(cfg, sandbox_life,
-                              allow_internet or resolve is not None or bool(pip_install)
-                              or bool(python_version) or bool(acquire) or bool(data_fetch)
-                              or builder == "conda-micromamba")   # conda solve needs the package channels
-        _note(log, "E2B: microVM up (%.1fs) — uploading repo + capture shim" % (time.time() - t_start))
-        for fn in _SHIM_FILES:                                   # stage the capture shim + the repo (once)
-            with open(os.path.join(CAPTURE_DIR, fn), "rb") as fh:
-                sbx.files.write("/capture/" + fn, fh.read())
-        try:                                                    # ship the pure-stdlib leakage detector for the probe
-            with open(os.path.join(os.path.dirname(CAPTURE_DIR), "core", "leakage.py"), "rb") as fh:
-                sbx.files.write("/capture/calma_leakage.py", fh.read())
-        except OSError:
-            pass
-        _upload_dir(sbx, repo_dir, "/work", log=log)
+        # S5: resume a WARM snapshot of a prior successful build of the SAME repo (fingerprint) — the whole
+        # boot + upload + install path is skipped and the env restores in ~1s. Gated OFF (CALMA_E2B_SNAPSHOT)
+        # + best-effort: any miss/failure → boot fresh (below), so this can only speed a run, never break it.
+        resumed, _snap = False, None
+        if snapshot.snapshots_enabled():
+            from orchestrator import cache as _OCACHE            # lazy: avoid a runner↔orchestrator import cycle
+            from orchestrator.tools_static import repo_fingerprint as _repo_fp
+            _fp = fingerprint or _repo_fp(repo_dir)
+            if _fp:
+                _cache = _OCACHE.snapshot_cache(kill_fn=lambda sid: snapshot.kill_snapshot(sid, cfg))
+                _snap = (_fp, _cache)
+                _sid = _cache.get(_fp)
+                if _sid:
+                    sbx = snapshot.resume_sandbox(_sid, cfg, sandbox_life)
+                    if sbx is not None:
+                        resumed = True
+                        try:                                    # the warm snapshot still holds the PRIOR run's
+                            # capture files (/capture/calls_N.jsonl + .hooks/.fuzz) — the shim appends, so a
+                            # stale file would double-count this run's captures. Clear them (+ any old
+                            # predictions) so the resumed run starts clean.
+                            sbx.commands.run("rm -f /capture/calls_*.jsonl* /work/calma_predictions.csv")
+                        except Exception:  # noqa: BLE001 — best-effort cleanup; a failure only risks a dup capture
+                            pass
+                        _note(log, "E2B: resumed warm snapshot — skipping boot + upload + install")
+                    else:
+                        _cache.discard(_fp)                     # dead/expired snapshot → boot fresh
+        if not resumed:
+            _note(log, "E2B: creating microVM (lifetime %dm)…" % (sandbox_life // 60))
+            sbx = _create_sandbox(cfg, sandbox_life,
+                                  allow_internet or resolve is not None or bool(pip_install)
+                                  or bool(python_version) or bool(acquire) or bool(data_fetch)
+                                  or builder == "conda-micromamba")   # conda solve needs the package channels
+            _note(log, "E2B: microVM up (%.1fs) — uploading repo + capture shim" % (time.time() - t_start))
+            for fn in _SHIM_FILES:                               # stage the capture shim + the repo (once)
+                with open(os.path.join(CAPTURE_DIR, fn), "rb") as fh:
+                    sbx.files.write("/capture/" + fn, fh.read())
+            try:                                                # ship the pure-stdlib leakage detector for the probe
+                with open(os.path.join(os.path.dirname(CAPTURE_DIR), "core", "leakage.py"), "rb") as fh:
+                    sbx.files.write("/capture/calma_leakage.py", fh.read())
+            except OSError:
+                pass
+            _upload_dir(sbx, repo_dir, "/work", log=log)
         if resolve is not None:                                 # join the run-plan NOW — it ran during the boot
             entry, pip_install, pip_strict, targets = resolve()
             entry = list(entry)
             heavy = build.deps_are_heavy(pip_install)           # deps known now → right-size the install budget
             inst_timeout = max(timeout, 1800) if heavy else timeout
-        pybin, pip_cmd, python_used = _provision_python(sbx, python_version, inst_timeout, log=log)  # declared py (or default)
-        if python_used:
-            _note(log, "E2B: provisioned declared Python %s" % python_used)
-        if pip_install:
-            _note(log, "E2B: installing %d dep(s)%s — %s" % (
-                len(pip_install), " [heavy: up to %dm]" % (inst_timeout // 60) if heavy else "",
-                " ".join(pip_install)[:200]))
-        try:
-            _install(sbx, pip_install, pip_strict, inst_timeout, pip_cmd, log=log)  # install (once)
-        except Exception as _e:  # noqa: BLE001 — env build failed; run a bounded, HOW-only repair LADDER. FCR-safe:
-            # env-only, so a still-broken env just fails closed to DISCOVERED, never a false CONFIRM.
-            err = str(_e)
-            need_py = build.required_python_from_error(err)
-            repaired = False
-            if need_py and need_py != (python_used or python_version or ""):
-                # step 1: deps demand a newer interpreter than we provisioned (numpy==2.4.6 needs Python>=3.11):
-                # reprovision at the required version and retry the SAME pins (faithful, on the right Python).
-                _note(log, "E2B: deps require Python %s (had %s) — reprovisioning + retrying"
-                      % (need_py, python_used or python_version or "default"))
-                try:
-                    pybin, pip_cmd, python_used = _provision_python(sbx, need_py, inst_timeout, log=log)
-                    _install(sbx, pip_install, pip_strict, inst_timeout, pip_cmd, log=log)
-                    repaired = True
-                except Exception:  # noqa: BLE001 — the bump alone didn't resolve it; fall through to relaxing pins
-                    pass
-            if not repaired:
-                # step 2: retry with versions relaxed (an unpinned set usually resolves; the recompute is
-                # independent of exact versions, so this trades pin-fidelity for a runnable env).
-                relaxed = build.relax_pins(pip_install)
-                if relaxed != list(pip_install or []):
-                    _note(log, "E2B: install failed — retrying with relaxed versions")
-                    _install(sbx, relaxed, False, inst_timeout, pip_cmd, log=log)
-                else:
-                    raise
-        if builder == "conda-micromamba":                       # B2: solve environment.yml in-sandbox via micromamba
+        if resumed:
+            # the warm snapshot already carries the built env + capture shim + any acquired data; read back only
+            # WHICH interpreter to invoke (a declared-python venv path is otherwise lost on resume) and run.
+            try:
+                _rc = sbx.files.read("/calma_runctx.json")
+                _rc = json.loads(_rc if isinstance(_rc, str) else _rc.decode())
+                pybin, python_used = (_rc.get("pybin") or "python"), _rc.get("python_used")
+            except Exception:  # noqa: BLE001 — no run-context saved → fall back to the image default python
+                pybin, python_used = "python", None
+            _note(log, "E2B: warm env restored (%.0fs) — provision + install skipped" % (time.time() - t_start))
+        else:
+            pybin, pip_cmd, python_used = _provision_python(sbx, python_version, inst_timeout, log=log)  # declared py (or default)
+            if python_used:
+                _note(log, "E2B: provisioned declared Python %s" % python_used)
+            if pip_install:
+                _note(log, "E2B: installing %d dep(s)%s — %s" % (
+                    len(pip_install), " [heavy: up to %dm]" % (inst_timeout // 60) if heavy else "",
+                    " ".join(pip_install)[:200]))
+            try:
+                _install(sbx, pip_install, pip_strict, inst_timeout, pip_cmd, log=log)  # install (once)
+            except Exception as _e:  # noqa: BLE001 — env build failed; run a bounded, HOW-only repair LADDER. FCR-safe:
+                # env-only, so a still-broken env just fails closed to DISCOVERED, never a false CONFIRM.
+                err = str(_e)
+                need_py = build.required_python_from_error(err)
+                repaired = False
+                if need_py and need_py != (python_used or python_version or ""):
+                    # step 1: deps demand a newer interpreter than we provisioned (numpy==2.4.6 needs Python>=3.11):
+                    # reprovision at the required version and retry the SAME pins (faithful, on the right Python).
+                    _note(log, "E2B: deps require Python %s (had %s) — reprovisioning + retrying"
+                          % (need_py, python_used or python_version or "default"))
+                    try:
+                        pybin, pip_cmd, python_used = _provision_python(sbx, need_py, inst_timeout, log=log)
+                        _install(sbx, pip_install, pip_strict, inst_timeout, pip_cmd, log=log)
+                        repaired = True
+                    except Exception:  # noqa: BLE001 — the bump alone didn't resolve it; fall through to relaxing pins
+                        pass
+                if not repaired:
+                    # step 2: retry with versions relaxed (an unpinned set usually resolves; the recompute is
+                    # independent of exact versions, so this trades pin-fidelity for a runnable env).
+                    relaxed = build.relax_pins(pip_install)
+                    if relaxed != list(pip_install or []):
+                        _note(log, "E2B: install failed — retrying with relaxed versions")
+                        _install(sbx, relaxed, False, inst_timeout, pip_cmd, log=log)
+                    else:
+                        raise
+        if not resumed and builder == "conda-micromamba":       # B2: solve environment.yml in-sandbox via micromamba
             conda_py = _build_conda_env(sbx, "environment.yml", inst_timeout, log=log)
             if conda_py:
                 pybin, python_used = conda_py, "conda"
         # data-acquisition (paid, gated upstream): run the repo's OWN download pipeline WITH network so the
         # datasets materialize before the eval. The sandbox was created with internet for this; the eval then
         # runs in the same sandbox (a documented tradeoff — the recompute is still independent, so FCR holds).
-        if data_fetch:
+        if not resumed and data_fetch:
             # BYPASS a broken/incomplete repo download pipeline: fetch the AI-identified canonical data files
             # DIRECTLY into the sandbox at the paths the repo expects, so the eval has its inputs even when the
             # repo's own scripts fail. Best-effort per file (a 404/other error just leaves it missing → the run
@@ -718,7 +757,7 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
             # + recomputed independently. The caller caps a MISMATCH to INCONCLUSIVE (auto-fetched data isn't the
             # repo's own output, so it must never false-REFUTE a correct claim).
             data_fetched = _fetch_data_sources(sbx, data_fetch, inst_timeout, log=log)
-        if acquire:
+        if not resumed and acquire:
             _note(log, "E2B: acquiring data — %d step(s) with network allowed" % len(acquire))
             # the download scripts need their OWN deps (datasets/huggingface_hub/requests/…), installed with open
             # net BEFORE the egress allowlist clamps down (the allowlist includes pypi, but install-first is safe).
@@ -860,10 +899,26 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
                 pass
     finally:
         if sbx is not None:
-            try:
-                sbx.kill()
-            except Exception:  # noqa: BLE001
-                pass
+            # S5: reaching here means the ENV BUILT (setup didn't fail-return above). If the snapshot flywheel
+            # is on, PAUSE the sandbox and cache it as a warm snapshot for the next scan of this repo (resume
+            # ~1s vs a fresh boot+install). Save the run-context (which interpreter) INTO the snapshot first, so
+            # resume invokes the right python. If the pause fails, fall back to killing it (today's behavior).
+            _paused = False
+            if snapshot.snapshots_enabled() and _snap is not None:
+                try:
+                    sbx.files.write("/calma_runctx.json",
+                                    json.dumps({"pybin": pybin, "python_used": python_used}))
+                except Exception:  # noqa: BLE001 — run-context is best-effort; resume falls back to default python
+                    pass
+                _sid = snapshot.pause_sandbox(sbx)
+                if _sid:
+                    _snap[1].put(_snap[0], _sid)               # cache the warm snapshot (reaps any prior one)
+                    _paused = True
+            if not _paused:
+                try:
+                    sbx.kill()
+                except Exception:  # noqa: BLE001
+                    pass
     # surface an adaptive-k budget cap in the machine-readable cost: "we WANTED k≥2 but the microVM couldn't fit
     # the re-run" is materially different from a user who chose k=1 — the user can re-run with a larger budget.
     _extra = {"adaptive_k_capped": True, "runs_completed": len(runs), "runs_requested": max(1, k)} \

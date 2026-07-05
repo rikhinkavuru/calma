@@ -193,3 +193,73 @@ def runplan_cache() -> RunPlanCache:
     if _RUNPLANS is None:
         _RUNPLANS = RunPlanCache()
     return _RUNPLANS
+
+
+class SnapshotCache:
+    """fingerprint → a paused-sandbox snapshot id (the warm-env flywheel, build plan §4.4, S5). A repeat or
+    sibling scan RESUMES the snapshot (~1s) instead of re-booting + re-installing the environment (minutes) —
+    the RunPlan contract as a live image. HOW-only: a resumed env still flows through the full k-runs →
+    recompute → fail-closed verdict, so a stale snapshot can only cost coverage (a failed run → DISCOVERED),
+    never a verdict; a changed repo yields a different fingerprint → automatic miss.
+
+    UNLIKE the pure-JSON caches, each entry is a LIVE paused sandbox = cost — E2B retains paused sandboxes
+    INDEFINITELY (no TTL). So this cache is SMALL-bounded and, on replacement or eviction, KILLS the old sandbox
+    via the injected ``kill_fn`` (a wrong/absent reaper would leak sandboxes). Persisted best-effort."""
+
+    def __init__(self, path: str | None = None, kill_fn=None, max_entries: int = 64):
+        self._path = path or os.path.join(_DEFAULT_DIR, "snapshots.json")
+        self._lock = threading.Lock()
+        self._data = _load(self._path)
+        self._kill = kill_fn if callable(kill_fn) else (lambda _sid: None)
+        self._max = max(1, int(max_entries))
+
+    def get(self, fingerprint: str) -> str | None:
+        if not fingerprint:
+            return None
+        with self._lock:
+            v = self._data.get(fingerprint)
+        return v if (isinstance(v, str) and v) else None
+
+    def _reap(self, snapshot_id) -> None:
+        try:
+            if snapshot_id:
+                self._kill(snapshot_id)                        # release the live sandbox (cost) — best-effort
+        except Exception:  # noqa: BLE001 — a failed kill must never break put()/discard()
+            pass
+
+    def put(self, fingerprint: str, snapshot_id: str) -> None:
+        if not fingerprint or not snapshot_id:
+            return
+        with self._lock:
+            old = self._data.get(fingerprint)
+            if old and old != snapshot_id:
+                self._reap(old)                                # a replaced snapshot is now orphaned → kill it
+            if fingerprint not in self._data and len(self._data) >= self._max:
+                fk = next(iter(self._data))
+                self._reap(self._data.pop(fk))                 # evict + kill the oldest-inserted (bound = cost cap)
+            self._data[fingerprint] = snapshot_id
+            _save(self._path, self._data)
+
+    def discard(self, fingerprint: str) -> None:
+        """Drop + kill the snapshot for a fingerprint — e.g. when a resume failed (the snapshot is gone/expired),
+        so the next scan boots fresh instead of retrying a dead id."""
+        with self._lock:
+            sid = self._data.pop(fingerprint, None)
+            if sid:
+                self._reap(sid)
+                _save(self._path, self._data)
+
+    def __len__(self):
+        return len(self._data)
+
+
+_SNAPSHOTS: SnapshotCache | None = None
+
+
+def snapshot_cache(kill_fn=None) -> SnapshotCache:
+    """The process-wide snapshot cache. ``kill_fn`` (the E2B reaper) is bound on first construction — the E2B
+    integration passes ``lambda sid: runner.snapshot.kill_snapshot(sid, cfg)``; tests pass a fake."""
+    global _SNAPSHOTS
+    if _SNAPSHOTS is None:
+        _SNAPSHOTS = SnapshotCache(kill_fn=kill_fn)
+    return _SNAPSHOTS

@@ -325,6 +325,189 @@ def plan_predictions(repo_dir: str, model: str | None = None) -> dict | None:
     return {"driver": driver, "metric": str(p.get("metric") or ""), "confidence": conf}
 
 
+# ── subset-scope binding (S4 part 2): bind a subset CLAIM to the rows it's about, BLIND to its value ──────────
+_SCOPE_SYSTEM = (
+    "You bind a benchmark CLAIM to the SUBSET of prediction rows it is about, so a verifier can recompute the "
+    "metric on the correct rows. You are given the metric, the claim's LABEL text, and the candidate subset "
+    "columns of the predictions file (each with its distinct values). Choose the ONE column — and, for a "
+    "categorical column, the ONE value — whose subset the claim's label denotes: e.g. 'minority class' -> the "
+    "rarer label value, 'testable'/'evaluable' -> a boolean flag column, 'hard examples' -> a difficulty "
+    "column's 'hard' value, 'rare variants' -> a class column's 'rare' value. Return column '' if NONE of the "
+    "columns denotes the claim's subset. "
+    "CRITICAL: you are NOT told the claim's numeric value and must NEVER try to hit a number — pick ONLY the "
+    "subset the LABEL semantically names. A wrong subset is caught + rejected by the verifier, so guessing a "
+    "subset to match a value is pointless and forbidden."
+)
+_SCOPE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "column": {"type": "string", "description": "the subset column name EXACTLY as given, or '' if none applies"},
+        "value": {"type": "string", "description": "for a categorical column, the exact value naming the subset; "
+                  "'' for a boolean column (its truthy rows) or when column is ''"},
+    },
+    "required": ["column", "value"],
+    "additionalProperties": False,
+}
+
+
+def propose_scope(metric, claim_label, scope_cols, model=None):
+    """BLIND LLM subset binding: given the metric, the claim's LABEL, and the candidate subset columns (name +
+    distinct values), pick the {column, value} subset the label denotes — WITHOUT seeing the claim's numeric
+    value, so it cannot p-hack a subset to match one. Returns (column, value_or_None) or None; validated against
+    the REAL columns/values here, then recomputed INDEPENDENTLY by the caller. Best-effort + gated (no key/SDK
+    -> None).
+
+    FCR: the proposer is blind to the target number, and its output is a bounded choice over EXISTING columns/
+    values (hallucinations rejected below); a wrong subset -> a wrong recompute -> REFUTED, never a false
+    CONFIRM. Same 'AI proposes, determinism disposes' contract as the run-planner — the LLM picks HOW to slice,
+    the unchanged recompute disposes the verdict."""
+    if not scope_cols:
+        return None
+    summary = []
+    for col, vals in list(scope_cols.items())[:25]:
+        distinct = sorted({str(v).strip() for v in vals if str(v).strip()})[:12]
+        summary.append({"column": col, "values": distinct})
+    context = json.dumps({"metric": str(metric or ""), "claim_label": str(claim_label or ""), "columns": summary})
+    raw = _call_model(context, (model or _MODEL), system=_SCOPE_SYSTEM, schema=_SCOPE_SCHEMA)
+    if not raw:
+        return None
+    try:
+        p = json.loads(raw)
+    except (json.JSONDecodeError, ValueError):
+        return None
+    if not isinstance(p, dict):
+        return None
+    col = (p.get("column") or "").strip()
+    if not col or col not in scope_cols:                       # no-subset, or a hallucinated column -> skip
+        return None
+    val = (p.get("value") or "").strip()
+    if not val:
+        return col, None                                       # boolean column -> its truthy subset
+    distinct = {str(v).strip().lower() for v in scope_cols[col] if str(v).strip()}
+    if val.lower() in distinct:
+        return col, val                                        # a categorical value that ACTUALLY exists
+    return None                                                # a value not present in the column -> reject
+
+
+# ── locate_results (S4 part 2b): AI "search ALL outputs" when the deterministic scan found nothing ────────────
+_LOCATE_SYSTEM = (
+    "You find the REPORTED evaluation metrics in a repository's result files — the headline numbers a reader "
+    "would cite — that an automated scan missed (an unusual file, a log, prose). For each reported metric "
+    "value, output the metric NAME as written, its numeric VALUE exactly as written, and the file it is in "
+    "(from the ### headers). Only REPORTED EVALUATION metrics (accuracy, AUROC, F1, recall, precision, RMSE, "
+    "MAE, ...) — NEVER a hyperparameter, a learning rate, an epoch/step count, a dataset size, a loss-curve "
+    "point, a runtime, or any number you are not sure is a reported result metric. Never invent a value or a "
+    "file. If you find none, return an empty list."
+)
+_LOCATE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "claims": {"type": "array", "items": {
+            "type": "object",
+            "properties": {
+                "metric": {"type": "string", "description": "the metric name as written in the file"},
+                "value": {"type": "string", "description": "the numeric value exactly as written (e.g. '0.883' or '94.2%')"},
+                "file": {"type": "string", "description": "the file it appears in, from a ### header"},
+                "context": {"type": "string", "description": "a few words of surrounding label (dataset/split), optional"},
+            },
+            "required": ["metric", "value", "file"],
+            "additionalProperties": False,
+        }},
+    },
+    "required": ["claims"],
+    "additionalProperties": False,
+}
+_LOCATE_EXT = (".txt", ".log", ".out", ".md", ".rst", ".json", ".yaml", ".yml", ".tsv", ".csv")
+_LOCATE_HINT = ("result", "score", "metric", "eval", "output", "summary", "report", "benchmark", "perf", "log")
+
+
+def _locate_context(repo_dir, max_files=15, per_file=4000, total=30000):
+    """Bounded text of the repo's result-ish files — the haystack for AI number-location — plus the set of
+    repo-relative paths shown (so a located claim can be REQUIRED to cite a real file we actually presented,
+    the anti-hallucination rail). Prefers files whose name hints at results; caps per-file + total size."""
+    picks = []
+    for root, dirs, files in os.walk(repo_dir):
+        dirs[:] = [d for d in dirs if not d.startswith(".") and d not in ("node_modules", "__pycache__")]
+        for fn in files:
+            if not fn.lower().endswith(_LOCATE_EXT):
+                continue
+            p = os.path.join(root, fn)
+            try:
+                if os.path.getsize(p) > 200_000:
+                    continue
+            except OSError:
+                continue
+            picks.append((0 if any(h in fn.lower() for h in _LOCATE_HINT) else 1, p))
+    picks.sort(key=lambda x: (x[0], x[1]))
+    out, shown, used = [], set(), 0
+    for _rank, p in picks[:max_files]:
+        try:
+            text = open(p, errors="replace").read(per_file)
+        except OSError:
+            continue
+        rel = os.path.relpath(p, repo_dir)
+        chunk = "### %s\n%s" % (rel, text)
+        if used + len(chunk) > total:
+            break
+        out.append(chunk)
+        shown.add(rel)
+        shown.add(os.path.basename(rel))
+        used += len(chunk)
+    return "\n\n".join(out), shown
+
+
+def locate_claims(repo_dir, model=None, existing=None):
+    """AI "search ALL outputs" (CORE-Bench): find REPORTED metric values the deterministic discovery scan
+    missed. Returns claim dicts (discovery's shape), each gated through ``map_metric`` (a real metric), a numeric
+    value, and a file we ACTUALLY showed the model (no hallucinated files). Best-effort + gated.
+
+    FCR: a located claim is only a CLAIM (a reported number) — it is CONFIRMED only if the INDEPENDENT recompute
+    matches it, exactly like a scanned claim. A misread / hallucinated number simply won't match the recompute
+    (→ REFUTED / DISCOVERED), never a false CONFIRM. The value is never trusted, only the recompute is."""
+    if not os.path.isdir(repo_dir):
+        return []
+    ctx, shown = _locate_context(repo_dir)
+    if not ctx.strip():
+        return []
+    raw = _call_model(ctx, (model or _MODEL), system=_LOCATE_SYSTEM, schema=_LOCATE_SCHEMA)
+    if not raw:
+        return []
+    try:
+        p = json.loads(raw)
+    except (json.JSONDecodeError, ValueError):
+        return []
+    if not isinstance(p, dict):
+        return []
+    from discovery.extract import map_metric  # noqa: PLC0415 — the SAME precision gate the scanner uses
+    seen = {(c.get("metric"), str(c.get("value"))) for c in (existing or [])}
+    out = []
+    for item in (p.get("claims") or [])[:40]:
+        if not isinstance(item, dict):
+            continue
+        cid, split, _conf = map_metric(str(item.get("metric") or "").strip())
+        if not cid:
+            continue                                          # not a real metric → drop (anti-noise/hallucination)
+        val = str(item.get("value") or "").strip()
+        try:
+            float(val.rstrip("%"))
+        except ValueError:
+            continue                                          # not a number → drop
+        frel = str(item.get("file") or "").strip()
+        if frel not in shown and os.path.basename(frel) not in shown:
+            continue                                          # cites a file we never showed it → hallucinated → drop
+        key = (cid, val)
+        if key in seen:
+            continue
+        seen.add(key)
+        claim = {"metric": cid, "value": val, "location": "%s::%s" % (os.path.basename(frel) or "located",
+                 str(item.get("metric") or "").strip()), "source": "ai-located", "confidence": 0.5,
+                 "context": str(item.get("context") or "")[:90]}
+        if split:
+            claim["split"] = split
+        out.append(claim)
+    return out[:20]
+
+
 def _valid_data_sources(items):
     """Keep only {path, url} where path is a SAFE repo-relative path (no escape / absolute) and url is a plain
     https:// URL. A prompt-injected plan can't write outside the repo or point the fetcher at an internal host:
