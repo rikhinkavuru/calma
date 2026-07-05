@@ -112,11 +112,21 @@ def _read_seq_col(path, cap=20000):   # bounded: don't read a huge committed spl
         return []
 
 
+# Dirs that hold TEST SCAFFOLDING / examples, never the repo's real evaluation data. A train/test split found
+# under one of these is a unit-test fixture or a getting-started toy — scanning it produced a false leakage
+# alarm (gfmbench-api: an 8-row `tests/fixtures/data/.../{train,test}.csv` with 100% overlap flagged as
+# "contaminated"). Note `test`/`testing`/`val` are NOT here on purpose — in the sibling train/+test/ dir format
+# those name the test SPLIT itself; only the PLURAL `tests` (+ `fixtures`/`examples`/…) are scaffolding.
+_FIXTURE_DIRS = frozenset({"tests", "fixtures", "fixture", "examples", "example", "samples", "sample",
+                           "toy", "sanity", "demo", "dummy", "mock", "mocks", "tutorial", "tutorials",
+                           "docs", "doc", ".git", "node_modules", "__pycache__"})
+
+
 def _split_pairs(repo_dir):
     """Find <name>_train.csv / <name>_test.csv pairs anywhere in the repo (the committed-splits pattern)."""
     pairs = {}
     for root, dirs, files in os.walk(repo_dir):
-        dirs[:] = [d for d in dirs if d not in (".git", "node_modules", "__pycache__")]
+        dirs[:] = [d for d in dirs if d.lower() not in _FIXTURE_DIRS]
         for fn in files:
             low = fn.lower()
             if not low.endswith(".csv"):
@@ -170,7 +180,7 @@ def _split_dirs(root):
     <base>/train/<class>/*.txt + <base>/test/...). Returns {name: {train: dir, test: dir}}."""
     out = {}
     for r, dirs, _files in os.walk(root):
-        dirs[:] = [d for d in dirs if d not in (".git", "node_modules", "__pycache__")]
+        dirs[:] = [d for d in dirs if d.lower() not in _FIXTURE_DIRS]
         low = {d.lower(): d for d in dirs}
         tr = next((low[k] for k in ("train", "training") if k in low), None)
         te = next((low[k] for k in ("test", "testing", "val", "valid", "validation") if k in low), None)
