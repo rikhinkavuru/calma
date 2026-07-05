@@ -115,13 +115,15 @@ def assess(repo_dir: str) -> RepoProfile:
     notebooks = S.find_notebooks(repo_dir)
     make_targets = S.find_make_targets(repo_dir)
 
-    # declared deps: merge requirements.txt (includes-resolved, B3) with any other manifest (B1)
+    # declared deps: merge requirements.txt (includes-resolved, B3) with any other manifest (B1), then dedup by
+    # PACKAGE NAME preferring the pinned spec — an exact-string merge kept both 'numpy==2.4.6' and a bare
+    # 'numpy' (pyproject + requirements list the same dep differently), which then double-installed and showed
+    # a doubled reproduce command.
     declared: list[str] = []
     req = S.resolve_requirements_includes(repo_dir)
     declared += req.get("specs", [])
-    for spec in S.read_declared_deps(repo_dir):
-        if spec not in declared:
-            declared.append(spec)
+    declared += S.read_declared_deps(repo_dir)
+    declared = S.build.dedup_pip(declared)
 
     profile = RepoProfile(
         language=S.detect_language(repo_dir),
