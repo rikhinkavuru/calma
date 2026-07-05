@@ -960,6 +960,7 @@ def verify_repo(
     job_run = None
     static_det = False
     committed_file_claims: list = []   # committed result-file claims snapshotted pre-run (see the deep block)
+    _data_modified: list[str] = []     # abs-path rewrites / dataset substitutions from the data relink → FCR cap
     if opts.deep:
         # AI run-plan pre-stage ("AI proposes, determinism disposes"): a fast model reads the repo and proposes
         # how to RUN it (entrypoint / deps). Kicked off in a BACKGROUND THREAD so it runs CONCURRENTLY with the
@@ -1013,12 +1014,20 @@ def verify_repo(
             from runner import data_resolver as _DR
             _stderr = " ".join(m.get("stderr_tail", "") for m in run_result.get("meta", []))
             miss = _DR.missing_data_path(_stderr)
-            # FREE first: the file is often committed elsewhere in the repo (code reads data/x.csv, it's at
-            # x.csv). Relink it where the code reads — no network, no cost, no source change → full verdict.
+            # FREE first: the file is often committed elsewhere in the repo. make_data_available (vs the old
+            # relative-only relink_committed_data) relinks a RELATIVE read (code reads data/x.csv, it's at
+            # x.csv — no edit, full verdict) AND honors an ABSOLUTE hardcoded path (copy the committed file to
+            # repo root + rewrite the path literal) and a sole-committed-dataset substitution. The absolute case
+            # is the ebv-ms hardcode (/Users/…/results/x.csv) the relative-only relink silently skipped. `_mod`
+            # = the .py/.ipynb edits + any substitution marker (empty for a same-basename relink); folded into
+            # source_modified below so a rewrite/substitution caps AFFIRMATIVE→REPRODUCED-ONLY. FCR-safe:
+            # supplies INPUTS only — a wrong file just mismatches the recompute, never a false CONFIRM.
             if miss:
-                placed = _DR.relink_committed_data(repo_dir, miss)
+                placed, _mod = _DR.make_data_available(repo_dir, miss)
                 if placed:
-                    trace.note("data relink: placed committed '%s' where the entrypoint reads it" % placed)
+                    _data_modified.extend(m for m in _mod if m not in _data_modified)
+                    trace.note("data relink: placed committed '%s' where the entrypoint reads it%s"
+                               % (placed, " (rewrote a hardcoded path → capped REPRODUCED-ONLY)" if _mod else ""))
                     run_result, entry = _run_repo(repo_dir, opts, trace, k=eff_k, get_plan=_get_plan)
             # opt-in fetch: a single missing file from a mirror (paid), then retry
             if not run_result.get("ran_ok") and opts.fetch_data and miss:
@@ -1086,6 +1095,14 @@ def verify_repo(
                                       sum(len(r) for r in gpu_res.get("runs", []))))
                 else:
                     trace.note("needs-gpu, but no Modal GPU backend is configured — reporting needs-gpu")
+        # fold any absolute-path rewrite / dataset substitution the relink performed into the FINAL run's
+        # manifest, so _apply_agent_modified_cap caps the verdict at REPRODUCED-ONLY. The .py snapshot rail
+        # can't catch these: an .ipynb edit, a data-substitution marker, and a rewrite applied BEFORE the
+        # re-run's snapshot are all invisible to it. Mirrors the orchestrate loop's data-substitution fold; a
+        # same-basename relink leaves _data_modified empty → full verdict, unchanged.
+        if _data_modified and run_result is not None:
+            _rm = run_result.setdefault("repair_manifest", {})
+            _rm["source_modified"] = list(dict.fromkeys((_rm.get("source_modified") or []) + _data_modified))
         total_calls = sum(len(run) for run in run_result.get("runs", []))
         err, err_full, failure = "", "", None
         if not run_result.get("ran_ok"):

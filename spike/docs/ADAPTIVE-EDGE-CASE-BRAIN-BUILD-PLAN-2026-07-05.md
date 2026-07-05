@@ -179,10 +179,19 @@ by the snapshot rail — keep that.
 
 Ordered by leverage × safety. Every slice: proposer-only, bounded, tested, HOW-only.
 
-- **S0 — Wire the fix that already exists (proof-of-pattern).** Trigger `data_resolver.resolve_data_path` on
-  a missing-file whose basename is committed in-repo (the ebv-ms hardcoded path). Diagnose why it didn't fire
-  in the smoke; make it a first-class remediation in the loop. *Small, high-signal, closes the exact case the
-  user hit.*
+- **S0 — Wire the fix that already exists (proof-of-pattern). ✅ DONE (2026-07-05).** *Diagnosis:* the tool
+  logic was fine; the wiring wasn't. The DEFAULT deep pipeline path (`pipeline._verify_deep`, the path the smoke
+  actually ran — `orchestrate` is flag-gated OFF) repaired missing data with the relative-only
+  `relink_committed_data`, which **explicitly refuses absolute paths** (`data_resolver.py` L174). The ebv-ms
+  hardcode `/Users/…/results/x.csv` is absolute → silently skipped → surfaced as missing-data. The
+  absolute-capable `make_data_available` (copy committed file to repo-root + AST-rewrite the literal, or
+  sole-dataset substitution) was reachable ONLY via `resolve_data_path` → `orchestrate()` (inert). *Fix:*
+  pipeline default path now calls `make_data_available`; its `modified` list (the rewrite / substitution
+  marker) is folded into `repair_manifest.source_modified` so `_apply_agent_modified_cap` caps
+  AFFIRMATIVE→REPRODUCED-ONLY (a source edit can't attribute the number to the repo's own code → no false
+  CONFIRM). A same-basename relink returns `[]` → full verdict, unchanged. Reaches E2B (fresh microVM
+  re-uploads `repo_dir` per run). Test: `test_data_relink_pipeline_e2e.py` (absolute→runnable+capped;
+  relative→uncapped CONFIRM). `make py` green, FCR 11/11, 1022 tests.
 - **S1 — Fault taxonomy + remediation registry (§5).** Formalize `classify_failure` into a taxonomy with a
   per-fault remediation + evidence + validation contract. Deterministic first; the loop consults it before the
   LLM. Ships the hardcoded-path, missing-binary, results-location remediations as registry entries.
@@ -245,10 +254,11 @@ state machine · `HintStore`/`ApproachCache`/`RunPlanCache` = the experience-cac
 
 ---
 
-### Open decisions (for the founder)
-- **OD-A:** E2B snapshot/rollback (S5) is the one infra dependency — confirm E2B pause/resume is available on
-  the plan, or we simulate rollback with fresh microVMs (costlier).
-- **OD-B:** XPU vector backend — Helix now, or a lighter local (sqlite-vec/pgvector) first? (SetupX used
-  pgvector.)
-- **OD-C:** How far to let `bind_artifact` go before requiring the user to scope a claim — fully-auto scoped
-  recompute (higher coverage, more Judge load) vs. propose-and-ask for exotic scopes.
+### Open decisions (founder calls — resolved 2026-07-05)
+- **OD-A → DECIDE AT S5.** E2B snapshot/rollback is S5's one infra dependency; confirm pause/resume when S5
+  approaches, else simulate rollback with fresh microVMs (costlier).
+- **OD-B → HELIX NOW.** S3's XPU vector store goes straight to the Helix vector node (durable, cross-instance)
+  behind the store interface — no local sqlite-vec interim.
+- **OD-C → FULLY-AUTO ALL SCOPES.** `bind_artifact` (S4) auto-recomputes every proposed claim→artifact scope;
+  no propose-and-ask gate. FCR-safe by construction — the Judge validates each binding by independent
+  recompute, so a wrong auto-scope → REFUTED/INCONCLUSIVE, never CONFIRM.
