@@ -1,5 +1,6 @@
-# Calma verification backend on Fly.io. A persistent single instance (jobs are in-memory MVP, so don't
-# scale to zero mid-run). Secrets are set via `flyctl secrets set` (see DEPLOY.md), never committed here.
+# Calma verification backend on Fly.io. A persistent single instance: live jobs stay in memory, but every
+# job is write-through-persisted to SQLite on the mounted volume (below), so a redeploy/restart no longer
+# orphans finished runs. Secrets are set via `flyctl secrets set` (see DEPLOY.md), never committed here.
 app = "calma-engine"   # the verification backend ("verify"/"calma-verify" is blocked by Fly's abuse filter)
 primary_region = "sjc"
 
@@ -9,6 +10,14 @@ primary_region = "sjc"
 [env]
   PORT = "8080"
   CALMA_FORCE_E2B = "1"   # public backend: every run is isolated in E2B, never on this host
+  CALMA_DATA_DIR = "/data"   # durable job store lives here (see [mounts]); survives redeploys
+
+# A persistent volume for the job store (core/jobstore.py → /data/jobs.db). Create it once before the first
+# deploy: `flyctl volumes create calma_data --region sjc --size 1 -a calma-engine`. Single machine, single
+# volume (min_machines_running = 1 below), so history is durable without a managed DB.
+[mounts]
+  source = "calma_data"
+  destination = "/data"
 
 [http_service]
   internal_port = 8080

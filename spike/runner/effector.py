@@ -14,6 +14,7 @@ still computed downstream from `runs`, untouched.
 from __future__ import annotations
 
 import json
+import os
 
 # Where the capture shim is mounted inside every sandbox (on PYTHONPATH so sitecustomize auto-arms it).
 CAPTURE_MOUNT = "/capture"
@@ -22,8 +23,13 @@ CAPTURE_MOUNT = "/capture"
 # these; the metric is recomputed in Python from the emitted predictions (the capture shim is Python-only).
 LANG_INTERP = {"r": "Rscript", "julia": "julia", "shell": "bash", "sh": "sh"}
 # Hard cap on a sandbox's lifetime (build + all k runs) — a safety bound on cost / backend limits. E2B and
-# Modal both honour it; Modal's own max is 24h, well above this.
-MAX_SANDBOX_S = 3600
+# Modal both honour it; Modal's own max is 24h, well above this. Env-tunable because the genomics ICP has
+# legitimate heavy benchmarks (gb_kmer: install + k·~40-min sweeps) that need > 60 min or the microVM hits
+# end-of-life mid-run-2 and captures nothing. Raising it is cost-safe: the per-tenant MONTHLY sandbox-second
+# budget (core/limits.py) still bounds total spend; this only lifts the per-sandbox ceiling. Set
+# CALMA_MAX_SANDBOX_S=10800 (3h) on the hosted engine for the heavy-benchmark tier — but only if the E2B
+# plan's own max-lifetime allows it (create() rejects a timeout above the account ceiling).
+MAX_SANDBOX_S = int(os.environ.get("CALMA_MAX_SANDBOX_S") or 3600)
 
 
 def capture_run_env(index: int, out_remote: str, *, hooks: str = "sklearn", targets=None,

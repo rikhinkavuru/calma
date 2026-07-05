@@ -51,6 +51,44 @@ def test_detect_readme_subdir_path_preserved(tmp_path):
     assert build.detect_entrypoint(str(tmp_path)) == ["scripts/run.py"]
 
 
+def test_detect_skips_readme_help_usage_command(tmp_path):
+    # A `--help`/`-h`/`--version` invocation documents the CLI; it computes no numbers, so it is never the
+    # reproduction entrypoint. gb_kmer's only README code block was `python diag.py --help` — deep verify ran
+    # the help screen, captured nothing, and reported "the entrypoint failed". Skip it; the real run wins.
+    (tmp_path / "diag.py").write_text("import argparse\nargparse.ArgumentParser().parse_args()\n")
+    (tmp_path / "run_benchmark.py").write_text("if __name__ == '__main__':\n    print('acc=0.9')\n")
+    (tmp_path / "README.md").write_text(
+        "## try the tool\n```bash\npython diag.py --help\n```\n"
+        "## reproduce\n```bash\npython run_benchmark.py\n```\n")
+    assert build.detect_entrypoint(str(tmp_path)) == ["run_benchmark.py"]
+
+
+def test_artifact_producer_prefers_origin_over_consumer(tmp_path):
+    # Reverse-map hygiene: a downstream analysis that READS the committed headline table and writes a derived
+    # csv by string-literal (tight=2) must not outrank the true producer that writes the headline table via a
+    # computed path (tight=1). gb_kmer: run_discriminability.py reads results.csv → writes
+    # discriminability_summary.csv; run_benchmark.py is the origin of results.csv.
+    (tmp_path / "results").mkdir()
+    (tmp_path / "results" / "results.csv").write_text("dataset,acc\nx,0.9\n")
+    (tmp_path / "results" / "discriminability_summary.csv").write_text("tf,stat\nA,1\n")
+    (tmp_path / "run_benchmark.py").write_text(
+        "import os, pandas as pd\n"
+        "def main():\n"
+        "    out = os.path.join('results', 'results.csv')   # computed path → tight=1\n"
+        "    pd.DataFrame().to_csv(out)\n"
+        "if __name__ == '__main__':\n    main()\n")
+    (tmp_path / "run_discriminability.py").write_text(
+        "import argparse, pandas as pd\n"
+        "def main():\n"
+        "    ap = argparse.ArgumentParser()\n"
+        "    ap.add_argument('--results', default='results/results.csv')   # consumes the headline table\n"
+        "    a = ap.parse_args()\n"
+        "    pd.read_csv(a.results)\n"
+        "    pd.DataFrame().to_csv('results/discriminability_summary.csv')  # literal → tight=2\n"
+        "if __name__ == '__main__':\n    main()\n")
+    assert build.artifact_producer(str(tmp_path)) == ["run_benchmark.py"]
+
+
 def test_detect_readme_stale_dash_m_rejected(tmp_path):
     # A README `-m pkg.missing` that no longer resolves must NOT be trusted (it would fail the run); detection
     # falls through to a real signal instead.
