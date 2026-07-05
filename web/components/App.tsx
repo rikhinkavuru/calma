@@ -10,11 +10,11 @@ import { SiteNav } from "./SiteNav";
 import { Hero } from "./Hero";
 import { BpProgress } from "./home/BpProgress";
 import { BpFlow } from "./home/BpFlow";
-import { BpMoats } from "./home/BpMoats";
+import { BpFeatures } from "./home/BpFeatures";
 import { BpFaq } from "./home/BpFaq";
 import { BpFooter } from "./home/BpFooter";
 
-// Landing: hero → convergence (flow) → features (moats) → FAQ → footer.
+// Landing: hero → convergence (flow) → features → FAQ → footer.
 export default function App() {
   return (
     <>
@@ -25,7 +25,7 @@ export default function App() {
       <main>
         <Hero />
         <BpFlow />
-        <BpMoats />
+        <BpFeatures />
         <section className="flowsec faqsec">
           <div className="wrap">
             <BpFaq />

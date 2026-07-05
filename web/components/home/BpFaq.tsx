@@ -1,24 +1,27 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Reveal } from "../chrome";
 
+/* Copy is grounded in the current engine: pipeline.py (three-way diff, deep=False validity scan),
+   core/verdict.py taxonomy, runner/e2b_runner (single-use microVM, network-off execution),
+   attest/ (signed verdict attestations), and the FCR=0 release gate. */
 const QA: { q: string; a: React.ReactNode }[] = [
-  { q: "What is Calma, in one sentence?", a: <>An automatic guardrail for AI-generated results — it re-runs your agent&apos;s work, recomputes the numbers it reported, and <b>blocks the wrong ones before they ship.</b></> },
-  { q: "Why can't the AI just check its own work?", a: <>Because it grades its own homework. Even when it re-runs the code, it still decides whether the answer matches — and it tends to agree with itself. <b>Calma&apos;s decision is made by code the AI can&apos;t influence.</b></> },
-  { q: "What do I get back?", a: <>One of three outcomes — <b>Confirmed</b>, <b>Caught</b>, or <b>Can&apos;t-tell</b> — each with the precise verdict and the reason behind it, the fix when something&apos;s missing, and <b>a one-command replay anyone can run.</b></> },
-  { q: "Can it block a PR from merging?", a: <>Yes — that&apos;s a distinct surface. Calma runs as a <b>required PR check</b>, a blocking gate rather than a comment-bot opinion: a refuted or invalidated number fails the check, so a wrong number is blocked from merging once you mark the gate required in branch protection. <b>Prove your own numbers before you ship.</b></> },
-  { q: "Does my code or data leave my machine?", a: <>No. Calma re-runs everything locally, inside a sandbox that blocks the network — <b>your code, your data, and your results are never uploaded by the verifier.</b> (Optional tiers you turn on explicitly — a remote microVM for untrusted code, an RFC-3161 timestamp — make a network call, and the ledger records which.)</> },
-  { q: "What does it cost?", a: <>The skill is free and open source — install it and your agents use it today. The lab&apos;s signed verification reports are paid engagements, <b>for when money is about to move on a number.</b></> },
+  { q: "What is Calma, in one sentence?", a: <>Connect a repo and Calma independently re-runs the work, recomputes every number it claims, and tells you which ones hold — <b>Confirmed, Refuted, Invalidated, or Inconclusive.</b></> },
+  { q: "Why can't the AI just check its own work?", a: <>Because it grades its own homework. Even when it re-runs the code, it still decides whether the answer matches — and it tends to agree with itself. <b>Calma&apos;s verdict is produced by deterministic code the AI can&apos;t influence.</b></> },
+  { q: "What do I get back?", a: <>A verdict per claim, with the recomputed number next to the claimed one, the reason behind the verdict, and the evidence — which artifact it was recomputed from and whether the run was deterministic. <b>When Calma can&apos;t verify a claim it says so; it never guesses.</b></> },
+  { q: "Where does my code run?", a: <>In an isolated, single-use microVM sandbox with the network cut off while your code executes. <b>The sandbox is created for your run and destroyed when it finishes.</b></> },
+  { q: "Do you have to re-run my code to catch anything?", a: <>No. The validity scan works without executing anything — it checks committed train/eval splits for leakage, compares the score against a trivial baseline, and recomputes from committed predictions. <b>The full re-run is what upgrades a claim to Confirmed.</b></> },
+  { q: "What does it cost?", a: <>Verifying starts free. Paid tiers add depth and volume — <b><Link href="/pricing">see pricing</Link>.</b></> },
 ];
 
 export function BpFaq() {
-  const [open, setOpen] = useState<number | null>(0);
+  const [open, setOpen] = useState<number | null>(null);
   return (
     <div className="bp-block" id="faq">
       <Reveal>
         <div className="bp-head">
-          <span className="bp-kicker">Questions</span>
           <h2 className="bp-h2">The fine print, in <span className="am">plain English.</span></h2>
         </div>
       </Reveal>

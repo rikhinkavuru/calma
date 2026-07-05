@@ -46,7 +46,7 @@ export function SiteNav() {
       logo="/img/calma-lotus.png"
       logoAlt="Calma"
       items={NAV_ITEMS}
-      baseColor="rgba(13,11,8,0.9)"
+      baseColor="rgba(13, 11, 8, 0.55)"
       menuColor="#e9ddc4"
       buttonBgColor="#e89a5d"
       buttonTextColor="#0d0b08"

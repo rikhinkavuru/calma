@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Renderer, Program, Mesh, Triangle } from 'ogl';
 import './GradientBlinds.css';
 
@@ -70,6 +70,10 @@ const GradientBlinds: React.FC<GradientBlindsProps> = ({
   const pausedRef = useRef<boolean>(paused);
   const lastRenderRef = useRef<number>(0);
   const loopRef = useRef<((t: number) => void) | null>(null);
+  // Bumped when the browser discards our WebGL context (common after scrolling a paused, offscreen
+  // canvas on memory pressure). Re-runs the init effect to build a fresh context — without this the
+  // canvas stays permanently blank and only the CSS glow fallback shows.
+  const [contextEpoch, setContextEpoch] = useState(0);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -88,6 +92,14 @@ const GradientBlinds: React.FC<GradientBlindsProps> = ({
     canvas.style.height = '100%';
     canvas.style.display = 'block';
     container.appendChild(canvas);
+
+    // Recover from a browser-discarded context: preventDefault keeps the canvas restorable, and
+    // bumping the epoch tears this effect down and rebuilds renderer + program from scratch.
+    const onContextLost = (e: Event) => {
+      e.preventDefault();
+      setContextEpoch((n) => n + 1);
+    };
+    canvas.addEventListener('webglcontextlost', onContextLost);
 
     const vertex = `
 attribute vec2 position;
@@ -350,6 +362,7 @@ void main() {
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       window.removeEventListener('pointermove', onPointerMove);
+      canvas.removeEventListener('webglcontextlost', onContextLost);
       ro.disconnect();
       if (canvas.parentElement === container) {
         container.removeChild(canvas);
@@ -381,7 +394,8 @@ void main() {
     spotlightSoftness,
     spotlightOpacity,
     distortAmount,
-    shineDirection
+    shineDirection,
+    contextEpoch
   ]);
 
   // Reflect `paused` into the loop without re-initialising WebGL, and restart the RAF when the hero

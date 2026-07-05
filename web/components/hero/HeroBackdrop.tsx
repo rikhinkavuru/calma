@@ -8,7 +8,7 @@ import { ErrorBoundary } from "../site/ErrorBoundary";
 
 const GradientBlinds = dynamic(() => import("../GradientBlinds"), { ssr: false });
 
-const COLORS = ["#2e4f6d", "#7fb89e", "#e89a5d", "#ffb36b"];
+const COLORS = ["#35648f", "#8ccfab", "#f29a4a", "#ffbe74"];
 
 export function HeroBackdrop() {
   const ref = useRef<HTMLDivElement>(null);

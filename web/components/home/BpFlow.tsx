@@ -91,7 +91,7 @@ export function BpFlow() {
             ))}
             {IN_WIRES.map((w) => (
               <circle key={`p${w.d}`} className="flow__pulse" r="2.1" vectorEffect="non-scaling-stroke">
-                <animateMotion dur="5.4s" repeatCount="indefinite" path={w.d} begin={w.begin} calcMode="linear" />
+                <animateMotion dur="3.4s" repeatCount="indefinite" path={w.d} begin={w.begin} calcMode="linear" />
               </circle>
             ))}
           </svg>
