@@ -75,7 +75,10 @@ def homology_overlap(train_seqs, test_seqs, k: int = 6, sim: float = 0.8, sample
 
 
 _SEQ_COLS = ("sequence", "seq", "sequences", "text", "smiles", "peptide", "dna", "rna", "x", "input")
-_LABEL_COLS = ("label", "target", "y", "class", "id", "index", "split")
+# columns to skip when picking the sequence column (labels + id/index/split metadata). Distinct from the
+# label-column names in _LABEL_COLS below — sharing one module-level name silently rebound this to the wrong
+# tuple, so _seq_column stopped skipping id/index/split. Kept separate on purpose.
+_NON_SEQ_COLS = ("label", "target", "y", "class", "id", "index", "split")
 
 
 def _seq_column(header):
@@ -83,8 +86,8 @@ def _seq_column(header):
     for name in _SEQ_COLS:
         if name in low:
             return low.index(name)
-    for i, h in enumerate(header):                 # else the first non-label column
-        if h.strip().lower() not in _LABEL_COLS:
+    for i, h in enumerate(header):                 # else the first column that isn't a label / id / split
+        if h.strip().lower() not in _NON_SEQ_COLS:
             return i
     return 0 if header else None
 

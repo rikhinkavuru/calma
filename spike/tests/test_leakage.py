@@ -45,3 +45,13 @@ def test_homology_clean_on_novel_sequences():
     test = [_seq(rng) for _ in range(100)]      # all novel → no homology
     assert L.homology_overlap(train, test)["overlap_frac"] < 0.05
     assert L.check_leakage(train, test, sequences=True) == []
+
+
+def test_seq_column_skips_id_index_split_metadata():
+    """Regression (Phase 2 mypy fix): _seq_column must skip label/id/index/split metadata columns when no
+    recognized sequence-name column is present. A module-level name collision (_LABEL_COLS was defined twice)
+    silently rebound this skip-list to the label-name tuple, so id/index/split stopped being skipped and an id
+    column could be mistaken for the sequence — quietly weakening homology-leakage detection."""
+    header = ["id", "index", "split", "mystery_feature", "label"]
+    assert L._seq_column(header) == 3                        # mystery_feature, not the id column at index 0
+    assert L._seq_column(["id", "sequence", "label"]) == 1   # a recognized sequence name still wins directly
