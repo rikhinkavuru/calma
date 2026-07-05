@@ -3,9 +3,19 @@
 resumable id, resume/kill are best-effort (never raise), and the cache REAPS a replaced/evicted snapshot so a
 paused sandbox (retained indefinitely by E2B) can't leak."""
 import os
+import sys
+import types
 
 from orchestrator.cache import SnapshotCache
 from runner import snapshot as SNAP
+
+
+def _fake_e2b(monkeypatch, sandbox_cls):
+    # inject a fake `e2b` module into sys.modules — works whether or not the real SDK is installed (it is NOT
+    # in CI), unlike setattr on the real module which needs it importable. resume/kill do `from e2b import Sandbox`.
+    fake = types.ModuleType("e2b")
+    fake.Sandbox = sandbox_cls
+    monkeypatch.setitem(sys.modules, "e2b", fake)
 
 
 # ── primitives ────────────────────────────────────────────────────────────────────────────────────────────────
@@ -52,7 +62,7 @@ class _FakeSDK:
 
 def test_resume_and_kill_use_the_sdk_by_id(monkeypatch):
     _FakeSDK.calls = {"connect": [], "kill": []}
-    monkeypatch.setattr("e2b.Sandbox", _FakeSDK, raising=False)
+    _fake_e2b(monkeypatch, _FakeSDK)
     cfg = {"api_key": "k", "domain": "d"}
     sbx = SNAP.resume_sandbox("snap-9", cfg)
     assert sbx and sbx.sandbox_id == "snap-9" and _FakeSDK.calls["connect"] == ["snap-9"]
@@ -66,7 +76,7 @@ def test_resume_never_raises_on_dead_snapshot(monkeypatch):
         @classmethod
         def connect(cls, *a, **k):
             raise RuntimeError("sandbox not found")
-    monkeypatch.setattr("e2b.Sandbox", _Boom, raising=False)
+    _fake_e2b(monkeypatch, _Boom)
     assert SNAP.resume_sandbox("dead", {"api_key": "k"}) is None   # → caller boots fresh, unchanged behavior
 
 
