@@ -188,6 +188,11 @@ def find_entrypoints(repo_dir: str) -> list[EntryCand]:
     if readme and readme[0] == "-m":
         add(readme, 0.88, ["README module command"])
 
+    # CI is the ground-truth run command — the repo's own workflow executes it on every push, and it often
+    # names the exact entrypoint a README omits. Path/module-validated in build.ci_workflow_signals.
+    for argv in build.ci_workflow_signals(repo_dir).get("entry", []):
+        add(argv, 0.86, ["CI workflow run step"])
+
     # a runnable package (`-m pkg` when pkg/__main__.py exists)
     pkg = build._runnable_package(repo_dir)
     if pkg:
