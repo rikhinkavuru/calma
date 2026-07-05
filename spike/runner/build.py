@@ -648,6 +648,18 @@ _FAILURE_TAXONOMY = [
     ("[timeout]", ("too-slow", "exceeded the time budget — scope the run or raise the timeout")),
     ("ModuleNotFoundError", ("missing-dep", "a dependency could not be installed/resolved")),
     ("No matching distribution", ("missing-dep", "a dependency could not be installed/resolved")),
+    # dependency-resolution / Python-version conflicts (uv/pip): the ENVIRONMENT couldn't be built — this is
+    # NOT an entrypoint problem (the entrypoint never got to run). Calma auto-reprovisions the required Python
+    # and relaxes pins first (build.required_python_from_error / relax_pins); this classifies it honestly when
+    # the repair still can't satisfy the pins, instead of the generic "the entrypoint errored".
+    ("No solution found", ("env-build", "the dependencies couldn't be resolved (a version/Python conflict) — "
+                           "retried on a compatible Python and with relaxed pins, but the pins are still "
+                           "mutually unsatisfiable")),
+    ("does not satisfy Python", ("env-build", "the declared Python doesn't satisfy a dependency — retried on a "
+                                 "compatible interpreter")),
+    ("depends on Python", ("env-build", "a dependency needs a different Python than the repo declared — "
+                           "reprovisioned a compatible interpreter and retried")),
+    ("Cannot install", ("env-build", "conflicting dependency versions — retried with relaxed pins")),
     # pandas parquet needs pyarrow/fastparquet — an optional extra dep-inference can't see. Now bundled in the
     # image, but classify it as missing-dep (not a generic error) so the heal/revise can install it if absent.
     ("Unable to find a usable engine", ("missing-dep", "parquet support needs pyarrow — install it")),

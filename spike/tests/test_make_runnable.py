@@ -77,3 +77,14 @@ def test_detect_entrypoint_uses_ci_over_filename_guessing(tmp_path):
     (tmp_path / "b.py").write_text("print(2)\n")        # two indistinguishable scripts -> guessing is ambiguous
     _write_ci(tmp_path, "steps:\n  - run: python b.py\n")
     assert build.detect_entrypoint(str(tmp_path)) == ["b.py"]
+
+
+# ── Slice 7: honest failure classification — an env build failure is NOT an entrypoint problem ─────────────────
+def test_classify_env_build_failure_is_honest_not_entrypoint():
+    err = ("× No solution found when resolving dependencies: Because the current Python version (3.10.20) does "
+           "not satisfy Python>=3.11 and numpy==2.4.6 depends on Python>=3.11, numpy==2.4.6 cannot be used.")
+    c = build.classify_failure(err)
+    assert c["kind"] == "env-build"
+    assert "entrypoint errored" not in c["hint"]
+    # a genuinely unrecognized error still falls back to the generic entrypoint-errored classification
+    assert build.classify_failure("Traceback: some novel crash")["kind"] == "errored"
