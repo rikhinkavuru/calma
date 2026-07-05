@@ -351,3 +351,31 @@ route override; HSTS honored only over HTTPS). The no-CORS decision is now docum
 **Deliberately not done:** no CSP (would risk breaking the local dashboard's inline styles/scripts and needs
 visual verification — not worth an autonomous change); left to the founder if the dashboard is ever exposed
 directly rather than behind the Next app.
+
+---
+
+## Phase 6 — Perf / resilience / observability (Categories E/F/H) (2026-07-05) · commit `harden(resilience)`
+
+**Verified solid (no change):** the process-isolation **supervisor** (`runner/supervisor.py`) enforces an RSS
+monitor (kills before the cgroup OOM-killer), `RLIMIT_CPU`, an `RLIMIT_AS` backstop, a wall-clock deadline,
+and a concurrency gate that splits container memory evenly across children (`concurrency × cap + reserve ≤
+RAM`). Background verify runs in a **daemon thread** so it survives client/tab disconnect. Per-job **logs are
+already bounded** (4000-line cap, `server.py:249`). `/api/jobs`, `/api/jobs/{id}`, `/api/jobs/{id}/logs`
+exist for observability. `_installation_ok` uses a stateless signed proof so an installation binding survives
+an API redeploy.
+
+**Two real gaps closed:**
+- **Memory leak — `JOBS` grew unbounded.** Each submission adds a job dict (claims + up to 4000 log lines);
+  nothing ever removed it, so a long-lived single instance leaks. Added `_evict_jobs()` (called under `_LOCK`
+  after insert): once `JOBS` exceeds `CALMA_MAX_JOBS` (default **500**), evict the **oldest terminal**
+  (done/stopped/error) jobs. **Queued/running jobs are never evicted** → in-flight work is never dropped.
+- **No health endpoint.** Added `GET /healthz` (unauthenticated by design — returns only `{ok, job-count}`)
+  and wired a **Fly `http_service` check** to it (30s interval, 10s grace) so the machine is restarted if the
+  API stops answering.
+
++2 tests. `make py` green — mypy 0, 1002 passed, coverage **73.56%**, FCR 11/11.
+
+**Known limitation (documented, not a regression):** jobs are an in-memory MVP — a full instance restart
+loses job history and any in-flight run. `fly.toml` already pins `min_machines_running=1` +
+`auto_stop_machines=false` for exactly this reason; the durable control-plane store is a deliberate
+post-MVP item, not a hardening-pass gap.
