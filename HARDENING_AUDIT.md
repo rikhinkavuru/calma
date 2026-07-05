@@ -379,3 +379,33 @@ an API redeploy.
 loses job history and any in-flight run. `fly.toml` already pins `min_machines_running=1` +
 `auto_stop_machines=false` for exactly this reason; the durable control-plane store is a deliberate
 post-MVP item, not a hardening-pass gap.
+
+---
+
+## Phase 7 — Dead & duplicate code (Categories A/B) (2026-07-05) · no code change
+
+**Dead-code gate is clean:** `ruff` (F401 unused imports) and `vulture --min-confidence 80` both report **0**.
+Went deeper — `vulture --min-confidence 60` surfaces 66 function candidates; a reference scan shows the list is
+**false-positive-dominated**: the "unreferenced" hits are overwhelmingly **FastAPI route handlers** (invoked
+by the `@app.get(...)` decorator, never by name — `catalog_view`, `gh_repos`, `signing_key`, `connect_github`,
+`_security_headers`, …) plus dunder attributes (`__wrapped__`, `__path__`) that are live introspection, not
+dead code. Correctly excluded by the 80% gate.
+
+**Six functions are genuinely unreferenced internally** (no caller, no `getattr`/string dispatch, no test,
+no export): `core/datahash.py::file_sha256`, `core/datahash.py::digest_field`,
+`synth/experience.py::get_bank`, `synth/experience.py::ExperienceBank.record_outcome`,
+`orchestrator/registry.py::tool_names`, `orchestrator/registry.py::tools_by_kind`. **Left in place** — each is
+a coherent piece of a deliberate API surface: `core/datahash` is library API (a `packages/core` seed),
+`synth/experience` is the orchestrator's ExperienceBank learning store, and the registry helpers are
+introspection for the (flag-gated, default-off) orchestrator. Per Rule 5 (prove-dead-then-quarantine; when
+intent is unclear, don't delete) and "don't manufacture churn," these stay. See **OD-2**.
+
+**Duplication:** the time-boxed scan surfaced no actionable copy-paste — the tree is `ruff`/`vulture`-clean and
+was de-duped in prior passes. Shared helpers already live in their modules (e.g. `_log`/`_set` in `server.py`,
+`shlex.quote` call sites, the recompute catalog). No consolidation made.
+
+**## OPEN DECISIONS — OD-2 (flagged, non-blocking): delete the 6 unreferenced helpers, or keep as API?**
+They are below the `vulture-80` gate and are internally unreferenced today, but each belongs to an
+intentional/optional module surface (datahash library, ExperienceBank, orchestrator registry). Reasonable
+engineers differ (YAGNI-delete vs. keep-the-library-surface). Default taken: **keep** (safe, reversible, no
+churn). If you'd prefer them removed, say so and I'll delete them with their tests-of-record in one commit.
