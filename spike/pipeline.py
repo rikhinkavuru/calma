@@ -816,18 +816,22 @@ def _artifact_verify(repo_dir: str, claims: list[dict]) -> dict:
             recomputed = res["value"]
             ok, _ = T.claim_close(claim.get("value"), recomputed)
             fname = os.path.basename(path)
+            # distinguish Calma's OWN synthesized predict-and-dump output (reserved name) from a genuinely
+            # committed artifact — an auditor must be able to tell "reproduced via a synthesized driver" (which
+            # the source_modified cap already forces to REPRODUCED-ONLY) from "matches the repo's committed file".
+            synth = fname == "calma_predictions.csv"
+            kind = "synthesized predictions" if synth else "committed predictions"
             reason = (
-                "claim matches the committed predictions (%s · recomputed %.5g)" % (fname, recomputed)
+                "claim matches the %s (%s · recomputed %.5g)" % (kind, fname, recomputed)
                 if ok
-                else "claim %r != recompute from committed predictions (%s = %.5g)"
-                % (claim.get("value"), fname, recomputed)
+                else "claim %r != recompute from %s (%s = %.5g)" % (claim.get("value"), kind, fname, recomputed)
             )
             out[claim.get("id")] = _claim_out(
                 claim,
                 VD.CONFIRMED if ok else VD.REFUTED,
                 reason,
                 {"claimed": claim.get("value"), "recomputed": recomputed},
-                provenance="artifact:" + (res.get("provenance") or "recipe"),
+                provenance="artifact:" + ("synthesized" if synth else (res.get("provenance") or "recipe")),
             )
             break
     return out
