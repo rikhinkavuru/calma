@@ -34,6 +34,10 @@ _KEYWORDS = [
     (("balanced", "acc"), "balanced_accuracy"), (("accuracy",), "accuracy"), (("acc",), "accuracy"),
     (("macro", "f1"), "f1"), (("micro", "f1"), "f1"), (("f1",), "f1"), (("fscore",), "f1"),
     (("precision",), "precision"), (("recall",), "recall"),
+    # classification/biomed synonyms (a whole domain reports these): sensitivity == recall (TPR),
+    # specificity == TNR. Reachable via the keyword fallback so "homology_sensitivity_testable" maps.
+    (("sensitivity",), "recall"), (("tpr",), "recall"),
+    (("specificity",), "specificity"), (("tnr",), "specificity"),
     (("rmse",), "rmse"), (("mae",), "mae"), (("mse",), "mse"),
     (("r2",), "r2"), (("rsquared",), "r2"),
     (("sharpe",), "sharpe"),
@@ -347,6 +351,44 @@ def _candidate_csvs(repo_dir):
     return out
 
 
+_RESULT_DIRS = ("results", "result", "output", "outputs", "artifacts", "reports", "report",
+                "eval", "evaluation", "metrics", "scores", "logs")
+_RESULT_JSON_RE = re.compile(r"(result|metric|score|eval|benchmark|summary|_ci|report|accuracy|perf|stat)", re.I)
+
+
+def _candidate_result_jsons(repo_dir):
+    """Result JSONs beyond the fixed _RESULT_FILES: EVERY *.json inside a results/output dir (that's what the
+    dir is FOR — a repo commits its reported numbers there under arbitrary names like `benchmark_ci.json`),
+    plus root-level jsons whose NAME looks like a results file. `from_results_json` is map_metric-gated, so a
+    non-metric json (config/package/lockfile) yields 0 claims — scanning generously is safe, no false
+    positives. This is the fix for the very common 'repo commits everything under results/ but Calma found 0
+    reported numbers'."""
+    out: list = []
+    seen: set = set()
+
+    def add(p):
+        if p not in seen and os.path.isfile(p):
+            seen.add(p)
+            out.append(p)
+
+    try:
+        for fn in os.listdir(repo_dir):
+            if fn.lower().endswith(".json") and _RESULT_JSON_RE.search(fn):
+                add(os.path.join(repo_dir, fn))
+    except OSError:
+        pass
+    for d in _RESULT_DIRS:
+        rd = os.path.join(repo_dir, d)
+        if os.path.isdir(rd):
+            try:
+                for fn in sorted(os.listdir(rd)):
+                    if fn.lower().endswith(".json"):
+                        add(os.path.join(rd, fn))
+            except OSError:
+                pass
+    return out[:200]
+
+
 def from_notebook(path, max_claims=400) -> list[dict]:
     """Discover claims from a Jupyter notebook's COMMITTED cell outputs — a huge class of repos report their
     headline numbers ONLY in a notebook's rendered output (an `Accuracy: 0.94` print, a metrics-DataFrame
@@ -401,6 +443,8 @@ def _scan_dir(d) -> list[dict]:
         p = os.path.join(d, fn)
         if os.path.isfile(p):
             found.extend(from_results_json(p))
+    for p in _candidate_result_jsons(d):                 # results/*.json + result-named root jsons (arbitrary names)
+        found.extend(from_results_json(p))
     for p in _candidate_csvs(d):
         found.extend(from_results_csv(p))
     for p in _candidate_notebooks(d):
