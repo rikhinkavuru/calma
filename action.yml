@@ -29,10 +29,10 @@ outputs:
 runs:
   using: 'docker'
   # PREBUILT image (published by .github/workflows/publish-validity-image.yml) — consumers pull it instead of
-  # rebuilding the SciPy recompute stack on every PR. One-time: after the first publish, set the GHCR package
-  # `calma-validity` to Public so external `uses:` can pull it. To hack on the action from source, swap this line
-  # back to `image: 'Dockerfile'`.
-  image: 'docker://ghcr.io/rikhinkavuru/calma-validity:latest'
+  # rebuilding the SciPy recompute stack on every PR. Pinned to the major tag :v1, which moves only on v1.x
+  # releases (so `uses: rikhinkavuru/calma@v1` is reproducible, not tracking main). To hack on the action from
+  # source, swap this line back to `image: 'Dockerfile'`.
+  image: 'docker://ghcr.io/rikhinkavuru/calma-validity:v1'
   args:
     - ${{ inputs.path }}
     - ${{ inputs.fail-on }}
