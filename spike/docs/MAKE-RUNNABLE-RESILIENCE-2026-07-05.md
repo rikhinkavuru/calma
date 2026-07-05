@@ -27,6 +27,29 @@ binding, or verdict. A still-broken env fails closed to DISCOVERED — never a f
 Slice 5 (flywheel) + Slice 8 (no-run/discovery) are the biggest coverage levers. Slices 1–4 make the *run*
 path resilient (fix this repo's class). Slice 7 is a same-day UX win. Slice 6 ties it together.
 
+## Status — 2026-07-05: ALL SLICES LANDED + orchestrator hardened
+
+| Slice | Status | What shipped |
+|---|---|---|
+| 1 — dedup + env-repair retry | ✅ | `dedup_pip`; on install failure, Python-bump/relax retry |
+| 2 — relax ladder + tolerant repair | ✅ | tolerant per-package path re-raises on a Python conflict; 2-step ladder (bump → relax) |
+| 3 (C) — ground from the repo | ✅ | `ci_workflow_signals` → `detect_python_version` / `detect_entrypoint` / `find_entrypoints` |
+| 4 (A) — conda for binaries | ✅ | heuristic path routes `environment.yml` → conda-micromamba (bioconda binaries) |
+| 5 (Helix flywheel) | ✅ | `RunPlanCache` in the default path — known-good plan reused, persists across scans |
+| 6 (D) — env-repair to default | ✅ | the repair ladder lives in the SHARED `e2b_runner` (both paths); heal records error→fix to the flywheel HintStore |
+| 7 (E) — honest messages | ✅ | `env-build` failure kind; "Couldn't build the environment", not "entrypoint errored" |
+| 8 (B) — no-run discovery | ✅ | `from_notebook` reads committed cell outputs (the "0 claims" dead-end) |
+
+**Orchestrator "works entirely" (the separate ask):** **P2** effector error-isolation (a sandbox/network
+crash on one approach no longer kills the whole orchestration — the single biggest "it just stopped"
+cause), **P1** budget floor (the assess→observe→revise loop actually runs, not 1 shot), **P3** flywheel
+default-on, + dedup on the orchestrator's deps. 90 orchestrator tests pass.
+
+Everything is on branch `feat/make-runnable-2026-07-05`; each slice is gate-green (`make py`: mypy 0,
+ruff+BLE001, coverage ≥ 73, **FCR 11/11**). The E2B-path changes (env-repair, conda routing, flywheel
+wiring) are unit-tested at the decision level (pure helpers + cache classes); a **live-E2B smoke run**
+confirms them end-to-end before relying on them in prod.
+
 ## Guardrails
 - Every retry/repair is **bounded** (no unbounded loops; caches are size-capped — CWE-770).
 - **HOW-only**: caches/repairs replay an approach or a fix, never a value/binding/verdict. A stale entry can

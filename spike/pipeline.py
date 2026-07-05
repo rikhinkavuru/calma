@@ -549,11 +549,20 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = 
             mod = _missing_module_from(result)
             if not mod:
                 break
-            pip = (pip or []) + [build._PKG_ALIASES.get(mod, mod)]
+            dist = build._PKG_ALIASES.get(mod, mod)
+            pip = (pip or []) + [dist]
             trace.note("missing dep %s — installing + retrying" % mod)
             result = run_e2b(repo_dir, entry, k=k, hooks=opts.hooks, targets=tgts, builder=_builder,
                              pip_install=pip, pip_strict=strict, python_version=pyver, timeout=opts.timeout,
                              log=trace.note, fuzz=opts.fuzz, cpu_cores=opts.cpu_cores)
+            # flywheel (slice 6): if adding this dist produced a good run, record the error→fix so the
+            # orchestrator (and a future novel repo hitting the same 'No module named X') get it for free.
+            if _rpc is not None and result.get("ran_ok"):
+                try:
+                    from orchestrator.cache import hint_store as _hint_store
+                    _hint_store().record("missing-dep:" + mod, {"add_dep": dist})
+                except Exception:  # noqa: BLE001 — the flywheel is best-effort
+                    pass
         # flywheel: remember the plan that VERIFIABLY captured, so the next scan of this tree reuses it.
         if _rpc is not None and _fp and result.get("ran_ok") and (result.get("runs") and result["runs"][0]):
             try:
