@@ -289,3 +289,35 @@ shaped literals out of tracked docs.
 **Gate status after Phase 3:** Python side green (P2) + web side green (P3) + secrets green. The full
 `make gate` is expected green; the authoritative end-to-end run is deferred to THE LOOP after P4–P7 (which
 may touch code).
+
+---
+
+## Phase 4 — Error handling: broad-except audit (Category C) (2026-07-05) · commit `harden(lint) BLE001`
+
+**Goal:** find silent-swallow bugs among the broad `except` handlers. **Method:** an AST classifier
+(`scratchpad/except_audit.py`) over all non-test `spike/` source, not a grep — it distinguishes bare
+excepts, trivial-body (pass/continue/return-constant) swallows, and handlers that log/return meaningful
+values, and checks each for a justifying comment.
+
+**Result — clean:**
+- **Bare `except:` (no type): 0.**
+- **Undocumented silent-swallow (broad + trivial body + no comment): 0.**
+- Broad handlers total ≈153: **79 documented deliberate** (trivial body + reason comment) + **74 actively
+  handled** (log / return a meaningful value). **158** `# noqa: BLE001` annotations across the tree confirm
+  the fail-closed convention is applied consistently. No `except: pass` / `except Exception: pass` one-liners
+  exist in source.
+
+**Interpretation:** the engine is deliberately fail-closed — instrumentation/capture/discovery use best-effort
+broad excepts so a bad repo can never crash the verifier (it degrades to a safe DISCOVERED/None), and every
+such except is annotated with a reason. This is correct for the domain, not a smell. **Nothing to fix.**
+
+**Hardening added (turn the convention into a gate):** the convention was *unenforced* — `ruff` ran the
+default ruleset with no blind-except rule. Enabled **`BLE001`** in `spike/ruff.toml` (`extend-select`). It is
+**zero-churn** (probe: 0 unannotated broad excepts today) and now **fails `make py-lint`** on any NEW broad
+except lacking a justified `# noqa: BLE001 — <reason>`. So a future silent-swallow can't ship. `make py-lint`
+stays green; wired through CI automatically (CI calls `make py-lint`).
+
+**Category-C edge cases (broader than excepts):** resource exhaustion, wall/CPU timeouts, tree-kill on
+runaway children, network/SSRF, retries — already handled by the process-isolation supervisor + runner
+hardening from prior passes (see memory / `spike/docs`), and guarded by the FCR franchise gates. Verified
+present; not re-implemented. None re-opened.
