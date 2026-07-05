@@ -88,3 +88,18 @@ def test_classify_env_build_failure_is_honest_not_entrypoint():
     assert "entrypoint errored" not in c["hint"]
     # a genuinely unrecognized error still falls back to the generic entrypoint-errored classification
     assert build.classify_failure("Traceback: some novel crash")["kind"] == "errored"
+
+
+# ── Slice 5: the reproduction flywheel — remember a known-good run-plan across scans ───────────────────────────
+def test_runplan_cache_roundtrip_persistence_and_guards(tmp_path):
+    from orchestrator.cache import RunPlanCache
+    path = str(tmp_path / "rp.json")
+    c = RunPlanCache(path=path)
+    assert c.get("fp1") is None and c.get("") is None
+    c.put("fp1", {"entry": ["eval.py"], "pip": ["numpy==2.4.6"], "python": "3.11"})
+    got = c.get("fp1")
+    assert got["entry"] == ["eval.py"] and got["python"] == "3.11" and got["pip"] == ["numpy==2.4.6"]
+    c.put("bad", {"pip": ["x"]})                  # no 'entry' -> never cache a plan we can't run
+    assert c.get("bad") is None
+    # persists: a fresh instance on the same path sees the committed plan (the 'over time' the flywheel is for)
+    assert RunPlanCache(path=path).get("fp1")["entry"] == ["eval.py"]

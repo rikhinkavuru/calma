@@ -463,6 +463,18 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = 
         if pyver:
             trace.note("declared Python %s — provisioning it for a faithful repro" % pyver)
 
+        # flywheel (HOW-only, default-on; off in tests / with CALMA_ORCH_FLYWHEEL=0): reuse a known-good
+        # run-plan for this exact tree so a repeat/sibling scan skips re-derivation + the AI planner. Best-
+        # effort — never let a cache hiccup break a run. A cached plan still flows through the full verify.
+        _fp, _rpc = None, None
+        if os.environ.get("CALMA_ORCH_FLYWHEEL", "1") != "0" and "PYTEST_CURRENT_TEST" not in os.environ:
+            try:
+                from orchestrator import cache as _OCACHE
+                from orchestrator.tools_static import repo_fingerprint as _repo_fp
+                _fp, _rpc = _repo_fp(repo_dir), _OCACHE.runplan_cache()
+            except Exception:  # noqa: BLE001 — the flywheel is optional; degrade to full derivation
+                _fp, _rpc = None, None
+
         # Deferred resolution: run_e2b calls this AFTER the microVM boots, so the run-plan (running in a
         # background thread) overlaps the boot instead of preceding it. Precedence: explicit opts > AI plan >
         # heuristics. The E2B sandbox starts clean, so deps must be installed — the caller's list, else the AI
@@ -470,6 +482,18 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = 
         holder: dict = {}
 
         def _resolve():
+            if _rpc is not None and _fp and not opts.pip_install and not opts.entry:
+                try:
+                    cached = _rpc.get(_fp)
+                except Exception:  # noqa: BLE001
+                    cached = None
+                if cached:
+                    entry = list(cached["entry"])
+                    pip = build.dedup_pip(list(cached.get("pip") or []) or None)
+                    tgts = _with_static_targets(repo_dir, opts.targets or None, trace, entry=entry)
+                    trace.note("flywheel: reusing a known-good run-plan — %s" % " ".join(entry))
+                    holder.update(entry=entry, pip=pip, strict=False, targets=tgts)
+                    return entry, pip, False, tgts
             plan = get_plan() if get_plan else None
             entry = _entry(plan)
             pip, strict = opts.pip_install, True
@@ -521,6 +545,12 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = 
             result = run_e2b(repo_dir, entry, k=k, hooks=opts.hooks, targets=tgts,
                              pip_install=pip, pip_strict=strict, python_version=pyver, timeout=opts.timeout,
                              log=trace.note, fuzz=opts.fuzz, cpu_cores=opts.cpu_cores)
+        # flywheel: remember the plan that VERIFIABLY captured, so the next scan of this tree reuses it.
+        if _rpc is not None and _fp and result.get("ran_ok") and (result.get("runs") and result["runs"][0]):
+            try:
+                _rpc.put(_fp, {"entry": holder.get("entry"), "pip": holder.get("pip"), "python": pyver})
+            except Exception:  # noqa: BLE001
+                pass
         return result, entry
 
     # local path — no sandbox boot to hide behind, so join the plan synchronously
