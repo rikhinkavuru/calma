@@ -1,5 +1,7 @@
-# Calma validity check — runs on every PR. Catches data leakage / trivial baselines / misreports with no
+# Calma validity check — self-check on every PR. Catches data leakage / trivial baselines / misreports with no
 # run, and posts a report-card comment. Fail-closed: nothing to check is INCOMPLETE, never a false verdict.
+# Runs the scanner DIRECTLY (setup-python), so the repo's own gate never depends on the published-image lifecycle
+# — external consumers use the prebuilt Docker action (see action.yml + publish-validity-image.yml).
 name: Calma validity check
 
 on:
@@ -15,9 +17,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Calma validity check
-        uses: ./                # this repo's action (published: rikhinkavuru/calma@<tag>)
+      - uses: actions/setup-python@v5
         with:
-          path: spike/fixtures  # scan a path with committed data/predictions to check; '.' for the whole repo
-          fail-on: never
-          comment: 'true'
+          python-version: '3.12'
+      - name: Install the recompute stack
+        run: pip install --no-cache-dir numpy scikit-learn scipy pandas PyYAML
+      - name: Calma validity check
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PYTHONPATH: ${{ github.workspace }}/spike:${{ github.workspace }}/spike/capture
+        run: |
+          python spike/validity_scan.py spike/fixtures \
+            --format md \
+            --out /tmp/calma_card.json \
+            --summary-file "$GITHUB_STEP_SUMMARY" \
+            --fail-on never | tee /tmp/calma_card.md
+          python action/pr_comment.py /tmp/calma_card.md || echo "calma: PR comment skipped (no PR / token)"

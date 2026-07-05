@@ -1,0 +1,57 @@
+# Build + publish the Calma validity-check action image to GHCR so consumers pull a PREBUILT image instead of
+# rebuilding the SciPy stack on every PR (minutes → seconds, and a pin that ever fails to resolve is caught HERE
+# once, not in every consumer's CI). Uses the repo's built-in GITHUB_TOKEN — no manual credentials.
+name: Publish validity-check image
+
+on:
+  push:
+    branches: [main]
+    paths: ['Dockerfile', '.dockerignore', 'action/**', 'spike/**', '.github/workflows/publish-validity-image.yml']
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write        # push to ghcr.io/<owner>/calma-validity
+
+concurrency:                       # a newer main push supersedes an in-flight build of the same tag
+  group: publish-validity-image
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build + push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          # lowercase owner (ghcr requires it); :latest tracks main, :sha-<commit> pins an exact build
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/calma-validity:latest
+            ghcr.io/${{ github.repository_owner }}/calma-validity:sha-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke-test the built image
+        run: |
+          # prove the recompute stack (numpy/sklearn/pandas pins) actually loads + the CLI runs before it ships
+          docker run --rm --entrypoint python \
+            ghcr.io/${{ github.repository_owner }}/calma-validity:sha-${{ github.sha }} \
+            /calma/spike/validity_scan.py --help >/dev/null
+          echo "validity_scan CLI + recompute stack OK in the published image"

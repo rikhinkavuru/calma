@@ -14,6 +14,13 @@ python /calma/spike/validity_scan.py "$TARGET" \
 CODE=$?
 cat /tmp/calma_card.md
 
+# exit 2 = the SCANNER itself errored (not a validity FAIL, which is exit 1). Surface it distinctly so a broken
+# invocation isn't misread as "your numbers are invalid" — and don't block on it if the user asked report-only.
+if [ "$CODE" = "2" ]; then
+  echo "::warning title=Calma::the validity scanner could not run (config/path error), not a validity failure"
+  [ "$FAIL_ON" = "never" ] && CODE=0
+fi
+
 GRADE=$(python -c "import json;print(json.load(open('/tmp/calma_card.json'))['grade'])" 2>/dev/null || echo UNKNOWN)
 if [ -n "$GITHUB_OUTPUT" ]; then
   echo "grade=$GRADE" >> "$GITHUB_OUTPUT"

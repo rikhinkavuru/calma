@@ -28,7 +28,11 @@ outputs:
     description: 'The overall validity grade: PASS | FAIL | INCOMPLETE.'
 runs:
   using: 'docker'
-  image: 'Dockerfile'
+  # PREBUILT image (published by .github/workflows/publish-validity-image.yml) — consumers pull it instead of
+  # rebuilding the SciPy recompute stack on every PR. One-time: after the first publish, set the GHCR package
+  # `calma-validity` to Public so external `uses:` can pull it. To hack on the action from source, swap this line
+  # back to `image: 'Dockerfile'`.
+  image: 'docker://ghcr.io/rikhinkavuru/calma-validity:latest'
   args:
     - ${{ inputs.path }}
     - ${{ inputs.fail-on }}

@@ -54,7 +54,18 @@ jobs:
 
 On each PR the action scans the diff's repo state, **posts a sticky report-card comment**, writes a job
 summary, and **fails the check** when a leakage / trivial-baseline / misreport is found — so a contaminated
-or misreported number can't merge unnoticed.
+or misreported number can't merge unnoticed. Exit `1` = a validity problem; exit `2` = the scanner itself
+errored (a bad path/config — surfaced as a CI warning, never mistaken for a validity failure).
+
+### Prebuilt image (maintainers)
+
+The action runs a **prebuilt** image (`ghcr.io/rikhinkavuru/calma-validity:latest`) so consumers don't rebuild
+the SciPy recompute stack on every PR. It is published by `.github/workflows/publish-validity-image.yml` on
+each push to `main` and on release, using the repo's built-in `GITHUB_TOKEN` (no manual credentials).
+
+**One-time setup:** after the first publish run, open the repo's *Packages* → `calma-validity` → *Package
+settings* and set **visibility to Public** so external `uses: rikhinkavuru/calma@…` can pull it. (To develop the
+action from source, temporarily set `image: 'Dockerfile'` in `action.yml`.)
 
 ### Inputs
 
