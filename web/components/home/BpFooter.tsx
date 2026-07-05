@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { CONTACT_EMAIL, FOUNDER, GITHUB_URL } from "../contact";
 
 export function BpFooter() {
@@ -37,7 +38,7 @@ export function BpFooter() {
       <div className="bp-footer__copy">© 2026 Calma · run by {FOUNDER} · catch your own wrong number first</div>
 
       <div className="bp-footer__mark">
-        <div><img src="/img/calma-lotus.png" alt="Calma" /></div>
+        <div><Image src="/img/calma-lotus.png" alt="Calma" width={523} height={332} /></div>
       </div>
       <div className="bp-footer__wm" aria-hidden="true">calma.</div>
     </footer>
