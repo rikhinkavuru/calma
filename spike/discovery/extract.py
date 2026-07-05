@@ -347,6 +347,52 @@ def _candidate_csvs(repo_dir):
     return out
 
 
+def from_notebook(path, max_claims=400) -> list[dict]:
+    """Discover claims from a Jupyter notebook's COMMITTED cell outputs — a huge class of repos report their
+    headline numbers ONLY in a notebook's rendered output (an `Accuracy: 0.94` print, a metrics-DataFrame
+    repr, a classification report), which the json/csv/README scans never see. Reads code-cell outputs
+    (stream text + execute_result/display_data `text/plain`) and markdown cells, then applies the same
+    map_metric-gated text parse (the precision gate — only a span mapping to a catalog metric becomes a
+    claim). Bounded read; FCR-safe (discovery only proposes numbers to CHECK, never a verdict)."""
+    try:
+        with open(path, errors="replace") as fh:
+            nb = json.loads(fh.read(8_000_000))
+    except (OSError, ValueError):
+        return []
+    parts: list[str] = []
+    for cell in (nb.get("cells") or []):
+        ctype = cell.get("cell_type")
+        if ctype == "markdown":
+            parts.append("".join(cell.get("source") or []))
+        elif ctype == "code":
+            for out in (cell.get("outputs") or []):
+                if out.get("output_type") == "stream":
+                    parts.append("".join(out.get("text") or []))
+                elif out.get("output_type") in ("execute_result", "display_data"):
+                    tp = (out.get("data") or {}).get("text/plain")
+                    if tp:
+                        parts.append("".join(tp) if isinstance(tp, list) else str(tp))
+    text = "\n".join(parts)
+    if not text.strip():
+        return []
+    claims = from_text(text[:2_000_000], location=os.path.basename(path))
+    for c in claims:
+        c["source"] = "notebook-output"
+    return claims[:max_claims]
+
+
+def _candidate_notebooks(repo_dir):
+    """Committed notebooks in a directory to scan for reported numbers (bounded)."""
+    out = []
+    try:
+        for fn in sorted(os.listdir(repo_dir)):
+            if fn.lower().endswith(".ipynb") and os.path.isfile(os.path.join(repo_dir, fn)):
+                out.append(os.path.join(repo_dir, fn))
+    except OSError:
+        pass
+    return out[:20]
+
+
 def _scan_dir(d) -> list[dict]:
     """The result-file + README scan, scoped to a single directory (repo root, or the entry's own
     subdirectory — see `discover`'s `entry` param)."""
@@ -357,6 +403,8 @@ def _scan_dir(d) -> list[dict]:
             found.extend(from_results_json(p))
     for p in _candidate_csvs(d):
         found.extend(from_results_csv(p))
+    for p in _candidate_notebooks(d):
+        found.extend(from_notebook(p))
     for fn in ("README.md", "README.rst", "README.txt", "readme.md"):
         p = os.path.join(d, fn)
         if os.path.isfile(p):
