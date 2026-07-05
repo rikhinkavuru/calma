@@ -459,15 +459,22 @@ def _install(sbx, pip_install, pip_strict, timeout, pip_cmd="pip install -q", lo
         return
     if pip_strict:
         _cmd_run(sbx, pip_cmd + " " + " ".join(pip_install), timeout=timeout, log=log, prefix="  pip| ", stream=True)
-    else:
-        for pkg in pip_install:
-            try:
-                args = build.cpu_pip_args(pkg)               # torch → CPU wheel, etc.
-                _note(log, "  installing %s…" % pkg)
-                _cmd_run(sbx, pip_cmd + " " + " ".join(shlex.quote(a) for a in args),
-                         timeout=timeout, log=log, prefix="  pip| ", stream=True)
-            except Exception:  # noqa: BLE001
-                _note(log, "  (skipped %s — install failed, best-effort)" % pkg)
+        return
+    # Tolerant (inferred / AI deps): install per-package so one bad guess can't abort the whole env, and so a
+    # heavy package gets its CPU wheel (build.cpu_pip_args, not a multi-GB CUDA download). A per-package failure
+    # is skipped best-effort — EXCEPT a Python-version conflict, which is fixable: surface it so the caller
+    # reprovisions the required interpreter and retries (the silent skip would otherwise leave the dep missing
+    # and the run would die on an ImportError with no repair — the exact ebv-ms failure on the tolerant path).
+    for pkg in pip_install:
+        try:
+            args = build.cpu_pip_args(pkg)                   # torch → CPU wheel, etc.
+            _note(log, "  installing %s…" % pkg)
+            _cmd_run(sbx, pip_cmd + " " + " ".join(shlex.quote(a) for a in args),
+                     timeout=timeout, log=log, prefix="  pip| ", stream=True)
+        except Exception as e:  # noqa: BLE001
+            if build.required_python_from_error(str(e)):
+                raise                                        # Python-version conflict → caller reprovisions + retries
+            _note(log, "  (skipped %s — install failed, best-effort)" % pkg)
 
 
 def _ensure_uv(sbx, timeout):
@@ -671,23 +678,31 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
                 " ".join(pip_install)[:200]))
         try:
             _install(sbx, pip_install, pip_strict, inst_timeout, pip_cmd, log=log)  # install (once)
-        except Exception as _e:  # noqa: BLE001 — env build failed; attempt ONE bounded, HOW-only repair (FCR-safe)
+        except Exception as _e:  # noqa: BLE001 — env build failed; run a bounded, HOW-only repair LADDER. FCR-safe:
+            # env-only, so a still-broken env just fails closed to DISCOVERED, never a false CONFIRM.
             err = str(_e)
             need_py = build.required_python_from_error(err)
-            relaxed = build.relax_pins(pip_install)
+            repaired = False
             if need_py and need_py != (python_used or python_version or ""):
-                # deps demand a newer interpreter than we provisioned (e.g. numpy==2.4.6 needs Python>=3.11):
+                # step 1: deps demand a newer interpreter than we provisioned (numpy==2.4.6 needs Python>=3.11):
                 # reprovision at the required version and retry the SAME pins (faithful, on the right Python).
                 _note(log, "E2B: deps require Python %s (had %s) — reprovisioning + retrying"
                       % (need_py, python_used or python_version or "default"))
-                pybin, pip_cmd, python_used = _provision_python(sbx, need_py, inst_timeout, log=log)
-                _install(sbx, pip_install, pip_strict, inst_timeout, pip_cmd, log=log)
-            elif relaxed != list(pip_install or []):
-                # a pin conflict with no Python signal — retry once with versions relaxed (unpinned resolves).
-                _note(log, "E2B: pinned install failed — retrying with relaxed versions")
-                _install(sbx, relaxed, False, inst_timeout, pip_cmd, log=log)
-            else:
-                raise
+                try:
+                    pybin, pip_cmd, python_used = _provision_python(sbx, need_py, inst_timeout, log=log)
+                    _install(sbx, pip_install, pip_strict, inst_timeout, pip_cmd, log=log)
+                    repaired = True
+                except Exception:  # noqa: BLE001 — the bump alone didn't resolve it; fall through to relaxing pins
+                    pass
+            if not repaired:
+                # step 2: retry with versions relaxed (an unpinned set usually resolves; the recompute is
+                # independent of exact versions, so this trades pin-fidelity for a runnable env).
+                relaxed = build.relax_pins(pip_install)
+                if relaxed != list(pip_install or []):
+                    _note(log, "E2B: install failed — retrying with relaxed versions")
+                    _install(sbx, relaxed, False, inst_timeout, pip_cmd, log=log)
+                else:
+                    raise
         if builder == "conda-micromamba":                       # B2: solve environment.yml in-sandbox via micromamba
             conda_py = _build_conda_env(sbx, "environment.yml", inst_timeout, log=log)
             if conda_py:
