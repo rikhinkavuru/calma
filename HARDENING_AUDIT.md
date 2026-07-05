@@ -198,13 +198,13 @@ the root-cause fix for the Phase-0 drift), and add the three missing gates (cove
   add characterization tests on the paths they touch. This is the objective coverage bar for the final loop.
 - **Secret scan:** 3 files flagged, **all verified false positives**, now allowlisted in `.secrets.baseline`
   (Rule 3 — documented in the commit + here):
-  1. `connect/github_app.py:101` — `"https://x-access-token:%s@github.com/%s.git" % (token, full_name)`:
-     a format string that builds an authed clone URL from a **runtime** installation-token variable. No
-     hardcoded credential.
-  2. `repos.yaml` (33 hits) — `commit: <40-hex>` **git SHAs** pinning the external corpus repos.
-  3. `test_server_auth.py:101` — `secret_token = "ghs_SUPERSECRETTOKEN12345"`, a **fake** literal in the
-     test that asserts a real token never reaches the job log.
-  **Zero real secrets are committed.** Root `.env` remains gitignored.
+  1. `connect/github_app.py:101` — a format string that interpolates a **runtime** installation token into
+     the authenticated GitHub clone URL. No hardcoded credential (the token is a function argument).
+  2. `repos.yaml` (33 hits) — 40-hex **git commit SHAs** pinning the external corpus repos.
+  3. `test_server_auth.py:101` — a **fake** `ghs_`-prefixed token literal used only by the test that asserts a
+     real token never reaches the job log.
+  **Zero real secrets are committed.** Root `.env` remains gitignored. (This doc deliberately avoids embedding
+  the literal secret-shaped strings so it does not itself trip the scanner.)
 
 **Definition of the "clean bar" (used by the final loop):** `make gate` green — i.e. ruff 0, mypy 0,
 vulture 0, pytest green + coverage ≥ 73, FCR 11/11, pip-audit 0, npm audit 0 high/critical, tsc 0, next
@@ -258,3 +258,34 @@ added. Behavior preserved except the leakage bug (an explicit, fail-closed impro
 installation record; a discovery claim with a `None`/non-numeric `value`; a validity card with a `None`
 grade; a Colab-exported notebook run outside Colab; a test split whose header has no recognized
 sequence-name column. All now handled explicitly.
+
+---
+
+## Phase 3 — Web lint to 0 warnings (2026-07-05) · commit `04ecc06` (web) + this doc
+
+**Goal:** clear the 5 `next lint` warnings the new `--max-warnings=0` gate flags — at root cause, no
+`eslint-disable`.
+
+- **`react-hooks/exhaustive-deps` ×2 (`CardNav.tsx`)** — `calculateHeight` and `createTimeline` were
+  recreated every render, so the two `useLayoutEffect`s couldn't honestly list them. Wrapped both in
+  `useCallback` (`calculateHeight: []`, `createTimeline: [ease, calculateHeight]`) and added them to the
+  effect deps. The pinned-nav GSAP timeline still rebuilds on the **same triggers** (ease+items for the build
+  effect; isExpanded for the resize effect) → animation behavior unchanged, only per-render churn removed.
+- **`@next/next/no-img-element` ×3** — the lotus brand mark in `CardNav` (nav logo), `BpFlow` (engine node),
+  `BpFooter` (footer mark) now use `next/image`, matching the **existing repo pattern**
+  (`Sidebar`/`LoginScreen`/`BpFeatures` already use it). Intrinsic dims = the asset's natural 523×332 (BpFlow
+  keeps its explicit 116×74); CSS sizing preserved (`.logo` gains explicit `width:auto` so next/image doesn't
+  emit its "modified one dimension" console warning; footer keeps `width:56px`). Rendered size is identical.
+
+**Verification:** `make web` green — tsc 0, **next lint 0 warnings** ("✔ No ESLint warnings or errors"),
+build ok (13/13 pages), npm audit 0.
+
+**Gate note (self-inflicted, fixed):** the first full `make gate` run failed only at `secrets` — this audit
+doc *quoted* the fake `ghs_` token and the auth-URL pattern verbatim in the Phase-1 write-up, and
+detect-secrets correctly flagged the doc itself. Redacted those two literals to prose (a doc should never
+embed secret-shaped strings). `make secrets` green afterward. Lesson logged for the final loop: keep secret-
+shaped literals out of tracked docs.
+
+**Gate status after Phase 3:** Python side green (P2) + web side green (P3) + secrets green. The full
+`make gate` is expected green; the authoritative end-to-end run is deferred to THE LOOP after P4–P7 (which
+may touch code).
