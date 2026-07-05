@@ -32,6 +32,33 @@ def test_execute_returns_first_captured_success():
     assert res.approach.entry == ["eval.py"]
 
 
+# ── robustness: an effector that RAISES is a failed approach, not a dead orchestration (P2 fix) ────────────────
+def test_execute_isolates_effector_exception_and_continues():
+    """run_approach raising (a sandbox boot / network / timeout crash) must not propagate — the loop treats it
+    as a failed approach and advances to the next candidate. The single biggest 'it just stopped' cause."""
+    calls = []
+
+    def run_approach(a):
+        calls.append(a.entry[0])
+        if a.entry[0] == "boom.py":
+            raise RuntimeError("E2B: microVM boot failed")
+        return _run_result(ran_ok=True, captured=True)
+
+    res = O.execute([RunApproach(entry=["boom.py"]), RunApproach(entry=["eval.py"])], run_approach)
+    assert res.ran_ok and res.runs and res.runs[0]        # recovered on the 2nd approach; did NOT raise
+    assert calls == ["boom.py", "eval.py"]
+
+
+def test_execute_all_effectors_raise_returns_honest_empty():
+    """If EVERY approach's effector crashes, the loop still returns an honest failed RunResult (→ DISCOVERED),
+    never a propagated exception and never a false CONFIRM."""
+    def run_approach(a):
+        raise RuntimeError("boom")
+
+    res = O.execute([RunApproach(entry=["a.py"]), RunApproach(entry=["b.py"])], run_approach)
+    assert isinstance(res, RunResult) and not res.ran_ok
+
+
 # ── revise: missing-module heal ───────────────────────────────────────────────────────────────────────────────
 def test_execute_revises_on_missing_module():
     seen = {"n": 0}

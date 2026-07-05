@@ -463,6 +463,25 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = 
         if pyver:
             trace.note("declared Python %s — provisioning it for a faithful repro" % pyver)
 
+        # conda: an environment.yml means the deps (and any bioconda system binaries — Foldseek / HMMER /
+        # samtools / …) are solved by micromamba in-sandbox, not pip. Route the heuristic path to the conda
+        # builder too (only the orchestrator did before), so a genomics/bio repo with a conda env actually builds.
+        _builder = "conda-micromamba" if os.path.isfile(os.path.join(repo_dir, "environment.yml")) else None
+        if _builder:
+            trace.note("environment.yml found — solving the env with conda (micromamba)")
+
+        # flywheel (HOW-only, default-on; off in tests / with CALMA_ORCH_FLYWHEEL=0): reuse a known-good
+        # run-plan for this exact tree so a repeat/sibling scan skips re-derivation + the AI planner. Best-
+        # effort — never let a cache hiccup break a run. A cached plan still flows through the full verify.
+        _fp, _rpc = None, None
+        if os.environ.get("CALMA_ORCH_FLYWHEEL", "1") != "0" and "PYTEST_CURRENT_TEST" not in os.environ:
+            try:
+                from orchestrator import cache as _OCACHE
+                from orchestrator.tools_static import repo_fingerprint as _repo_fp
+                _fp, _rpc = _repo_fp(repo_dir), _OCACHE.runplan_cache()
+            except Exception:  # noqa: BLE001 — the flywheel is optional; degrade to full derivation
+                _fp, _rpc = None, None
+
         # Deferred resolution: run_e2b calls this AFTER the microVM boots, so the run-plan (running in a
         # background thread) overlaps the boot instead of preceding it. Precedence: explicit opts > AI plan >
         # heuristics. The E2B sandbox starts clean, so deps must be installed — the caller's list, else the AI
@@ -470,6 +489,18 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = 
         holder: dict = {}
 
         def _resolve():
+            if _rpc is not None and _fp and not opts.pip_install and not opts.entry:
+                try:
+                    cached = _rpc.get(_fp)
+                except Exception:  # noqa: BLE001
+                    cached = None
+                if cached:
+                    entry = list(cached["entry"])
+                    pip = build.dedup_pip(list(cached.get("pip") or []) or None)
+                    tgts = _with_static_targets(repo_dir, opts.targets or None, trace, entry=entry)
+                    trace.note("flywheel: reusing a known-good run-plan — %s" % " ".join(entry))
+                    holder.update(entry=entry, pip=pip, strict=False, targets=tgts)
+                    return entry, pip, False, tgts
             plan = get_plan() if get_plan else None
             entry = _entry(plan)
             pip, strict = opts.pip_install, True
@@ -494,12 +525,15 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = 
             if tgts and not opts.targets:
                 trace.note("AI-planned capture targets: %s" % ", ".join(t["target"] for t in tgts)[:160])
             tgts = _with_static_targets(repo_dir, tgts, trace, entry=entry)
+            pip = build.dedup_pip(pip)                          # 'numpy==2.4.6' + 'numpy' -> one install, not two
+            if _builder == "conda-micromamba":
+                pip, strict = None, False                       # conda (micromamba) solves environment.yml; don't also pip-install
             holder.update(entry=entry, pip=pip, strict=strict, targets=tgts)
             return entry, pip, strict, tgts
 
         trace.stage("running", "running in E2B microVM")
         from runner import data_resolver as _DR
-        result = run_e2b(repo_dir, resolve=_resolve, k=k, hooks=opts.hooks,
+        result = run_e2b(repo_dir, resolve=_resolve, k=k, hooks=opts.hooks, builder=_builder,
                          python_version=pyver, timeout=opts.timeout, log=trace.note, fuzz=opts.fuzz,
                          cpu_cores=opts.cpu_cores, acquire=acquire,
                          acquire_env=(opts.acquire_env if acquire else None),
@@ -515,17 +549,32 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = 
             mod = _missing_module_from(result)
             if not mod:
                 break
-            pip = (pip or []) + [build._PKG_ALIASES.get(mod, mod)]
+            dist = build._PKG_ALIASES.get(mod, mod)
+            pip = (pip or []) + [dist]
             trace.note("missing dep %s — installing + retrying" % mod)
-            result = run_e2b(repo_dir, entry, k=k, hooks=opts.hooks, targets=tgts,
+            result = run_e2b(repo_dir, entry, k=k, hooks=opts.hooks, targets=tgts, builder=_builder,
                              pip_install=pip, pip_strict=strict, python_version=pyver, timeout=opts.timeout,
                              log=trace.note, fuzz=opts.fuzz, cpu_cores=opts.cpu_cores)
+            # flywheel (slice 6): if adding this dist produced a good run, record the error→fix so the
+            # orchestrator (and a future novel repo hitting the same 'No module named X') get it for free.
+            if _rpc is not None and result.get("ran_ok"):
+                try:
+                    from orchestrator.cache import hint_store as _hint_store
+                    _hint_store().record("missing-dep:" + mod, {"add_dep": dist})
+                except Exception:  # noqa: BLE001 — the flywheel is best-effort
+                    pass
+        # flywheel: remember the plan that VERIFIABLY captured, so the next scan of this tree reuses it.
+        if _rpc is not None and _fp and result.get("ran_ok") and (result.get("runs") and result["runs"][0]):
+            try:
+                _rpc.put(_fp, {"entry": holder.get("entry"), "pip": holder.get("pip"), "python": pyver})
+            except Exception:  # noqa: BLE001
+                pass
         return result, entry
 
     # local path — no sandbox boot to hide behind, so join the plan synchronously
     plan = get_plan() if get_plan else None
     entry = _entry(plan)
-    pip = opts.pip_install or (plan.get("pip_install") if plan else None)
+    pip = build.dedup_pip(opts.pip_install or (plan.get("pip_install") if plan else None))
     tgts = opts.targets or (plan.get("targets") if plan else None)      # AI-identified metric fns to capture
     tgts = _with_static_targets(repo_dir, tgts, trace, entry=entry)
     venvs_dir = opts.venvs_dir or os.path.join(os.path.dirname(repo_dir), ".venvs")
@@ -645,7 +694,7 @@ def _run_repo_orchestrated(repo_dir: str, opts: VerifyOptions, trace: Trace, k: 
     def run_approach(approach):
         entry = list(approach.entry)
         targets = opts.targets or approach.capture_targets or None
-        deps = list(approach.deps)
+        deps = build.dedup_pip(list(approach.deps))            # 'numpy==2.4.6' + 'numpy' -> one install
         head = str(entry[0]) if entry else ""
 
         # A3: Makefile target → run_make (recipe's python child auto-arms capture). Runs host-side (a make
@@ -720,13 +769,17 @@ def _run_repo_orchestrated(repo_dir: str, opts: VerifyOptions, trace: Trace, k: 
     trace.stage("assessing", "assessing the repo (static profile → run approach)")
     # tier-scaled budget: no repair budget → a single approach, no revise (free tier); else the full loop.
     if opts.repair:
-        budget = ORCH.Budget(step_cap=6, max_approaches=4)
+        budget = ORCH.Budget(step_cap=8, max_approaches=5)
     else:
-        budget = ORCH.Budget(step_cap=1, max_approaches=1)
+        budget = ORCH.Budget(step_cap=3, max_approaches=2)     # even with no repair budget, actually run the loop
     # flywheel (env-gated so it stays off in the hermetic test suite; prod enables it): fingerprint→approach
     # cache + error→fix hint store. HOW-only — a cache hit still flows through the full fail-closed verify.
     cache = hints = None
-    if os.environ.get("CALMA_ORCH_FLYWHEEL") == "1":
+    # the flywheel is ON by default: the reproduction cache (fingerprint→approach) + experience store
+    # (error→fix) make repeat/sibling repos cheaper and carry a learned fix across runs — HOW-only, so a stale
+    # entry can only cost coverage, never a verdict. Kept OUT of the hermetic test suite (cache persistence
+    # would couple tests); force off with CALMA_ORCH_FLYWHEEL=0.
+    if os.environ.get("CALMA_ORCH_FLYWHEEL", "1") != "0" and "PYTEST_CURRENT_TEST" not in os.environ:
         from orchestrator import cache as OCACHE
         cache, hints = OCACHE.approach_cache(), OCACHE.hint_store()
     trace.stage("running", "running the chosen approach")

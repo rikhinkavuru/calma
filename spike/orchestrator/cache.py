@@ -148,3 +148,48 @@ def hint_store() -> HintStore:
     if _HINTS is None:
         _HINTS = HintStore()
     return _HINTS
+
+
+class RunPlanCache:
+    """repo-fingerprint → the run-plan {'entry': [...], 'pip': [...], 'python': 'X.Y'|None} that VERIFIABLY
+    captured — the reproduction flywheel for the DEFAULT (heuristic, non-orchestrated) path. A repeat or
+    sibling scan of the same tree reuses the known-good plan, skipping re-derivation and the AI planner call
+    (cost-per-scan → $0 on a hit). Same HOW-only guarantee as ApproachCache: a cached plan still flows through
+    the full k-runs → binding → recompute → fail-closed verdict, so a stale entry can only cost coverage,
+    never a verdict; a changed repo yields a different fingerprint → automatic miss. Bounded + persisted
+    best-effort (CWE-770). Local JSON today; a HelixDB ``RunPlan`` node is the durable cross-instance backend."""
+
+    def __init__(self, path: str | None = None):
+        self._path = path or os.path.join(_DEFAULT_DIR, "runplans.json")
+        self._lock = threading.Lock()
+        self._data = _load(self._path)
+
+    def get(self, fingerprint: str) -> dict | None:
+        if not fingerprint:
+            return None
+        with self._lock:
+            v = self._data.get(fingerprint)
+        return dict(v) if isinstance(v, dict) and v.get("entry") else None
+
+    def put(self, fingerprint: str, plan: dict) -> None:
+        if not fingerprint or not isinstance(plan, dict) or not plan.get("entry"):
+            return
+        rec = {"entry": list(plan["entry"]), "pip": list(plan.get("pip") or []), "python": plan.get("python")}
+        with self._lock:
+            if fingerprint not in self._data and len(self._data) >= _MAX_ENTRIES:
+                self._data.pop(next(iter(self._data)), None)     # bound: drop oldest-inserted
+            self._data[fingerprint] = rec
+            _save(self._path, self._data)
+
+    def __len__(self):
+        return len(self._data)
+
+
+_RUNPLANS: RunPlanCache | None = None
+
+
+def runplan_cache() -> RunPlanCache:
+    global _RUNPLANS
+    if _RUNPLANS is None:
+        _RUNPLANS = RunPlanCache()
+    return _RUNPLANS

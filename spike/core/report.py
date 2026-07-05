@@ -42,8 +42,13 @@ def summarize(records, run=None, leakage=None) -> dict:
         findings.append("Re-ran `%s` and independently recomputed %d of its computations%s."
                         % (run.get("entry", "the repo"), run.get("calls", 0), detword))
     elif run and run.get("entry"):
-        why = (run.get("failure") or {}).get("hint") or run.get("error") or "it didn't execute"
-        findings.append("Could not re-run `%s` — %s." % (run.get("entry"), why))
+        fail = run.get("failure") or {}
+        why = fail.get("hint") or run.get("error") or "it didn't execute"
+        # an env-build / dependency failure is NOT an entrypoint problem — name the real cause so the user fixes
+        # the right thing (relax pins / use conda / connect data), not the entrypoint.
+        verb = ("Couldn't build the environment to run" if fail.get("kind") in ("env-build", "missing-dep")
+                else "Could not re-run")
+        findings.append("%s `%s` — %s." % (verb, run.get("entry"), why))
 
     # what it caught (most serious first)
     if refuted:

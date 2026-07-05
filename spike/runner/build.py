@@ -99,6 +99,62 @@ def _readme_run_command(repo_dir):
     return None
 
 
+_CI_PYVER = re.compile(r"python-version:\s*['\"]?([0-9]+\.[0-9]+)")
+_CI_PIP = re.compile(r"\bpip[0-9.]*\s+install\s+([^\n#&|;]+)")
+_CI_APT = re.compile(r"\bapt(?:-get)?\s+install\s+([^\n#&|;]+)")
+
+
+def ci_workflow_signals(repo_dir):
+    """Ground-truth run signals a repo's CI already encodes — the command that actually executes it on every
+    push, i.e. the strongest 'how to run this' source there is. Best-effort text scan of
+    .github/workflows/*.y{a,}ml (robust to odd YAML): returns
+    {'entry': [argv,…], 'python': 'X.Y'|None, 'deps': [...], 'apt': [...]}. Entries are path/module-validated
+    against the repo (a CI job that names a script/module which actually exists), so a stale step can't mislead."""
+    out: dict = {"entry": [], "python": None, "deps": [], "apt": []}
+    wdir = os.path.join(repo_dir, ".github", "workflows")
+    if not os.path.isdir(wdir):
+        return out
+    seen: set = set()
+    try:
+        files = sorted(fn for fn in os.listdir(wdir) if fn.endswith((".yml", ".yaml")))
+    except OSError:
+        return out
+    for fn in files:
+        try:
+            text = open(os.path.join(wdir, fn), errors="replace").read()
+        except OSError:
+            continue
+        if out["python"] is None:
+            m = _CI_PYVER.search(text)
+            if m:
+                out["python"] = m.group(1)
+        for m in _RUN_RE.finditer(text):
+            tok = m.group(1).strip()
+            if tok.startswith("-m"):
+                mod = (tok.split() + [""])[1]
+                if mod.split(".")[0] in _SETUP_MODULES or not _module_exists(repo_dir, mod):
+                    continue
+                argv = ["-m", mod]
+            elif os.path.isfile(os.path.join(repo_dir, tok)):
+                argv = [tok]
+            else:
+                continue
+            key = tuple(argv)
+            if key not in seen:
+                seen.add(key)
+                out["entry"].append(argv)
+        for m in _CI_PIP.finditer(text):
+            for t in (x.strip() for x in m.group(1).split()):
+                if t and not t.startswith("-") and "/" not in t and t != "." and not t.endswith((".txt", ".cfg", ".toml")):
+                    out["deps"].append(t)
+        for m in _CI_APT.finditer(text):
+            for t in (x.strip() for x in m.group(1).split()):
+                if t and not t.startswith("-"):
+                    out["apt"].append(t)
+    out["deps"] = dedup_pip(out["deps"])
+    return out
+
+
 def _is_server_script(path):
     """True if the script imports a web-server / app framework — a demo UI or API, never the producer of a
     committed headline metric, and a blocking-serve hang risk. Cheap: reuses the import scan."""
@@ -319,6 +375,11 @@ def detect_entrypoint(repo_dir):
     prod = artifact_producer(repo_dir)
     if prod:
         return prod
+    # 2.5) the command the repo's CI actually runs — an explicit, executable 'how to run this' that beats the
+    #      filename guesses below when the README omits it and no artifact producer was found.
+    ci = ci_workflow_signals(repo_dir).get("entry")
+    if ci:
+        return ci[0]
     # 3) a known entrypoint filename present at the repo root (but never a server-framework script)
     for name in _ENTRY_NAMES:
         p = os.path.join(repo_dir, name)
@@ -412,6 +473,78 @@ def cpu_pip_args(pkg):
     list of pip args; default is just [pkg]."""
     base = re.split(r"[<>=!~ ]", pkg, maxsplit=1)[0].strip().lower()
     return list(_CPU_WHEELS.get(base, [pkg]))
+
+
+def pkg_base(spec):
+    """The PEP 503-normalized distribution name of a pip spec: 'NumPy==2.4.6' -> 'numpy',
+    'scikit_learn>=1' -> 'scikit-learn', 'torch[cuda]' -> 'torch', 'pkg @ git+…' -> 'pkg'. '' for a flag."""
+    s = str(spec).strip()
+    if s.startswith("-"):
+        return ""
+    head = re.split(r"[<>=!~;@\[ ]", s, maxsplit=1)[0].strip()
+    return re.sub(r"[-_.]+", "-", head).lower()
+
+
+def _is_constrained(spec):
+    """True if the spec carries a version constraint or direct reference (== >= ~= @url), not a bare name."""
+    return bool(re.search(r"[<>=!~@]", str(spec)))
+
+
+def dedup_pip(pkgs):
+    """Dedup a pip install list by distribution name, preferring a constrained spec over a bare duplicate
+    ('numpy==2.4.6' + 'numpy' -> keep 'numpy==2.4.6'). Order-stable; distinct packages untouched; pip flags
+    (leading '-') pass through. FCR-safe: only trims a package installed twice, never touches
+    capture/recompute/verdict. This is why a plan that echoes declared pins AND bare names stops logging
+    'numpy==2.4.6 … numpy'."""
+    if not pkgs:
+        return list(pkgs) if pkgs is not None else pkgs
+    chosen: dict[str, str] = {}
+    order: list[str] = []
+    passthrough: list[str] = []
+    for spec in pkgs:
+        s = str(spec).strip()
+        if not s:
+            continue
+        name = pkg_base(s)
+        if not name:                                   # a pip flag / non-package token — keep as-is
+            passthrough.append(s)
+            continue
+        if name not in chosen:
+            chosen[name] = s
+            order.append(name)
+        elif not _is_constrained(chosen[name]) and _is_constrained(s):
+            chosen[name] = s                           # upgrade a bare dup to the constrained spec
+    return [chosen[n] for n in order] + passthrough
+
+
+def relax_pins(pkgs):
+    """Drop exact/compatible version pins so an unsatisfiable resolution can retry unconstrained
+    ('numpy==2.4.6' -> 'numpy'). Leaves pip flags, url/@ specs, and multi-token entries intact. Used ONLY on a
+    resolution failure — the independent recompute doesn't depend on exact dep versions, so trading pin-
+    fidelity for a runnable env is FCR-safe (a run that never happens verifies nothing)."""
+    out = []
+    for spec in pkgs or []:
+        s = str(spec).strip()
+        if not s or " " in s or s.startswith("-") or "@" in s:
+            out.append(spec)
+        elif _is_constrained(s):
+            out.append(pkg_base(s))
+        else:
+            out.append(spec)
+    return out
+
+
+_PYREQ_RE = re.compile(r"[Pp]ython\s*>=?\s*(\d+\.\d+)")
+
+
+def required_python_from_error(text):
+    """Parse the minimum Python a resolver demanded from its failure text — e.g. uv's
+    'numpy==2.4.6 depends on Python>=3.11' -> '3.11'. Returns the HIGHEST such version (the binding one), or
+    None. Lets the env builder BUMP the interpreter and retry instead of dead-ending on a version mismatch."""
+    vers = _PYREQ_RE.findall(text or "")
+    if not vers:
+        return None
+    return max(vers, key=lambda v: tuple(int(x) for x in v.split(".")))
 
 
 def deps_are_heavy(pkgs):
@@ -515,6 +648,18 @@ _FAILURE_TAXONOMY = [
     ("[timeout]", ("too-slow", "exceeded the time budget — scope the run or raise the timeout")),
     ("ModuleNotFoundError", ("missing-dep", "a dependency could not be installed/resolved")),
     ("No matching distribution", ("missing-dep", "a dependency could not be installed/resolved")),
+    # dependency-resolution / Python-version conflicts (uv/pip): the ENVIRONMENT couldn't be built — this is
+    # NOT an entrypoint problem (the entrypoint never got to run). Calma auto-reprovisions the required Python
+    # and relaxes pins first (build.required_python_from_error / relax_pins); this classifies it honestly when
+    # the repair still can't satisfy the pins, instead of the generic "the entrypoint errored".
+    ("No solution found", ("env-build", "the dependencies couldn't be resolved (a version/Python conflict) — "
+                           "retried on a compatible Python and with relaxed pins, but the pins are still "
+                           "mutually unsatisfiable")),
+    ("does not satisfy Python", ("env-build", "the declared Python doesn't satisfy a dependency — retried on a "
+                                 "compatible interpreter")),
+    ("depends on Python", ("env-build", "a dependency needs a different Python than the repo declared — "
+                           "reprovisioned a compatible interpreter and retried")),
+    ("Cannot install", ("env-build", "conflicting dependency versions — retried with relaxed pins")),
     # pandas parquet needs pyarrow/fastparquet — an optional extra dep-inference can't see. Now bundled in the
     # image, but classify it as missing-dep (not a generic error) so the heal/revise can install it if absent.
     ("Unable to find a usable engine", ("missing-dep", "parquet support needs pyarrow — install it")),
@@ -608,7 +753,7 @@ def detect_python_version(repo_dir):
                 xy = first_xy(m.group(1))
                 if xy:
                     return xy
-    return None
+    return ci_workflow_signals(repo_dir).get("python")   # last resort: the interpreter the repo's CI runs on
 
 
 def infer_requirements(repo_dir, max_files=120):

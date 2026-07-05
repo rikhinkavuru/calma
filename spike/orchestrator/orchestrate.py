@@ -324,7 +324,16 @@ def execute(approaches: list[RunApproach], run_approach, *, revise=heuristic_rev
             tried.add(key)
             budget.charge_step()
             budget.charge_tokens(getattr(run_approach, "token_cost", 0))
-            result = run_approach(approach)
+            try:
+                result = run_approach(approach)
+            except Exception as e:  # noqa: BLE001 — an effector crash (sandbox boot / network / timeout / a
+                # malformed repo) is a FAILED approach, never a dead orchestration. Synthesize a failed result
+                # so the loop revises or advances to the next candidate — the single biggest "it just stopped
+                # working" cause. FCR-safe: a failed result only ever yields DISCOVERED, never a false CONFIRM.
+                result = RunResult(ran_ok=False, meta=[{"stderr_tail": ("effector error: %s" % e)[:800]}],
+                                   approach=approach)
+                if log:
+                    log("orchestrator: approach errored (%s) — treating as failed, continuing" % str(e)[:140])
             if not isinstance(result, RunResult):
                 raise TypeError("run_approach must return a RunResult, got %r" % type(result))
             result.approach = approach
