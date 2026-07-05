@@ -96,6 +96,7 @@ export type Job = {
   repo: string;
   status: string;
   stage: string;
+  progress?: string;                 // live sub-stage for a long run: "run 1/2 · 15m elapsed" (server.py)
   counts: Record<string, number>;
   n_claims: number;
   claims: Claim[];
@@ -153,6 +154,7 @@ export type JobSummary = {
   repo: string;
   status: string;
   stage: string;
+  progress?: string;                 // live sub-stage for a long run: "run 1/2 · 15m elapsed" (server.py)
   counts: Record<string, number>;
   n_claims: number;
   created: number;

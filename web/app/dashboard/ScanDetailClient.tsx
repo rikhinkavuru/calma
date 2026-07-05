@@ -118,7 +118,7 @@ export function ScanDetailClient({ id }: { id: string }) {
           <div className={dash.idMono}>{repoLabel(job.repo)}</div>
           <h1 className={dash.verdictTitle}>{headline}</h1>
           <p className={dash.verdictGloss}>
-            {running ? `${job.stage}…`
+            {running ? `${job.progress?.trim() || job.stage}…`
               : ran ? <>Re-ran <code>{job.run?.entry}</code> and recomputed {job.run?.calls} computation(s) from the raw outputs.</>
                 : job.run?.failure?.hint ? job.run.failure.hint
                   : "The entrypoint didn't produce a usable result — showing the numbers Calma found."}

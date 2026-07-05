@@ -36,6 +36,15 @@ export function StatusPill({ status }: { status: string }) {
   );
 }
 
+// The live sub-stage of an in-flight run ("run 1/2 · 15m elapsed"), shown beside the Running pill so a long
+// deep verify visibly moves instead of reading as hung. Nothing for a finished/idle job.
+export function RunProgress({ status, progress, stage }: { status: string; progress?: string; stage?: string }) {
+  if (status !== "running" && status !== "queued") return null;
+  const text = (progress && progress.trim()) || (stage && stage !== "running" && stage !== "queued" ? stage : "");
+  if (!text) return null;
+  return <span className={dash.muted} style={{ fontSize: 12, marginLeft: 8, whiteSpace: "nowrap" }}>{text}</span>;
+}
+
 // A compact one-cell verdict summary: catches first (the actionable ones), then confirmed, then a muted tail
 // for the honest-uncertainty + not-yet-checked rows. Empty → an em dash.
 export function VerdictSummary({ counts, nClaims }: { counts?: Record<string, number>; nClaims?: number }) {

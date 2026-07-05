@@ -1,37 +1,25 @@
 "use client";
 
-// Past scans. The backend job list (/api/jobs) is the source of truth for live status + verdicts; the local
-// history index (lib/scan-history) backfills scans the backend has since forgotten (its job store is in-memory
-// and wiped on redeploy) — those render as "expired" with just the repo + time. Merged, newest-first,
-// searchable. Each row links to the full scan detail.
-import { useEffect, useMemo, useState } from "react";
+// Past scans. The backend job list (/api/jobs) is the source of truth for live status + verdicts and is now
+// durable (persisted to a volume), so it survives a redeploy. The local history index (lib/scan-history)
+// only backfills the rare scan the backend has since evicted (beyond its retention cap) — those render as
+// "expired" with just the repo + time. Merged, newest-first, searchable, live-polled. Each row links to the
+// full scan detail.
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { FiPlus, FiSearch } from "react-icons/fi";
 import type { JobSummary } from "@/lib/verify";
 import { readScans } from "@/lib/scan-history";
-import { StatusPill, VerdictSummary, repoLabel, timeAgo } from "./scan-ui";
+import { useJobs } from "@/lib/useJobs";
+import { StatusPill, RunProgress, VerdictSummary, repoLabel, timeAgo } from "./scan-ui";
 import dash from "./dashboard.module.css";
 
 type Row = JobSummary & { expired?: boolean };
 
 export function ScansClient() {
-  const [jobs, setJobs] = useState<JobSummary[] | null>(null);
-  const [local, setLocal] = useState<{ id: string; repo: string; ts: number }[]>([]);
-  const [err, setErr] = useState<string | null>(null);
+  const { jobs, err } = useJobs();
+  const [local] = useState<{ id: string; repo: string; ts: number }[]>(() => readScans());
   const [q, setQ] = useState("");
-
-  useEffect(() => {
-    setLocal(readScans());
-    let alive = true;
-    fetch("/api/jobs", { cache: "no-store" })
-      .then(async (r) => {
-        if (!r.ok) throw new Error((await r.json().catch(() => ({})))?.error || `status ${r.status}`);
-        return r.json();
-      })
-      .then((d) => { if (alive) setJobs(Array.isArray(d) ? d : []); })
-      .catch((e) => { if (alive) { setErr(e instanceof Error ? e.message : String(e)); setJobs([]); } });
-    return () => { alive = false; };
-  }, []);
 
   const rows: Row[] = useMemo(() => {
     const backend = jobs || [];
@@ -101,7 +89,10 @@ export function ScansClient() {
                     )}
                   </td>
                   <td>{r.expired ? <span className={dash.muted}>expired</span> : <VerdictSummary counts={r.counts} nClaims={r.n_claims} />}</td>
-                  <td><StatusPill status={r.status} /></td>
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    <StatusPill status={r.status} />
+                    <RunProgress status={r.status} progress={r.progress} stage={r.stage} />
+                  </td>
                   <td className={dash.muted}>{timeAgo(r.created)}</td>
                 </tr>
               ))}
