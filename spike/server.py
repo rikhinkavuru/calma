@@ -33,7 +33,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "capture"))
 
-from fastapi import Depends, FastAPI, Header, HTTPException  # noqa: E402
+from fastapi import Depends, FastAPI, Header, HTTPException, Request  # noqa: E402
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
@@ -51,6 +51,22 @@ from synth import formula as SYNTH  # noqa: E402  — the catalog flywheel (stor
 from synth import store as SYNTH_STORE  # noqa: E402
 
 app = FastAPI(title="Calma — the correctness layer")
+
+
+# Security headers on every response — defence-in-depth for the HTML this service also serves (the local
+# operator dashboard) and belt-and-braces for the API. No CORS middleware is configured ON PURPOSE: the
+# browser same-origin default (no Access-Control-Allow-Origin) already denies cross-origin JS reads, and the
+# real controls are the service-token gate + the trusted first-party proxy that forwards the tenant/tier
+# headers — so we fail closed rather than open a `*` origin. HSTS is honored only over HTTPS (Fly terminates
+# TLS); browsers ignore it on plain-HTTP local runs.
+@app.middleware("http")
+async def _security_headers(request: Request, call_next):
+    resp = await call_next(request)
+    resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+    resp.headers.setdefault("X-Frame-Options", "DENY")
+    resp.headers.setdefault("Referrer-Policy", "no-referrer")
+    resp.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    return resp
 
 # Service-token gate for the verification API. The WorkOS-gated Next dashboard is the only first-party
 # caller: it holds this token server-side and proxies authenticated user submissions here. When the token is
