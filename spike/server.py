@@ -204,6 +204,29 @@ def _installation_ok(iid: str, tenant: str, unmetered: bool, proof: str | None =
 JOBS: dict[str, dict] = {}
 INSTALLATIONS: dict[str, dict] = {}    # installation_id ↔ tenant (in-memory MVP); real = the control plane
 _LOCK = threading.Lock()
+
+# Bound in-memory job retention so a long-running instance can't leak memory: each finished job holds its
+# claims + up to 4000 log lines, and JOBS otherwise grows with every submission forever. Keep ALL active
+# (queued/running) jobs; once over the cap, evict the OLDEST terminal ones. Tunable via CALMA_MAX_JOBS.
+_MAX_JOBS = int(os.environ.get("CALMA_MAX_JOBS") or 500)
+_TERMINAL_STATUS = ("done", "stopped", "error")
+
+
+def _evict_jobs() -> None:
+    """Caller holds _LOCK. Drop the oldest finished jobs once JOBS exceeds the cap; never evict active work."""
+    if len(JOBS) <= _MAX_JOBS:
+        return
+    terminal = sorted((j for j in JOBS.values() if j.get("status") in _TERMINAL_STATUS),
+                      key=lambda j: j.get("updated") or j.get("created") or 0)
+    for j in terminal[:len(JOBS) - _MAX_JOBS]:
+        JOBS.pop(j["id"], None)
+
+
+@app.get("/healthz")
+def healthz():
+    """Liveness probe — unauthenticated by design (returns no sensitive data) so Fly / uptime checks hit it."""
+    with _LOCK:
+        return {"ok": True, "jobs": len(JOBS)}
 # feature 12 — the local append-only transparency ledger (hash-chained, tamper-evident). Off the hot path;
 # submission is fail-open (a log error never fails a job).
 _TLOG = TLOG.LocalLedger(os.path.join(HERE, ".calma", "transparency-ledger.json"))
@@ -470,6 +493,7 @@ def verify(req: VerifyReq, ident: Identity = Depends(identity)):
             _log(job, "limit: %s" % n)
     with _LOCK:
         JOBS[job_id] = job
+        _evict_jobs()
     threading.Thread(target=run_job, args=(job, req), daemon=True).start()
     return {"id": job_id, "tier": tier.name, "deep": req.deep, "limit_notes": limit_notes}
 
