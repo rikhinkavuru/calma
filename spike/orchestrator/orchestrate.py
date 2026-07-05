@@ -251,6 +251,51 @@ def heuristic_revise(result: RunResult, approach: RunApproach, history: list) ->
     return None
 
 
+# ── S6: delta-repair discipline — a revise is a CONSTRAINED, additive delta, never a verification-weakening
+#        regeneration (build plan §4.2) — plus a registry-vocabulary LLM revise for env errors the heuristic misses.
+def _pkg_set(deps) -> set:
+    from runner import build as _B  # noqa: PLC0415
+    return {b for b in (_B.pkg_base(d) for d in (deps or [])) if b}
+
+
+def _targets_cover(new_t, old_t) -> bool:
+    def _k(t):
+        return (t.get("target"), t.get("metric")) if isinstance(t, dict) else (None, None)
+    return {_k(t) for t in (old_t or [])} <= {_k(t) for t in (new_t or [])}
+
+
+def _safe_delta(old: RunApproach, new: RunApproach) -> bool:
+    """A revise must be a CONSTRAINED, ADDITIVE delta over the current approach — never a free regeneration that
+    weakens the verification. Allowed: grow or relax deps, add/change env vars. Forbidden: switch the entrypoint
+    (that is the ranker's job, not a revise), shrink the capture targets, remove an env var, or drop an already
+    installed package. A weaker capture can't manufacture a CONFIRM, but it turns the loop's discipline into a
+    hollow pass — so every revise stays strictly additive."""
+    if list(new.entry) != list(old.entry):
+        return False
+    if not _targets_cover(new.capture_targets, old.capture_targets):
+        return False
+    if not set(old.env or {}) <= set(new.env or {}):                 # env keys never removed (values may change)
+        return False
+    return _pkg_set(old.deps) <= _pkg_set(new.deps)                  # the installed package SET never shrinks
+
+
+def _llm_revise(result: RunResult, approach: RunApproach, model) -> RunApproach | None:
+    """Last-resort revise (S6): an LLM proposes a CONSTRAINED env fix (add-dep / set-env) for a failure the
+    key-free heuristic couldn't map — a system lib (libGL → opencv-python-headless), a headless backend, a PyPI
+    name that differs from the import. Sanitized in the planner + safety-gated by _safe_delta in make_revise;
+    HOW-only, so a wrong fix only leaves the run failing, never a verdict."""
+    import planner  # noqa: PLC0415 — lazy: the LLM layer isn't needed on the key-free / hermetic path
+    fix = planner.propose_revise(_stderr(result), approach.deps, model)
+    if not fix:
+        return None
+    new = approach
+    if fix.get("add_dep"):
+        new = _with_dep(new, str(fix["add_dep"]), "llm-revise: +dep %s" % fix["add_dep"]) or new
+    if fix.get("set_env"):
+        new = _with_env(new, fix["set_env"], "llm-revise: env %s" % list(fix["set_env"])) or new
+    return new if approach_key(new) != approach_key(approach) else None
+
+
 def _symptom(stderr: str) -> str:
     """The salient exception line of a failure — the retrievable text half of an XPU (dual modality). Concise
     + descriptive so a paraphrase of the same error vector-matches a past fix even when the exact signature
@@ -262,30 +307,37 @@ def _symptom(stderr: str) -> str:
     return (lines[-1][:200] if lines else "")
 
 
-def make_revise(hints=None, xpu=None):
+def make_revise(hints=None, xpu=None, model=None):
     """A revise closure that consults the experience stores BEFORE the key-free heuristic (the self-healing
     "error-signature → cached fix, no LLM" property). Order: the XPU store (telemetry-gated exact-OR-vector
-    match — a novel error whose symptom matches a past fix), then the exact-signature HintStore (legacy/compat),
-    then the heuristic. HOW-only; never touches a verdict."""
+    match), then the exact-signature HintStore (legacy/compat), then the heuristic, then a constrained LLM
+    revise (S6, only when a ``model`` is supplied) for an env error none of the above mapped. Every candidate
+    must pass ``_safe_delta`` — the S6 delta-repair discipline: a revise is a constrained ADDITIVE delta over the
+    current approach, never a free regeneration that weakens the verification. HOW-only; never touches a verdict."""
     def revise(result: RunResult, approach: RunApproach, history: list):
         stderr = _stderr(result)
         sig = None
         if hints is not None or xpu is not None:
             from .cache import error_signature
             sig = error_signature(stderr)
+        candidate = None
         if xpu is not None and (sig or stderr):
             hit = xpu.retrieve(sig, _symptom(stderr))          # (unit, score) or None; demoted units filtered
             if hit is not None:
-                r = _apply_hint(approach, hit[0].action)
-                if r is not None:
-                    return r
-        if hints is not None and sig:
+                candidate = _apply_hint(approach, hit[0].action)
+        if candidate is None and hints is not None and sig:
             act = hints.get(sig)
             if act:
-                r = _apply_hint(approach, act)
-                if r is not None:
-                    return r
-        return heuristic_revise(result, approach, history)
+                candidate = _apply_hint(approach, act)
+        if candidate is None:
+            candidate = heuristic_revise(result, approach, history)
+        if candidate is None and model is not None:
+            candidate = _llm_revise(result, approach, model)
+        # S6 delta-repair discipline: reject a revise that isn't a constrained additive delta (switches the
+        # entry, shrinks capture targets, removes env, or drops a package) — it could only weaken the run.
+        if candidate is not None and not _safe_delta(approach, candidate):
+            return None
+        return candidate
     return revise
 
 
@@ -548,7 +600,7 @@ def orchestrate(repo_dir: str, run_approach, *, profile=None, use_llm: bool = Tr
     dual-modality XPU) — HOW-only, never a verdict channel. Returns a RunResult ready for the unchanged
     deterministic verify, with the Assessment Report + a re-runnable launch command on ``result.cost``."""
     profile = profile or assess(repo_dir)
-    revise = revise if revise is not None else make_revise(hints, xpu)
+    revise = revise if revise is not None else make_revise(hints, xpu, model)
     _purge_reserved(repo_dir)   # drop any stale calma_eval.py/calma_predictions.csv from a prior run on a reused checkout
     approaches = rank_approaches(profile, repo_dir, use_llm=use_llm, model=model, plan=plan, log=log)
 

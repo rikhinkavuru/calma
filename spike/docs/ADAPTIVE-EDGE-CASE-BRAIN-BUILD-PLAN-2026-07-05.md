@@ -291,8 +291,15 @@ Ordered by leverage × safety. Every slice: proposer-only, bounded, tested, HOW-
   `test_e2b_snapshot_wiring.py` (cold→pause+cache · warm→resume+skip-install · flag-off→unchanged) with a fake
   E2B SDK. The ONLY remaining step is the **live smoke** to flip `CALMA_E2B_SNAPSHOT=1` on the deployed template
   (confirm resume fidelity + measure pause ~4s/GiB vs the install saved).
-- **S6 — Delta-repair discipline + registry-driven LLM revise (§4.2).** Constrained, evidence-supported
-  deltas; the LLM proposes only within the registry vocabulary; sanity checks forbid weakening a verification.
+- **S6 — Delta-repair discipline + registry-driven LLM revise (§4.2). ✅ DONE (2026-07-05).** `_safe_delta`
+  (orchestrate.py) gates EVERY revise: a constrained ADDITIVE delta over the current approach (grow/relax deps,
+  add/change env) — never a free regeneration that weakens the verification (switch the entrypoint, shrink
+  capture targets, remove an env var, drop an installed package → rejected). Plus `planner.propose_revise` +
+  `_llm_revise`: a registry-vocabulary LLM revise (add-dep / set-env ONLY) for an env error the key-free
+  heuristic can't map (libGL→opencv-python-headless, headless MPLBACKEND, a PyPI name ≠ the import), sanitized
+  (`_LIM.sanitize_pip` blocks injected specs) + safety-gated. Wired into `make_revise(hints, xpu, model)` (last
+  resort, after xpu→hints→heuristic). HOW-only; a wrong fix only leaves the run failing, never a verdict. 7
+  hermetic tests. `make py` green, FCR 12/12, 1089 tests.
 - **S7 — Offline experience distillation (Trace2Skill).** A parallel fleet over the journal consolidates
   trajectory lessons into a conflict-free XPU library; delayed-audit prunes. Post-MVP flywheel.
 

@@ -508,6 +508,67 @@ def locate_claims(repo_dir, model=None, existing=None):
     return out[:20]
 
 
+# ── constrained env revise (S6): the registry-vocabulary LLM fix for an env failure the heuristic can't map ────
+_REVISE_SYSTEM = (
+    "You fix a Python repo's ENVIRONMENT so its evaluation entrypoint runs. Given the run's ERROR and the deps "
+    "already installed, propose the SMALLEST additive fix: a single pip package to ADD, and/or environment "
+    "variables to SET. Examples: 'ImportError: libGL.so.1: cannot open shared object' -> add "
+    "opencv-python-headless; 'TclError: no display name' / a matplotlib GUI error -> set MPLBACKEND=Agg; a "
+    "missing module whose PyPI distribution name differs from the import name. "
+    "HARD RULES: ONLY add a dependency or set an env var — NEVER remove a dependency, NEVER change the "
+    "entrypoint, NEVER set a variable that disables a check or skips work. If NO additive env fix applies (a "
+    "missing DATA file, a GPU requirement, or a genuine code bug), return empty. A wrong package just leaves the "
+    "run failing (caught downstream), so never guess a package you are not confident is real."
+)
+_REVISE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "add_dep": {"type": "string", "description": "a single PyPI package to add (e.g. 'opencv-python-headless'), or ''"},
+        "set_env": {"type": "array", "items": {
+            "type": "object",
+            "properties": {"key": {"type": "string"}, "value": {"type": "string"}},
+            "required": ["key", "value"], "additionalProperties": False,
+        }, "description": "environment variables to set (usually empty or one, e.g. MPLBACKEND=Agg)"},
+    },
+    "required": ["add_dep", "set_env"],
+    "additionalProperties": False,
+}
+
+
+def propose_revise(error, deps, model=None):
+    """Propose a CONSTRAINED env fix (add a dep / set an env var) for a run failure the key-free heuristic could
+    not map — a system lib (libGL → opencv-python-headless), a headless-backend env, or a PyPI name that differs
+    from the import. Returns ``{"add_dep": str|None, "set_env": {k: v}}`` or None. Best-effort + gated.
+
+    FCR: the output is HOW-only (an env delta), sanitized here (``_LIM.sanitize_pip`` blocks an injected
+    ``--index-url``/``git+`` spec) and safety-gated by the caller (a revise may only ADD, never weaken the
+    verification). A wrong fix just leaves the run failing — it can never reach a verdict."""
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        return None
+    ctx = json.dumps({"error": str(error or "")[:3000], "installed_deps": list(deps or [])[:60]})
+    raw = _call_model(ctx, (model or _MODEL), system=_REVISE_SYSTEM, schema=_REVISE_SCHEMA)
+    if not raw:
+        return None
+    try:
+        p = json.loads(raw)
+    except (json.JSONDecodeError, ValueError):
+        return None
+    if not isinstance(p, dict):
+        return None
+    dep = str(p.get("add_dep") or "").strip()
+    add_dep = None
+    if dep:
+        clean = _LIM.sanitize_pip([dep])                     # anti-injection: only a plain PyPI spec survives
+        add_dep = clean[0] if clean else None
+    env = {}
+    for item in (p.get("set_env") or [])[:8]:
+        if isinstance(item, dict) and isinstance(item.get("key"), str) and item.get("key").strip():
+            env[item["key"].strip()] = str(item.get("value") or "")
+    if not add_dep and not env:
+        return None
+    return {"add_dep": add_dep, "set_env": env}
+
+
 def _valid_data_sources(items):
     """Keep only {path, url} where path is a SAFE repo-relative path (no escape / absolute) and url is a plain
     https:// URL. A prompt-injected plan can't write outside the repo or point the fetcher at an internal host:
