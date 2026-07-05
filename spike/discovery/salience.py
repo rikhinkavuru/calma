@@ -43,8 +43,11 @@ def _is_delta(claim: dict) -> bool:
 
 def _degenerate(claim: dict) -> bool:
     """A value no human would quote as a headline: an exact 0 / -0 (placeholder cell), or a near-zero delta."""
+    v = claim.get("value")
+    if v is None:
+        return False
     try:
-        f = float(claim.get("value"))
+        f = float(v)
     except (TypeError, ValueError):
         return False
     if f == 0.0:

@@ -88,7 +88,9 @@ def _token_ok(supplied: str | None) -> bool:
     used to recover the token. Open when no token is configured (the local-first operator flow)."""
     if not _VERIFY_TOKEN:
         return True
-    return bool(supplied) and hmac.compare_digest(supplied, _VERIFY_TOKEN)
+    if not supplied:
+        return False
+    return hmac.compare_digest(supplied, _VERIFY_TOKEN)
 
 
 def require_service_token(x_calma_service_token: str | None = Header(default=None)):
@@ -103,7 +105,7 @@ class Identity:
     truthfully. Without the token an attacker can forge neither header. Token UNSET → the local operator
     (their machine, their keys): the unmetered `owner` tier."""
     tenant: str
-    tier: object            # core.limits.Tier
+    tier: LIM.Tier
     unmetered: bool
 
 
@@ -178,7 +180,9 @@ def _installation_ok(iid: str, tenant: str, unmetered: bool, proof: str | None =
         return True
     with _LOCK:
         rec = INSTALLATIONS.get(iid)
-    return bool(rec) and rec.get("tenant") == tenant
+    if not rec:
+        return False
+    return rec.get("tenant") == tenant
 
 
 JOBS: dict[str, dict] = {}

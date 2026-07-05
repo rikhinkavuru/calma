@@ -122,3 +122,20 @@ def test_clone_never_logs_the_installation_token_on_failure(monkeypatch, _cleanu
         pass
     logged = " ".join(job["logs"])
     assert secret_token not in logged, logged
+
+
+def test_token_ok_rejects_missing_token_when_configured(monkeypatch, _cleanup):
+    """Locks the narrowed _token_ok (Phase 2 mypy fix): with a token configured, a missing/empty/wrong
+    supplied token is rejected; only the exact token passes (constant-time compare)."""
+    srv = _load_server(monkeypatch, "s3cret")
+    assert srv._token_ok("s3cret") is True
+    assert srv._token_ok(None) is False
+    assert srv._token_ok("") is False
+    assert srv._token_ok("wrong") is False
+
+
+def test_token_ok_open_when_unset(monkeypatch, _cleanup):
+    """With no token configured, the local-first operator flow stays open — any supplied value (incl. None)."""
+    srv = _load_server(monkeypatch, None)
+    assert srv._token_ok(None) is True
+    assert srv._token_ok("anything") is True

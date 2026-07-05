@@ -52,9 +52,11 @@ def install() -> None:
         colab = types.ModuleType("google.colab")
 
         files_mod = types.ModuleType("google.colab.files")
-        files_mod.upload = lambda *a, **k: _committed_data(os.getcwd())   # the repo's committed data
-        files_mod.download = lambda *a, **k: None
-        files_mod.view = lambda *a, **k: None
+        # types.ModuleType has no statically-declared attributes; set them via setattr — the correct typed
+        # idiom for building a module dynamically (a bare `mod.attr = …` trips mypy's [attr-defined]).
+        setattr(files_mod, "upload", lambda *a, **k: _committed_data(os.getcwd()))   # the repo's committed data
+        setattr(files_mod, "download", lambda *a, **k: None)
+        setattr(files_mod, "view", lambda *a, **k: None)
 
         drive_mod = types.ModuleType("google.colab.drive")
 
@@ -63,14 +65,17 @@ def install() -> None:
                 os.makedirs(mountpoint, exist_ok=True)
             except OSError:
                 pass
-        drive_mod.mount = _mount
-        drive_mod.flush_and_unmount = lambda *a, **k: None
+        setattr(drive_mod, "mount", _mount)
+        setattr(drive_mod, "flush_and_unmount", lambda *a, **k: None)
 
-        colab.files = files_mod
-        colab.drive = drive_mod
-        colab.output = types.ModuleType("google.colab.output")
-        colab.userdata = types.ModuleType("google.colab.userdata")
-        colab.userdata.get = lambda *a, **k: os.environ.get(a[0]) if a else None
+        output_mod = types.ModuleType("google.colab.output")
+        userdata_mod = types.ModuleType("google.colab.userdata")
+        setattr(userdata_mod, "get", lambda *a, **k: os.environ.get(a[0]) if a else None)
+
+        setattr(colab, "files", files_mod)
+        setattr(colab, "drive", drive_mod)
+        setattr(colab, "output", output_mod)
+        setattr(colab, "userdata", userdata_mod)
 
         # preserve a real `google` namespace package if one exists; only fabricate it when absent
         try:
@@ -79,12 +84,12 @@ def install() -> None:
             google_pkg = types.ModuleType("google")
             google_pkg.__path__ = []          # mark as a package
             sys.modules["google"] = google_pkg
-        google_pkg.colab = colab
+        setattr(google_pkg, "colab", colab)
 
         sys.modules["google.colab"] = colab
         sys.modules["google.colab.files"] = files_mod
         sys.modules["google.colab.drive"] = drive_mod
-        sys.modules["google.colab.output"] = colab.output
-        sys.modules["google.colab.userdata"] = colab.userdata
+        sys.modules["google.colab.output"] = output_mod
+        sys.modules["google.colab.userdata"] = userdata_mod
     except Exception:  # noqa: BLE001 — instrumentation must never break the interpreter
         pass
