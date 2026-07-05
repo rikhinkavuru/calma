@@ -321,3 +321,33 @@ stays green; wired through CI automatically (CI calls `make py-lint`).
 runaway children, network/SSRF, retries — already handled by the process-isolation supervisor + runner
 hardening from prior passes (see memory / `spike/docs`), and guarded by the FCR franchise gates. Verified
 present; not re-implemented. None re-opened.
+
+---
+
+## Phase 5 — Security hardening (Category D) (2026-07-05) · commit `harden(security) headers`
+
+**Verified solid (no change needed):**
+- **Authz on every protected path.** Sensitive endpoints are gated by `Depends(require_service_token)` or by
+  `Depends(identity)` (which 401s without a valid token when one is configured). The `"ungated"`-looking
+  endpoints (`/api/gh/repos`, `/api/usage`, …) actually take `Depends(identity)`; the truly-public ones
+  (`/connect/github`, `/api/catalog`, `/api/signing-key`, `/api/badge/{id}`, `/`, `/app.js`) are public by
+  design. Private-repo / installation endpoints additionally enforce `_installation_ok` — the cross-tenant
+  **IDOR guard** (an installation may only be enumerated/used by the tenant it was bound to).
+- **Input validation** — request bodies/params are Pydantic-typed (`VerifyReq`, `SecretReq`); repo slugs are
+  regex-constrained (`_SLUG_RE`). Stored secret **values are never returned** by any endpoint.
+- **SSRF / LFI** — `runner/data_resolver.py` `_url_is_safe` blocks loopback/private/link-local/reserved IPs
+  (incl. the `169.254.169.254` cloud-metadata endpoint) and **re-validates every redirect hop**, not just the
+  first URL. **Shell-injection** — `runner/e2b_runner.py` `shlex.quote`s every interpolated arg. Constant-time
+  token compare (`hmac.compare_digest`). All confirmed still present.
+- **CORS** — none configured, **on purpose**: the browser same-origin default already denies cross-origin
+  reads; token + trusted-proxy headers are the control. This is fail-closed (no `*` origin), so correct.
+
+**Gap closed:** the network-facing service set **no security response headers**. Added an http middleware
+(`server.py`) setting `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy:
+no-referrer`, and HSTS on every response (defence-in-depth for the HTML it also serves; `setdefault` lets a
+route override; HSTS honored only over HTTPS). The no-CORS decision is now documented inline. +1 test.
+`make py` green (1000 passed, cov 73.51%), FCR 11/11.
+
+**Deliberately not done:** no CSP (would risk breaking the local dashboard's inline styles/scripts and needs
+visual verification — not worth an autonomous change); left to the founder if the dashboard is ever exposed
+directly rather than behind the Next app.
