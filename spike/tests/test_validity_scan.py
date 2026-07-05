@@ -8,6 +8,29 @@ import validity_scan as VS
 FIX = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "fixtures")
 
 
+def _baseline_claim(val):
+    return {"metric": "accuracy", "claimed": val, "baseline_checked": True,
+            "validity": {"invalidating": ["accuracy %s is at or below the majority-class baseline 0.5446" % val]}}
+
+
+def test_baseline_sweep_collapses_to_one_finding():
+    # A notebook that prints accuracy every epoch (heart-kvns: 444 values, 288 below baseline) must not emit
+    # 288 near-identical findings ("Calma found 288 problems") — collapse the sweep into ONE informative line
+    # that keeps the count + an example. Still FAILs (the signal is preserved), just not a wall.
+    claims = [_baseline_claim("0.54%02d" % i) for i in range(50)]
+    check = VS._baseline_check({"claims": claims})
+    assert check["status"] == "fail"
+    assert len(check["findings"]) == 1
+    assert "50 of the 50 reported accuracy values" in check["findings"][0]
+
+
+def test_baseline_few_hits_listed_verbatim():
+    # A repo that genuinely reports a couple of degenerate numbers (≤ the cap) still lists each — no info lost.
+    claims = [_baseline_claim("0.50"), _baseline_claim("0.51")]
+    check = VS._baseline_check({"claims": claims})
+    assert check["status"] == "fail" and len(check["findings"]) == 2
+
+
 def test_committed_leakage_fails(tmp_path):
     (tmp_path / "data_train.csv").write_text("seq,label\nAAAA,0\nBBBB,1\nCCCC,0\nEEEE,1\n")
     (tmp_path / "data_test.csv").write_text("seq,label\nAAAA,0\nBBBB,1\nDDDD,0\n")   # AAAA,BBBB leaked
