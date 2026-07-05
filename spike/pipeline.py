@@ -1169,6 +1169,15 @@ def verify_repo(
             if regenerated:
                 trace.note("pinned %d committed result-file claim(s) — the run regenerated its results table"
                            % regenerated)
+        # S4 part 2b: AI "search ALL outputs" (CORE-Bench) — when the deterministic scan found NOTHING, an LLM
+        # locates REPORTED metric values the patterns missed (an odd file, a log, notebook prose). Each is gated
+        # through map_metric + a numeric value + a file we actually showed it; it stays only a CLAIM the recompute
+        # validates INDEPENDENTLY, so a misread/hallucinated number → REFUTED/DISCOVERED, never a false CONFIRM.
+        if opts.plan and not discovered:
+            located = PLAN.locate_claims(repo_dir, model=PLAN._MODEL)
+            if located:
+                trace.note("AI located %d reported metric(s) the deterministic scan missed" % len(located))
+                discovered = located
         trace.note("discovered %d claim(s)" % len(discovered))
         claims.extend(discovered)
 

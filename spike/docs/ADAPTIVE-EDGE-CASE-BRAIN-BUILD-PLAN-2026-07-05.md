@@ -242,8 +242,16 @@ Ordered by leverage × safety. Every slice: proposer-only, bounded, tested, HOW-
   surface produced no false confirm (adversarial test: a label-says-subset / value-is-all-rows claim → REFUTED,
   not laundered). The LLM stays OUT of `core/`. 7 hermetic (stubbed-model) tests. `make py` green, FCR 11/11,
   1068 tests.
-  **PART 2b (next):** LLM `locate_results` — search the tree/README when the deterministic discovery scan finds
-  nothing (CORE-Bench "search ALL outputs") → the located numbers become claims the recompute validates.
+- **S4 part 2b — LLM `locate_results` (2026-07-05). ✅ DONE.** `planner.locate_claims`: when the deterministic
+  discovery scan finds NOTHING, an LLM searches the repo's result-ish files (bounded haystack) for REPORTED
+  metric values the patterns missed (an odd file, a log, notebook prose) — CORE-Bench "search ALL outputs".
+  Every located number is gated through `map_metric` (a real metric), a numeric value, and a file we ACTUALLY
+  showed the model (no hallucinated files). Wired into the discovery stage (gated `opts.plan` + empty scan).
+  **FCR:** a located value is only a CLAIM — CONFIRMED only if the independent recompute matches it, so a
+  misread/hallucinated number → REFUTED/DISCOVERED, never a false CONFIRM. FCR stayed 0. 5 hermetic tests.
+  `make py` green, FCR 11/11, 1073 tests.
+  **S4 remaining (optional next):** numeric-threshold scopes ("sensitivity for coverage > 30x") — deliberately
+  deferred (a threshold surface is more p-hackable; needs the §7 adversarial eval to bound it under ≤5%).
 - **S4 grounding notes (original).** *Grounding (done):*
   the Judge already exists — `core/artifacts.py` `recompute_from_artifacts` → `recompute_from_cols(cols,
   metric, resolver)` recomputes a metric from a committed predictions CSV over ALL rows via the deterministic
