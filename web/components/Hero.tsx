@@ -27,9 +27,8 @@ export function Hero() {
 
         <div>
           <p className="lead hero__lead">
-            Everyone else reads the diff or trusts the score. <b>Calma re-runs the work and
-            recomputes the number</b> — from the raw outputs, never the one your agent reported —
-            and blocks the wrong one before it ships.
+            <b>Calma re-runs your agent&apos;s work and recomputes the number</b> — from raw
+            outputs, never its word — and blocks the wrong one before it ships.
           </p>
         </div>
 

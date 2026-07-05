@@ -201,8 +201,7 @@ const FEATURES: Feature[] = [
     title: <>Recompute, don&apos;t trust.</>,
     body: (
       <>
-        Connect a repo and Calma re-runs the work from scratch — it rebuilds the environment and
-        executes{" "}
+        Connect a repo and Calma rebuilds the environment, re-running{" "}
         <span className="chip">
           <FaTerminal style={{ color: "#1f1a13" }} />
           scripts
@@ -212,13 +211,12 @@ const FEATURES: Feature[] = [
           <SiJupyter style={{ color: "#f37626" }} />
           notebooks
         </span>{" "}
-        in a network-off sandbox, even code that only runs on{" "}
+        in a network-off sandbox — even on{" "}
         <span className="chip">
           <SiPython style={{ color: "#3776ab" }} />
           era-pinned Python
         </span>
-        . It captures the raw arrays behind each metric and recomputes the headline number itself —
-        never the one printed in the README.
+        . Then it recomputes the headline number from the raw arrays, never the README.
       </>
     ),
     img: "/img/features/recompute.jpg",
@@ -231,10 +229,9 @@ const FEATURES: Feature[] = [
     title: <>Reproducible isn&apos;t the same as true.</>,
     body: (
       <>
-        A number can re-run to the exact bit and still be a lie. Calma checks the structure behind
-        it — row-level leakage between train and eval splits, a trivial baseline a constant guess
-        would match, a misreport recomputed straight from committed predictions — and stamps a
-        contaminated result <b>INVALIDATED</b>, even when it reproduces perfectly.
+        A number can reproduce perfectly and still be a lie. Calma checks the structure behind
+        it — train/eval leakage, trivial baselines, misreported predictions — and stamps a
+        contaminated result <b>INVALIDATED</b>.
       </>
     ),
     img: "/img/features/validity.jpg",
@@ -247,11 +244,9 @@ const FEATURES: Feature[] = [
     title: <>A guardrail, not a report.</>,
     body: (
       <>
-        Calma lives where the number is born. A stop-hook in your agent&apos;s loop reads the final
-        message, spots a checkable claim, and runs the scan before the wrong number ships — the same
-        engine that verifies any repo from the dashboard. And the decision always comes from
-        deterministic code, never the model: when it can&apos;t prove a claim it says{" "}
-        <b>INCONCLUSIVE</b>, and zero false confirms is the invariant every release is gated on.
+        A stop-hook in your agent&apos;s loop spots a checkable claim and runs the scan before the
+        wrong number ships. The decision comes from deterministic code, never the model — when it
+        can&apos;t prove a claim it says <b>INCONCLUSIVE</b>. Zero false confirms, ever.
       </>
     ),
     img: "/img/features/verdict.jpg",
@@ -316,10 +311,7 @@ export function BpFeatures() {
           <h2 className="bp-h2">
             Anyone can read your number. <span className="am">Calma re-derives it.</span>
           </h2>
-          <p className="bp-lead">
-            Three things that happen to every result — each one something a model grading its own
-            homework can&apos;t do.
-          </p>
+          <p className="bp-lead">Three things a model grading its own homework can&apos;t do.</p>
         </motion.div>
         <div className="feats__rows">
           {FEATURES.map((f, i) => (

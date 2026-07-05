@@ -54,11 +54,11 @@ export function BpFlow() {
           <Reveal>
             <div className="bp-head bp-head--center">
               <h2 className="bp-h2">
-                Whatever your agent computes, <span className="am">one engine has the final say.</span>
+                Every number, <span className="am">one final say.</span>
               </h2>
               <p className="bp-lead">
-                Backtests, model evals, benchmarks, datasets — every number flows into one engine,
-                recomputed from the raw outputs and proven or broken.
+                Backtests, evals, benchmarks, datasets — recomputed from raw outputs, then proven
+                or broken.
               </p>
             </div>
           </Reveal>

@@ -1622,7 +1622,8 @@ img, svg, canvas { display: block; max-width: 100%; }
    (lead matches the feature body text size) */
 .feats__head { margin-bottom: clamp(44px, 5vw, 72px); }
 .feats .bp-h2 { font-weight: 500; font-stretch: 100%; letter-spacing: -0.018em; }
-.flow .bp-h2, .feats .bp-h2 { font-size: clamp(30px, 3.6vw, 46px); }
+.flow .bp-h2, .feats .bp-h2, .faqsec .bp-h2 { font-size: clamp(30px, 3.6vw, 46px); }
+.faqsec .bp-h2 { font-weight: 500; font-stretch: 100%; letter-spacing: -0.015em; }
 .flow .bp-lead, .feats .bp-lead { font-size: clamp(15.5px, 1.45vw, 17.5px); max-width: 64ch; }
 
 .featrow { display: grid; grid-template-columns: 0.9fr 1.1fr; gap: clamp(34px, 5.5vw, 88px); align-items: center; }
