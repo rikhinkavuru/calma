@@ -7,13 +7,18 @@ export function BpFooter() {
       <div className="bp-footer__in">
         <div>
           <div className="bp-footer__lead">Verification infrastructure for AI results.</div>
-          <p className="bp-footer__sub">One deterministic engine. Pure Python stdlib, fully offline, MIT licensed.</p>
+          <p className="bp-footer__sub">
+            One deterministic engine. It re-runs the work in an isolated sandbox and recomputes every
+            number — fail-closed, zero false confirms.
+          </p>
         </div>
         <div className="bp-fcol">
           <h5>Product</h5>
           <a href="#flow">How it works</a>
           <a href="#features">Features</a>
           <a href="#faq">FAQ</a>
+          <Link href="/dashboard/verify">Verify a repo</Link>
+          <Link href="/pricing">Pricing</Link>
           <Link href="/demo">Try the demo</Link>
         </div>
         <div className="bp-fcol">
