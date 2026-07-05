@@ -217,3 +217,44 @@ Everything else in the gate is green at Phase-1 close. The branch CI will theref
 Phase 2/3 land — by design.
 
 **No product code changed in Phase 1** (additive tooling + config only).
+
+---
+
+## Phase 2 — Type-checker to 0 (2026-07-05) · commits `d9b47ac`, `c9cc76b`
+
+**Goal:** drive `make py-type` (mypy) from 23 errors → 0 at **root cause**, no suppression. All 23 fixed;
+one turned out to be a **real latent bug**, not a type nit.
+
+**The bug (commit `d9b47ac`) — `core/leakage.py` name collision:** `_LABEL_COLS` was defined twice at module
+level — line 78 as the *skip-list* `_seq_column` uses to locate the sequence column (includes `id/index/
+split`), and line 256 as the *label-column names* for `_csv_label_col` (includes `y_true/labels`). The
+second binding **shadowed** the first for the module's whole lifetime, so `_seq_column` silently read the
+wrong tuple and stopped skipping `id/index/split`. Effect: on a split with no recognized sequence-name
+column, an `id`/`index`/`split` column could be picked as the "sequence," and homology/k-mer overlap
+computed over unique id strings → ~0 overlap → **homology leakage silently missed** (a false-negative on the
+INVALIDATED path). mypy caught it as a 6-vs-7-tuple arity mismatch. Fixed by renaming the skip-list to
+`_NON_SEQ_COLS`. Verdict-affecting **only in the fail-closed direction** (more leakage caught, never fewer)
+→ FCR stays 11/11. Regression test added (`test_seq_column_skips_id_index_split_metadata`).
+
+**The type-hygiene fixes (commit `c9cc76b`):**
+- `server.py` — `Identity.tier` was annotated `object` though `resolve_tier()` returns `core.limits.Tier`;
+  that single wrong annotation cascaded into ~8 `[arg-type]`/`[attr-defined]` errors across the authz/limits
+  path. Annotated `LIM.Tier`.
+- `server.py` `_token_ok` / `_installation_ok` — replaced `bool(x) and x.attr` (mypy can't narrow across the
+  `and`) with an explicit `if not x: return False` guard. **Behavior identical** (None/empty → reject/False);
+  the token compare stays constant-time (`hmac.compare_digest`). Added direct `_token_ok` coverage (there was
+  none on this security-critical helper).
+- `capture/colab_shim.py` — built the dynamic `google.colab` shim via `setattr` + named submodule locals
+  instead of `mod.attr =` on a bare `ModuleType`. This is the correct typed idiom for dynamic module
+  construction (documented in-code per Rule 3), **not** a suppression; runtime behavior unchanged.
+- `discovery/salience.py` — guard `None` before `float()` instead of relying on the `except` (same result).
+- `hook/hook_stop.py` — coerce the dict-get key to `str`.
+
+**Verification:** `make py` green — ruff ✅, **mypy 0/115** ✅, vulture ✅, **999 passed / 2 skipped** (+4
+regression tests), coverage **73.45%** (≥73) ✅, **FCR 11/11** ✅, pip-audit 0 ✅. No `type: ignore` / `noqa`
+added. Behavior preserved except the leakage bug (an explicit, fail-closed improvement).
+
+**Edge cases enumerated (Category C, from these sites):** missing/None service token; empty in-memory
+installation record; a discovery claim with a `None`/non-numeric `value`; a validity card with a `None`
+grade; a Colab-exported notebook run outside Colab; a test split whose header has no recognized
+sequence-name column. All now handled explicitly.
