@@ -253,6 +253,75 @@ class SnapshotCache:
         return len(self._data)
 
 
+class RunJournal:
+    """Append-only JSONL of every revise OUTCOME across runs — ``{sig, symptom, action, success, scope}`` — the
+    raw material for offline distillation (S7). Unlike the online XPU record-on-win, it logs FAILURES too, so
+    ``distill()`` can compute a fix's REAL success rate across runs (the delayed-audit telemetry the online path
+    lacks). HOW-only (an action is an add-dep/set-env delta, never a value/verdict). Bounded (a ring, CWE-770):
+    on overflow the oldest lines are dropped. Best-effort persistence."""
+
+    def __init__(self, path: str | None = None, max_records: int = 20000):
+        self._path = path or os.path.join(_DEFAULT_DIR, "journal.jsonl")
+        self._lock = threading.Lock()
+        self._max = max(100, int(max_records))
+
+    def append(self, record: dict) -> None:
+        if not isinstance(record, dict) or not record.get("sig") or not record.get("action"):
+            return
+        with self._lock:
+            try:
+                os.makedirs(os.path.dirname(self._path), exist_ok=True)
+                with open(self._path, "a") as fh:
+                    fh.write(json.dumps(record) + "\n")
+            except OSError:
+                return
+            self._trim_locked()
+
+    def _trim_locked(self) -> None:
+        try:
+            with open(self._path) as fh:
+                lines = fh.readlines()
+        except OSError:
+            return
+        if len(lines) <= self._max:
+            return
+        try:
+            tmp = self._path + ".tmp"
+            with open(tmp, "w") as fh:
+                fh.writelines(lines[-self._max:])              # keep the newest max_records
+            os.replace(tmp, self._path)
+        except OSError:
+            pass
+
+    def records(self) -> list[dict]:
+        try:
+            with open(self._path) as fh:
+                out = []
+                for ln in fh:
+                    ln = ln.strip()
+                    if ln:
+                        try:
+                            out.append(json.loads(ln))
+                        except ValueError:
+                            continue
+                return out
+        except OSError:
+            return []
+
+    def __len__(self):
+        return len(self.records())
+
+
+_JOURNAL: RunJournal | None = None
+
+
+def run_journal() -> RunJournal:
+    global _JOURNAL
+    if _JOURNAL is None:
+        _JOURNAL = RunJournal()
+    return _JOURNAL
+
+
 _SNAPSHOTS: SnapshotCache | None = None
 
 

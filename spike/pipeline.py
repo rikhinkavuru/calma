@@ -774,7 +774,7 @@ def _run_repo_orchestrated(repo_dir: str, opts: VerifyOptions, trace: Trace, k: 
         budget = ORCH.Budget(step_cap=3, max_approaches=2)     # even with no repair budget, actually run the loop
     # flywheel (env-gated so it stays off in the hermetic test suite; prod enables it): fingerprint→approach
     # cache + error→fix hint store. HOW-only — a cache hit still flows through the full fail-closed verify.
-    cache = hints = xpu = None
+    cache = hints = xpu = journal = None
     # the flywheel is ON by default: the reproduction cache (fingerprint→approach) + experience store
     # (error→fix) make repeat/sibling repos cheaper and carry a learned fix across runs — HOW-only, so a stale
     # entry can only cost coverage, never a verdict. Kept OUT of the hermetic test suite (cache persistence
@@ -784,6 +784,7 @@ def _run_repo_orchestrated(repo_dir: str, opts: VerifyOptions, trace: Trace, k: 
         from orchestrator.xpu import xpu_store as _XPU_STORE
         cache, hints = OCACHE.approach_cache(), OCACHE.hint_store()
         xpu = _XPU_STORE()                                # dual-modality experience store (S3): Helix or local
+        journal = OCACHE.run_journal()                    # revise-outcome journal (S7) → offline distillation
     trace.stage("running", "running the chosen approach")
     # belt-and-suspenders FCR rail (parity with the heuristic repair loop): fingerprint repo compute source
     # before/after; if the build/run changed any .py (a package post-install, a fetched file), cap AFFIRMATIVE
@@ -792,7 +793,7 @@ def _run_repo_orchestrated(repo_dir: str, opts: VerifyOptions, trace: Trace, k: 
     _src_before = _REPAIR.snapshot_pyfiles(repo_dir)
     result = ORCH.orchestrate(repo_dir, run_approach, use_llm=opts.plan, plan=plan, budget=budget,
                               cache=cache, hints=hints, log=trace.note,
-                              synthesize=opts.synthesize_predictions, xpu=xpu)
+                              synthesize=opts.synthesize_predictions, xpu=xpu, journal=journal)
     _src_changed = _REPAIR._changed(_src_before, _REPAIR.snapshot_pyfiles(repo_dir))
     for line in (result.cost.get("assessment") or []):
         trace.note(line)

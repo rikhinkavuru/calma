@@ -168,6 +168,30 @@ class LocalXPU:
                 u.failures += 1
             self._persist()
 
+    def absorb(self, unit: XPUnit):
+        """Upsert a DISTILLED unit (S7): replace-or-add by signature, taking the unit's telemetry as
+        authoritative — the run-journal is the source of truth for the aggregated success/failure counts, so an
+        offline distillation pass overwrites (not increments) the stored telemetry. Re-embeds; bounded."""
+        if unit is None or not unit.signature:
+            return None
+        with self._lock:
+            existing = self._by_sig(unit.signature)
+            if existing is not None:
+                existing.action = unit.action
+                existing.symptom = unit.symptom or existing.symptom
+                existing.scope = {**existing.scope, **(unit.scope or {})}
+                existing.successes, existing.failures = unit.successes, unit.failures
+                existing.embedding = embed(existing.text())
+                out = existing
+            else:
+                if len(self.units) >= _MAX_UNITS:
+                    self.units.pop(0)
+                unit.embedding = embed(unit.text())
+                self.units.append(unit)
+                out = unit
+            self._persist()
+            return out
+
     def all(self):
         return list(self.units)
 
@@ -249,6 +273,13 @@ class HelixXPU:
     def reward(self, signature: str, success: bool):
         # telemetry lives in the node's JSON; a durable increment is a read-modify-write we keep best-effort.
         return None
+
+    def absorb(self, unit: XPUnit):
+        if unit is None or not unit.signature:
+            return None
+        unit.embedding = embed(unit.text())
+        self._write(unit)                                      # a new node; the distilled telemetry rides in its b64
+        return unit
 
 
 _XPU = None
