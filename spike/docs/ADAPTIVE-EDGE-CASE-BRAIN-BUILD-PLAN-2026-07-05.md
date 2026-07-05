@@ -221,9 +221,21 @@ Ordered by leverage × safety. Every slice: proposer-only, bounded, tested, HOW-
   embedder (DRY); firewall-clean. 9 hermetic tests. *Note:* the delayed-audit NEGATIVE reward is API-complete
   + tested (reward/demotion), but its automatic trigger from the post-VERDICT signal is a small pipeline
   follow-up (positive record-on-win is live). `make py` green, FCR 11/11, 1050 tests.
-- **S4 — Evidence-grounded discovery/binding (§4.6).** `locate_results` (LLM over the tree when the
-  deterministic scan is empty) + `bind_artifact` (propose scoped binding) → **Judge validates**. This is the
-  ebv-ms recompute (sensitivity/specificity from `benchmark_classifier.csv`). The highest-value coverage slice.
+- **S4 — Evidence-grounded discovery/binding (§4.6). ⏳ NEXT — grounded, not yet built.** *Grounding (done):*
+  the Judge already exists — `core/artifacts.py` `recompute_from_artifacts` → `recompute_from_cols(cols,
+  metric, resolver)` recomputes a metric from a committed predictions CSV over ALL rows via the deterministic
+  `SYNTH.recompute_any`, and `pipeline.py:863` binds it per-claim behind `_artifact_binds` (the
+  anti-value-coincidence guard). **S4 = a SCOPED binding feeding that SAME unchanged recompute:** (1) a
+  scope-retaining CSV parse (keep a boolean/categorical column besides the y_true/y_pred roles), (2)
+  `recompute_scoped(cols, scope={col,value}, metric, resolver)` = filter rows then recompute, (3) the binding
+  PROPOSAL of {metric, scope-col, value, column-map}. *FCR design (the delicate part — build with the §7
+  adversarial eval as its gate):* the proposer saw the claim value, so it could p-hack a scope to match →
+  **a DETERMINISTIC scope (claim-text ∩ a real column name, only when the claim explicitly names a subset) may
+  reach CONFIRMED; an LLM-proposed scope caps to REPRODUCED-ONLY** (the `source_modified`/`data_auto_resolved`
+  cap pattern) — never CONFIRMED on a scope the model invented. A wrong scope → wrong number → REFUTED. Wire
+  the `edgecases/` FCR eval (§7) to PROVE a p-hacked/wrong scope never CONFIRMs before shipping. This is the
+  ebv-ms recompute (`homology_sensitivity_testable` = recall over `pfam_testable==True` rows from
+  `benchmark_classifier.csv`) and the highest-value coverage slice.
 - **S5 — Speculative execution + snapshot rollback (§4.4).** E2B pause/snapshot + LIFO rollback; record
   winning action-sequence → RunPlan contract replay. Unblocks safe trial-and-repair + kills env pollution.
 - **S6 — Delta-repair discipline + registry-driven LLM revise (§4.2).** Constrained, evidence-supported
