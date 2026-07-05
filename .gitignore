@@ -19,6 +19,11 @@ next-env.d.ts
 __pycache__/
 *.pyc
 
+# coverage artifacts (pytest-cov gate — `make py-cov`)
+.coverage
+.coverage.*
+htmlcov/
+
 # Calma run outputs
 .claude/skills/calma/**/.calma/
 *.pyc

@@ -5,6 +5,14 @@ target-version = "py312"
 line-length = 120
 extend-exclude = ["results", "legacy", ".venvs", "__pycache__", ".calma"]
 
+[lint]
+# BLE001 (flake8-blind-except): a broad `except Exception` must be justified with an explicit
+# `# noqa: BLE001 — <reason>`. This engine is fail-closed and uses best-effort broad excepts deliberately
+# (instrumentation must never crash the interpreter/agent); the whole tree already annotates them (0
+# unannotated at adoption). Enabling the rule turns that convention into an enforced gate — a NEW unjustified
+# broad except that could silently swallow a real error now fails lint instead of shipping.
+extend-select = ["BLE001"]
+
 [lint.per-file-ignores]
 # recipes/ is a large ported/generated numeric library that uses math-convention single-letter names
 # (I, l, O for matrices / indices / operators). Renaming them would risk the math; they are not a code-

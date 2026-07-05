@@ -33,7 +33,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 sys.path.insert(0, os.path.join(HERE, "capture"))
 
-from fastapi import Depends, FastAPI, Header, HTTPException  # noqa: E402
+from fastapi import Depends, FastAPI, Header, HTTPException, Request  # noqa: E402
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse  # noqa: E402
 from pydantic import BaseModel  # noqa: E402
 
@@ -51,6 +51,22 @@ from synth import formula as SYNTH  # noqa: E402  — the catalog flywheel (stor
 from synth import store as SYNTH_STORE  # noqa: E402
 
 app = FastAPI(title="Calma — the correctness layer")
+
+
+# Security headers on every response — defence-in-depth for the HTML this service also serves (the local
+# operator dashboard) and belt-and-braces for the API. No CORS middleware is configured ON PURPOSE: the
+# browser same-origin default (no Access-Control-Allow-Origin) already denies cross-origin JS reads, and the
+# real controls are the service-token gate + the trusted first-party proxy that forwards the tenant/tier
+# headers — so we fail closed rather than open a `*` origin. HSTS is honored only over HTTPS (Fly terminates
+# TLS); browsers ignore it on plain-HTTP local runs.
+@app.middleware("http")
+async def _security_headers(request: Request, call_next):
+    resp = await call_next(request)
+    resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+    resp.headers.setdefault("X-Frame-Options", "DENY")
+    resp.headers.setdefault("Referrer-Policy", "no-referrer")
+    resp.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    return resp
 
 # Service-token gate for the verification API. The WorkOS-gated Next dashboard is the only first-party
 # caller: it holds this token server-side and proxies authenticated user submissions here. When the token is
@@ -88,7 +104,9 @@ def _token_ok(supplied: str | None) -> bool:
     used to recover the token. Open when no token is configured (the local-first operator flow)."""
     if not _VERIFY_TOKEN:
         return True
-    return bool(supplied) and hmac.compare_digest(supplied, _VERIFY_TOKEN)
+    if not supplied:
+        return False
+    return hmac.compare_digest(supplied, _VERIFY_TOKEN)
 
 
 def require_service_token(x_calma_service_token: str | None = Header(default=None)):
@@ -103,7 +121,7 @@ class Identity:
     truthfully. Without the token an attacker can forge neither header. Token UNSET → the local operator
     (their machine, their keys): the unmetered `owner` tier."""
     tenant: str
-    tier: object            # core.limits.Tier
+    tier: LIM.Tier
     unmetered: bool
 
 
@@ -178,12 +196,37 @@ def _installation_ok(iid: str, tenant: str, unmetered: bool, proof: str | None =
         return True
     with _LOCK:
         rec = INSTALLATIONS.get(iid)
-    return bool(rec) and rec.get("tenant") == tenant
+    if not rec:
+        return False
+    return rec.get("tenant") == tenant
 
 
 JOBS: dict[str, dict] = {}
 INSTALLATIONS: dict[str, dict] = {}    # installation_id ↔ tenant (in-memory MVP); real = the control plane
 _LOCK = threading.Lock()
+
+# Bound in-memory job retention so a long-running instance can't leak memory: each finished job holds its
+# claims + up to 4000 log lines, and JOBS otherwise grows with every submission forever. Keep ALL active
+# (queued/running) jobs; once over the cap, evict the OLDEST terminal ones. Tunable via CALMA_MAX_JOBS.
+_MAX_JOBS = int(os.environ.get("CALMA_MAX_JOBS") or 500)
+_TERMINAL_STATUS = ("done", "stopped", "error")
+
+
+def _evict_jobs() -> None:
+    """Caller holds _LOCK. Drop the oldest finished jobs once JOBS exceeds the cap; never evict active work."""
+    if len(JOBS) <= _MAX_JOBS:
+        return
+    terminal = sorted((j for j in JOBS.values() if j.get("status") in _TERMINAL_STATUS),
+                      key=lambda j: j.get("updated") or j.get("created") or 0)
+    for j in terminal[:len(JOBS) - _MAX_JOBS]:
+        JOBS.pop(j["id"], None)
+
+
+@app.get("/healthz")
+def healthz():
+    """Liveness probe — unauthenticated by design (returns no sensitive data) so Fly / uptime checks hit it."""
+    with _LOCK:
+        return {"ok": True, "jobs": len(JOBS)}
 # feature 12 — the local append-only transparency ledger (hash-chained, tamper-evident). Off the hot path;
 # submission is fail-open (a log error never fails a job).
 _TLOG = TLOG.LocalLedger(os.path.join(HERE, ".calma", "transparency-ledger.json"))
@@ -450,6 +493,7 @@ def verify(req: VerifyReq, ident: Identity = Depends(identity)):
             _log(job, "limit: %s" % n)
     with _LOCK:
         JOBS[job_id] = job
+        _evict_jobs()
     threading.Thread(target=run_job, args=(job, req), daemon=True).start()
     return {"id": job_id, "tier": tier.name, "deep": req.deep, "limit_notes": limit_notes}
 

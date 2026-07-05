@@ -89,7 +89,7 @@ def main() -> int:
 
 
 def _render(card: dict) -> str:
-    icon = {"PASS": "✅", "FAIL": "❌", "INCOMPLETE": "◻️"}.get(card.get("grade"), "?")
+    icon = {"PASS": "✅", "FAIL": "❌", "INCOMPLETE": "◻️"}.get(str(card.get("grade") or ""), "?")
     lines = ["[calma] validity: %s %s" % (icon, card.get("grade"))]
     for c in card.get("checks", []):
         if c.get("status") == "fail":

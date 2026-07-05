@@ -84,6 +84,7 @@
 
 .logo {
   height: 28px;
+  width: auto;
 }
 
 .card-nav-cta-button {

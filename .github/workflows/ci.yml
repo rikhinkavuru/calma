@@ -6,18 +6,58 @@ on:
   pull_request:
     branches: [main]
 
+# CI runs the SAME gate as `make gate` locally (the Makefile is the single source of truth), so a check can
+# never silently rot the way mypy/lint did before this workflow existed. `V=` makes the make targets use the
+# PATH-installed tools (setup-python + pip) instead of the local ~/.calma/spike-venv.
 jobs:
-  test:
+  python:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-      - name: install deps
-        # fastapi+httpx are needed by test_server_auth (spike/server.py); without them CI was red on every
-        # commit. NOT installing e2b on purpose: test_e2b_runner skips when e2b is absent — installing it
-        # would make those tests attempt real sandbox calls (no creds in CI) and fail.
-        run: python -m pip install --quiet numpy scikit-learn pandas scipy pyyaml pytest fastapi httpx
-      - name: run the spike test suite
-        run: python -m pytest spike/tests -q
+          python-version: "3.12"        # the deploy target (spike/Dockerfile + fly.io)
+      - name: install runtime + gate tooling
+        # fastapi+httpx back test_server_auth; numpy/sklearn/pandas/scipy back the recompute + FCR gates.
+        # NOT installing e2b/anthropic/cryptography on purpose: those modules are import-guarded and their
+        # tests skip when absent — installing e2b would make the sandbox tests attempt real calls (no creds
+        # in CI) and fail. mypy uses --ignore-missing-imports, so the missing third-party deps are fine.
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --quiet \
+            numpy scikit-learn pandas scipy pyyaml fastapi httpx \
+            pytest pytest-cov ruff mypy vulture pip-audit detect-secrets
+      - name: lint (ruff)
+        run: make py-lint V=
+      - name: types (mypy)
+        run: make py-type V=
+      - name: dead code (vulture)
+        run: make py-dead V=
+      - name: tests + coverage
+        run: make py-cov V=
+      - name: FCR franchise gates (false-confirm = 0)
+        run: make fcr V=
+      - name: dependency CVE audit
+        run: make audit V=
+      - name: secret scan
+        run: make secrets V=
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: install
+        run: cd web && npm ci
+      - name: types (tsc)
+        run: make web-type
+      - name: lint (0 warnings)
+        run: make web-lint
+      - name: build
+        run: make web-build
+      - name: dependency audit
+        run: make web-audit

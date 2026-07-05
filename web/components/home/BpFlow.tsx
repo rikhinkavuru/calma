@@ -1,4 +1,5 @@
 import type { ComponentType } from "react";
+import Image from "next/image";
 import { FaArrowTrendUp, FaBitcoin, FaGaugeHigh, FaDatabase, FaTableCells } from "react-icons/fa6";
 import { SiJupyter, SiScikitlearn, SiGithub } from "react-icons/si";
 import { Reveal } from "../chrome";
@@ -103,7 +104,7 @@ export function BpFlow() {
           <Reveal>
             <div className="flow__node">
               <span className="flow__logo">
-                <img src="/img/calma-lotus.png" alt="Calma" width={116} height={74} />
+                <Image src="/img/calma-lotus.png" alt="Calma" width={116} height={74} />
               </span>
             </div>
           </Reveal>

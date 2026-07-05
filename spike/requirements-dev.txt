@@ -4,6 +4,9 @@
 
 # test + quality gates (see the README "Quality gates" section)
 pytest
+pytest-cov      # critical-surface coverage floor (make py-cov / CI)
 ruff
 mypy
 vulture
+pip-audit       # dependency CVE gate (make audit)
+detect-secrets  # secret scan over tracked files (make secrets, baseline: ../.secrets.baseline)
