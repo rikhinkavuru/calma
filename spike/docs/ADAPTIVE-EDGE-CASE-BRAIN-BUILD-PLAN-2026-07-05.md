@@ -267,8 +267,23 @@ Ordered by leverage × safety. Every slice: proposer-only, bounded, tested, HOW-
   the `edgecases/` FCR eval (§7) to PROVE a p-hacked/wrong scope never CONFIRMs before shipping. This is the
   ebv-ms recompute (`homology_sensitivity_testable` = recall over `pfam_testable==True` rows from
   `benchmark_classifier.csv`) and the highest-value coverage slice.
-- **S5 — Speculative execution + snapshot rollback (§4.4).** E2B pause/snapshot + LIFO rollback; record
-  winning action-sequence → RunPlan contract replay. Unblocks safe trial-and-repair + kills env pollution.
+- **S5 — Speculative execution + snapshot rollback (§4.4). ✅ FOUNDATION DONE (2026-07-05); run_e2b wiring +
+  live smoke = the ops step to enable.** *OD-A resolved:* E2B pause/resume is on ALL plans; the installed SDK
+  (`e2b==2.30.0`) API is verified working — `sbx.pause()->bool` (id via `sbx.sandbox_id`),
+  `Sandbox.connect(id)->Sandbox` (resume-by-id, a class-method-variant descriptor), `Sandbox.kill(id)`.
+  *Built + tested:* `runner/snapshot.py` (pause/resume/kill primitives — best-effort, never raise, gated
+  `CALMA_E2B_SNAPSHOT` off) + `orchestrator.cache.SnapshotCache` (fingerprint→snapshot-id warm-env flywheel;
+  SMALL-bounded since each entry is a live paused sandbox = cost; **reaps** the old sandbox on
+  replace/evict/discard via an injected `kill_fn` — E2B retains paused sandboxes indefinitely, so a cache MUST
+  kill or it leaks). 15 hermetic tests (fake sandbox + monkeypatched SDK). HOW-only, firewall-clean. *Turnkey
+  wiring (the live-smoke ops step, NOT done — E2B can't be validated hermetically):* in `run_e2b`, thread the
+  repo `fingerprint`; before `_create_sandbox`, `if snapshots_enabled(): sbx = resume_sandbox(cache.get(fp),
+  cfg)` and, on a hit, SKIP `_upload_dir` + `_install` (the snapshot already has `/work` + deps) → run directly
+  (~1s vs a minutes-long boot+install); after a successful run, `cache.put(fp, pause_sandbox(sbx))` with
+  `cache=snapshot_cache(kill_fn=lambda sid: kill_snapshot(sid, cfg))`. On any resume miss/failure →
+  `cache.discard(fp)` and boot fresh (today's path). Flip `CALMA_E2B_SNAPSHOT=1` only after a live smoke
+  confirms resume fidelity + measures the pause (~4s/GiB) / resume (~1s) cost on the deployed template.
+  Speculative in-loop LIFO rollback (pause→trial→rollback) reuses the same primitives — S5 v2.
 - **S6 — Delta-repair discipline + registry-driven LLM revise (§4.2).** Constrained, evidence-supported
   deltas; the LLM proposes only within the registry vocabulary; sanity checks forbid weakening a verification.
 - **S7 — Offline experience distillation (Trace2Skill).** A parallel fleet over the journal consolidates
@@ -326,8 +341,8 @@ state machine · `HintStore`/`ApproachCache`/`RunPlanCache` = the experience-cac
 ---
 
 ### Open decisions (founder calls — resolved 2026-07-05)
-- **OD-A → DECIDE AT S5.** E2B snapshot/rollback is S5's one infra dependency; confirm pause/resume when S5
-  approaches, else simulate rollback with fresh microVMs (costlier).
+- **OD-A → RESOLVED (2026-07-05): E2B pause/resume is on ALL plans**, verified working on `e2b==2.30.0`. S5
+  foundation built on it — no microVM simulation needed; only the `run_e2b` wiring + live smoke remain.
 - **OD-B → HELIX NOW.** S3's XPU vector store goes straight to the Helix vector node (durable, cross-instance)
   behind the store interface — no local sqlite-vec interim.
 - **OD-C → FULLY-AUTO ALL SCOPES.** `bind_artifact` (S4) auto-recomputes every proposed claim→artifact scope;
