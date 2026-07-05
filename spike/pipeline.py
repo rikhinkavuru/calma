@@ -750,9 +750,11 @@ def _run_repo_orchestrated(repo_dir: str, opts: VerifyOptions, trace: Trace, k: 
         run_dict["data_auto_resolved"] = True              # → _diff_claims caps a mismatch to INCONCLUSIVE
     if holder.get("leakage"):
         run_dict["leakage"] = holder["leakage"]            # materialized-data leakage → the validity stage
-    # unify the source-edit rail with the heuristic path so _apply_agent_modified_cap works identically.
-    run_dict["repair_manifest"] = {"source_modified": (result.source_modified or []) + _src_changed,
-                                   "orchestrator_trace": result.trace}
+    # unify the source-edit rail with the heuristic path so _apply_agent_modified_cap works identically. Dedupe:
+    # a synthesized calma_eval.py is reported by BOTH the orchestrator (source_modified) and the snapshot diff
+    # (_src_changed) — list it once so the cap note reads cleanly.
+    _modified = list(dict.fromkeys((result.source_modified or []) + _src_changed))
+    run_dict["repair_manifest"] = {"source_modified": _modified, "orchestrator_trace": result.trace}
     # a human/discovery-facing entry label: strip the nb:/make: routing prefixes (make: has no python entry to
     # scope discovery against, so it drops to []; nb: keeps the notebook path).
     entry_out: list[str] = []
