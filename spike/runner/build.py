@@ -18,6 +18,9 @@ _ENTRY_NAMES = ("reproduce.py", "run.py", "main.py", "eval.py", "evaluate.py", "
                 "benchmark.py", "run_benchmark.py", "experiment.py", "demo.py", "train.py", "test.py")
 # a README run command: ```python foo.py``` / `python3 foo.py` / `python -m pkg.mod`
 _RUN_RE = re.compile(r"python3?\s+(-m\s+[\w.]+|[\w./-]+\.py)(?:\s+[^\n`]*)?", re.I)
+# a help/usage/version invocation is documentation of the CLI, never a reproduction command — computes no
+# numbers. Matched against the WHOLE command (script + args) so `python tool.py --help` is skipped.
+_HELP_FLAG_RE = re.compile(r"(?:^|\s)(?:-h|--help|--usage|--version|-V)(?:\s|$)")
 # packaging/scaffolding scripts that are never the headline entrypoint
 _NOT_ENTRY = {"setup.py", "conftest.py", "__init__.py", "_version.py", "version.py", "setup_helpers.py"}
 # `python -m <module>` README commands that are ENV SETUP, not the eval entrypoint — a README routinely shows
@@ -83,6 +86,13 @@ def _readme_run_command(repo_dir):
         except OSError:
             continue
         for m in _RUN_RE.finditer(text):
+            # A usage example, not a reproduction command. `python tool.py --help` (or -h/--version) documents
+            # the CLI; running it prints usage and computes nothing — yet the old code stripped the args and
+            # trusted the script as THE entrypoint (gb_kmer: the only README code block was
+            # `python src/upgrades/diagnose/diagnose.py --help`, so deep verify ran a help screen → captured
+            # no numbers → "the entrypoint failed"). Skip these; a real run-command elsewhere still wins.
+            if _HELP_FLAG_RE.search(m.group(0)):
+                continue
             tok = m.group(1).strip()
             if tok.startswith("-m"):
                 mod = (tok.split() + [""])[1]
@@ -314,6 +324,36 @@ def _writes_artifact(py_path, basenames):
     return 0
 
 
+# read entrypoints — a call to one of these on a committed artifact means the script CONSUMES it (a downstream
+# analysis stage), so it isn't the origin of that table even if it writes a derived one.
+_READ_METHODS = frozenset({"read_csv", "read_table", "read_parquet", "read_json", "read_excel",
+                           "read_pickle", "read_feather", "load", "loadtxt", "genfromtxt"})
+
+
+def _reads_artifact(py_path, basenames):
+    """True if the script READS one of `basenames` as input — a pandas/numpy read call, an `open(...)` not in
+    write mode, or an argparse `default=` path naming the artifact. Distinguishes a downstream consumer
+    (run_discriminability.py reads results.csv → writes discriminability_summary.csv) from the true producer
+    of the headline table (run_benchmark.py, which writes results.csv from scratch). Reverse-map hygiene: a
+    consumer writes its derived csv by a string literal (tight=2) and would otherwise outrank the real
+    producer that writes via a computed path (tight=1). Run-planning only — never touches a verdict."""
+    try:
+        tree = ast.parse(open(py_path, errors="replace").read(1_000_000))
+    except (OSError, SyntaxError, ValueError):
+        return False
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            reads = (isinstance(node.func, ast.Attribute) and node.func.attr in _READ_METHODS) or (
+                isinstance(node.func, ast.Name) and node.func.id == "open" and not _is_write_open(node))
+            if reads and any(b in s for s in _strings_under(node) for b in basenames):
+                return True
+            if isinstance(node.func, ast.Attribute) and node.func.attr == "add_argument":
+                for kw in node.keywords:                       # argparse default pointing at a committed artifact
+                    if kw.arg == "default" and any(b in s for s in _strings_under(kw.value) for b in basenames):
+                        return True
+    return False
+
+
 def _candidate_scripts(repo_dir):
     """Runnable .py to test as producers: root scripts + one level into source dirs (skip test/doc dirs)."""
     out = list(_root_scripts(repo_dir))
@@ -345,6 +385,8 @@ def artifact_producer(repo_dir):
         tight = _writes_artifact(path, basenames)
         if tight == 0:
             continue
+        if _reads_artifact(path, basenames):
+            tight = min(tight, 1)      # a consumer of a committed result is downstream, not the origin table
         score = tight * 100
         if _has_main_guard(path):
             score += 20

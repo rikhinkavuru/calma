@@ -3,29 +3,15 @@
 // The console home: a quick read on the account's verification activity — how many scans, how many numbers
 // confirmed, how many need a look — plus the most recent scans and a prominent way to start a new one. All
 // derived from the tenant's own job list (/api/jobs); no verdict is computed here.
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { FiPlus, FiArrowRight, FiCheckCircle, FiAlertTriangle, FiActivity } from "react-icons/fi";
-import type { JobSummary } from "@/lib/verify";
 import { tierCounts } from "@/lib/verdict";
-import { StatusPill, VerdictSummary, repoLabel, timeAgo } from "./scan-ui";
+import { useJobs } from "@/lib/useJobs";
+import { StatusPill, RunProgress, VerdictSummary, repoLabel, timeAgo } from "./scan-ui";
 import dash from "./dashboard.module.css";
 
 export function OverviewClient() {
-  const [jobs, setJobs] = useState<JobSummary[] | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-    fetch("/api/jobs", { cache: "no-store" })
-      .then(async (r) => {
-        if (!r.ok) throw new Error((await r.json().catch(() => ({})))?.error || `status ${r.status}`);
-        return r.json();
-      })
-      .then((d) => { if (alive) setJobs(Array.isArray(d) ? d : []); })
-      .catch((e) => { if (alive) { setErr(e instanceof Error ? e.message : String(e)); setJobs([]); } });
-    return () => { alive = false; };
-  }, []);
+  const { jobs, err } = useJobs();
 
   // aggregate the tenant's verdicts across all scans
   let confirmed = 0, toReview = 0, running = 0;
@@ -97,7 +83,10 @@ export function OverviewClient() {
                       </Link>
                     </td>
                     <td><VerdictSummary counts={j.counts} nClaims={j.n_claims} /></td>
-                    <td><StatusPill status={j.status} /></td>
+                    <td style={{ whiteSpace: "nowrap" }}>
+                      <StatusPill status={j.status} />
+                      <RunProgress status={j.status} progress={j.progress} stage={j.stage} />
+                    </td>
                     <td className={dash.muted}>{timeAgo(j.created)}</td>
                   </tr>
                 ))}

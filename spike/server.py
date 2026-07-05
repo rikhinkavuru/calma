@@ -42,6 +42,7 @@ from attest import badge as BADGE  # noqa: E402
 from attest import signing as SIGN  # noqa: E402
 from attest import tlog as TLOG  # noqa: E402
 from connect import github_app as GH  # noqa: E402  — the GitHub App connector (anyone connects their repos)
+from core import jobstore as JS  # noqa: E402  — durable job persistence (survives a redeploy; fixes "expired")
 from core import limits as LIM  # noqa: E402  — tiered rate limits / quotas / feature gates (PRICING.md)
 import graph as GRAPH  # noqa: E402
 import pipeline as PIPE  # noqa: E402  — the verification orchestration (discover → run → diff → validity)
@@ -222,6 +223,25 @@ def _evict_jobs() -> None:
         JOBS.pop(j["id"], None)
 
 
+def _load_persisted() -> None:
+    """Repopulate JOBS from the durable store on boot so a redeploy no longer orphans finished runs (the
+    'expired — can't open' bug) and the Overview metrics stay correct across restarts. Non-terminal rows come
+    back as 'interrupted' (see jobstore.load_all). Best-effort: a store problem just starts with an empty map."""
+    try:
+        loaded = JS.get_store().load_all(limit=_MAX_JOBS)
+    except Exception:  # noqa: BLE001
+        return
+    with _LOCK:
+        for job in loaded:
+            job.setdefault("_slot", False)
+            JOBS.setdefault(job["id"], job)
+    if loaded:
+        print("  restored %d job(s) from the durable store" % len(loaded))
+
+
+_load_persisted()   # runs at import (under uvicorn's `server:app` load) and in __main__ alike
+
+
 @app.get("/healthz")
 def healthz():
     """Liveness probe — unauthenticated by design (returns no sensitive data) so Fly / uptime checks hit it."""
@@ -263,10 +283,54 @@ class VerifyReq(BaseModel):
     disk_gb: int = 0                     # tier ephemeral-disk budget (set from clamp_request; not user-set)
 
 
+def _persist(job) -> None:
+    """Write-through a job snapshot to the durable store, best-effort. A store error never fails a live job."""
+    try:
+        JS.get_store().save(job)
+    except Exception:  # noqa: BLE001 — persistence is a convenience; the run's own outcome is untouched
+        pass
+
+
 def _set(job, **kw):
     with _LOCK:
         job.update(kw)
         job["updated"] = time.time()
+        status_changed = "status" in kw
+    # Persist on every status transition (queued→running→done/error) so a redeploy mid-run leaves an honest
+    # "interrupted" record instead of a vanished job, and a finished run survives to keep the Scans list +
+    # Overview metrics correct. Off the lock (SQLite write) to avoid holding it during IO.
+    if status_changed:
+        _persist(job)
+
+
+# Parse a legible sub-stage out of Calma's OWN emitted log lines (never the repo's stdout format, which is
+# per-repo) so a long deep run shows visible motion in the Scans list / Overview instead of a frozen
+# "running". The founder read a healthy 16-min gb_kmer run as hung because the summary stage never moved.
+_RUN_IDX_RE = re.compile(r"\(run (\d+)/(\d+)\)")
+_ELAPSED_RE = re.compile(r"(\d+)s elapsed")
+
+
+def _mins(sec: int) -> str:
+    return ("%dm" % (sec // 60)) if sec >= 60 else ("%ds" % sec)
+
+
+def _update_progress(job, msg):
+    """Caller holds _LOCK. Maintain job['progress'] — a short 'run i/K · Nm elapsed' line — from the run-index
+    note (`… (run 1/2)…`) and the heartbeat (`… Ns elapsed …`), both Calma-emitted. Cleared on a terminal
+    status by run_job. Best-effort: a parse miss just leaves the prior value."""
+    m = _RUN_IDX_RE.search(msg)
+    if m:
+        job["_run_idx"] = "run %s/%s" % (m.group(1), m.group(2))
+    e = _ELAPSED_RE.search(msg)
+    if e:
+        job["_elapsed_s"] = int(e.group(1))
+    parts = []
+    if job.get("_run_idx"):
+        parts.append(job["_run_idx"])
+    if job.get("_elapsed_s"):
+        parts.append("%s elapsed" % _mins(job["_elapsed_s"]))
+    if parts:
+        job["progress"] = " · ".join(parts)
 
 
 def _log(job, msg):
@@ -276,6 +340,7 @@ def _log(job, msg):
         job["logs"].append("[+%6.1fs] %s" % (t, msg))
         if len(job["logs"]) > 4000:                 # bound the in-memory log (a chatty run can stream a lot)
             job["logs"] = job["logs"][-4000:]
+        _update_progress(job, msg)
         job["updated"] = time.time()
 
 
@@ -410,6 +475,9 @@ def run_job(job, req: VerifyReq):
             cost = ((job.get("run") or {}).get("cost") or {})
             lim.record_sandbox_seconds(tenant, cost.get("sandbox_seconds") or 0)
             lim.record_gpu_seconds(tenant, cost.get("gpu_seconds") or 0)   # GPU-minute meter (four-unlocks §7)
+        # Persist the COMPLETE final state (all logs + claims), after the last _log line — the status-transition
+        # write in _set fires before the closing "done — …" log, so this captures the full console for reopen.
+        _persist(job)
 
 
 @app.post("/api/verify")
@@ -485,15 +553,17 @@ def verify(req: VerifyReq, ident: Identity = Depends(identity)):
         req.runner = "e2b"
     job_id = uuid.uuid4().hex[:12]
     job = {"id": job_id, "repo": req.repo, "runner": req.runner, "deep": req.deep,
-           "status": "queued", "stage": "queued", "created": time.time(), "updated": time.time(),
-           "claims": [], "counts": {}, "logs": [], "n_claims": 0, "leakage": [], "error": None,
-           "tier": tier.name, "limit_notes": limit_notes, "_tenant": ident.tenant, "_slot": slot}
+           "status": "queued", "stage": "queued", "progress": "", "created": time.time(),
+           "updated": time.time(), "claims": [], "counts": {}, "logs": [], "n_claims": 0, "leakage": [],
+           "error": None, "tier": tier.name, "limit_notes": limit_notes, "_tenant": ident.tenant,
+           "_slot": slot}
     if limit_notes:
         for n in limit_notes:
             _log(job, "limit: %s" % n)
     with _LOCK:
         JOBS[job_id] = job
         _evict_jobs()
+    _persist(job)                                    # durable from birth (survives a redeploy as "interrupted")
     threading.Thread(target=run_job, args=(job, req), daemon=True).start()
     return {"id": job_id, "tier": tier.name, "deep": req.deep, "limit_notes": limit_notes}
 
@@ -503,7 +573,8 @@ def list_jobs(ident: Identity = Depends(identity)):
     with _LOCK:
         jobs = JOBS.values() if ident.unmetered else (j for j in JOBS.values() if j.get("_tenant") == ident.tenant)
         return [{"id": j["id"], "repo": j["repo"], "status": j["status"], "stage": j["stage"],
-                 "counts": j["counts"], "n_claims": j["n_claims"], "created": j["created"]}
+                 "progress": j.get("progress", ""), "counts": j["counts"], "n_claims": j["n_claims"],
+                 "created": j["created"]}
                 for j in sorted(jobs, key=lambda j: -j["created"])]
 
 
