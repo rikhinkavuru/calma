@@ -284,6 +284,13 @@ Ordered by leverage × safety. Every slice: proposer-only, bounded, tested, HOW-
   `cache.discard(fp)` and boot fresh (today's path). Flip `CALMA_E2B_SNAPSHOT=1` only after a live smoke
   confirms resume fidelity + measures the pause (~4s/GiB) / resume (~1s) cost on the deployed template.
   Speculative in-loop LIFO rollback (pause→trial→rollback) reuses the same primitives — S5 v2.
+  **✅ WIRING DONE + PUSHED (2026-07-05):** `run_e2b` self-computes the fingerprint, resumes a warm snapshot
+  (skips boot + upload + install; reads the pybin run-context back from the snapshot's own filesystem), and
+  pauses + caches the env on a successful build — all behind `snapshot.snapshots_enabled()`, so **flag-OFF is
+  byte-for-byte the old behavior** (booted + killed, never paused). Validated hermetically by
+  `test_e2b_snapshot_wiring.py` (cold→pause+cache · warm→resume+skip-install · flag-off→unchanged) with a fake
+  E2B SDK. The ONLY remaining step is the **live smoke** to flip `CALMA_E2B_SNAPSHOT=1` on the deployed template
+  (confirm resume fidelity + measure pause ~4s/GiB vs the install saved).
 - **S6 — Delta-repair discipline + registry-driven LLM revise (§4.2).** Constrained, evidence-supported
   deltas; the LLM proposes only within the registry vocabulary; sanity checks forbid weakening a verification.
 - **S7 — Offline experience distillation (Trace2Skill).** A parallel fleet over the journal consolidates
