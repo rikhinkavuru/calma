@@ -281,6 +281,13 @@ S5 needs the E2B snapshot primitive. S6–S7 harden + scale.
 
 ## 7. Evaluation — an internal edge-case benchmark (CORE-Bench / SetupBench / DI-BENCH style)
 
+**✅ V1 DONE (2026-07-05):** `spike/optimize/edgecases.py` — a fault-class-tagged corpus (scoped-bool,
+scoped-cat, unscoped) of synthetic repos run through the real `_artifact_verify` recompute, reporting coverage
++ the false-confirm RATE disaggregated by class, gated at ≤5% (currently **coverage 100%, FCR 0%**). Wired
+into `make fcr` (the 12th eval). Grow it: add hardcoded-path / missing-binary / notebook-only / multi-step rows
+and the LLM-proposer cases (stubbed) as those surfaces expand; add the numeric-threshold adversarial set before
+building that surface.
+
 You can't ship adaptivity you can't measure. Build **`spike/optimize/edgecases/`**: a curated corpus of real
 repos, each tagged with its fault class(es) (hardcoded path, results-elsewhere, scoped metric, missing binary,
 notebook-only, multi-step). Metrics, disaggregated by fault class:

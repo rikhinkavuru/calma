@@ -45,7 +45,7 @@ py-dead:
 
 # the FCR franchise gates — false-confirm=0 invariant; each MUST exit 0
 fcr:
-	cd spike && for g in redteam formula_fuzz_eval metamorphic_eval fabrication repair stochastic anomaly_eval xcheck_eval interval_eval bounty convention_fuzz; do \
+	cd spike && for g in redteam formula_fuzz_eval metamorphic_eval fabrication repair stochastic anomaly_eval xcheck_eval interval_eval bounty convention_fuzz edgecases; do \
 	  $(V)python optimize/$$g.py >/dev/null && echo "fcr:$$g OK" || { echo "fcr:$$g FAIL"; exit 1; }; \
 	done
 
