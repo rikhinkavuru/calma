@@ -848,7 +848,7 @@ def _artifact_binds(claim: dict, path: str, n_metric_claims: int, n_files: int) 
     return bool(ptoks & ctoks)
 
 
-def _artifact_verify(repo_dir: str, claims: list[dict]) -> dict:
+def _artifact_verify(repo_dir: str, claims: list[dict], model: str | None = None) -> dict:
     out: dict = {}
     # Scan the repo for committed prediction files ONCE — it's a pure function of repo_dir. Doing it inside
     # the per-claim loop re-walked + re-read the repo for every claim; a benchmark that discovers hundreds of
@@ -872,10 +872,22 @@ def _artifact_verify(repo_dir: str, claims: list[dict]) -> dict:
             res = None
             sidx = scoped_index.get(path)
             if sidx is not None:
-                # S4: if the claim names a subset that binds to a real boolean column in THIS file, the SCOPED
-                # recompute is the correct one — a subset claim recomputed over all rows would false-REFUTE.
+                # S4 part 1: if the claim names a subset that binds LEXICALLY to a real column/value in THIS
+                # file, the SCOPED recompute is the correct one — a subset claim recomputed over all rows would
+                # false-REFUTE.
                 sres, scol = A.bind_and_recompute_scoped(_qtext, sidx[0], sidx[1], claim.get("metric"),
                                                          SYNTH.recompute_any)
+                if not sres and model and sidx[1] and A.scope_qualifiers(_qtext):
+                    # S4 part 2: the lexical bind missed a subset claim → a BLIND LLM proposal (it never sees the
+                    # claim's VALUE, so it can't p-hack a subset to match), validated by the SAME independent
+                    # recompute. A wrong/hallucinated subset → REFUTED or rejected, never a false CONFIRM.
+                    bound = PLAN.propose_scope(claim.get("metric"), _qtext, sidx[1], model)
+                    if bound:
+                        r = A.recompute_scoped(sidx[0], sidx[1][bound[0]], bound[1], claim.get("metric"),
+                                               SYNTH.recompute_any)
+                        if r:
+                            sres = r
+                            scol = "AI:" + (bound[0] if bound[1] is None else "%s==%s" % (bound[0], bound[1]))
                 if sres:
                     res, scoped_col = sres, scol
             if res is None:
@@ -1204,7 +1216,8 @@ def verify_repo(
         trace.note("tier cap: deep-verifying the top %d of %d claims by salience; %d held as DISCOVERED"
                    % (top_k, len(claims), len(held)))
 
-    artifacts = _artifact_verify(repo_dir, deep_claims) if deep_claims else {}
+    artifacts = _artifact_verify(repo_dir, deep_claims,
+                                 model=(PLAN._MODEL if opts.plan else None)) if deep_claims else {}
     if artifacts:
         trace.note("recomputed %d claim(s) from committed predictions" % len(artifacts))
 

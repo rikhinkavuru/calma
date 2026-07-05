@@ -233,9 +233,17 @@ Ordered by leverage × safety. Every slice: proposer-only, bounded, tested, HOW-
   "metric on the minority/rare/hard class" shape). **FCR stayed 0** — the scope is deterministically grounded
   (claim-named qualifier ∩ a real column/value) with ambiguity-refusal + subset guards, so the coverage win
   spent none of the ≤5% budget. 11 hermetic + adversarial tests. `make py` green, FCR 11/11, 1061 tests.
-  **PART 2 (next, spends the ≤5% budget):** LLM `locate_results` (search the tree/README when the deterministic
-  scan is empty) + LLM `bind_artifact` for exotic scopes the token-matcher misses → validated by the same
-  recompute; an LLM-proposed scope that matches may CONFIRM (new ≤5% bar), a wrong one → REFUTED.
+- **S4 part 2a — BLIND LLM `bind_artifact` (2026-07-05). ✅ DONE.** `planner.propose_scope`: when the lexical
+  binder misses a subset claim ('minority class' ≠ the value 'rare'), a BLIND LLM proposes the {column, value}
+  from the label semantics — it is NOT shown the claim's numeric value, so it cannot p-hack a subset to match —
+  validated against the real columns/values (hallucinations rejected) and recomputed by the SAME unchanged
+  Judge (`core.recompute_scoped`). Wired into `pipeline._artifact_verify` (gated on `opts.plan` + key; audit
+  labels it `AI:col==val`). **FCR stayed 0** — the blind proposer + independent recompute means even this LLM
+  surface produced no false confirm (adversarial test: a label-says-subset / value-is-all-rows claim → REFUTED,
+  not laundered). The LLM stays OUT of `core/`. 7 hermetic (stubbed-model) tests. `make py` green, FCR 11/11,
+  1068 tests.
+  **PART 2b (next):** LLM `locate_results` — search the tree/README when the deterministic discovery scan finds
+  nothing (CORE-Bench "search ALL outputs") → the located numbers become claims the recompute validates.
 - **S4 grounding notes (original).** *Grounding (done):*
   the Judge already exists — `core/artifacts.py` `recompute_from_artifacts` → `recompute_from_cols(cols,
   metric, resolver)` recomputes a metric from a committed predictions CSV over ALL rows via the deterministic

@@ -325,6 +325,70 @@ def plan_predictions(repo_dir: str, model: str | None = None) -> dict | None:
     return {"driver": driver, "metric": str(p.get("metric") or ""), "confidence": conf}
 
 
+# ── subset-scope binding (S4 part 2): bind a subset CLAIM to the rows it's about, BLIND to its value ──────────
+_SCOPE_SYSTEM = (
+    "You bind a benchmark CLAIM to the SUBSET of prediction rows it is about, so a verifier can recompute the "
+    "metric on the correct rows. You are given the metric, the claim's LABEL text, and the candidate subset "
+    "columns of the predictions file (each with its distinct values). Choose the ONE column — and, for a "
+    "categorical column, the ONE value — whose subset the claim's label denotes: e.g. 'minority class' -> the "
+    "rarer label value, 'testable'/'evaluable' -> a boolean flag column, 'hard examples' -> a difficulty "
+    "column's 'hard' value, 'rare variants' -> a class column's 'rare' value. Return column '' if NONE of the "
+    "columns denotes the claim's subset. "
+    "CRITICAL: you are NOT told the claim's numeric value and must NEVER try to hit a number — pick ONLY the "
+    "subset the LABEL semantically names. A wrong subset is caught + rejected by the verifier, so guessing a "
+    "subset to match a value is pointless and forbidden."
+)
+_SCOPE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "column": {"type": "string", "description": "the subset column name EXACTLY as given, or '' if none applies"},
+        "value": {"type": "string", "description": "for a categorical column, the exact value naming the subset; "
+                  "'' for a boolean column (its truthy rows) or when column is ''"},
+    },
+    "required": ["column", "value"],
+    "additionalProperties": False,
+}
+
+
+def propose_scope(metric, claim_label, scope_cols, model=None):
+    """BLIND LLM subset binding: given the metric, the claim's LABEL, and the candidate subset columns (name +
+    distinct values), pick the {column, value} subset the label denotes — WITHOUT seeing the claim's numeric
+    value, so it cannot p-hack a subset to match one. Returns (column, value_or_None) or None; validated against
+    the REAL columns/values here, then recomputed INDEPENDENTLY by the caller. Best-effort + gated (no key/SDK
+    -> None).
+
+    FCR: the proposer is blind to the target number, and its output is a bounded choice over EXISTING columns/
+    values (hallucinations rejected below); a wrong subset -> a wrong recompute -> REFUTED, never a false
+    CONFIRM. Same 'AI proposes, determinism disposes' contract as the run-planner — the LLM picks HOW to slice,
+    the unchanged recompute disposes the verdict."""
+    if not scope_cols:
+        return None
+    summary = []
+    for col, vals in list(scope_cols.items())[:25]:
+        distinct = sorted({str(v).strip() for v in vals if str(v).strip()})[:12]
+        summary.append({"column": col, "values": distinct})
+    context = json.dumps({"metric": str(metric or ""), "claim_label": str(claim_label or ""), "columns": summary})
+    raw = _call_model(context, (model or _MODEL), system=_SCOPE_SYSTEM, schema=_SCOPE_SCHEMA)
+    if not raw:
+        return None
+    try:
+        p = json.loads(raw)
+    except (json.JSONDecodeError, ValueError):
+        return None
+    if not isinstance(p, dict):
+        return None
+    col = (p.get("column") or "").strip()
+    if not col or col not in scope_cols:                       # no-subset, or a hallucinated column -> skip
+        return None
+    val = (p.get("value") or "").strip()
+    if not val:
+        return col, None                                       # boolean column -> its truthy subset
+    distinct = {str(v).strip().lower() for v in scope_cols[col] if str(v).strip()}
+    if val.lower() in distinct:
+        return col, val                                        # a categorical value that ACTUALLY exists
+    return None                                                # a value not present in the column -> reject
+
+
 def _valid_data_sources(items):
     """Keep only {path, url} where path is a SAFE repo-relative path (no escape / absolute) and url is a plain
     https:// URL. A prompt-injected plan can't write outside the repo or point the fetcher at an internal host:
