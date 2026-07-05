@@ -5,6 +5,21 @@ import random
 from core import leakage as L
 
 
+def test_split_discovery_skips_test_fixture_dirs(tmp_path):
+    # A train/test split under tests/fixtures/ (or examples/, sample/, …) is unit-test scaffolding, not the
+    # repo's real evaluation data — scanning it produced a false leakage alarm (gfmbench-api: an 8-row
+    # tests/fixtures split with 100% overlap flagged "contaminated"). Split discovery must skip those dirs.
+    fx = tmp_path / "tests" / "fixtures" / "data" / "toy"
+    fx.mkdir(parents=True)
+    (fx / "train.csv").write_text("seq,label\nAAAA,0\nBBBB,1\n")
+    (fx / "test.csv").write_text("seq,label\nAAAA,0\nBBBB,1\n")   # 100% overlap, but it's a fixture
+    assert L._split_pairs(str(tmp_path)) == {}
+    # a REAL split at the repo root is still discovered (and would fire leakage)
+    (tmp_path / "d_train.csv").write_text("seq,label\nAAAA,0\n")
+    (tmp_path / "d_test.csv").write_text("seq,label\nAAAA,0\n")
+    assert "d" in L._split_pairs(str(tmp_path))
+
+
 def test_clean_split_no_leakage():
     rng = random.Random(1)
     rows = [[rng.randint(0, 100000), rng.randint(0, 100000)] for _ in range(400)]

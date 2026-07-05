@@ -62,6 +62,22 @@ ML repo" funnel until the binding walls below are lowered.
 3. **Run robustness**: notebook OOM/kill on a 1GB box — right-size resources / lighter re-run.
 4. **Leakage-on-toy-fixtures** false alarm — demote tiny/100%-overlap splits.
 
+## Empirical validation (iteration 4 — deep-verify the ideal SHAPE)
+
+Deep-verified 4 **single-headline-metric** repos (no disambiguation) to test the recommendation:
+
+| repo | entry | result | note |
+|---|---|---|---|
+| iris-svm-classification | iris-svm.py | **CONFIRMED ×2** | number reproduces |
+| iris-ml-classifier | iris_classifier.py | **CONFIRMED ×2** | number reproduces |
+| Breast_Cancer | model.py | **REFUTED ×1** | claimed 97.37%, committed code deterministically produces 95.61% — a real "the code doesn't reproduce the README number" catch |
+| Heart-Disease-Classification | main.py | INCONCLUSIVE ×15 | 15 reported vs 9 computed → the disambiguation wall, as predicted |
+
+**Conclusion holds:** on the right shape (one hookable headline number + runnable entrypoint), Calma lands
+real CONFIRMED/REFUTED verdicts — including catching a non-reproducing number (the money verdict). The
+disambiguation wall is exactly what separates "lands a verdict" (single-value) from INCONCLUSIVE (multi-value),
+so priority #1 (disambiguation) is the single biggest lever to extend the beachhead to richer benchmark repos.
+
 ## Method
 Harnesses: `scratchpad/beachhead_eval.py` (corpus + genomics), `scratchpad/diverse_batch.py` (quant+genomics
 via Exa). Deep verifies via the new `calma` CLI against calma-engine.fly.dev. n=45; grows each loop iteration.
