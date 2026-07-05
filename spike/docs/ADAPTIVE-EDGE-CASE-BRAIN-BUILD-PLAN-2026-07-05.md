@@ -300,8 +300,14 @@ Ordered by leverage × safety. Every slice: proposer-only, bounded, tested, HOW-
   (`_LIM.sanitize_pip` blocks injected specs) + safety-gated. Wired into `make_revise(hints, xpu, model)` (last
   resort, after xpu→hints→heuristic). HOW-only; a wrong fix only leaves the run failing, never a verdict. 7
   hermetic tests. `make py` green, FCR 12/12, 1089 tests.
-- **S7 — Offline experience distillation (Trace2Skill).** A parallel fleet over the journal consolidates
-  trajectory lessons into a conflict-free XPU library; delayed-audit prunes. Post-MVP flywheel.
+- **S7 — Offline experience distillation (Trace2Skill). ✅ DONE (2026-07-05).** `orchestrator.cache.RunJournal`
+  (append-only, bounded ring) logs every revise OUTCOME — wins AND failures, which the online record-on-win path
+  can't — wired into the loop (`execute(..., journal=)`). `orchestrator/distill.py` aggregates the journal into
+  conflict-free XPU units: per error signature, pick the WINNING action (highest net successes, ties → most
+  wins), DROP a signature whose best action is net-negative or below the demote floor (delayed audit), else
+  upsert a dual-modality unit with the AGGREGATED telemetry via `xpu.absorb`. Idempotent (absorb overwrites,
+  never doubles). Deterministic + HOW-only + firewall-clean; an LLM-analyzer fleet for higher-abstraction
+  lessons layers on top. 7 hermetic tests. `make py` green, FCR 12/12, 1095 tests.
 
 Cadence: S0–S1 immediately (deterministic, testable, closes real cases). S2–S4 are the intelligence core.
 S5 needs the E2B snapshot primitive. S6–S7 harden + scale.

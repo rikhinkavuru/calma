@@ -357,13 +357,23 @@ def _fix_delta(old: RunApproach, new: RunApproach) -> dict | None:
     return None
 
 
+def _journal(journal, pending, *, success: bool) -> None:
+    """S7: append a revise OUTCOME (a fix + whether it led to a good run) to the run-journal, so an offline
+    distill pass can compute the fix's REAL success rate across runs. ``pending`` = (sig, action-delta, symptom).
+    HOW-only; no-op without a journal or a well-formed pending."""
+    if journal is None or not pending or not pending[0] or not pending[1]:
+        return
+    journal.append({"sig": pending[0], "action": pending[1],
+                    "symptom": (pending[2] if len(pending) > 2 else pending[0]), "success": bool(success)})
+
+
 def _stderr(result: RunResult) -> str:
     return " ".join((m.get("stderr_tail") if isinstance(m, dict) else "") or "" for m in (result.meta or []))
 
 
 def execute(approaches: list[RunApproach], run_approach, *, revise=heuristic_revise,
             success=None, budget: Budget | None = None, hints=None, log=None, resolve_data=None,
-            repo_dir: str | None = None, xpu=None) -> RunResult:
+            repo_dir: str | None = None, xpu=None, journal=None) -> RunResult:
     """Try ranked ``approaches`` in order, revising each until it runs with captures or the budget stops us.
 
     ``run_approach(approach) -> RunResult`` is the INJECTED effector (build + probe + k-run). ``revise`` maps a
@@ -379,7 +389,7 @@ def execute(approaches: list[RunApproach], run_approach, *, revise=heuristic_rev
     tried: set[tuple] = set()
     resolved: set[tuple] = set()                            # approaches whose missing-data we already tried to fix
     sig_fn: Callable[[str], str | None] | None = None
-    if hints is not None or xpu is not None:
+    if hints is not None or xpu is not None or journal is not None:
         from .cache import error_signature as sig_fn
 
     for idx, approach in enumerate(approaches[:budget.max_approaches]):
@@ -422,6 +432,7 @@ def execute(approaches: list[RunApproach], run_approach, *, revise=heuristic_rev
                         hints.record(pending[0], pending[1])
                     if xpu is not None:                        # dual-modality: bank the symptom text too
                         xpu.record(pending[0], pending[1], symptom=(pending[2] if len(pending) > 2 else None))
+                    _journal(journal, pending, success=True)   # S7: log the WIN for offline distillation
                     trace.append({"event": "hint-learned", "sig": pending[0]})
                 result.trace = trace
                 return result
@@ -474,6 +485,7 @@ def execute(approaches: list[RunApproach], run_approach, *, revise=heuristic_rev
             if approach_key(revised) in tried:
                 trace.append({"event": "no-progress", "approach": idx})
                 break
+            _journal(journal, pending, success=False)          # S7: the prior fix led to another failure → log it
             pending = (sig, _fix_delta(approach, revised), _symptom(_stderr(result)))   # + symptom for the XPU
             approach = revised
 
@@ -593,7 +605,7 @@ def _synthesize_predictions_run(repo_dir, run_approach, profile, model, log):
 
 def orchestrate(repo_dir: str, run_approach, *, profile=None, use_llm: bool = True, model: str | None = None,
                 plan: dict | None = None, revise=None, budget: Budget | None = None,
-                cache=None, hints=None, log=None, synthesize: bool = False, xpu=None) -> RunResult:
+                cache=None, hints=None, log=None, synthesize: bool = False, xpu=None, journal=None) -> RunResult:
     """assess → rank → execute. ``run_approach`` is the injected build+run effector (the pipeline supplies one
     wired to the real runners; tests supply a fake). ``plan`` reuses the pipeline's background-thread planner
     turn. ``cache``/``hints``/``xpu`` are the flywheel/experience stores (fingerprint→approach, error→fix,
@@ -628,7 +640,7 @@ def orchestrate(repo_dir: str, run_approach, *, profile=None, use_llm: bool = Tr
             _data_modified.extend(m for m in modified if m not in _data_modified)
         return placed
     result = execute(approaches, run_approach, revise=revise, budget=budget, hints=hints, log=log,
-                     resolve_data=_resolve_data, repo_dir=repo_dir, xpu=xpu)
+                     resolve_data=_resolve_data, repo_dir=repo_dir, xpu=xpu, journal=journal)
 
     # last resort (opt-in): no declared/AI entrypoint captured a number → synthesize a predict-and-dump driver
     # and recompute the metric independently from the predictions it writes. Verdict-capped at REPRODUCED-ONLY.
