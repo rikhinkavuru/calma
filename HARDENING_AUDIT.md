@@ -166,3 +166,54 @@ reformatting. Options:
 
 *Decision needed before the formatter gate can go green. I will proceed with everything else meanwhile and
 treat (b) as the working assumption unless told otherwise.*
+
+**Status:** No redirect received → proceeding with **(b)**. `ruff format` is **not** in the gate; `ruff check`
+(lint) is the formatting bar (already ✅). The "formatter: no diffs" gate item is satisfied by ruff-check-clean.
+Reversible: adopting (a) later is a single reformat commit + one gate line.
+
+---
+
+## Phase 1 — Safety Net (2026-07-05) · commits `2414109`, `01aeda8`
+
+**Goal:** make the full gate a single command and wire it into CI so nothing can silently regress (this is
+the root-cause fix for the Phase-0 drift), and add the three missing gates (coverage, CVE, secrets).
+
+**Added:**
+- **`Makefile` (root)** — the single-command gate. `make gate` = `py` + `web` + `secrets`. Granular targets:
+  `py-lint / py-type / py-dead / py-cov / fcr / audit / secrets / web-type / web-lint / web-build /
+  web-audit`, plus `py-test` (fast, no-coverage inner loop). Tool location is a variable `V` (default = the
+  spike venv; CI passes `V=` to use PATH tools) so **local and CI run the identical gate — no drift.**
+- **`.github/workflows/ci.yml`** — rewritten from *pytest-only* to the full gate in two jobs:
+  - `python` (3.12, the deploy target): ruff → mypy → vulture → pytest+coverage → FCR franchise gates →
+    pip-audit → secret scan, all via `make … V=`.
+  - `web`: `npm ci` → tsc → `next lint --max-warnings=0` → build → `npm audit`.
+- **Gate tooling** (added to `spike/requirements-dev.txt`): `pytest-cov`, `pip-audit`, `detect-secrets`.
+- **`.secrets.baseline`** — audited detect-secrets baseline over tracked files.
+
+**Baselines measured for the new gates:**
+- **Dependency CVEs:** `pip-audit -r requirements.txt` → **0 known vulnerabilities**. `npm audit --omit=dev`
+  → **0**. ✅
+- **Coverage (critical surface** = core/capture/discovery/runner/synth/server/pipeline**):** **73.4%**
+  (7843 stmts, 2089 missed). **Target set: floor 73** (`--cov-fail-under=73`); ratchet upward as Phase 2+
+  add characterization tests on the paths they touch. This is the objective coverage bar for the final loop.
+- **Secret scan:** 3 files flagged, **all verified false positives**, now allowlisted in `.secrets.baseline`
+  (Rule 3 — documented in the commit + here):
+  1. `connect/github_app.py:101` — `"https://x-access-token:%s@github.com/%s.git" % (token, full_name)`:
+     a format string that builds an authed clone URL from a **runtime** installation-token variable. No
+     hardcoded credential.
+  2. `repos.yaml` (33 hits) — `commit: <40-hex>` **git SHAs** pinning the external corpus repos.
+  3. `test_server_auth.py:101` — `secret_token = "ghs_SUPERSECRETTOKEN12345"`, a **fake** literal in the
+     test that asserts a real token never reaches the job log.
+  **Zero real secrets are committed.** Root `.env` remains gitignored.
+
+**Definition of the "clean bar" (used by the final loop):** `make gate` green — i.e. ruff 0, mypy 0,
+vulture 0, pytest green + coverage ≥ 73, FCR 11/11, pip-audit 0, npm audit 0 high/critical, tsc 0, next
+lint 0 warnings, next build ok, detect-secrets no new findings.
+
+**What the new gate now flags RED (the debt it exists to catch — fixed in later phases, not suppressed):**
+- `make py-type` — mypy **23 errors** → **Phase 2**.
+- `make web-lint` — **5 warnings** (`--max-warnings=0`) → **Phase 3**.
+Everything else in the gate is green at Phase-1 close. The branch CI will therefore show these two red until
+Phase 2/3 land — by design.
+
+**No product code changed in Phase 1** (additive tooling + config only).
