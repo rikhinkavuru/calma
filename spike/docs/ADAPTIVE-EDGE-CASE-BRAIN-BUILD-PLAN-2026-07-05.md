@@ -192,11 +192,22 @@ Ordered by leverage × safety. Every slice: proposer-only, bounded, tested, HOW-
   CONFIRM). A same-basename relink returns `[]` → full verdict, unchanged. Reaches E2B (fresh microVM
   re-uploads `repo_dir` per run). Test: `test_data_relink_pipeline_e2e.py` (absolute→runnable+capped;
   relative→uncapped CONFIRM). `make py` green, FCR 11/11, 1022 tests.
-- **S1 — Fault taxonomy + remediation registry (§5).** Formalize `classify_failure` into a taxonomy with a
-  per-fault remediation + evidence + validation contract. Deterministic first; the loop consults it before the
-  LLM. Ships the hardcoded-path, missing-binary, results-location remediations as registry entries.
-- **S2 — Prosecutor–Judge observe step (§4.5).** Structured evidence collection that labels setup-failure vs
-  repo-bug and picks the next delta. Beyond exit codes. Unit-tested on synthetic traces (hermetic).
+- **S1 — Fault taxonomy + remediation registry (§5). ✅ DONE (2026-07-05).** `orchestrator/remediation.py`:
+  the `Evidence`/`Remediation`/`RemediationPlan` types + a `REMEDIATIONS` taxonomy (fault kind → ordered
+  HOW-only remediations, cheapest first) + deterministic evidence collectors + `propose()` (the pre-LLM
+  dispatch: first WIRED remediation whose evidence licenses it) + `classify()` (the structured taxonomy view).
+  Wired: hardcoded-path relink (evidence = basename committed / sole dataset — reuses the `data_resolver`
+  primitives so evidence matches the apply). Evidence-wired, apply-follow-up: missing-binary (allowlisted tool
+  named missing AND declared in CI/environment.yml/README — supply-chain rail; apply exists on the E2B acquire
+  path, main-path promotion is next). Firewall-clean (no `core.verdict`/`core.diff`). 12 hermetic tests.
+- **S2 — Prosecutor–Judge observe step (§4.5). ✅ DONE (2026-07-05).** `orchestrator/observe.py`: `observe()`
+  labels a failure **setup-induced vs repo-bug vs environmental** (SetupX's lesson, beyond exit codes) and
+  picks the loop's next move (`remediate` / `stop` / `revise`) over the S1 registry. Wired into `execute()`
+  (new `repo_dir` kwarg; `None` on the hermetic fake path → signature-only classification = the pre-S2 control
+  flow, so zero behavior change on injected effectors). Behavior preserved (all `test_orchestrator_loop`
+  green); NEW: the label + Prosecutor evidence go into the ReAct trace (`data-resolved`/`environmental-stop`
+  events now carry `evidence`/`label`/`detail`). 7 hermetic tests (observe labels + loop remediate→retry +
+  honest repo-bug stop). `make py` green, FCR 11/11, 1041 tests.
 - **S3 — Dual-modality XPU store + 2-tier retrieval (§4.3).** Upgrade HintStore → XPU (text+action+scope+
   telemetry); Helix vector backend behind the store interface; delayed audit; cached-hit-skips-LLM. Warm-start
   seed from the run journal.

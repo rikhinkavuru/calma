@@ -289,7 +289,8 @@ def _stderr(result: RunResult) -> str:
 
 
 def execute(approaches: list[RunApproach], run_approach, *, revise=heuristic_revise,
-            success=None, budget: Budget | None = None, hints=None, log=None, resolve_data=None) -> RunResult:
+            success=None, budget: Budget | None = None, hints=None, log=None, resolve_data=None,
+            repo_dir: str | None = None) -> RunResult:
     """Try ranked ``approaches`` in order, revising each until it runs with captures or the budget stops us.
 
     ``run_approach(approach) -> RunResult`` is the INJECTED effector (build + probe + k-run). ``revise`` maps a
@@ -360,27 +361,34 @@ def execute(approaches: list[RunApproach], run_approach, *, revise=heuristic_rev
             # file or a GPU — it only burns sandboxes (05 fail → 13_figures → notebook-timeout, ×2). Stop and
             # surface it so the caller acts (run the data-acquisition pipeline, or report missing-data honestly)
             # instead of grinding the whole ladder. A dep/argv/entrypoint failure still revises + tries the rest.
-            from runner import build as _B
-            _fk = _B.classify_failure(_stderr(result)).get("kind")
-            # missing data: a DIFFERENT entrypoint can't conjure the file — but the data-resolution tool can
-            # (relink a committed file to where the code reads it, or fetch a known dataset). Try it ONCE per
-            # approach, then re-run the SAME approach now the input exists; only surface if it can't be fixed.
-            if _fk == "missing-data" and resolve_data is not None and key not in resolved:
-                resolved.add(key)
+            # PROSECUTOR–JUDGE observe (S2): label the failure setup-induced vs repo-bug and pick the next move
+            # over the S1 remediation registry — beyond the raw exit code. `remediate` applies a licensed HOW-only
+            # fix (missing data: relink a committed file / fetch a known dataset — a DIFFERENT entrypoint can't
+            # conjure the file); `stop` surfaces an environmental wall (genuine missing input / needs-GPU) honestly;
+            # `revise` iterates the approach. repo_dir unlocks the evidence gate (None on the hermetic fake path →
+            # signature-only classification = the pre-S2 control flow). This never touches the FCR verdict Judge.
+            from . import observe as _OBS
+            obs = _OBS.observe(result, repo_dir, can_remediate=(resolve_data is not None),
+                               already_resolved=(key in resolved))
+            if obs.next_move == "remediate":
+                resolved.add(key)                          # try the fix ONCE per approach
                 try:
                     fixed = bool(resolve_data(_stderr(result)))
                 except Exception:  # noqa: BLE001 — a resolver hiccup must not break the loop
                     fixed = False
                 if fixed:
-                    trace.append({"event": "data-resolved", "approach": idx})
+                    trace.append({"event": "data-resolved", "approach": idx, "evidence": obs.detail})
                     if log:
-                        log("orchestrator: resolved missing data — retrying the run")
-                    tried.discard(key)                     # let the same approach run again now data exists
+                        log("orchestrator: resolved missing data (%s) — retrying the run" % obs.detail)
+                    tried.discard(key)                     # let the same approach run again now the input exists
                     continue
-            if _fk in ("missing-data", "needs-gpu"):
-                trace.append({"event": "environmental-stop", "approach": idx})
+                obs = _OBS.observe(result, repo_dir, can_remediate=False, already_resolved=True)   # exhausted
+            if obs.next_move == "stop":
+                trace.append({"event": "environmental-stop", "approach": idx,
+                              "label": obs.label, "detail": obs.detail})
                 if log:
-                    log("orchestrator: missing data/GPU — a different entrypoint can't fix that; surfacing it")
+                    log("orchestrator: %s — %s; a different entrypoint can't fix that, surfacing it"
+                        % (obs.label, obs.detail))
                 result.trace = trace
                 return result
             sig = sig_fn(_stderr(result)) if sig_fn else None
@@ -544,7 +552,7 @@ def orchestrate(repo_dir: str, run_approach, *, profile=None, use_llm: bool = Tr
             _data_modified.extend(m for m in modified if m not in _data_modified)
         return placed
     result = execute(approaches, run_approach, revise=revise, budget=budget, hints=hints, log=log,
-                     resolve_data=_resolve_data)
+                     resolve_data=_resolve_data, repo_dir=repo_dir)
 
     # last resort (opt-in): no declared/AI entrypoint captured a number → synthesize a predict-and-dump driver
     # and recompute the metric independently from the predictions it writes. Verdict-capped at REPRODUCED-ONLY.
