@@ -666,6 +666,13 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
                     sbx = snapshot.resume_sandbox(_sid, cfg, sandbox_life)
                     if sbx is not None:
                         resumed = True
+                        try:                                    # the warm snapshot still holds the PRIOR run's
+                            # capture files (/capture/calls_N.jsonl + .hooks/.fuzz) — the shim appends, so a
+                            # stale file would double-count this run's captures. Clear them (+ any old
+                            # predictions) so the resumed run starts clean.
+                            sbx.commands.run("rm -f /capture/calls_*.jsonl* /work/calma_predictions.csv")
+                        except Exception:  # noqa: BLE001 — best-effort cleanup; a failure only risks a dup capture
+                            pass
                         _note(log, "E2B: resumed warm snapshot — skipping boot + upload + install")
                     else:
                         _cache.discard(_fp)                     # dead/expired snapshot → boot fresh
