@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "calma"
+version = "0.1.0"
+description = "Command-line client for the Calma verification engine — re-run a repo, recompute every number it reports, and prove or break the claim."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Rikhin Kavuru" }]
+keywords = ["verification", "reproducibility", "data-leakage", "ml-eval", "recompute"]
+dependencies = []                       # the CLI is stdlib-only (zero-install promise)
+
+[project.optional-dependencies]
+mcp = ["mcp>=1.0"]                       # the MCP server surface (python -m calma_mcp)
+
+[project.scripts]
+calma = "calma:main"
+
+[project.urls]
+Homepage = "https://calma1.vercel.app/"
+Source = "https://github.com/rikhinkavuru/calma"
+
+[tool.hatch.build.targets.wheel]
+include = ["calma.py", "calma_mcp.py"]
