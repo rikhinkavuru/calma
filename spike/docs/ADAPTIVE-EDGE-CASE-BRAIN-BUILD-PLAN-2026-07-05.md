@@ -228,9 +228,11 @@ Ordered by leverage × safety. Every slice: proposer-only, bounded, tested, HOW-
   guarded: a real proper subset of ≥3 rows) + `bind_and_recompute_scoped`. Wired into `pipeline._artifact_verify`
   (the qualifier rides in `claim.location`'s raw name; scoped result preferred over all-rows for a subset claim).
   Closes the ebv-ms case: `homology_sensitivity_testable`=recall over `pfam_testable==True` → CONFIRMED on the
-  subset (0.75), while the all-rows number (0.50) can no longer launder it → REFUTED. **FCR stayed 0** — the
-  scope is deterministically grounded (claim-named qualifier ∩ real column), so the coverage win spent none of
-  the ≤5% budget. 9 hermetic + adversarial tests. `make py` green, FCR 11/11, 1059 tests.
+  subset (0.75), while the all-rows number (0.50) can no longer launder it → REFUTED. **Two scope kinds:**
+  boolean column (truthy subset) AND low-cardinality **categorical value** (`variant_class==rare` — the common
+  "metric on the minority/rare/hard class" shape). **FCR stayed 0** — the scope is deterministically grounded
+  (claim-named qualifier ∩ a real column/value) with ambiguity-refusal + subset guards, so the coverage win
+  spent none of the ≤5% budget. 11 hermetic + adversarial tests. `make py` green, FCR 11/11, 1061 tests.
   **PART 2 (next, spends the ≤5% budget):** LLM `locate_results` (search the tree/README when the deterministic
   scan is empty) + LLM `bind_artifact` for exotic scopes the token-matcher misses → validated by the same
   recompute; an LLM-proposed scope that matches may CONFIRM (new ≤5% bar), a wrong one → REFUTED.

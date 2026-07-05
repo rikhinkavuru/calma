@@ -38,18 +38,20 @@ def test_scope_qualifiers_strips_metric_and_split_words():
     assert A.scope_qualifiers("test recall") == []        # metric + split words only → no qualifier
 
 
-def test_bind_scope_matches_token_to_column_and_refuses_ambiguity():
-    assert A.bind_scope(["testable"], ["pfam_testable", "y_true"]) == "pfam_testable"
-    assert A.bind_scope(["rare"], ["pfam_testable"]) is None                   # no match
-    assert A.bind_scope(["set"], ["trainset", "testset"]) is None             # ambiguous (2 cols) → refuse
+def test_bind_scope_boolean_column_and_categorical_value():
+    assert A.bind_scope(["testable"], {"pfam_testable": ["yes", "no"]}) == ("pfam_testable", None)   # bool → truthy
+    assert A.bind_scope(["rare"], {"variant_class": ["rare", "common"]}) == ("variant_class", "rare")  # cat → ==value
+    assert A.bind_scope(["rare"], {"pfam_testable": ["yes", "no"]}) is None                          # no match
+    # a qualifier matching a value in TWO categorical columns is ambiguous → refuse (never guess a subset)
+    assert A.bind_scope(["x"], {"a": ["x", "y"], "b": ["x", "z"]}) is None
 
 
 def test_recompute_scoped_guards_reject_full_and_tiny_subsets(tmp_path):
     roles, scope = A.read_scoped(_repo(tmp_path) + "/benchmark_classifier.csv")
     allrows = ["1"] * 8
-    assert A.recompute_scoped(roles, allrows, "recall", SYNTH.recompute_any) is None        # all rows → not a subset
-    assert A.recompute_scoped(roles, ["1", "0", "0", "0", "0", "0", "0", "0"], "recall",
-                              SYNTH.recompute_any) is None                                   # <3 rows → unreliable
+    assert A.recompute_scoped(roles, allrows, None, "recall", SYNTH.recompute_any) is None    # all rows → not a subset
+    assert A.recompute_scoped(roles, ["1", "0", "0", "0", "0", "0", "0", "0"], None, "recall",
+                              SYNTH.recompute_any) is None                                     # <3 rows → unreliable
 
 
 def test_bind_and_recompute_scoped_end_to_end(tmp_path):
@@ -84,3 +86,25 @@ def test_unscoped_claim_uses_the_full_recompute(tmp_path):
     out = pipeline._artifact_verify(_repo(tmp_path), [_claim("0.50", "recall")])
     rec = out.get("c1")
     assert rec and rec["verdict"] == VD.CONFIRMED and "subset" not in rec.get("reason", "").lower()
+
+
+# ── categorical-value scope: "recall on the rare class" → subset where variant_class == rare ───────────────────
+# rare (rows 0-3): positives label=1 at 0,1 → pred 1,0 → recall 1/2 = 0.50. all 8 rows: recall 4/5 = 0.80.
+_CSV_CAT = ("label,pred,variant_class\n"
+            "1,1,rare\n1,0,rare\n0,0,rare\n0,1,rare\n"
+            "1,1,common\n1,1,common\n1,1,common\n0,0,common\n")
+
+
+def test_categorical_value_scope_confirms_the_class_subset(tmp_path):
+    (tmp_path / "benchmark_classifier.csv").write_text(_CSV_CAT)
+    out = pipeline._artifact_verify(str(tmp_path), [_claim("0.50", "recall_rare")])
+    rec = out.get("c1")
+    assert rec and rec["verdict"] == VD.CONFIRMED
+    assert "variant_class==rare" in rec.get("reason", "")          # audit names the exact subset used
+
+
+def test_categorical_scope_not_laundered_by_all_rows(tmp_path):
+    # 0.80 is the all-rows recall; the claim is about the rare class (0.50) → the scoped recompute REFUTES it.
+    (tmp_path / "benchmark_classifier.csv").write_text(_CSV_CAT)
+    out = pipeline._artifact_verify(str(tmp_path), [_claim("0.80", "recall_rare")])
+    assert out["c1"]["verdict"] == VD.REFUTED

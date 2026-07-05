@@ -143,11 +143,15 @@ def _truthy(v) -> bool | None:
         return None
 
 
+_MAX_CAT = 8          # a scope column is low-cardinality categorical if it has 2..8 distinct non-numeric values
+
+
 def read_scoped(path):
     """Read a predictions CSV → (roles, scope_cols), row-aligned: ``roles`` = the y_true/y_pred/y_score arrays
-    (as ``read_prediction_csv``), ``scope_cols`` = every BOOLEAN non-role column (name → per-row raw values) that
-    could scope a subset. Boolean-only (clear truthy semantics → FCR-safe); returns None if not a predictions
-    CSV. Reads roles + scope columns in ONE pass so the two are guaranteed aligned for the masked recompute."""
+    (as ``read_prediction_csv``), ``scope_cols`` = every non-role column that can scope a subset — a BOOLEAN
+    column (truthy/falsy split) or a low-cardinality CATEGORICAL column (2..8 distinct values, e.g. a class /
+    difficulty / variant-type label). Returns None if not a predictions CSV. Reads roles + scope columns in ONE
+    pass so they are guaranteed aligned for the masked recompute."""
     try:
         with open(path, newline="", errors="replace") as fh:
             rd = csv.DictReader(fh)
@@ -172,19 +176,30 @@ def read_scoped(path):
                 for c in cand:
                     scols[c].append(row.get(c, ""))
                 n += 1
-        # keep only columns that are genuinely boolean (every non-empty cell is truthy/falsy) and a PROPER,
-        # non-trivial subset (not all-true, not all-false) — a boolean split, not an id/score column.
+        # keep a column if it's a BOOLEAN split (every cell truthy/falsy; some in, some out) OR a LOW-CARD
+        # CATEGORICAL label (2..8 distinct non-empty values, not a continuous score / id) — both scope a subset.
         scope_cols = {}
         for c, vals in scols.items():
             flags = [_truthy(v) for v in vals]
-            if any(f is None for f in flags):
+            if not any(f is None for f in flags):
+                trues = sum(1 for f in flags if f)
+                if 0 < trues < n:
+                    scope_cols[c] = vals                                   # boolean split
                 continue
-            trues = sum(1 for f in flags if f)
-            if 0 < trues < n:                                              # a real split (some in, some out)
-                scope_cols[c] = vals
+            distinct = {str(v).strip().lower() for v in vals if str(v).strip()}
+            if 2 <= len(distinct) <= _MAX_CAT and not all(_is_number(d) for d in distinct):
+                scope_cols[c] = vals                                       # categorical label
         return {r: _numify(v) for r, v in rcols.items()}, scope_cols
     except (OSError, csv.Error):
         return None
+
+
+def _is_number(s) -> bool:
+    try:
+        float(s)
+        return True
+    except (TypeError, ValueError):
+        return False
 
 
 def scope_qualifiers(text):
@@ -195,25 +210,41 @@ def scope_qualifiers(text):
     return [t for t in toks if len(t) >= 3 and t not in _NON_QUALIFIER and not t.isdigit()]
 
 
-def bind_scope(qualifiers, scope_col_names):
-    """Deterministically bind a claim qualifier to ONE boolean scope column (token ⊆ column name or vice versa).
-    Returns the column name, or None if nothing matches OR the match is AMBIGUOUS (>1 distinct column) — we
-    never guess between subsets, since a coincidental match on the wrong one is the only false-confirm path."""
-    matched = set()
+def bind_scope(qualifiers, scope_cols):
+    """Deterministically bind a claim qualifier to ONE scope, returning ``(column, value)``:
+      • ``value is None`` — a BOOLEAN column whose NAME the qualifier matches → the truthy subset
+        ('testable' ↔ column ``pfam_testable``).
+      • ``value == v`` — a CATEGORICAL column one of whose VALUES the qualifier matches → the ``column == v``
+        subset ('rare' ↔ a value of column ``variant_class``).
+    Returns None if nothing matches OR the match is AMBIGUOUS (>1 distinct (col,value)) — we never guess between
+    subsets, since a coincidental match on the wrong one is the only false-confirm path."""
+    matches = set()
     for q in qualifiers:
-        for col in scope_col_names:
+        for col, vals in scope_cols.items():
             cl = col.lower()
             clc = cl.replace("_", "").replace("-", "")
-            if q == cl or q in cl or cl in q or q in clc:
-                matched.add(col)
-    return next(iter(matched)) if len(matched) == 1 else None
+            distinct = {str(v).strip().lower() for v in vals if str(v).strip()}
+            is_bool = distinct <= (_BOOL_TRUE | _BOOL_FALSE)
+            if is_bool:
+                if q == cl or q in cl or cl in q or q in clc:
+                    matches.add((col, None))                               # boolean → truthy subset
+            else:
+                for dv in distinct:
+                    if q == dv or (len(q) >= 4 and (q in dv or dv in q)):
+                        matches.add((col, dv))                            # categorical → column == value
+    return next(iter(matches)) if len(matches) == 1 else None
 
 
-def recompute_scoped(roles, scope_values, metric, resolver):
-    """Recompute ``metric`` over the SUBSET of rows where ``scope_values[i]`` is truthy (row-aligned with the
-    role arrays). Guards: a real, proper subset of ≥3 rows (never all rows → that's the unscoped recompute, and
-    never a near-empty slice → unreliable). Returns a Result or None. The resolver is the UNCHANGED Judge."""
-    mask = [i for i, v in enumerate(scope_values) if _truthy(v) is True]
+def recompute_scoped(roles, scope_values, keep, metric, resolver):
+    """Recompute ``metric`` over the SUBSET of rows selected by ``keep``: ``keep is None`` → rows whose
+    ``scope_values`` cell is truthy (a boolean column); ``keep == v`` → rows whose cell equals ``v`` (a
+    categorical value). Guards: a real, proper subset of ≥3 rows (never all rows → that's the unscoped
+    recompute; never a near-empty slice → unreliable). Returns a Result or None. Resolver = the UNCHANGED Judge."""
+    if keep is None:
+        mask = [i for i, v in enumerate(scope_values) if _truthy(v) is True]
+    else:
+        kv = str(keep).strip().lower()
+        mask = [i for i, v in enumerate(scope_values) if str(v).strip().lower() == kv]
     total = len(scope_values)
     if len(mask) < 3 or len(mask) >= total:
         return None
@@ -222,14 +253,19 @@ def recompute_scoped(roles, scope_values, metric, resolver):
 
 
 def bind_and_recompute_scoped(qualifier_text, roles, scope_cols, metric, resolver):
-    """Tie the subset binding together: extract qualifiers from the claim's raw name/context, bind ONE boolean
-    column, and recompute ``metric`` on that subset. Returns (Result, scope_column) or (None, None) — the caller
-    uses the scoped result for a subset claim, falling back to the unscoped recompute otherwise."""
+    """Tie the subset binding together: extract qualifiers from the claim's raw name/context, bind ONE scope
+    (boolean column or categorical value), and recompute ``metric`` on that subset. Returns (Result, label) or
+    (None, None); ``label`` names the subset for the audit ('pfam_testable' or 'variant_class==rare'). The
+    caller uses the scoped result for a subset claim, falling back to the unscoped recompute otherwise."""
     quals = scope_qualifiers(qualifier_text)
     if not quals or not scope_cols:
         return None, None
-    col = bind_scope(quals, list(scope_cols))
-    if not col:
+    bound = bind_scope(quals, scope_cols)
+    if not bound:
         return None, None
-    res = recompute_scoped(roles, scope_cols[col], metric, resolver)
-    return (res, col) if res else (None, None)
+    col, val = bound
+    res = recompute_scoped(roles, scope_cols[col], val, metric, resolver)
+    if not res:
+        return None, None
+    label = col if val is None else "%s==%s" % (col, val)
+    return res, label
