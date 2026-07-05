@@ -221,7 +221,20 @@ Ordered by leverage × safety. Every slice: proposer-only, bounded, tested, HOW-
   embedder (DRY); firewall-clean. 9 hermetic tests. *Note:* the delayed-audit NEGATIVE reward is API-complete
   + tested (reward/demotion), but its automatic trigger from the post-VERDICT signal is a small pipeline
   follow-up (positive record-on-win is live). `make py` green, FCR 11/11, 1050 tests.
-- **S4 — Evidence-grounded discovery/binding (§4.6). ⏳ NEXT — grounded, not yet built.** *Grounding (done):*
+- **S4 — Evidence-grounded discovery/binding (§4.6). ✅ PART 1 DONE (2026-07-05) — deterministic scoped
+  binding, FCR held at 0.** `core/artifacts.py`: `read_scoped` (roles + boolean scope columns, row-aligned) +
+  `scope_qualifiers` (strip metric/split words → subset tokens) + `bind_scope` (token ∩ real boolean column,
+  **refuses ambiguity** — never guesses between subsets) + `recompute_scoped` (recompute over the truthy subset,
+  guarded: a real proper subset of ≥3 rows) + `bind_and_recompute_scoped`. Wired into `pipeline._artifact_verify`
+  (the qualifier rides in `claim.location`'s raw name; scoped result preferred over all-rows for a subset claim).
+  Closes the ebv-ms case: `homology_sensitivity_testable`=recall over `pfam_testable==True` → CONFIRMED on the
+  subset (0.75), while the all-rows number (0.50) can no longer launder it → REFUTED. **FCR stayed 0** — the
+  scope is deterministically grounded (claim-named qualifier ∩ real column), so the coverage win spent none of
+  the ≤5% budget. 9 hermetic + adversarial tests. `make py` green, FCR 11/11, 1059 tests.
+  **PART 2 (next, spends the ≤5% budget):** LLM `locate_results` (search the tree/README when the deterministic
+  scan is empty) + LLM `bind_artifact` for exotic scopes the token-matcher misses → validated by the same
+  recompute; an LLM-proposed scope that matches may CONFIRM (new ≤5% bar), a wrong one → REFUTED.
+- **S4 grounding notes (original).** *Grounding (done):*
   the Judge already exists — `core/artifacts.py` `recompute_from_artifacts` → `recompute_from_cols(cols,
   metric, resolver)` recomputes a metric from a committed predictions CSV over ALL rows via the deterministic
   `SYNTH.recompute_any`, and `pipeline.py:863` binds it per-claim behind `_artifact_binds` (the

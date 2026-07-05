@@ -856,13 +856,30 @@ def _artifact_verify(repo_dir: str, claims: list[dict]) -> dict:
     pred_files = A.find_prediction_files(repo_dir)
     if not pred_files:
         return out
+    # S4: read each pred file's boolean scope columns ONCE (row-aligned roles + scope cols) so a subset-scoped
+    # claim ("sensitivity on the testable subset") can recompute over the right rows. Bounded to the ≤12 pred
+    # files find_prediction_files already returns, so this adds no per-claim re-scan.
+    scoped_index = {path: A.read_scoped(path) for path, _ in pred_files}
     metric_counts: dict = {}
     for c in claims:
         m = (c.get("metric") or "").lower()
         metric_counts[m] = metric_counts.get(m, 0) + 1
     for claim in claims:
+        # a subset qualifier ('..._testable') rides in the claim's raw name (location = "file::rawname") + context
+        _qtext = str(claim.get("location", "")).split("::", 1)[-1] + " " + str(claim.get("context", ""))
         for path, cols in pred_files:
-            res = A.recompute_from_cols(cols, claim.get("metric"), SYNTH.recompute_any)
+            scoped_col = None
+            res = None
+            sidx = scoped_index.get(path)
+            if sidx is not None:
+                # S4: if the claim names a subset that binds to a real boolean column in THIS file, the SCOPED
+                # recompute is the correct one — a subset claim recomputed over all rows would false-REFUTE.
+                sres, scol = A.bind_and_recompute_scoped(_qtext, sidx[0], sidx[1], claim.get("metric"),
+                                                         SYNTH.recompute_any)
+                if sres:
+                    res, scoped_col = sres, scol
+            if res is None:
+                res = A.recompute_from_cols(cols, claim.get("metric"), SYNTH.recompute_any)
             if not res:
                 continue
             # only give an artifact verdict when the claim confidently corresponds to THIS file — never glue a
@@ -878,6 +895,8 @@ def _artifact_verify(repo_dir: str, claims: list[dict]) -> dict:
             # the source_modified cap already forces to REPRODUCED-ONLY) from "matches the repo's committed file".
             synth = fname == "calma_predictions.csv"
             kind = "synthesized predictions" if synth else "committed predictions"
+            if scoped_col:
+                kind += " on the '%s' subset" % scoped_col     # audit: which rows the scoped metric used
             reason = (
                 "claim matches the %s (%s · recomputed %.5g)" % (kind, fname, recomputed)
                 if ok
