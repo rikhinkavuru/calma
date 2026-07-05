@@ -208,9 +208,19 @@ Ordered by leverage × safety. Every slice: proposer-only, bounded, tested, HOW-
   green); NEW: the label + Prosecutor evidence go into the ReAct trace (`data-resolved`/`environmental-stop`
   events now carry `evidence`/`label`/`detail`). 7 hermetic tests (observe labels + loop remediate→retry +
   honest repo-bug stop). `make py` green, FCR 11/11, 1041 tests.
-- **S3 — Dual-modality XPU store + 2-tier retrieval (§4.3).** Upgrade HintStore → XPU (text+action+scope+
-  telemetry); Helix vector backend behind the store interface; delayed audit; cached-hit-skips-LLM. Warm-start
-  seed from the run journal.
+- **S3 — Dual-modality XPU store + 2-tier retrieval (§4.3). ✅ DONE (2026-07-05).** `orchestrator/xpu.py`:
+  the `XPUnit` (signature + retrievable **symptom text** + HOW-only action + scope + telemetry) upgrades the
+  action-only HintStore — the symptom half is what makes a fix retrievable by a novel repo whose signature
+  differs (kills negative transfer). **Two-tier retrieval:** exact-signature (certain) → vector cosine over
+  the symptom (paraphrase path) ≥ threshold. **Telemetry-gated delayed audit:** a unit whose success-rate
+  falls below the floor is demoted, never proposed. **Two backends behind one interface (mirrors
+  `synth/store.py`):** `LocalXPU` (stdlib embed+cosine, offline/test) + `HelixXPU` (an `XPU` node on HelixDB —
+  **OD-B: Helix now**, activates on `CALMA_HELIX` + reachable, else falls back to local — no sqlite-vec
+  interim). Wired into `make_revise` (XPU tier BEFORE the heuristic → cached-hit-skips-LLM) + `execute`
+  (records the symptom+action on a verified win) + the pipeline's orchestrated path. Reuses `synth.store`'s
+  embedder (DRY); firewall-clean. 9 hermetic tests. *Note:* the delayed-audit NEGATIVE reward is API-complete
+  + tested (reward/demotion), but its automatic trigger from the post-VERDICT signal is a small pipeline
+  follow-up (positive record-on-win is live). `make py` green, FCR 11/11, 1050 tests.
 - **S4 — Evidence-grounded discovery/binding (§4.6).** `locate_results` (LLM over the tree when the
   deterministic scan is empty) + `bind_artifact` (propose scoped binding) → **Judge validates**. This is the
   ebv-ms recompute (sensitivity/specificity from `benchmark_classifier.csv`). The highest-value coverage slice.

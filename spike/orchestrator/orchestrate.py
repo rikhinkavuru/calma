@@ -251,15 +251,36 @@ def heuristic_revise(result: RunResult, approach: RunApproach, history: list) ->
     return None
 
 
-def make_revise(hints=None):
-    """A revise closure that consults the HintStore first (an error-signature this loop — or any past run —
-    already solved), then falls back to the key-free heuristic. HOW-only; never touches a verdict."""
+def _symptom(stderr: str) -> str:
+    """The salient exception line of a failure — the retrievable text half of an XPU (dual modality). Concise
+    + descriptive so a paraphrase of the same error vector-matches a past fix even when the exact signature
+    differs (a novel repo whose symptom, not signature, is the same)."""
+    lines = [ln.strip() for ln in (stderr or "").splitlines() if ln.strip()]
+    for ln in reversed(lines):                                 # the exception line is usually last + most specific
+        if any(k in ln for k in ("Error", "error", "Exception", "Failed", "No such", "Errno", "not found")):
+            return ln[:200]
+    return (lines[-1][:200] if lines else "")
+
+
+def make_revise(hints=None, xpu=None):
+    """A revise closure that consults the experience stores BEFORE the key-free heuristic (the self-healing
+    "error-signature → cached fix, no LLM" property). Order: the XPU store (telemetry-gated exact-OR-vector
+    match — a novel error whose symptom matches a past fix), then the exact-signature HintStore (legacy/compat),
+    then the heuristic. HOW-only; never touches a verdict."""
     def revise(result: RunResult, approach: RunApproach, history: list):
-        if hints is not None:
+        stderr = _stderr(result)
+        sig = None
+        if hints is not None or xpu is not None:
             from .cache import error_signature
-            stderr = " ".join((m.get("stderr_tail") if isinstance(m, dict) else "") or "" for m in (result.meta or []))
             sig = error_signature(stderr)
-            act = hints.get(sig) if sig else None
+        if xpu is not None and (sig or stderr):
+            hit = xpu.retrieve(sig, _symptom(stderr))          # (unit, score) or None; demoted units filtered
+            if hit is not None:
+                r = _apply_hint(approach, hit[0].action)
+                if r is not None:
+                    return r
+        if hints is not None and sig:
+            act = hints.get(sig)
             if act:
                 r = _apply_hint(approach, act)
                 if r is not None:
@@ -290,7 +311,7 @@ def _stderr(result: RunResult) -> str:
 
 def execute(approaches: list[RunApproach], run_approach, *, revise=heuristic_revise,
             success=None, budget: Budget | None = None, hints=None, log=None, resolve_data=None,
-            repo_dir: str | None = None) -> RunResult:
+            repo_dir: str | None = None, xpu=None) -> RunResult:
     """Try ranked ``approaches`` in order, revising each until it runs with captures or the budget stops us.
 
     ``run_approach(approach) -> RunResult`` is the INJECTED effector (build + probe + k-run). ``revise`` maps a
@@ -306,11 +327,11 @@ def execute(approaches: list[RunApproach], run_approach, *, revise=heuristic_rev
     tried: set[tuple] = set()
     resolved: set[tuple] = set()                            # approaches whose missing-data we already tried to fix
     sig_fn: Callable[[str], str | None] | None = None
-    if hints is not None:
+    if hints is not None or xpu is not None:
         from .cache import error_signature as sig_fn
 
     for idx, approach in enumerate(approaches[:budget.max_approaches]):
-        pending: tuple | None = None                       # (sig, action) applied last, awaiting verification
+        pending: tuple | None = None                       # (sig, action, symptom) applied last, awaiting verify
         while True:
             stop = budget.stop_reason()
             if stop:                                       # budget checked BEFORE the effector runs
@@ -344,8 +365,11 @@ def execute(approaches: list[RunApproach], run_approach, *, revise=heuristic_rev
                 log("orchestrator: ran %s [%s] → ran_ok=%s captured=%s"
                     % (" ".join(approach.entry), approach.builder, result.ran_ok, _captured(result)))
             if success(result):
-                if hints is not None and pending and pending[0] and pending[1]:
-                    hints.record(pending[0], pending[1])   # this fix verifiably produced a good run
+                if pending and pending[0] and pending[1]:      # this fix VERIFIABLY produced a good run
+                    if hints is not None:
+                        hints.record(pending[0], pending[1])
+                    if xpu is not None:                        # dual-modality: bank the symptom text too
+                        xpu.record(pending[0], pending[1], symptom=(pending[2] if len(pending) > 2 else None))
                     trace.append({"event": "hint-learned", "sig": pending[0]})
                 result.trace = trace
                 return result
@@ -398,7 +422,7 @@ def execute(approaches: list[RunApproach], run_approach, *, revise=heuristic_rev
             if approach_key(revised) in tried:
                 trace.append({"event": "no-progress", "approach": idx})
                 break
-            pending = (sig, _fix_delta(approach, revised))
+            pending = (sig, _fix_delta(approach, revised), _symptom(_stderr(result)))   # + symptom for the XPU
             approach = revised
 
     return _finish(best_effort, approaches[0] if approaches else None, trace)
@@ -517,14 +541,14 @@ def _synthesize_predictions_run(repo_dir, run_approach, profile, model, log):
 
 def orchestrate(repo_dir: str, run_approach, *, profile=None, use_llm: bool = True, model: str | None = None,
                 plan: dict | None = None, revise=None, budget: Budget | None = None,
-                cache=None, hints=None, log=None, synthesize: bool = False) -> RunResult:
+                cache=None, hints=None, log=None, synthesize: bool = False, xpu=None) -> RunResult:
     """assess → rank → execute. ``run_approach`` is the injected build+run effector (the pipeline supplies one
     wired to the real runners; tests supply a fake). ``plan`` reuses the pipeline's background-thread planner
-    turn. ``cache``/``hints`` are the flywheel stores (fingerprint→approach, error→fix) — HOW-only, never a
-    verdict channel. Returns a RunResult ready for the unchanged deterministic verify, with the Assessment
-    Report + a re-runnable launch command on ``result.cost`` for the UI/audit."""
+    turn. ``cache``/``hints``/``xpu`` are the flywheel/experience stores (fingerprint→approach, error→fix,
+    dual-modality XPU) — HOW-only, never a verdict channel. Returns a RunResult ready for the unchanged
+    deterministic verify, with the Assessment Report + a re-runnable launch command on ``result.cost``."""
     profile = profile or assess(repo_dir)
-    revise = revise if revise is not None else make_revise(hints)
+    revise = revise if revise is not None else make_revise(hints, xpu)
     _purge_reserved(repo_dir)   # drop any stale calma_eval.py/calma_predictions.csv from a prior run on a reused checkout
     approaches = rank_approaches(profile, repo_dir, use_llm=use_llm, model=model, plan=plan, log=log)
 
@@ -552,7 +576,7 @@ def orchestrate(repo_dir: str, run_approach, *, profile=None, use_llm: bool = Tr
             _data_modified.extend(m for m in modified if m not in _data_modified)
         return placed
     result = execute(approaches, run_approach, revise=revise, budget=budget, hints=hints, log=log,
-                     resolve_data=_resolve_data, repo_dir=repo_dir)
+                     resolve_data=_resolve_data, repo_dir=repo_dir, xpu=xpu)
 
     # last resort (opt-in): no declared/AI entrypoint captured a number → synthesize a predict-and-dump driver
     # and recompute the metric independently from the predictions it writes. Verdict-capped at REPRODUCED-ONLY.
