@@ -197,7 +197,20 @@ export const verifyApi = {
     if (!res.ok) throw new Error(`verify API ${res.status} on logs`);
     return res.text();
   },
+  // ── API keys (programmatic access for the CLI / CI / MCP). Management is dashboard-only; the backend gates
+  //    these to the service-token identity so a leaked key can't mint or revoke keys.
+  listKeys: (id: Identity): Promise<{ keys: ApiKey[] }> => call("/api/keys", undefined, id),
+  createKey: (name: string, id: Identity): Promise<NewApiKey> =>
+    call("/api/keys", { method: "POST", body: JSON.stringify({ name }) }, id),
+  revokeKey: (keyId: string, id: Identity): Promise<{ ok: boolean; keys: ApiKey[] }> =>
+    call(`/api/keys/${encodeURIComponent(keyId)}`, { method: "DELETE" }, id),
 };
+
+export type ApiKey = {
+  id: string; name: string; display: string; tier: string; created: number; last_used: number | null;
+};
+// The create response carries the PLAINTEXT `key` — shown once, never retrievable again.
+export type NewApiKey = { id: string; key: string; display: string; name: string; tier: string; created: number };
 
 // Read-only GitHub/repo surfaces for the connect + repo-picker UX (proxied through /api/github).
 export const githubApi = {

@@ -42,6 +42,7 @@ from attest import badge as BADGE  # noqa: E402
 from attest import signing as SIGN  # noqa: E402
 from attest import tlog as TLOG  # noqa: E402
 from connect import github_app as GH  # noqa: E402  — the GitHub App connector (anyone connects their repos)
+from core import apikeys as APIKEYS  # noqa: E402  — durable per-tenant API keys (CLI / CI / MCP auth)
 from core import jobstore as JS  # noqa: E402  — durable job persistence (survives a redeploy; fixes "expired")
 from core import limits as LIM  # noqa: E402  — tiered rate limits / quotas / feature gates (PRICING.md)
 import graph as GRAPH  # noqa: E402
@@ -126,11 +127,23 @@ class Identity:
     unmetered: bool
 
 
-def identity(x_calma_service_token: str | None = Header(default=None),
-             x_calma_tenant: str | None = Header(default=None),
-             x_calma_tier: str | None = Header(default=None)) -> Identity:
+def _bearer_key(authorization: str | None) -> str:
+    """Extract a Calma API key from an Authorization header (`Bearer calma_sk_…`, or a bare key). Empty if
+    the header carries no Calma key — so the caller falls through to the service-token path."""
+    if not authorization:
+        return ""
+    v = authorization.strip()
+    if v.lower().startswith("bearer "):
+        v = v[7:].strip()
+    return v if v.startswith("calma_sk_") else ""
+
+
+def _svc_identity(x_calma_service_token, x_calma_tenant, x_calma_tier) -> Identity:
+    """The trusted first-party proxy path: the service token authenticates it, and it forwards the WorkOS
+    tenant + tier truthfully. Token UNSET → the local operator (owner, unmetered)."""
     if not _token_ok(x_calma_service_token):
-        raise HTTPException(401, "unauthorized — the verification API is first-party only")
+        raise HTTPException(401, "unauthorized — provide an API key (Authorization: Bearer calma_sk_…) "
+                                 "or use the first-party dashboard")
     if _VERIFY_TOKEN:
         tenant = (x_calma_tenant or "").strip() or "anon"
         tier = LIM.resolve_tier(x_calma_tier)          # unknown/absent → the restrictive default (free)
@@ -138,6 +151,33 @@ def identity(x_calma_service_token: str | None = Header(default=None),
         tenant = (x_calma_tenant or "").strip() or "owner"
         tier = LIM.resolve_tier("owner")
     return Identity(tenant=tenant, tier=tier, unmetered=tier.unmetered)
+
+
+def identity(authorization: str | None = Header(default=None),
+             x_calma_service_token: str | None = Header(default=None),
+             x_calma_tenant: str | None = Header(default=None),
+             x_calma_tier: str | None = Header(default=None)) -> Identity:
+    """Who is calling, at what tier. Two first-party credentials, checked in order:
+      1) an API key (`Authorization: Bearer calma_sk_…`) — the programmatic caller (CLI / CI / MCP). The key
+         carries its own tenant + tier, so the run is metered/gated exactly like that user's dashboard.
+      2) the service token + forwarded tenant/tier — the trusted Next proxy (browser/WorkOS sessions).
+    A key can never exceed its tenant's budgets or read another tenant's jobs (all scoping is by tenant)."""
+    key = _bearer_key(authorization)
+    if key:
+        rec = APIKEYS.get_store().validate(key)
+        if not rec:
+            raise HTTPException(401, "invalid or revoked API key")
+        tier = LIM.resolve_tier(rec.get("tier"))
+        return Identity(tenant=rec["tenant"], tier=tier, unmetered=tier.unmetered)
+    return _svc_identity(x_calma_service_token, x_calma_tenant, x_calma_tier)
+
+
+def dashboard_identity(x_calma_service_token: str | None = Header(default=None),
+                       x_calma_tenant: str | None = Header(default=None),
+                       x_calma_tier: str | None = Header(default=None)) -> Identity:
+    """Service-token ONLY (no API-key acceptance) — for API-key management. A leaked key must not be able to
+    mint or revoke keys, so those endpoints require the dashboard/proxy credential."""
+    return _svc_identity(x_calma_service_token, x_calma_tenant, x_calma_tier)
 
 
 _SLUG_RE = re.compile(r"^[\w.-]+/[\w.-]+$")
@@ -568,7 +608,7 @@ def verify(req: VerifyReq, ident: Identity = Depends(identity)):
     return {"id": job_id, "tier": tier.name, "deep": req.deep, "limit_notes": limit_notes}
 
 
-@app.get("/api/jobs", dependencies=[Depends(require_service_token)])
+@app.get("/api/jobs")
 def list_jobs(ident: Identity = Depends(identity)):
     with _LOCK:
         jobs = JOBS.values() if ident.unmetered else (j for j in JOBS.values() if j.get("_tenant") == ident.tenant)
@@ -578,7 +618,7 @@ def list_jobs(ident: Identity = Depends(identity)):
                 for j in sorted(jobs, key=lambda j: -j["created"])]
 
 
-@app.get("/api/jobs/{job_id}", dependencies=[Depends(require_service_token)])
+@app.get("/api/jobs/{job_id}")
 def get_job(job_id: str, ident: Identity = Depends(identity)):
     job = _job_or_404(job_id, ident)
     with _LOCK:
@@ -589,7 +629,7 @@ def get_job(job_id: str, ident: Identity = Depends(identity)):
         return out
 
 
-@app.get("/api/jobs/{job_id}/logs", dependencies=[Depends(require_service_token)])
+@app.get("/api/jobs/{job_id}/logs")
 def get_job_logs(job_id: str, ident: Identity = Depends(identity)):
     """The full, timestamped e2e log for one job as plaintext — easy to read in a browser, `curl`, or tail.
     The same lines stream into the dashboard's live console; this is the raw view (and survives the UI)."""
@@ -731,12 +771,45 @@ def usage(ident: Identity = Depends(identity)):
     return LIM.get_limiter().usage(ident.tenant, ident.tier)
 
 
+# ── API keys (programmatic access for the CLI / CI / MCP) ─────────────────────────────────────────────────
+# Management is dashboard-only (dashboard_identity → service token): a leaked API key must not mint or revoke
+# keys. The keys themselves are then used to authenticate direct calls to /api/verify + /api/jobs (see
+# identity()). Tenant-scoped throughout, so a key only ever sees / affects its own account.
+class KeyReq(BaseModel):
+    name: str = ""                     # a human label ("laptop CLI", "CI") — never part of the secret
+
+
+@app.post("/api/keys")
+def create_key(req: KeyReq, ident: Identity = Depends(dashboard_identity)):
+    """Mint an API key for this tenant at their current tier. Returns the PLAINTEXT key exactly once — it is
+    only stored hashed, so it can never be shown again."""
+    out = APIKEYS.get_store().create(ident.tenant, ident.tier.name, req.name)
+    if not out:
+        raise HTTPException(500, "could not create the key")
+    return out
+
+
+@app.get("/api/keys")
+def list_keys(ident: Identity = Depends(dashboard_identity)):
+    """This tenant's keys — metadata only (label, masked display, tier, created, last-used). Never the secret."""
+    return {"keys": APIKEYS.get_store().list(ident.tenant)}
+
+
+@app.delete("/api/keys/{key_id}")
+def revoke_key(key_id: str, ident: Identity = Depends(dashboard_identity)):
+    """Revoke one of this tenant's keys. 404 (not 403) for an id that isn't this tenant's — no cross-tenant
+    oracle. Idempotent-ish: a second delete of the same id 404s."""
+    if not APIKEYS.get_store().revoke(ident.tenant, key_id):
+        raise HTTPException(404, "no such key")
+    return {"ok": True, "keys": APIKEYS.get_store().list(ident.tenant)}
+
+
 class SecretReq(BaseModel):
     name: str                       # env-var name, e.g. HF_TOKEN
     value: str                      # the credential (never returned by any endpoint)
 
 
-@app.get("/api/secrets", dependencies=[Depends(require_service_token)])
+@app.get("/api/secrets")
 def list_secrets(ident: Identity = Depends(identity)):
     """The NAMES of the credentials this tenant has stored for data-acquisition (never the values). Drives the
     dashboard's 'connect a data source' state (four-unlocks §8)."""
@@ -745,7 +818,7 @@ def list_secrets(ident: Identity = Depends(identity)):
             "supported": sorted(_SEC.KNOWN_SECRETS.keys())}
 
 
-@app.post("/api/secrets", dependencies=[Depends(require_service_token)])
+@app.post("/api/secrets")
 def set_secret(req: SecretReq, ident: Identity = Depends(identity)):
     """Store a per-tenant data-acquisition credential (HF_TOKEN, cloud creds …). Paid capability (it only has
     value on tiers that can run acquisition). Injected into the ACQUIRE sandbox only, never the eval run, and
@@ -758,7 +831,7 @@ def set_secret(req: SecretReq, ident: Identity = Depends(identity)):
     return {"ok": True, "secrets": _SEC.get_store().names(ident.tenant)}
 
 
-@app.delete("/api/secrets/{name}", dependencies=[Depends(require_service_token)])
+@app.delete("/api/secrets/{name}")
 def delete_secret(name: str, ident: Identity = Depends(identity)):
     from runner import secrets as _SEC
     _SEC.get_store().delete_secret(ident.tenant, name)
