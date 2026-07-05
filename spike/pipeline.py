@@ -463,6 +463,13 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = 
         if pyver:
             trace.note("declared Python %s — provisioning it for a faithful repro" % pyver)
 
+        # conda: an environment.yml means the deps (and any bioconda system binaries — Foldseek / HMMER /
+        # samtools / …) are solved by micromamba in-sandbox, not pip. Route the heuristic path to the conda
+        # builder too (only the orchestrator did before), so a genomics/bio repo with a conda env actually builds.
+        _builder = "conda-micromamba" if os.path.isfile(os.path.join(repo_dir, "environment.yml")) else None
+        if _builder:
+            trace.note("environment.yml found — solving the env with conda (micromamba)")
+
         # flywheel (HOW-only, default-on; off in tests / with CALMA_ORCH_FLYWHEEL=0): reuse a known-good
         # run-plan for this exact tree so a repeat/sibling scan skips re-derivation + the AI planner. Best-
         # effort — never let a cache hiccup break a run. A cached plan still flows through the full verify.
@@ -519,12 +526,14 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = 
                 trace.note("AI-planned capture targets: %s" % ", ".join(t["target"] for t in tgts)[:160])
             tgts = _with_static_targets(repo_dir, tgts, trace, entry=entry)
             pip = build.dedup_pip(pip)                          # 'numpy==2.4.6' + 'numpy' -> one install, not two
+            if _builder == "conda-micromamba":
+                pip, strict = None, False                       # conda (micromamba) solves environment.yml; don't also pip-install
             holder.update(entry=entry, pip=pip, strict=strict, targets=tgts)
             return entry, pip, strict, tgts
 
         trace.stage("running", "running in E2B microVM")
         from runner import data_resolver as _DR
-        result = run_e2b(repo_dir, resolve=_resolve, k=k, hooks=opts.hooks,
+        result = run_e2b(repo_dir, resolve=_resolve, k=k, hooks=opts.hooks, builder=_builder,
                          python_version=pyver, timeout=opts.timeout, log=trace.note, fuzz=opts.fuzz,
                          cpu_cores=opts.cpu_cores, acquire=acquire,
                          acquire_env=(opts.acquire_env if acquire else None),
@@ -542,7 +551,7 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = 
                 break
             pip = (pip or []) + [build._PKG_ALIASES.get(mod, mod)]
             trace.note("missing dep %s — installing + retrying" % mod)
-            result = run_e2b(repo_dir, entry, k=k, hooks=opts.hooks, targets=tgts,
+            result = run_e2b(repo_dir, entry, k=k, hooks=opts.hooks, targets=tgts, builder=_builder,
                              pip_install=pip, pip_strict=strict, python_version=pyver, timeout=opts.timeout,
                              log=trace.note, fuzz=opts.fuzz, cpu_cores=opts.cpu_cores)
         # flywheel: remember the plan that VERIFIABLY captured, so the next scan of this tree reuses it.
