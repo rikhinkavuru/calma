@@ -409,3 +409,67 @@ They are below the `vulture-80` gate and are internally unreferenced today, but 
 intentional/optional module surface (datahash library, ExperienceBank, orchestrator registry). Reasonable
 engineers differ (YAGNI-delete vs. keep-the-library-surface). Default taken: **keep** (safe, reversible, no
 churn). If you'd prefer them removed, say so and I'll delete them with their tests-of-record in one commit.
+
+---
+
+# FINAL SUMMARY — hardening pass complete (2026-07-05)
+
+**Verdict:** `make gate` is **green in one clean end-to-end run** (`== GATE PASSED ==`): ruff+BLE001 · mypy
+**0** · vulture **0** · **1002 passed** / 2 skipped · coverage **73.56%** (floor 73) · **FCR 11/11** ·
+pip-audit **0** · detect-secrets clean · web tsc **0** · next lint **0 warnings** · next build ok · npm audit
+**0**. Branch `hardening/2026-07-05`: **16 commits, 21 files, +1120 / −41**. **Not pushed / merged / deployed**
+— it is a reviewable branch.
+
+### What changed (by theme)
+- **Safety net (the highest-leverage change).** A single-command gate (`make gate`) now runs the *entire*
+  gate, and CI runs the same targets on every push/PR — previously CI ran **pytest only**, which is why the
+  type-checker had silently rotted to 23 errors and 5 lint warnings had accrued. Added coverage floor,
+  `pip-audit` (CVE), and `detect-secrets` (secret scan) gates. **The gate can no longer silently rot.**
+- **Two real bugs fixed (both found via the type-checker / audit, not by tests):**
+  1. `core/leakage.py` — a `_LABEL_COLS` module-name collision silently rebound the sequence-column skip-list,
+     so homology/k-mer **leakage detection could miss a leak** (a false-negative on the INVALIDATED path).
+     Fixed fail-closed; regression-tested.
+  2. `server.py` — the in-memory `JOBS` dict grew **unbounded** (a memory leak on a long-lived instance).
+     Now bounded with oldest-terminal-first eviction that never drops active work.
+- **Zero-defect gates reached at root cause (no suppression):** mypy **23 → 0**, web lint **5 → 0**
+  (`useCallback` memoization + `next/image`).
+- **Security:** verified authz/IDOR/SSRF+redirect/shell-injection/CORS-fail-closed are all solid; added a
+  **security-headers** middleware (nosniff / X-Frame-Options / Referrer-Policy / HSTS).
+- **Resilience/observability:** added **`/healthz`** + a Fly health check; confirmed the process-isolation
+  supervisor, daemon-thread durability, and bounded per-job logs.
+- **Enforcement that prevents regressions:** `BLE001` (every broad except must be justified), `next lint
+  --max-warnings=0`, `--cov-fail-under=73`, secret scan — all wired into CI.
+- **~+7 characterization/regression tests** (995 → 1002) on the exact paths touched (auth, leakage, salience,
+  security headers, job retention).
+
+### Review by hand (needs a human)
+1. **Visual parity of the 3 `<img>` → `next/image` conversions** (nav lotus, `BpFlow` engine node, footer
+   mark). CSS sizing was preserved and the nav's GSAP animation logic is unchanged (same rebuild triggers),
+   but I can't eyeball pixels in this environment — glance at the live nav + footer after deploy.
+2. **OD-1** — formatter policy: confirm **(b)** "ruff-check is the bar" (current default, zero churn) or ask
+   for **(a)** a one-commit repo-wide `ruff format`.
+3. **OD-2** — the 6 internally-unreferenced API-surface helpers: keep (default) or delete.
+4. **`fly.toml` health check + security headers** take effect on the next **deploy of this branch** — expected
+   behavior, just be aware.
+
+### Intentionally left (with reasons)
+- **No CSP** on the local dashboard (would risk breaking inline styles/scripts; needs visual verification).
+- **`ruff format` not adopted** (OD-1 default b; a 219-file reformat is the founder's call).
+- **The 6 helpers kept** (OD-2; plausibly intentional API).
+- **Durable job store** — jobs stay in-memory (the documented MVP model; `fly.toml` pins a single always-on
+  instance). A control-plane-backed store is a post-MVP feature, not a hardening gap.
+- **Modal/GPU + E2B image builds** — ops/infra, out of a code-hardening pass's scope.
+
+### Remaining risks
+- **In-memory jobs**: a full instance restart still loses job history / any in-flight run (now *bounded* in
+  memory + auto-restarted via `/healthz`, but not durable). Mitigated, not eliminated.
+- **CI mypy runs on Python 3.12** (the deploy target) while the local venv is 3.14 — the 23 fixed errors are
+  version-independent, but if CI ever diverges, pin `mypy --python-version 3.12` in the Makefile.
+- **next/image visual parity** — see review item 1.
+
+### Suggested next steps
+`git push -u origin hardening/2026-07-05` → open a PR (CI now runs the full gate on it) → resolve OD-1/OD-2 →
+merge → deploy (Fly for `spike/`, Vercel auto for `web/`). The branch is behavior-preserving except the two
+bug fixes and the additive security/health hardening, all gated green.
+
+*End of hardening pass.*
