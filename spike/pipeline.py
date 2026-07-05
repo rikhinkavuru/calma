@@ -494,6 +494,7 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = 
             if tgts and not opts.targets:
                 trace.note("AI-planned capture targets: %s" % ", ".join(t["target"] for t in tgts)[:160])
             tgts = _with_static_targets(repo_dir, tgts, trace, entry=entry)
+            pip = build.dedup_pip(pip)                          # 'numpy==2.4.6' + 'numpy' -> one install, not two
             holder.update(entry=entry, pip=pip, strict=strict, targets=tgts)
             return entry, pip, strict, tgts
 
@@ -525,7 +526,7 @@ def _run_repo(repo_dir: str, opts: VerifyOptions, trace: Trace, k: int | None = 
     # local path — no sandbox boot to hide behind, so join the plan synchronously
     plan = get_plan() if get_plan else None
     entry = _entry(plan)
-    pip = opts.pip_install or (plan.get("pip_install") if plan else None)
+    pip = build.dedup_pip(opts.pip_install or (plan.get("pip_install") if plan else None))
     tgts = opts.targets or (plan.get("targets") if plan else None)      # AI-identified metric fns to capture
     tgts = _with_static_targets(repo_dir, tgts, trace, entry=entry)
     venvs_dir = opts.venvs_dir or os.path.join(os.path.dirname(repo_dir), ".venvs")

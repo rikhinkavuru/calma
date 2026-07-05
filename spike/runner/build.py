@@ -414,6 +414,78 @@ def cpu_pip_args(pkg):
     return list(_CPU_WHEELS.get(base, [pkg]))
 
 
+def pkg_base(spec):
+    """The PEP 503-normalized distribution name of a pip spec: 'NumPy==2.4.6' -> 'numpy',
+    'scikit_learn>=1' -> 'scikit-learn', 'torch[cuda]' -> 'torch', 'pkg @ git+…' -> 'pkg'. '' for a flag."""
+    s = str(spec).strip()
+    if s.startswith("-"):
+        return ""
+    head = re.split(r"[<>=!~;@\[ ]", s, maxsplit=1)[0].strip()
+    return re.sub(r"[-_.]+", "-", head).lower()
+
+
+def _is_constrained(spec):
+    """True if the spec carries a version constraint or direct reference (== >= ~= @url), not a bare name."""
+    return bool(re.search(r"[<>=!~@]", str(spec)))
+
+
+def dedup_pip(pkgs):
+    """Dedup a pip install list by distribution name, preferring a constrained spec over a bare duplicate
+    ('numpy==2.4.6' + 'numpy' -> keep 'numpy==2.4.6'). Order-stable; distinct packages untouched; pip flags
+    (leading '-') pass through. FCR-safe: only trims a package installed twice, never touches
+    capture/recompute/verdict. This is why a plan that echoes declared pins AND bare names stops logging
+    'numpy==2.4.6 … numpy'."""
+    if not pkgs:
+        return list(pkgs) if pkgs is not None else pkgs
+    chosen: dict[str, str] = {}
+    order: list[str] = []
+    passthrough: list[str] = []
+    for spec in pkgs:
+        s = str(spec).strip()
+        if not s:
+            continue
+        name = pkg_base(s)
+        if not name:                                   # a pip flag / non-package token — keep as-is
+            passthrough.append(s)
+            continue
+        if name not in chosen:
+            chosen[name] = s
+            order.append(name)
+        elif not _is_constrained(chosen[name]) and _is_constrained(s):
+            chosen[name] = s                           # upgrade a bare dup to the constrained spec
+    return [chosen[n] for n in order] + passthrough
+
+
+def relax_pins(pkgs):
+    """Drop exact/compatible version pins so an unsatisfiable resolution can retry unconstrained
+    ('numpy==2.4.6' -> 'numpy'). Leaves pip flags, url/@ specs, and multi-token entries intact. Used ONLY on a
+    resolution failure — the independent recompute doesn't depend on exact dep versions, so trading pin-
+    fidelity for a runnable env is FCR-safe (a run that never happens verifies nothing)."""
+    out = []
+    for spec in pkgs or []:
+        s = str(spec).strip()
+        if not s or " " in s or s.startswith("-") or "@" in s:
+            out.append(spec)
+        elif _is_constrained(s):
+            out.append(pkg_base(s))
+        else:
+            out.append(spec)
+    return out
+
+
+_PYREQ_RE = re.compile(r"[Pp]ython\s*>=?\s*(\d+\.\d+)")
+
+
+def required_python_from_error(text):
+    """Parse the minimum Python a resolver demanded from its failure text — e.g. uv's
+    'numpy==2.4.6 depends on Python>=3.11' -> '3.11'. Returns the HIGHEST such version (the binding one), or
+    None. Lets the env builder BUMP the interpreter and retry instead of dead-ending on a version mismatch."""
+    vers = _PYREQ_RE.findall(text or "")
+    if not vers:
+        return None
+    return max(vers, key=lambda v: tuple(int(x) for x in v.split(".")))
+
+
 def deps_are_heavy(pkgs):
     """True if any dep is a heavy/accelerator package → use a larger install budget."""
     for p in pkgs or []:

@@ -669,7 +669,25 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
             _note(log, "E2B: installing %d dep(s)%s — %s" % (
                 len(pip_install), " [heavy: up to %dm]" % (inst_timeout // 60) if heavy else "",
                 " ".join(pip_install)[:200]))
-        _install(sbx, pip_install, pip_strict, inst_timeout, pip_cmd, log=log)  # install (once)
+        try:
+            _install(sbx, pip_install, pip_strict, inst_timeout, pip_cmd, log=log)  # install (once)
+        except Exception as _e:  # noqa: BLE001 — env build failed; attempt ONE bounded, HOW-only repair (FCR-safe)
+            err = str(_e)
+            need_py = build.required_python_from_error(err)
+            relaxed = build.relax_pins(pip_install)
+            if need_py and need_py != (python_used or python_version or ""):
+                # deps demand a newer interpreter than we provisioned (e.g. numpy==2.4.6 needs Python>=3.11):
+                # reprovision at the required version and retry the SAME pins (faithful, on the right Python).
+                _note(log, "E2B: deps require Python %s (had %s) — reprovisioning + retrying"
+                      % (need_py, python_used or python_version or "default"))
+                pybin, pip_cmd, python_used = _provision_python(sbx, need_py, inst_timeout, log=log)
+                _install(sbx, pip_install, pip_strict, inst_timeout, pip_cmd, log=log)
+            elif relaxed != list(pip_install or []):
+                # a pin conflict with no Python signal — retry once with versions relaxed (unpinned resolves).
+                _note(log, "E2B: pinned install failed — retrying with relaxed versions")
+                _install(sbx, relaxed, False, inst_timeout, pip_cmd, log=log)
+            else:
+                raise
         if builder == "conda-micromamba":                       # B2: solve environment.yml in-sandbox via micromamba
             conda_py = _build_conda_env(sbx, "environment.yml", inst_timeout, log=log)
             if conda_py:
