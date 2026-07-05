@@ -42,22 +42,45 @@ def _leakage_check(result: dict) -> dict:
     return {"name": "leakage", "status": status, "findings": findings}
 
 
+# Above this many below-baseline hits for ONE metric, they are a training sweep / telemetry (a notebook that
+# prints accuracy every epoch), not that many distinct REPORTED results — so collapse them into a single
+# informative line instead of a wall of near-identical findings. A repo genuinely reporting a handful of
+# degenerate numbers (≤ the cap) still lists each verbatim. Fixes the "Calma found 288 problems" overstatement
+# on heart-kvns (444 notebook-output accuracies, 288 at/below the 0.5446 majority baseline) without hiding the
+# real signal (the count + an example are kept, and the check still FAILs).
+_BASELINE_LIST_CAP = 3
+
+
 def _baseline_check(result: dict) -> dict:
-    findings = []
+    per_metric: dict[str, list[tuple]] = {}
     checkable = False
     for c in result.get("claims") or []:
         inval = (c.get("validity") or {}).get("invalidating") or []
         for note in inval:
             if any(m in note.lower() for m in _BASELINE_MARKS):
-                findings.append("%s=%s: %s" % (c.get("metric"), c.get("claimed"), note))
+                per_metric.setdefault(c.get("metric") or "?", []).append((c.get("claimed"), note))
         # "pass" requires that a REAL comparison basis existed (a label distribution, or a grounded degeneracy
         # check that actually ran) — the engine stamps `baseline_checked` when it did. A bare claimed value with
         # nothing to compare against is NOT a pass: it stays not-applicable so the card grades INCOMPLETE, never
         # a false clean bill (fail-closed — the whole point of the no-run wedge).
         if c.get("baseline_checked"):
             checkable = True
+    findings = []
+    for metric, hits in per_metric.items():
+        if len(hits) <= _BASELINE_LIST_CAP:
+            findings += ["%s=%s: %s" % (metric, cl, note) for cl, note in hits]
+        else:
+            # a sweep of the same metric: one summary (count + a representative), not N near-identical lines.
+            findings.append("%d of the %d reported %s values are at or below the majority-class baseline "
+                            "(e.g. %s) — likely a training sweep / non-headline values, not that many distinct "
+                            "reported results; check the headline number." % (
+                                len(hits), _count_metric(result, metric), metric, hits[0][0]))
     status = "fail" if findings else ("pass" if checkable else "not-applicable")
     return {"name": "trivial-baseline", "status": status, "findings": findings}
+
+
+def _count_metric(result: dict, metric: str) -> int:
+    return sum(1 for c in (result.get("claims") or []) if (c.get("metric") or "?") == metric)
 
 
 def _misreport_check(result: dict) -> dict:
