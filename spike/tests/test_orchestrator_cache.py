@@ -59,6 +59,26 @@ def test_orchestrate_caches_and_reuses_winning_approach(tmp_path):
     assert any("flywheel cache hit" in ln for ln in logs)
 
 
+def test_orchestrate_honors_user_entry_first(tmp_path):
+    # An explicit user entrypoint must be tried FIRST under orchestrate, ahead of the ranked heuristic pick
+    # (found running Choices: the orchestrator ran a heavy torch script over the lightweight repro entry the
+    # user named). The ranked candidates stay as fallbacks.
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / "heavy.py").write_text("import torch\nif __name__=='__main__':\n    print(1)\n")
+    (repo / "repro.py").write_text("import sklearn\nif __name__=='__main__':\n    print(1)\n")
+    tried = []
+
+    def run_approach(a):
+        tried.append(list(a.entry))
+        return RunResult(ran_ok=True, runs=[[{"metric": "accuracy", "result": 0.9}]])
+
+    logs = []
+    O.orchestrate(str(repo), run_approach, use_llm=False, user_entry=["repro.py"], log=logs.append)
+    assert tried[0] == ["repro.py"]                          # the user's entry ran first
+    assert any("user-specified entrypoint" in ln for ln in logs)
+
+
 def test_orchestrate_learns_a_verified_fix(tmp_path):
     repo = tmp_path / "repo"
     repo.mkdir()

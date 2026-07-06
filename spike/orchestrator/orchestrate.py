@@ -603,8 +603,18 @@ def _synthesize_predictions_run(repo_dir, run_approach, profile, model, log):
     return result
 
 
+def _user_entry_approach(profile, repo_dir: str, argv: list) -> RunApproach:
+    """A forced approach for a user-specified entrypoint. Deps from the declared manifest, else seeded from the
+    entry's transitive imports. HOW-only — a wrong user entry still fails closed to DISCOVERED, never CONFIRM."""
+    deps = list(profile.declared_deps) or S.entry_seeded_imports(repo_dir, argv)
+    return RunApproach(runner="local", builder=(_builder_for(profile) if deps else "none"),
+                       entry=list(argv), deps=LIM.sanitize_pip(deps),
+                       capture_targets=list(S.propose_capture_targets(repo_dir, entry=argv)), env={},
+                       notes="user-specified entry: %s" % " ".join(argv), confidence=0.99)
+
+
 def orchestrate(repo_dir: str, run_approach, *, profile=None, use_llm: bool = True, model: str | None = None,
-                plan: dict | None = None, revise=None, budget: Budget | None = None,
+                plan: dict | None = None, revise=None, budget: Budget | None = None, user_entry: list | None = None,
                 cache=None, hints=None, log=None, synthesize: bool = False, xpu=None, journal=None) -> RunResult:
     """assess → rank → execute. ``run_approach`` is the injected build+run effector (the pipeline supplies one
     wired to the real runners; tests supply a fake). ``plan`` reuses the pipeline's background-thread planner
@@ -624,6 +634,17 @@ def orchestrate(repo_dir: str, run_approach, *, profile=None, use_llm: bool = Tr
             approaches = [hit] + [a for a in approaches if approach_key(a) != approach_key(hit)]
             if log:
                 log("orchestrator: flywheel cache hit — trying the known-good approach first")
+
+    # A user-specified entrypoint is the strongest signal there is — try it FIRST (ahead of ranking + the
+    # cache), keeping the ranked candidates as fallbacks. Fixes the orchestrate path silently ignoring an
+    # explicit --entry (found running Choices: the orchestrator picked a heavy torch script over the
+    # lightweight repro entry the user named).
+    if user_entry:
+        ua = _user_entry_approach(profile, repo_dir, list(user_entry))
+        approaches = [ua] + [a for a in approaches if list(a.entry) != list(ua.entry)]
+        if log:
+            log("orchestrator: honoring the user-specified entrypoint %s (ranked candidates kept as fallback)"
+                % " ".join(user_entry))
 
     from . import registry as _REG
     # HOW-only data resolution: relink a committed file / fetch a known dataset so a missing-data run proceeds.
