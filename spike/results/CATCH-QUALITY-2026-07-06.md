@@ -36,11 +36,22 @@ Both live in claim-extraction + verdict logic, which is FCR-sensitive:
 These are false REFUTES: conservative, moat-safe, but they read as false alarms and dent the "neutral auditor"
 credibility. Priority = product polish, not a correctness breach.
 
-## Candidate fixes (for review)
+## Fixes
 
-- **#1 (support column):** in the classification-report parser, do not emit the `support` column as a metric
-  claim; only emit `precision/recall/f1-score/accuracy` cells. Narrow + safe if scoped to the
-  classification-report shape specifically (not a global "drop integer accuracies" rule).
-- **#2 (bounds):** detect bound qualifiers (`>`, `>=`, `≥`, "at least", "over", "more than") on a metric
-  claim; verdict = CONFIRMED iff computed satisfies the bound, else REFUTED. Only apply to explicitly-bounded
-  phrasing; an exact claim stays exact (preserves FCR). Add to the redteam/edgecases FCR gates first.
+- **#1 (support column) — SHIPPED (merge 855d4ee, deployed + live-validated).** Instead of a
+  classification-report parser (there is none — extraction is general), added a source-agnostic post-extraction
+  guard `discovery.extract._plausible_value`: a unit-interval metric (accuracy/precision/recall/f1/roc_auc/
+  balanced_accuracy/specificity/brier/ndcg) whose value is a bare number > 1 with NO `%` is a count, not a
+  score → dropped. FCR-safe (only drops; 12/12 gates green, 1129 tests). Live re-run: digits' `36` and
+  breast_cancer's `72` false REFUTES are gone; the genuine `CONFIRMED 98.89%` survives; breast_cancer now
+  surfaces the real `accuracy 0.98` as REPRODUCED-ONLY instead of a bogus refute.
+- **#2 (bounds) — STILL DEFERRED (needs founder review, FCR-sensitive).** Detect bound qualifiers (`>`, `>=`,
+  `≥`, "at least", "over", "more than") and verdict = CONFIRMED iff computed satisfies the bound. Risk: if an
+  EXACT claim is mis-parsed as a bound, a too-high computed value would falsely CONFIRM (moat breach). Add to
+  redteam/edgecases FCR gates first. (Still visible live: digits' ">95%" → `95%` REFUTED.)
+
+## Minor (noted, not fixed)
+
+- breast_cancer now yields 7× `accuracy 0.98` (the classification-report's repeated 0.98 cells all mapped to
+  accuracy). Harmless (same real value, REPRODUCED-ONLY, no false verdict) but redundant — a dedup/labeling
+  polish, low priority.
