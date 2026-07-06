@@ -54,6 +54,12 @@ const nextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
+  // Serve the plain-markdown version of a docs page at /docs/<slug>.md (mirrors OpenRouter/Mintlify) — the
+  // "View as Markdown" link + the "Open in ChatGPT/Claude/Perplexity" prompts point here. `:slug` excludes a
+  // dot so `.md` stays a literal suffix (quickstart.md → slug=quickstart).
+  async rewrites() {
+    return [{ source: "/docs/:slug([^/.]+).md", destination: "/api/docs/:slug" }];
+  },
 };
 
 export default nextConfig;

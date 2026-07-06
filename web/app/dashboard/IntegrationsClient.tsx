@@ -108,7 +108,8 @@ jobs:
       </Card>
 
       <p className={dash.muted} style={{ fontSize: 12, marginTop: 8 }}>
-        Full docs on <a href={GITHUB_URL} target="_blank" rel="noreferrer" className={dash.rowlink}>GitHub</a>.
+        Full docs at <Link href="/docs" className={dash.rowlink}>/docs</Link> · source on{" "}
+        <a href={GITHUB_URL} target="_blank" rel="noreferrer" className={dash.rowlink}>GitHub</a>.
       </p>
     </div>
   );
