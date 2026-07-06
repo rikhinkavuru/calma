@@ -20,6 +20,39 @@ def test_map_metric_aliases_and_keywords():
     assert D.map_metric("loss")[0] is None           # still not a recomputable metric
 
 
+def test_plausible_value_drops_support_count_kept_percent_and_fraction():
+    # a [0,1] metric written as a bare integer > 1 is a count (classification_report support column), not a score
+    assert D._plausible_value({"metric": "accuracy", "value": "72"}) is False
+    assert D._plausible_value({"metric": "f1", "value": "114"}) is False
+    assert D._plausible_value({"metric": "recall", "value": "11"}) is False
+    # valid forms survive: a percentage, a fraction, and exactly 1.0 / 100%
+    assert D._plausible_value({"metric": "accuracy", "value": "95%"}) is True
+    assert D._plausible_value({"metric": "accuracy", "value": "0.98"}) is True
+    assert D._plausible_value({"metric": "accuracy", "value": "1.0"}) is True
+    assert D._plausible_value({"metric": "accuracy", "value": "100%"}) is True
+    # unbounded metrics can legitimately exceed 1 → never dropped
+    assert D._plausible_value({"metric": "rmse", "value": "72"}) is True
+    assert D._plausible_value({"metric": "sharpe", "value": "2"}) is True
+
+
+def test_discover_drops_classification_report_support_counts(tmp_path):
+    # the exact false-REFUTE shape from the 2026-07-06 eval: a classification_report block in a README whose
+    # SUPPORT column integers (42, 72, 114) were being mined as "accuracy" claims
+    (tmp_path / "README.md").write_text(
+        "The model achieved 98% accuracy on the test set.\n\n"
+        "## Results\n```\n"
+        "              precision    recall  f1-score   support\n"
+        "       0       0.98      0.98      0.98        42\n"
+        "       1       0.99      0.99      0.99        72\n"
+        "    accuracy                           0.98       114\n"
+        "```\n")
+    claims = D.discover(str(tmp_path))
+    vals = {c["value"] for c in claims}
+    assert "72" not in vals and "114" not in vals and "42" not in vals   # support counts dropped, no false REFUTE
+    # a genuine prose accuracy claim still survives the filter
+    assert any(c["metric"] == "accuracy" and c["value"] == "98%" for c in claims)
+
+
 def test_from_results_json(tmp_path):
     p = tmp_path / "results.json"
     p.write_text(json.dumps({"test_accuracy": 0.755, "test_roc_auc": 0.8146,
