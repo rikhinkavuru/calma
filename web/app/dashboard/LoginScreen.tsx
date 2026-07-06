@@ -1,29 +1,27 @@
 "use client";
-// Split sign-in: a single STILL landscape on the left, the credential panel on the right. No carousel, no
-// rotation, one small caption. Auth is real (WorkOS): Google/hosted via continueWithProvider, inline
-// email+password via passwordSignIn.
-import { useActionState } from "react";
+// Minimal two-step sign-in. Left: a single still landscape, full-bleed on three sides. Right: provider
+// buttons (icon-only, so more can sit beside Google later), then email → password on the next step.
+// Auth is real (WorkOS): continueWithProvider (hosted) and passwordSignIn (inline email+password).
+import { useActionState, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { FcGoogle } from "react-icons/fc";
 import { FiArrowRight } from "react-icons/fi";
-import { continueWithProvider, createAccount, passwordSignIn } from "./login-actions";
+import { continueWithProvider, passwordSignIn } from "./login-actions";
 import s from "./login.module.css";
+
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
 export function LoginScreen() {
   const [state, action, pending] = useActionState(passwordSignIn, {});
+  const [step, setStep] = useState<"email" | "password">("email");
+  const [email, setEmail] = useState("");
+  const emailOk = EMAIL_RE.test(email.trim());
 
   return (
     <div className={s.login}>
       <aside className={s.art}>
-        <Image
-          src="/img/login-art.jpg"
-          alt=""
-          fill
-          sizes="(max-width: 920px) 0px, 50vw"
-          priority
-          className={s.artImg}
-        />
+        <Image src="/img/login-art.jpg" alt="" fill sizes="(max-width: 920px) 0px, 46vw" priority className={s.artImg} />
         <div className={s.scrim} />
         <p className={s.caption}>AI did the work. Calma checks it.</p>
       </aside>
@@ -36,58 +34,74 @@ export function LoginScreen() {
 
         <div className={s.form}>
           <h1 className={s.h1}>Welcome back</h1>
-          <p className={s.sub}>Access your console — verify AI-generated results before they ship.</p>
 
-          <form action={continueWithProvider}>
-            <button type="submit" className={s.google}>
-              <FcGoogle size={18} /> Continue with Google
-            </button>
-          </form>
-
-          <form action={createAccount}>
-            <button type="submit" className={s.create}>
-              Don&rsquo;t have an account? <strong>Create one</strong>
-            </button>
-          </form>
-
-          <div className={s.divider}>
-            <span>OR CONTINUE WITH EMAIL</span>
+          {/* provider row — icon-only, more can sit beside it */}
+          <div className={s.providers}>
+            <form action={continueWithProvider}>
+              <input type="hidden" name="email" value={email} />
+              <button type="submit" className={s.provider} aria-label="Continue with Google" title="Continue with Google">
+                <FcGoogle size={20} />
+              </button>
+            </form>
           </div>
 
-          <form action={action} className={s.fields}>
-            <label className={s.label} htmlFor="email">Email</label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              required
-              autoComplete="email"
-              placeholder="name@company.com"
-              className={s.input}
-            />
+          <div className={s.divider}><span>or</span></div>
 
-            <div className={s.pwrow}>
-              <label className={s.label} htmlFor="password">Password</label>
-              <button type="submit" name="intent" value="reset" formNoValidate className={s.forgot}>
-                Forgot password?
+          {step === "email" ? (
+            <form
+              className={s.fields}
+              onSubmit={(e) => { e.preventDefault(); if (emailOk) setStep("password"); }}
+            >
+              <label className={s.label} htmlFor="email">Email</label>
+              <input
+                id="email"
+                type="email"
+                required
+                autoComplete="email"
+                autoFocus
+                placeholder="name@company.com"
+                className={s.input}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+              <button type="submit" className={s.submit} disabled={!emailOk}>
+                Continue <FiArrowRight size={16} />
               </button>
-            </div>
-            <input
-              id="password"
-              name="password"
-              type="password"
-              required
-              autoComplete="current-password"
-              placeholder="••••••••"
-              className={s.input}
-            />
+            </form>
+          ) : (
+            <form action={action} className={s.fields}>
+              <input type="hidden" name="email" value={email} />
 
-            {state.error && <p className={s.err}>{state.error}</p>}
+              <button type="button" className={s.emailChip} onClick={() => setStep("email")}>
+                <span>{email}</span>
+                <span className={s.change}>Change</span>
+              </button>
 
-            <button type="submit" className={s.submit} disabled={pending}>
-              {pending ? "Signing in…" : (<>Sign in <FiArrowRight size={16} /></>)}
-            </button>
-          </form>
+              <div className={s.pwrow}>
+                <label className={s.label} htmlFor="password">Password</label>
+                <button type="submit" name="intent" value="reset" formNoValidate className={s.forgot}>
+                  Forgot password?
+                </button>
+              </div>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                required
+                autoComplete="current-password"
+                autoFocus
+                placeholder="••••••••"
+                className={s.input}
+              />
+
+              {state.error && <p className={s.err}>{state.error}</p>}
+              {state.notice && <p className={s.notice}>{state.notice}</p>}
+
+              <button type="submit" className={s.submit} disabled={pending}>
+                {pending ? "Signing in…" : (<>Sign in <FiArrowRight size={16} /></>)}
+              </button>
+            </form>
+          )}
 
           <p className={s.legal}>
             By continuing, you agree to our <Link href="/terms">Terms of Service</Link> and acknowledge our{" "}

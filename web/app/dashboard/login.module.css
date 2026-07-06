@@ -1,5 +1,5 @@
-/* Split sign-in: a single still landscape (left) + credential panel (right). Dark editorial — same
-   black/white/amber voice as the console it gates. Static, no carousel. */
+/* Split sign-in: a single still landscape (left, full-bleed on three sides) + minimal credential panel
+   (right). Light, sleek, barely-rounded — no pills. */
 
 .login {
   --ink: #1b1712;
@@ -9,233 +9,34 @@
   --bg: #fdfcfa;
   --panel: #f3f0ea;
   --amber: #d9824a;
+  --r: 6px;
   min-height: 100vh;
   min-height: 100dvh;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 46% 1fr;
   background: var(--bg);
   color: var(--ink);
   font-family: var(--disp), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
-/* ---- left panel ---- */
-.panel {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  padding: 40px clamp(28px, 6vw, 92px);
-}
-
-.brand {
-  position: absolute;
-  top: 34px;
-  left: clamp(28px, 6vw, 92px);
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  text-decoration: none;
-  color: var(--ink);
-}
-.brand span {
-  font-size: 20px;
-  font-weight: 650;
-  letter-spacing: -0.02em;
-}
-/* the lotus is 523x332 — size by height, auto width, so it never squishes */
-.brandLogo {
-  height: 22px;
-  width: auto;
-  display: block;
-}
-
-.form {
-  width: 100%;
-  max-width: 384px;
-  margin: 0 auto;
-}
-
-.h1 {
-  font-size: clamp(26px, 3.4vw, 34px);
-  font-weight: 550;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  margin: 0 0 10px;
-}
-.sub {
-  color: var(--ink-2);
-  font-size: 14px;
-  line-height: 1.6;
-  margin: 0 0 28px;
-}
-
-/* buttons */
-.google,
-.submit,
-.create {
-  width: 100%;
-  border-radius: 8px;
-  font-family: inherit;
-  font-size: 14px;
-  cursor: pointer;
-  transition: background 0.16s ease, border-color 0.16s ease, transform 0.06s ease;
-}
-
-.google {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 12px;
-  font-weight: 600;
-  color: var(--ink);
-  background: #fff;
-  border: 1px solid var(--line);
-}
-.google:hover { background: #fff; border-color: rgba(27, 23, 18, 0.28); }
-.google:active { transform: translateY(1px); }
-
-.create {
-  margin-top: 10px;
-  padding: 11px;
-  color: var(--ink-2);
-  background: transparent;
-  border: 1px solid var(--line);
-  text-align: center;
-}
-.create:hover { background: var(--panel); color: var(--ink); }
-.create strong { color: var(--ink); font-weight: 600; }
-
-/* divider */
-.divider {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin: 26px 0 20px;
-  color: var(--ink-3);
-  font-family: var(--mono, monospace);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.18em;
-}
-.divider::before,
-.divider::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: var(--line);
-}
-
-/* fields */
-.fields { display: flex; flex-direction: column; }
-.label {
-  font-family: var(--mono, monospace);
-  font-size: 10.5px;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--ink-2);
-  margin-bottom: 8px;
-}
-.input {
-  width: 100%;
-  padding: 12px 16px;
-  font-family: inherit;
-  font-size: 14px;
-  color: var(--ink);
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  outline: none;
-  transition: border-color 0.16s ease, box-shadow 0.16s ease;
-  margin-bottom: 16px;
-}
-.input::placeholder { color: var(--ink-3); }
-.input:focus {
-  border-color: rgba(232, 154, 93, 0.5);
-  box-shadow: 0 0 0 3px rgba(232, 154, 93, 0.12);
-}
-
-.pwrow {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-}
-.forgot {
-  border: 0;
-  background: none;
-  padding: 0;
-  font-family: inherit;
-  font-size: 12px;
-  color: var(--ink-3);
-  cursor: pointer;
-  text-decoration: none;
-}
-.forgot:hover { color: var(--ink); text-decoration: underline; }
-
-.err {
-  margin: -4px 0 14px;
-  font-size: 13px;
-  color: #f29170;
-  background: rgba(240, 117, 90, 0.12);
-  border: 1px solid rgba(240, 117, 90, 0.35);
-  border-radius: 10px;
-  padding: 9px 12px;
-}
-
-.submit {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin-top: 4px;
-  padding: 12px;
-  font-weight: 600;
-  color: #14100a;
-  background: var(--amber);
-  border: 1px solid var(--amber);
-}
-.submit:hover { background: #f0a76e; border-color: #f0a76e; }
-.submit:active { transform: translateY(1px); }
-.submit:disabled { opacity: 0.55; cursor: default; }
-
-.legal {
-  margin: 22px 0 0;
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--ink-3);
-}
-.legal a {
-  color: var(--ink-2);
-  font-weight: 500;
-  text-decoration: none;
-}
-.legal a:hover { color: var(--ink); text-decoration: underline; }
-
-/* ---- left panel: a single still landscape ---- */
+/* ---- left: a single still landscape, edge-to-edge on top/left/bottom ---- */
 .art {
   position: relative;
-  margin: 16px 0 16px 16px;
-  border-radius: 20px;
   overflow: hidden;
   background: var(--panel);
-  border: 1px solid var(--line);
 }
-.artImg {
-  object-fit: cover;
-}
-/* a soft gradient at the base so the one caption stays legible */
+.artImg { object-fit: cover; }
 .scrim {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(8, 6, 3, 0.55) 0%, rgba(8, 6, 3, 0.12) 26%, rgba(8, 6, 3, 0) 46%);
+  background: linear-gradient(to top, rgba(8, 6, 3, 0.5) 0%, rgba(8, 6, 3, 0.1) 24%, rgba(8, 6, 3, 0) 44%);
 }
 .caption {
   position: absolute;
-  left: 28px;
-  bottom: 26px;
-  right: 28px;
+  left: 30px;
+  right: 30px;
+  bottom: 28px;
   margin: 0;
   color: rgba(255, 255, 255, 0.92);
   font-size: 14px;
@@ -244,9 +45,174 @@
   text-shadow: 0 1px 12px rgba(0, 0, 0, 0.4);
 }
 
-/* ---- responsive: drop the art panel, center the form ---- */
+/* ---- right: credential panel ---- */
+.panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 40px clamp(28px, 6vw, 88px);
+}
+.brand {
+  position: absolute;
+  top: 34px;
+  left: clamp(28px, 6vw, 88px);
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  text-decoration: none;
+  color: var(--ink);
+}
+.brandLogo { height: 22px; width: auto; display: block; }
+.brand span { font-size: 19px; font-weight: 650; letter-spacing: -0.02em; }
+
+.form { width: 100%; max-width: 348px; margin: 0 auto; }
+.h1 {
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin: 0 0 22px;
+}
+
+/* provider row — icon-only buttons, more can sit beside Google */
+.providers { display: flex; gap: 10px; }
+.provider {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 46px;
+  border-radius: var(--r);
+  border: 1px solid var(--line);
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease, transform 0.06s ease;
+}
+.provider:hover { border-color: rgba(27, 23, 18, 0.28); background: #fff; }
+.provider:active { transform: translateY(1px); }
+
+/* divider */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0;
+  color: var(--ink-3);
+  font-size: 12px;
+}
+.divider::before,
+.divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+/* fields */
+.fields { display: flex; flex-direction: column; }
+.label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-2);
+  margin-bottom: 7px;
+}
+.input {
+  width: 100%;
+  padding: 11px 13px;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  outline: none;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+  margin-bottom: 14px;
+}
+.input::placeholder { color: var(--ink-3); }
+.input:focus {
+  border-color: rgba(217, 130, 74, 0.55);
+  box-shadow: 0 0 0 3px rgba(217, 130, 74, 0.13);
+}
+
+/* the chosen email on step 2, tap to change */
+.emailChip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 9px 13px;
+  margin-bottom: 16px;
+  font-family: inherit;
+  font-size: 13.5px;
+  color: var(--ink-2);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  cursor: pointer;
+}
+.emailChip span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.change { color: var(--amber); font-weight: 500; margin-left: 12px; flex: none; }
+
+.pwrow { display: flex; align-items: baseline; justify-content: space-between; }
+.forgot {
+  border: 0;
+  background: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--ink-3);
+  cursor: pointer;
+}
+.forgot:hover { color: var(--ink); text-decoration: underline; }
+
+.err {
+  margin: -2px 0 12px;
+  font-size: 13px;
+  color: #b4460f;
+  background: rgba(217, 130, 74, 0.1);
+  border: 1px solid rgba(217, 130, 74, 0.32);
+  border-radius: var(--r);
+  padding: 9px 12px;
+}
+.notice {
+  margin: -2px 0 12px;
+  font-size: 13px;
+  color: var(--ink-2);
+  background: rgba(27, 23, 18, 0.04);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 9px 12px;
+}
+
+.submit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 2px;
+  padding: 11px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  color: #17110b;
+  background: var(--amber);
+  border: 1px solid var(--amber);
+  border-radius: var(--r);
+  cursor: pointer;
+  transition: background 0.16s ease, transform 0.06s ease, opacity 0.16s ease;
+}
+.submit:hover { background: #e08f5b; }
+.submit:active { transform: translateY(1px); }
+.submit:disabled { opacity: 0.45; cursor: default; }
+
+.legal {
+  margin: 22px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--ink-3);
+}
+.legal a { color: var(--ink-2); font-weight: 500; text-decoration: none; }
+.legal a:hover { color: var(--ink); text-decoration: underline; }
+
+/* ---- responsive: drop the art, center the form ---- */
 @media (max-width: 920px) {
   .login { grid-template-columns: 1fr; }
   .art { display: none; }
-  .panel { padding-top: 96px; padding-bottom: 88px; }
+  .panel { padding-top: 96px; padding-bottom: 80px; }
 }

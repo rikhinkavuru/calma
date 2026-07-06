@@ -39,7 +39,7 @@ export async function createAccount() {
   if (url) redirect(url);
 }
 
-export type LoginState = { error?: string };
+export type LoginState = { error?: string; notice?: string };
 
 function errCode(e: unknown): string {
   if (e && typeof e === "object") {
@@ -56,11 +56,19 @@ export async function passwordSignIn(_prev: LoginState, formData: FormData): Pro
   const email = String(formData.get("email") || "").trim();
   const password = String(formData.get("password") || "");
 
-  // "Forgot password?" submits this same form with intent=reset -> hand off to WorkOS (which owns reset).
+  // "Forgot password?" submits this same form with intent=reset. Create a WorkOS password reset (which sends
+  // the reset email) and return a generic notice. We do NOT redirect to the hosted sign-in page — that would
+  // silently log an already-authenticated user straight back in instead of resetting anything. Errors are
+  // swallowed so we never reveal whether an account exists (no email enumeration).
   if (formData.get("intent") === "reset") {
-    const url = await hostedUrl("in", email ? { loginHint: email } : {});
-    if (url) redirect(url);
-    return { error: "Couldn’t open password reset — try again." };
+    if (!email) return { error: "Enter your email first, then tap Forgot password." };
+    try {
+      const { getWorkOS } = await authkit();
+      await getWorkOS().userManagement.createPasswordReset({ email });
+    } catch (e) {
+      console.error("[calma] password reset error:", e instanceof Error ? e.message : e);
+    }
+    return { notice: `If an account exists for ${email}, we’ve sent a password reset link. Check your inbox.` };
   }
 
   if (!email || !password) return { error: "Enter your email and password." };
