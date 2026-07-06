@@ -460,6 +460,29 @@ def _scan_dir(d) -> list[dict]:
     return found
 
 
+# metrics whose value is mathematically in [0, 1] — they can never exceed 1 unless written as a percentage.
+# (rmse/mae/mse/sharpe are unbounded and r2/mcc/kappa can be ≤1/negative, so they're intentionally excluded.)
+_UNIT_INTERVAL = frozenset({"accuracy", "balanced_accuracy", "precision", "recall", "specificity",
+                            "f1", "roc_auc", "brier", "ndcg"})
+
+
+def _plausible_value(claim) -> bool:
+    """Drop a claim whose value can't be that metric. A unit-interval metric (accuracy/precision/recall/f1/auc)
+    written as a bare number > 1 with NO percent sign is not a metric value — it's a count, almost always a
+    classification_report SUPPORT column ('72', '114') mis-read as 'accuracy'. That produced spurious REFUTED
+    claims on real repos (2026-07-06 eval). FCR-safe: this only DROPS noise, it can never add or change a
+    verdict. A '%' value, a value ≤ 1, an unbounded metric, or a non-numeric value is kept."""
+    if claim.get("metric") not in _UNIT_INTERVAL:
+        return True
+    v = str(claim.get("value", "")).strip()
+    if not v or v.endswith("%"):
+        return True                                  # a percentage is a valid form (95% == 0.95)
+    try:
+        return float(v) <= 1.0                       # a bare number > 1 for a [0,1] metric is a count, not a score
+    except ValueError:
+        return True                                  # non-numeric: not this guard's job
+
+
 def discover(repo_dir, stdout_text="", entry=None) -> list[dict]:
     """Discover claims across a repo's result files + README + (optional) captured stdout. Dedupes on
     (metric, value), preferring the highest-confidence source; assigns stable ids.
@@ -481,6 +504,8 @@ def discover(repo_dir, stdout_text="", entry=None) -> list[dict]:
                 found.extend(_scan_dir(full_entry_dir))
     if stdout_text:
         found.extend(from_text(stdout_text, location="stdout"))
+
+    found = [c for c in found if _plausible_value(c)]   # drop count-columns mis-read as [0,1] metrics (support col)
 
     # dedupe on (metric, value, context): keep the highest-confidence instance (context keeps distinct
     # CSV rows — same metric+value for different datasets — from collapsing)
