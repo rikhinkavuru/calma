@@ -313,6 +313,8 @@ class VerifyReq(BaseModel):
     orchestrate: bool = False            # assess→rank→loop make-runnable brain (tier-gated; env kill-switch)
     synthesize_predictions: bool = False  # opt-in: synthesize a predict-and-dump driver when nothing captures a
     #                                      number (owner/dev only; requires orchestrate; capped REPRODUCED-ONLY)
+    artifact_repro: bool = False         # opt-in: artifact-reproduction check (run repro → diff regenerated vs
+    #                                      committed result files); advisory report, never a verdict. Owner/internal.
     cpu_cores: int = 0                   # sandbox vCPU (tier; realised via E2B template routing). 0 = default template
     mem_mb: int = 0                      # per-sandbox RSS cap (tier; supervisor caps the child at min(container, this))
     repair_steps: int = 0                # tier env-repair budget (0 = repair off; >0 enables the bounded loop)
@@ -465,6 +467,7 @@ def run_job(job, req: VerifyReq):
             plan=req.plan,
             orchestrate=req.orchestrate,
             synthesize_predictions=req.synthesize_predictions,
+            artifact_repro=req.artifact_repro,
             allow_gpu=req.allow_gpu,
             acquire_env=acq_env,
             acquire_allow_out=acq_allow,
@@ -491,7 +494,7 @@ def run_job(job, req: VerifyReq):
         _set(job, status="done", stage="done", claims=result["claims"], counts=result["counts"],
              n_claims=result["n_claims"], leakage=result["leakage"], run=result["run"],
              summary=result.get("summary"), receipt=result.get("receipt"), trace=result["trace"],
-             validity_card=validity_card, finished=time.time())
+             artifact_repro=result.get("artifact_repro"), validity_card=validity_card, finished=time.time())
         _log(job, "done — %s" % ", ".join("%s:%d" % (k, v) for k, v in result["counts"].items()))
     except SUP.BudgetExceeded as e:
         # The isolated child was killed or died (OOM / timeout / CPU / crash). The job ends cleanly with a
@@ -559,6 +562,9 @@ def verify(req: VerifyReq, ident: Identity = Depends(identity)):
     # FCR-safe regardless (capped REPRODUCED-ONLY), but kept off the end-user path until corpus-proven.
     req.synthesize_predictions = ((_SYNTHESIZE or (bool(req.synthesize_predictions) and _internal()))
                                   and req.orchestrate)
+    # artifact-reproduction: owner (unmetered) or internal only for now — advisory + FCR-safe, but kept off the
+    # end-user path until corpus-proven. Requires a deep run (nothing to diff without regenerating the files).
+    req.artifact_repro = bool(req.artifact_repro) and req.deep and (ident.unmetered or _internal())
     req.cpu_cores = int(clamped.get("cpu_cores", 0))                  # tier vCPU (E2B template routing)
     req.mem_mb = int(clamped.get("mem_mb", 0))                        # tier per-sandbox RSS cap
     req.repair_steps = int(clamped.get("repair_steps", 0))           # tier env-repair budget (0 = off)

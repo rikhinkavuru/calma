@@ -17,6 +17,7 @@ from dataclasses import dataclass, field
 from typing import Callable
 
 from core import anomaly as ANOM
+from core import artifact_repro as A_REPRO
 from core import artifacts as A
 from core import determinism as DET
 from core import diff as D
@@ -100,6 +101,11 @@ class VerifyOptions:
     #                                 registry. FCR-safe by construction (§0): it only changes HOW a repo runs;
     #                                 the RunResult flows through the UNCHANGED diff/verdict. Flag-gated behind
     #                                 the heuristic default (owner/enterprise) until the corpus clears it.
+    artifact_repro: bool = False    # opt-in: artifact-reproduction verification (core/artifact_repro.py). Snapshot
+    #                                 committed result files before the run, then diff the regenerated files after
+    #                                 — verifies "the committed numbers regenerate from the committed code" for
+    #                                 repos whose numbers come from CUSTOM code (no hookable metric call). Off by
+    #                                 default (byte-identical old path). Reported separately; never authors a verdict.
     synthesize_predictions: bool = False   # opt-in last resort: when NO entrypoint captures a number, AI-synthesize
     #                                 a predict-and-dump driver (repo's OWN model → predictions), recompute the
     #                                 metric INDEPENDENTLY from those predictions. The driver is a source
@@ -730,7 +736,8 @@ def _run_repo_orchestrated(repo_dir: str, opts: VerifyOptions, trace: Trace, k: 
                         fuzz=opts.fuzz, cpu_cores=opts.cpu_cores, builder=approach.builder,
                         acquire=acq, acquire_env=(opts.acquire_env if acq else None),
                         acquire_allow_out=(opts.acquire_allow_out if acq else None), data_fetch=fetch,
-                        data_resolver=_resolver, repo_ctx=(plan or {}).get("data_needed", ""))
+                        data_resolver=_resolver, repo_ctx=(plan or {}).get("data_needed", ""),
+                        fetch_artifacts=opts.artifact_repro)
             return _wrap(r, approach)
 
         # ── local path (fixtures / curated) ──────────────────────────────────────────────────────────────────
@@ -994,6 +1001,7 @@ def verify_repo(
     job_run = None
     static_det = False
     committed_file_claims: list = []   # committed result-file claims snapshotted pre-run (see the deep block)
+    _repro_before: dict | None = None  # artifact-reproduction: committed result cells snapshotted pre-run
     _data_modified: list[str] = []     # abs-path rewrites / dataset substitutions from the data relink → FCR cap
     if opts.deep:
         # AI run-plan pre-stage ("AI proposes, determinism disposes"): a fast model reads the repo and proposes
@@ -1043,6 +1051,12 @@ def verify_repo(
         if opts.discover:
             committed_file_claims = [c for c in DISC.discover(repo_dir)
                                      if c.get("source") in ("results-json", "results-csv")]
+        # artifact-reproduction (opt-in): snapshot every committed result-file numeric cell BEFORE the run, so
+        # we can diff the regenerated files after (core/artifact_repro). Covers repos whose numbers come from
+        # custom code with no hookable metric call — the capture path verifies nothing, but a file-level
+        # regenerate-and-diff does. Advisory (attached as result['artifact_repro'], never a verdict).
+        if opts.artifact_repro:
+            _repro_before = A_REPRO.snapshot(repo_dir)
         run_result, entry = _run_repo(repo_dir, opts, trace, k=eff_k, get_plan=_get_plan)
         if not run_result.get("ran_ok"):
             from runner import data_resolver as _DR
@@ -1280,6 +1294,20 @@ def verify_repo(
     except Exception:  # noqa: BLE001
         receipt = None
 
+    # artifact-reproduction diff (opt-in): compare the committed result cells snapshotted pre-run to what the
+    # run regenerated — from .calma_regenerated/ (E2B pulled them back) or in-place (a local run overwrote the
+    # committed files). Advisory: a separate report, never a verdict (no CONFIRMED/REFUTED authored here).
+    artifact_repro_report = None
+    if _repro_before is not None:
+        regen = os.path.join(repo_dir, ".calma_regenerated")
+        rels = list(_repro_before)
+        after = A_REPRO.snapshot(regen, rels) if os.path.isdir(regen) else A_REPRO.snapshot(repo_dir, rels)
+        artifact_repro_report = A_REPRO.diff(_repro_before, after)
+        trace.note("artifact-reproduction: %s — %d/%d committed result cells regenerated identically%s" % (
+            artifact_repro_report["status"], artifact_repro_report["n_match"],
+            artifact_repro_report["n_compared"],
+            (" (%d differ)" % artifact_repro_report["n_changed"]) if artifact_repro_report["n_changed"] else ""))
+
     trace.stage("done", "verification complete")
     from core import report as REPORT
     summary = REPORT.summarize(records, job_run, leakage)      # plain-language explanation (leads the UI)
@@ -1295,5 +1323,6 @@ def verify_repo(
         "leakage": leakage,
         "summary": summary,
         "receipt": receipt,
+        "artifact_repro": artifact_repro_report,
         "trace": trace.events,
     }

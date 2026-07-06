@@ -614,7 +614,7 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
             allow_internet=False, pip_install=None, pip_strict=True, python_version=None,
             cfg=None, max_elems=None, log=None, resolve=None, fuzz=False, cpu_cores=0, acquire=None,
             builder=None, acquire_env=None, acquire_allow_out=None, data_fetch=None,
-            data_resolver=None, repo_ctx="", fingerprint=None):
+            data_resolver=None, repo_ctx="", fingerprint=None, fetch_artifacts=False):
     """ONE sandbox: stage + install ONCE, then run the entrypoint k× inside it (each a fresh process with its
     own capture file). Reusing the sandbox across the determinism runs is the big cost lever — the dominant
     `pip install` is paid once, not k×, and it's MORE correct for determinism (identical env across runs, so
@@ -896,6 +896,29 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
                 with open(os.path.join(repo_dir, "calma_predictions.csv"), "wb") as fh:
                     fh.write(buf)
             except Exception:  # noqa: BLE001 — no predictions file / oversized → nothing to pull
+                pass
+        # artifact-reproduction (opt-in): pull the REGENERATED committed result files back from /work into a
+        # host-side .calma_regenerated/ mirror, so the pipeline can diff them against the pre-run committed
+        # snapshot (core/artifact_repro). The committed copies on the host repo_dir are untouched (the run
+        # happened in the sandbox), so this only ADDS the regenerated versions. Read-only, bounded, best-effort.
+        if sbx is not None and fetch_artifacts:
+            try:
+                from core import artifact_repro as _AR
+                rels = _AR.find_artifacts(repo_dir)
+                dest_root = os.path.join(repo_dir, ".calma_regenerated")
+                for rel in rels:
+                    try:
+                        data = sbx.files.read("/work/" + rel)
+                    except Exception:  # noqa: BLE001 — the run may not regenerate every committed file
+                        continue
+                    buf = data if isinstance(data, bytes) else str(data).encode()
+                    if len(buf) > _MAX_PREDICTIONS_BYTES:      # bound the read-back (a runaway output file)
+                        continue
+                    dpath = os.path.join(dest_root, rel)
+                    os.makedirs(os.path.dirname(dpath), exist_ok=True)
+                    with open(dpath, "wb") as fh:
+                        fh.write(buf)
+            except Exception:  # noqa: BLE001 — artifact-repro is advisory; never fail a run over it
                 pass
     finally:
         if sbx is not None:
