@@ -33,14 +33,22 @@ MAX_SANDBOX_S = int(os.environ.get("CALMA_MAX_SANDBOX_S") or 3600)
 
 
 def capture_run_env(index: int, out_remote: str, *, hooks: str = "sklearn", targets=None,
-                    max_elems=None, fuzz: bool = False, extra: dict | None = None) -> dict:
+                    max_elems=None, fuzz: bool = False, extra: dict | None = None,
+                    repo_root: str | None = None) -> dict:
     """The env that arms one capture run inside a sandbox. Identical across backends: PYTHONPATH puts the shim
     first so it auto-installs at interpreter startup; CALMA_CAPTURE_OUT points it at this run's fresh JSONL;
     PYTHONHASHSEED/TZ freeze the two ambient nondeterminism sources so a deterministic-by-construction repo
     reproduces cleanly (and adaptive-k stays sound). `extra` merges backend/tenant additions (e.g. an
-    acquire-phase secret) LAST — callers are responsible for only injecting secrets on non-eval phases."""
+    acquire-phase secret) LAST — callers are responsible for only injecting secrets on non-eval phases.
+
+    `repo_root`: the repo's run directory (e.g. /work in E2B). Added to PYTHONPATH so a subdir entrypoint
+    (`python pipeline/x.py`, `scripts/run.py`) can still import the repo's OWN top-level package — Python only
+    puts the SCRIPT's dir on sys.path, not the cwd, so `import <pkg>` for a root-level package otherwise fails
+    with ModuleNotFoundError (found running Choices: `python pipeline/…` → `No module named 'choices'`). The
+    shim stays FIRST so its sitecustomize auto-arms; this is HOW-only, never a verdict channel."""
+    pythonpath = (CAPTURE_MOUNT + ":" + repo_root) if repo_root else CAPTURE_MOUNT
     env = {
-        "PYTHONPATH": CAPTURE_MOUNT,
+        "PYTHONPATH": pythonpath,
         "CALMA_CAPTURE_OUT": out_remote,
         "CALMA_CAPTURE_HOOKS": hooks,
         "CALMA_RUN_INDEX": str(index),

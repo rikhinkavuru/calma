@@ -25,6 +25,15 @@ def test_capture_run_env_extra_merges_last():
     assert env["HF_TOKEN"] == "x"
 
 
+def test_capture_run_env_repo_root_on_pythonpath():
+    # a subdir entrypoint (python pipeline/x.py) must still import the repo's own top-level package: the repo
+    # root goes on PYTHONPATH, with the capture shim kept FIRST so its sitecustomize auto-arms.
+    env = effector.capture_run_env(0, "/o", repo_root="/work")
+    assert env["PYTHONPATH"] == effector.CAPTURE_MOUNT + ":/work"
+    # no repo_root → unchanged (shim only)
+    assert effector.capture_run_env(0, "/o")["PYTHONPATH"] == effector.CAPTURE_MOUNT
+
+
 def test_size_sandbox_life_covers_build_plus_k_runs_and_caps():
     assert effector.size_sandbox_life(600, 3, 600) == 600 + 3 * 600 + 120   # below the cap → exact
     assert effector.size_sandbox_life(10_000, 50, 3600, cap=3600) == 3600   # above the cap → clamped
