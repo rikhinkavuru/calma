@@ -799,6 +799,7 @@ def _run_repo_orchestrated(repo_dir: str, opts: VerifyOptions, trace: Trace, k: 
     from runner import repair as _REPAIR
     _src_before = _REPAIR.snapshot_pyfiles(repo_dir)
     result = ORCH.orchestrate(repo_dir, run_approach, use_llm=opts.plan, plan=plan, budget=budget,
+                              user_entry=(_argv(opts.entry) or None),
                               cache=cache, hints=hints, log=trace.note,
                               synthesize=opts.synthesize_predictions, xpu=xpu, journal=journal)
     _src_changed = _REPAIR._changed(_src_before, _REPAIR.snapshot_pyfiles(repo_dir))
