@@ -88,6 +88,13 @@ def _print_summary(job: dict) -> None:
     run = job.get("run") or {}
     if run.get("entry"):
         print("  ran: %s (%s computation(s))" % (run.get("entry"), run.get("calls", 0)))
+    ar = job.get("artifact_repro")
+    if ar and ar.get("status") and ar["status"] != "incomplete":
+        print("  artifact reproduction: %s — %d/%d committed result cells regenerated identically"
+              % (ar["status"], ar.get("n_match", 0), ar.get("n_compared", 0)))
+        for c in (ar.get("changed") or [])[:5]:
+            print("    ✗ %s [%s]: committed %s, regenerated %s"
+                  % (c.get("file"), c.get("cell"), c.get("committed"), c.get("regenerated")))
 
 
 # ── commands ─────────────────────────────────────────────────────────────────────────────────────────────
@@ -97,6 +104,8 @@ def cmd_verify(args) -> int:
         body["entry"] = args.entry
     if args.pip:
         body["pip_install"] = args.pip
+    if getattr(args, "artifact_repro", False):
+        body["artifact_repro"] = True
     started = _request("POST", "/api/verify", body)
     jid = started.get("id")
     if not jid:
@@ -176,6 +185,8 @@ def build_parser() -> argparse.ArgumentParser:
     v.add_argument("--deep", action="store_true", help="re-run the repo and recompute (default: validity check only)")
     v.add_argument("--entry", help="entrypoint override, e.g. 'run.py' (auto-detected otherwise)")
     v.add_argument("--pip", action="append", help="extra pip dependency (repeatable)")
+    v.add_argument("--artifact-repro", dest="artifact_repro", action="store_true",
+                   help="also verify committed result files regenerate identically (re-run-the-paper mode)")
     v.add_argument("--json", action="store_true", help="print the raw job JSON")
     v.add_argument("--no-wait", action="store_true", help="submit and return immediately")
     v.set_defaults(func=cmd_verify)
