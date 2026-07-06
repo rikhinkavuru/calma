@@ -51,6 +51,28 @@ def test_detect_readme_subdir_path_preserved(tmp_path):
     assert build.detect_entrypoint(str(tmp_path)) == ["scripts/run.py"]
 
 
+def test_detect_keeps_safe_readme_args(tmp_path):
+    # A repro script that REQUIRES a committed config/data arg: keep the author's args (the old code dropped
+    # them → argparse error). Scalars + flags + repo-relative paths that EXIST are kept.
+    (tmp_path / "configs").mkdir()
+    (tmp_path / "configs" / "default.yaml").write_text("x: 1\n")
+    (tmp_path / "reproduce.py").write_text("import argparse\nif __name__=='__main__':\n    pass\n")
+    (tmp_path / "README.md").write_text("## run\n```bash\npython reproduce.py --config configs/default.yaml --seed 42 --verbose\n```\n")
+    assert build.detect_entrypoint(str(tmp_path)) == ["reproduce.py", "--config", "configs/default.yaml", "--seed", "42", "--verbose"]
+
+
+def test_detect_drops_unsafe_readme_path_args(tmp_path):
+    # An absolute path (or a relative path not committed) won't exist in the sandbox → drop ALL args (bare run),
+    # so a flag never loses its value.
+    (tmp_path / "helpers.py").write_text("x = 1\n")
+    (tmp_path / "train.py").write_text("if __name__=='__main__':\n    pass\n")
+    (tmp_path / "README.md").write_text("## run\n```bash\npython train.py --data /home/me/data.csv\n```\n")
+    assert build.detect_entrypoint(str(tmp_path)) == ["train.py"]
+    # a relative path that isn't committed is also dropped
+    (tmp_path / "README.md").write_text("## run\n```bash\npython train.py --data data/missing.csv\n```\n")
+    assert build.detect_entrypoint(str(tmp_path)) == ["train.py"]
+
+
 def test_detect_skips_readme_help_usage_command(tmp_path):
     # A `--help`/`-h`/`--version` invocation documents the CLI; it computes no numbers, so it is never the
     # reproduction entrypoint. gb_kmer's only README code block was `python diag.py --help` — deep verify ran
