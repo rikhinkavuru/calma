@@ -2,13 +2,13 @@
    black/white/amber voice as the console it gates. Static, no carousel. */
 
 .login {
-  --ink: #f2ede2;
-  --ink-2: rgba(242, 237, 226, 0.6);
-  --ink-3: rgba(242, 237, 226, 0.38);
-  --line: rgba(242, 237, 226, 0.12);
-  --bg: #0a0a09;
-  --panel: #131210;
-  --amber: #e89a5d;
+  --ink: #1b1712;
+  --ink-2: rgba(27, 23, 18, 0.6);
+  --ink-3: rgba(27, 23, 18, 0.42);
+  --line: rgba(27, 23, 18, 0.13);
+  --bg: #fdfcfa;
+  --panel: #f3f0ea;
+  --amber: #d9824a;
   min-height: 100vh;
   min-height: 100dvh;
   display: grid;
@@ -83,11 +83,11 @@
   gap: 10px;
   padding: 12px;
   font-weight: 600;
-  color: #14100a;
-  background: var(--ink);
-  border: 1px solid var(--ink);
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--line);
 }
-.google:hover { background: #fff; border-color: #fff; }
+.google:hover { background: #fff; border-color: rgba(27, 23, 18, 0.28); }
 .google:active { transform: translateY(1px); }
 
 .create {
