@@ -152,6 +152,27 @@ export function ScanDetailClient({ id }: { id: string }) {
         </div>
       )}
 
+      {job.status === "done" && job.artifact_repro && job.artifact_repro.status !== "incomplete" && (
+        <div className={`${s.banner} ${job.artifact_repro.status === "reproduced" ? s.bannerOk : s.bannerBad}`}>
+          {job.artifact_repro.status === "reproduced" ? (
+            <b>✓ Committed results reproduce — all {job.artifact_repro.n_match} reported numbers regenerate
+              identically from the code.</b>
+          ) : (
+            <b>✗ {job.artifact_repro.n_changed} committed number(s) did NOT reproduce.</b>
+          )}{" "}
+          <span className={dash.muted} style={{ fontSize: 12 }}>
+            Re-ran the repo and diffed its committed result files ({job.artifact_repro.n_compared} numeric
+            cells across {job.artifact_repro.n_files} file(s)).
+          </span>
+          {job.artifact_repro.changed.slice(0, 8).map((c, i) => (
+            <div key={i} style={{ marginTop: 6, fontSize: 12 }}>
+              <code>{c.file}</code> <span className={dash.muted}>[{c.cell}]</span>: committed{" "}
+              <b>{c.committed}</b>, regenerated <b>{c.regenerated}</b>
+            </div>
+          ))}
+        </div>
+      )}
+
       {(running || (job.logs?.length ?? 0) > 0) && (
         <div className={dash.section}>
           <div className={dash.sectionTitle}>Run log</div>

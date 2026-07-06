@@ -40,6 +40,7 @@ export async function POST(req: Request) {
         discover: body.discover !== false,
         pip_install: Array.isArray(body.pip_install) ? body.pip_install : null,
         acquire_data: !!body.acquire_data,
+        artifact_repro: !!body.artifact_repro,
         installation_id: typeof body.installation_id === "string" ? body.installation_id : null,
         installation_proof: typeof body.installation_proof === "string" ? body.installation_proof : null,
       },

@@ -44,6 +44,7 @@ export function VerifyClient() {
   const [repo, setRepo] = useState("");
   const [deep, setDeep] = useState(true);
   const [acquire, setAcquire] = useState(false);        // paid: run the repo's data-download pipeline
+  const [artifactRepro, setArtifactRepro] = useState(false);  // re-run-the-paper: committed result files regenerate?
   const [entry, setEntry] = useState("");
   const [pip, setPip] = useState("");
   const [job, setJob] = useState<Job | null>(null);
@@ -274,6 +275,7 @@ export function VerifyClient() {
           repo: repo.trim(),
           deep,
           acquire_data: acquire,
+          artifact_repro: artifactRepro,
           entry: entry.trim() || null,
           pip_install: pip.trim() ? pip.trim().split(/\s+/) : null,
           installation_id: installationId,
@@ -355,6 +357,12 @@ export function VerifyClient() {
           <label title="Runs the repo's own data-download scripts (numbered NN_*.py or a `make data` target) before verifying — for repos whose datasets aren't bundled. A paid capability.">
             <input type="checkbox" checked={acquire} onChange={(e) => setAcquire(e.target.checked)} />
             Download the repo&apos;s data <span className={dash.muted} style={{ fontSize: 11 }}>(Pro)</span>
+          </label>
+        )}
+        {deep && (
+          <label title="Re-runs the repo's reproduce script and checks that its committed result files (leaderboard.csv / metrics.json / …) regenerate identically — for 'reproduce the paper' repos whose numbers come from custom code. Reports which committed numbers reproduce.">
+            <input type="checkbox" checked={artifactRepro} onChange={(e) => setArtifactRepro(e.target.checked)} />
+            Verify committed results reproduce <span className={dash.muted} style={{ fontSize: 11 }}>(Pro)</span>
           </label>
         )}
       </div>

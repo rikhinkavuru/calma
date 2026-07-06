@@ -61,8 +61,17 @@ export type VerifySubmit = {
   discover?: boolean;
   pip_install?: string[] | null;
   acquire_data?: boolean;          // opt-in (paid): run the repo's own data-download pipeline, then recompute
+  artifact_repro?: boolean;        // opt-in: verify committed result files regenerate identically (re-run-the-paper)
   installation_id?: string | null;
   installation_proof?: string | null;
+};
+
+// The artifact-reproduction report: did the committed result files regenerate identically when the repo's
+// repro entrypoint re-ran? Advisory (never a verdict) — surfaced alongside the per-claim verdicts.
+export type ArtifactRepro = {
+  status: "reproduced" | "not-reproduced" | "incomplete";
+  n_files: number; n_compared: number; n_match: number; n_changed: number; n_not_regenerated: number;
+  changed: { file: string; cell: string; committed: number; regenerated: number }[];
 };
 
 export type Repo = {
@@ -97,6 +106,7 @@ export type Job = {
   status: string;
   stage: string;
   progress?: string;                 // live sub-stage for a long run: "run 1/2 · 15m elapsed" (server.py)
+  artifact_repro?: ArtifactRepro | null;   // re-run-the-paper: did committed result files regenerate identically?
   counts: Record<string, number>;
   n_claims: number;
   claims: Claim[];
@@ -174,6 +184,7 @@ export const verifyApi = {
           discover: body.discover !== false,
           pip_install: Array.isArray(body.pip_install) ? body.pip_install : null,
           acquire_data: !!body.acquire_data,
+          artifact_repro: !!body.artifact_repro,
           installation_id: body.installation_id || null,
           installation_proof: body.installation_proof || null,
           k: 2,
