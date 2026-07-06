@@ -128,6 +128,18 @@ reproducible-research niche from "0 verified" to a real, verifiable product surf
 backed by a working capability, not just analysis. Next: verdict-elevation (reproduced cells → a
 REPRODUCED-class signal, FCR-gated) + surface it in the dashboard/validity card + broaden the gate past owner.
 
+## Iteration 9-10 — evidence batch caught (and fixed) a false-positive in the feature
+
+Ran artifact-repro across diverse reproducible-research repos (backtesting-engine, Monte-Carlo-paper, sob,
+tollama-eval). **The batch earned its keep:** Monte-Carlo-paper's entrypoint died on a SyntaxError (wrote
+nothing) yet artifact-repro reported `reproduced 1952/1952` — a FALSE POSITIVE. Cause: `run_e2b` read the
+committed result files back from `/work`, which still held the copies uploaded at boot (never overwritten), so
+the diff was trivially identical. **Fixed (merge 967aca4, deployed + live-validated):** only pull a file the
+run actually WROTE (mtime past a run-start marker) + gate the whole diff on `ran_ok`. Now Monte-Carlo →
+`incomplete` (1952 not_regenerated), meta stays `reproduced 983/983`. The repro report is now as trustworthy as
+the FCR=0 verdict — never a false "reproduced." Lesson: run diverse real repos → the tail cases are where the
+bugs (and the value) are.
+
 ## Method
 Harnesses: `scratchpad/beachhead_eval.py` (corpus + genomics), `scratchpad/diverse_batch.py` (quant+genomics
 via Exa). Deep verifies via the new `calma` CLI against calma-engine.fly.dev. n=45; grows each loop iteration.
