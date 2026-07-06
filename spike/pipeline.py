@@ -1299,10 +1299,19 @@ def verify_repo(
     # committed files). Advisory: a separate report, never a verdict (no CONFIRMED/REFUTED authored here).
     artifact_repro_report = None
     if _repro_before is not None:
-        regen = os.path.join(repo_dir, ".calma_regenerated")
+        # only claim reproduction when the run actually RAN OK. A failed/errored run regenerates nothing, so a
+        # naive diff would read the untouched committed files back and report a FALSE "reproduced" (found via
+        # Monte-Carlo-paper: a SyntaxError run → 0 files written, yet 1952/1952 "reproduced"). The E2B fetch
+        # additionally mtime-filters to only the files the run actually wrote (per-file precision).
         rels = list(_repro_before)
-        after = A_REPRO.snapshot(regen, rels) if os.path.isdir(regen) else A_REPRO.snapshot(repo_dir, rels)
-        artifact_repro_report = A_REPRO.diff(_repro_before, after)
+        if (run_result or {}).get("ran_ok"):
+            regen = os.path.join(repo_dir, ".calma_regenerated")
+            after = A_REPRO.snapshot(regen, rels) if os.path.isdir(regen) else A_REPRO.snapshot(repo_dir, rels)
+            artifact_repro_report = A_REPRO.diff(_repro_before, after)
+        else:
+            artifact_repro_report = {"status": "incomplete", "n_files": 0, "n_compared": 0, "n_match": 0,
+                                     "n_changed": 0, "n_not_regenerated": sum(len(v) for v in _repro_before.values()),
+                                     "changed": []}
         trace.note("artifact-reproduction: %s — %d/%d committed result cells regenerated identically%s" % (
             artifact_repro_report["status"], artifact_repro_report["n_match"],
             artifact_repro_report["n_compared"],
