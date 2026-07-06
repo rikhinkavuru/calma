@@ -22,6 +22,21 @@ def test_find_entrypoints_ranks_readme_pick_first(tmp_path):
     assert cands[0].kind == "script"
 
 
+def test_find_entrypoints_readme_pick_keeps_safe_args(tmp_path):
+    # the orchestrate path (find_entrypoints) must keep a README run-command's args + still fire the
+    # "README run command" signal when the command carries args (regression guard: it used to require
+    # exact equality readme == [script], which broke once _readme_run_command started preserving args).
+    (tmp_path / "configs").mkdir()
+    (tmp_path / "configs" / "a.yaml").write_text("x: 1\n")
+    (tmp_path / "reproduce.py").write_text("import sklearn\nif __name__=='__main__':\n    print(1)\n")
+    (tmp_path / "helper.py").write_text("x=1\n")
+    (tmp_path / "README.md").write_text("Run: `python reproduce.py --config configs/a.yaml`\n")
+    cands = S.find_entrypoints(str(tmp_path))
+    top = cands[0]
+    assert top.argv == ["reproduce.py", "--config", "configs/a.yaml"]   # args preserved
+    assert top.confidence >= 0.85 and "README run command" in top.signals
+
+
 def test_find_entrypoints_package_and_subdir(tmp_path):
     pkg = tmp_path / "mypkg"
     pkg.mkdir()

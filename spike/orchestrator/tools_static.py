@@ -163,11 +163,14 @@ def find_entrypoints(repo_dir: str) -> list[EntryCand]:
     base = re.sub(r"[^a-z0-9]", "", os.path.basename(repo_dir.rstrip("/")).lower())
     # (signal, confidence-floor) predicates, evaluated per root script; a script's confidence is the max floor
     # of the signals it hits, and its signal list is why it ranked there (surfaced in the Assessment Report).
+    readme_names = bool(readme) and readme[0] != "-m"     # a README `python <script> …` command (may carry args)
     for f in roots:
         signals, conf = [], 0.45
         stem = re.sub(r"[^a-z0-9]", "", f[:-3].lower())
         checks = [
-            (readme == [f], "README run command", 0.9),
+            # match on the SCRIPT (readme[0]), not exact-equality — _readme_run_command now preserves the
+            # author's safe args, so `readme` is e.g. [run.py, --config, cfg.yaml], not just [run.py].
+            (readme_names and readme[0] == f, "README run command", 0.9),
             (len(roots) == 1, "only root script", 0.85),
             (f in build._ENTRY_NAMES, "known entrypoint name", 0.8),
             (bool(stem) and len(stem) >= 4 and (stem in base or base in stem), "name matches repo", 0.78),
@@ -182,7 +185,9 @@ def find_entrypoints(repo_dir: str) -> list[EntryCand]:
                 signals.append(label)
                 conf = max(conf, floor)
         if signals:
-            add([f], conf, signals)
+            # when the README names this script WITH args, run it AS the README says (with the args) rather
+            # than bare — a script that REQUIRES a --config/--input would otherwise argparse-fail.
+            add(readme if (readme_names and readme[0] == f and len(readme) > 1) else [f], conf, signals)
 
     # a README `-m pkg.mod` command (validated by build to resolve) — strong
     if readme and readme[0] == "-m":
