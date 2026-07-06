@@ -7,6 +7,17 @@ import { authkitMiddleware } from "@workos-inc/authkit-nextjs";
 export default authkitMiddleware();
 
 export const config = {
-  // the verify proxy routes call withAuth() and so need the authkit middleware to populate the session
-  matcher: ["/dashboard", "/dashboard/:path*", "/callback", "/api/verify", "/api/verify/:path*", "/api/github", "/api/github/:path*"],
+  // EVERY route that calls withAuth() must be matched here, or the session cookie isn't populated and
+  // withAuth() returns no user → the route 401s even for a signed-in user. This bit the API-keys page (added
+  // after the original matcher) and the client-side job polling: /api/keys, /api/jobs and /api/dev-code were
+  // missing, so key generation and live metric updates both 401'd. Keep this list in sync with
+  // `grep -rl withAuth app/api`.
+  matcher: [
+    "/dashboard", "/dashboard/:path*", "/callback",
+    "/api/verify", "/api/verify/:path*",
+    "/api/github", "/api/github/:path*",
+    "/api/keys", "/api/keys/:path*",
+    "/api/jobs", "/api/jobs/:path*",
+    "/api/dev-code",
+  ],
 };
