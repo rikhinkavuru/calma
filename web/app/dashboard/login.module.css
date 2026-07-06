@@ -60,9 +60,11 @@
 .brandLogo { height: 22px; width: auto; display: block; }
 .brand span { font-size: 19px; font-weight: 650; letter-spacing: -0.02em; }
 
-/* sign-up chip, top-right, vertically aligned with the wordmark */
-.signupForm { position: absolute; top: 30px; right: clamp(28px, 6vw, 88px); margin: 0; }
+/* sign-up / sign-in toggle chip, top-right, vertically aligned with the wordmark */
 .signup {
+  position: absolute;
+  top: 30px;
+  right: clamp(28px, 6vw, 88px);
   padding: 8px 18px;
   font-family: inherit;
   font-size: 13.5px;

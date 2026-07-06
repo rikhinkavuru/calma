@@ -9,7 +9,7 @@ import { FcGoogle } from "react-icons/fc";
 import { FaGithub, FaApple } from "react-icons/fa";
 import { FiArrowRight, FiUsers } from "react-icons/fi";
 import {
-  continueWithGoogle, continueWithGithub, continueWithMicrosoft, continueWithApple, continueWithSSO, signUp,
+  continueWithGoogle, continueWithGithub, continueWithMicrosoft, continueWithApple, continueWithSSO,
   startMagicAuth, verifyMagicAuth,
 } from "./login-actions";
 import s from "./login.module.css";
@@ -40,6 +40,7 @@ export function LoginScreen() {
   const [ssoState, ssoAction, ssoPending] = useActionState(continueWithSSO, {});
   const [email, setEmail] = useState("");
   const [step, setStep] = useState<"email" | "code">("email");
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
   const emailOk = EMAIL_RE.test(email.trim());
 
   useEffect(() => { if (sendState.sent) setStep("code"); }, [sendState.sent, sendState.notice]);
@@ -58,12 +59,16 @@ export function LoginScreen() {
           <span>calma</span>
         </Link>
 
-        <form action={signUp} className={s.signupForm}>
-          <button type="submit" className={s.signup}>Sign up</button>
-        </form>
+        <button
+          type="button"
+          className={s.signup}
+          onClick={() => { setMode((m) => (m === "signin" ? "signup" : "signin")); setStep("email"); }}
+        >
+          {mode === "signin" ? "Sign up" : "Sign in"}
+        </button>
 
         <div className={s.form}>
-          <h1 className={s.h1}>Sign in to Calma</h1>
+          <h1 className={s.h1}>{mode === "signup" ? "Create your Calma account" : "Sign in to Calma"}</h1>
           <p className={s.sub}>
             Re-run your repositories, recompute every number they report, and confirm the results before they ship.
           </p>
