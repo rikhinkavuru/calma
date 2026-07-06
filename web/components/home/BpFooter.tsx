@@ -24,8 +24,8 @@ export function BpFooter() {
         </div>
         <div className="bp-fcol">
           <h5>Engine</h5>
+          <Link href="/docs">Docs</Link>
           <a href={GITHUB_URL} target="_blank" rel="noreferrer">GitHub</a>
-          <a href={`${GITHUB_URL}/blob/main/README.md`} target="_blank" rel="noreferrer">Docs / README</a>
           <a href={`${GITHUB_URL}/blob/main/REBUILD.md`} target="_blank" rel="noreferrer">Architecture</a>
         </div>
         <div className="bp-fcol">

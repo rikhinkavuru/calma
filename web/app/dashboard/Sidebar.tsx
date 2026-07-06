@@ -26,7 +26,10 @@ const GROUPS: NavGroup[] = [
   },
   {
     head: "Resources",
-    items: [{ href: GITHUB_URL, label: "Docs", icon: <FiFileText />, external: true }],
+    items: [
+      { href: "/docs", label: "Docs", icon: <FiFileText /> },
+      { href: GITHUB_URL, label: "GitHub", icon: <FiExternalLink />, external: true },
+    ],
   },
 ];
 
