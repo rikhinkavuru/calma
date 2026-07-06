@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { SiteNav } from "../../components/SiteNav";
 import { GITHUB_URL, CONTACT_EMAIL } from "../../components/contact";
+import { StartProButton } from "./StartProButton";
 import styles from "./pricing.module.css";
 
 export const metadata: Metadata = {
@@ -63,7 +64,7 @@ const TIERS: Tier[] = [
     price: "$49",
     per: "/ user / mo",
     blurb: "For teams putting Calma in the deploy path — private repos, CI merge-gate, signed proofs.",
-    cta: { label: "Start Pro", href: "/dashboard", amber: true },
+    cta: { label: "Start Pro", href: "checkout", amber: true },
     featured: true,
     badge: "Most popular",
     features: [
@@ -94,7 +95,13 @@ const TIERS: Tier[] = [
   },
 ];
 
-export default function PricingPage() {
+export default async function PricingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ checkout?: string | string[] }>;
+}) {
+  const sp = await searchParams;
+  const checkout = typeof sp.checkout === "string" ? sp.checkout : undefined;
   return (
     <>
       <SiteNav />
@@ -107,7 +114,18 @@ export default function PricingPage() {
             <em>how much</em> and <em>how deep</em> you re-run, never <em>whether</em> a wrong number can slip
             through. The full fail-closed verdict taxonomy is identical on every plan.
           </p>
-          <p className={styles.note}>Placeholder pricing · billing (Stripe) coming soon</p>
+          <p className={styles.note}>Billing runs in Stripe test mode during the beta — you won&apos;t be charged</p>
+          {checkout === "success" && (
+            <p className={styles.checkoutOk} role="status">
+              Pro is active — thank you. Your plan unlocks within a minute;{" "}
+              <a href="/dashboard">open the dashboard</a>.
+            </p>
+          )}
+          {checkout === "cancelled" && (
+            <p className={styles.checkoutNo} role="status">
+              Checkout cancelled — nothing was charged.
+            </p>
+          )}
         </header>
 
         <section className="wrap">
@@ -121,13 +139,17 @@ export default function PricingPage() {
                   {t.per && <span className={styles.per}>{t.per}</span>}
                 </div>
                 <p className={styles.blurb}>{t.blurb}</p>
-                <a
-                  className={`${styles.cta} ${t.cta.amber ? styles.ctaAmber : ""}`}
-                  href={t.cta.href}
-                  {...(t.cta.href.startsWith("http") ? { target: "_blank", rel: "noreferrer" } : {})}
-                >
-                  {t.cta.label}
-                </a>
+                {t.cta.href === "checkout" ? (
+                  <StartProButton className={`${styles.cta} ${styles.ctaAmber}`} />
+                ) : (
+                  <a
+                    className={`${styles.cta} ${t.cta.amber ? styles.ctaAmber : ""}`}
+                    href={t.cta.href}
+                    {...(t.cta.href.startsWith("http") ? { target: "_blank", rel: "noreferrer" } : {})}
+                  >
+                    {t.cta.label}
+                  </a>
+                )}
                 <ul className={styles.feats}>
                   {t.features.map((f) => (
                     <li key={f} className={styles.feat}>

@@ -37,6 +37,22 @@
   color: var(--amber);
 }
 
+/* checkout result banners (?checkout=success|cancelled) */
+.checkoutOk,
+.checkoutNo {
+  margin: 18px auto 0;
+  max-width: 34em;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  padding: 10px 16px;
+  border: 1px solid rgba(232, 154, 93, 0.5);
+  color: var(--cream);
+  background: rgba(232, 154, 93, 0.08);
+}
+.checkoutOk a { color: var(--amber); text-decoration: underline; }
+.checkoutNo { border-color: var(--hairline); background: rgba(233, 221, 196, 0.04); color: var(--cream-70); }
+
 /* the tier grid */
 .grid {
   display: grid;
@@ -123,6 +139,11 @@
 }
 
 .cta {
+  /* shared by <a> and the Stripe checkout <button> — keep both rendering identically */
+  appearance: none;
+  border-radius: 0;
+  cursor: pointer;
+  width: 100%;
   margin-top: 20px;
   font-family: var(--mono);
   font-size: 11px;
@@ -136,6 +157,7 @@
   transition: background 0.22s ease, color 0.22s ease, border-color 0.22s ease;
 }
 .cta:hover { background: var(--cream); color: var(--void); border-color: var(--cream); }
+.cta:disabled { opacity: 0.55; cursor: progress; }
 .ctaAmber { border-color: var(--amber); color: var(--amber); }
 .ctaAmber:hover { background: var(--amber); color: var(--void); border-color: var(--amber); }
 

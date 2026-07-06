@@ -5,7 +5,7 @@
 import { withAuth } from "@workos-inc/authkit-nextjs";
 import { NextResponse } from "next/server";
 import { verifyApi, VerifyApiError } from "@/lib/verify";
-import { resolveTier, tenantOf, devCodeTierFromCookie } from "@/lib/tier";
+import { resolveTier, tenantOf, tierOverride } from "@/lib/tier";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +13,7 @@ async function ident() {
   const { user } = await withAuth().catch(() => ({ user: null }));
   const devTenant = process.env.NODE_ENV !== "production" && process.env.DASHBOARD_DEV_TENANT_ID;
   if (!user && !devTenant) return null;
-  return { tenant: tenantOf(user, devTenant), tier: resolveTier(user, await devCodeTierFromCookie()) };
+  return { tenant: tenantOf(user, devTenant), tier: resolveTier(user, await tierOverride(user)) };
 }
 
 export async function GET() {

@@ -3,7 +3,7 @@
 import { withAuth } from "@workos-inc/authkit-nextjs";
 import { NextResponse } from "next/server";
 import { verifyApi, VerifyApiError } from "@/lib/verify";
-import { resolveTier, tenantOf, devCodeTierFromCookie } from "@/lib/tier";
+import { resolveTier, tenantOf, tierOverride } from "@/lib/tier";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +12,7 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   const devTenant = process.env.NODE_ENV !== "production" && process.env.DASHBOARD_DEV_TENANT_ID;
   if (!user && !devTenant) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const { id } = await params;
-  const identity = { tenant: tenantOf(user, devTenant), tier: resolveTier(user, await devCodeTierFromCookie()) };
+  const identity = { tenant: tenantOf(user, devTenant), tier: resolveTier(user, await tierOverride(user)) };
   try {
     return NextResponse.json(await verifyApi.revokeKey(id, identity));
   } catch (e) {

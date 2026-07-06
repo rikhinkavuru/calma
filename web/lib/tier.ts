@@ -9,6 +9,7 @@
 
 import { createHash } from "node:crypto";
 import { cookies } from "next/headers";
+import { stripeTierFor } from "./billing";
 
 export type Tier = "free" | "pro" | "enterprise";
 
@@ -81,6 +82,15 @@ export async function devCodeTierFromCookie(): Promise<Tier | null> {
   } catch {
     return null;
   }
+}
+
+// The combined override for resolveTier(): the HIGHEST of the dev-code cookie and the user's live Stripe
+// entitlement. Never throws — both sources fail closed to null — so it's safe to await in any authed route:
+//   const tier = resolveTier(user, await tierOverride(user));
+export async function tierOverride(user: Userish): Promise<Tier | null> {
+  const [dev, billed] = await Promise.all([devCodeTierFromCookie(), stripeTierFor(user)]);
+  if (dev && billed) return TIER_RANK[dev] >= TIER_RANK[billed] ? dev : billed;
+  return dev || billed;
 }
 
 // A stable tenant id for metering: the WorkOS user id (falls back to the dev tenant, then "anon").

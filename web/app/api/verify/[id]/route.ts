@@ -4,7 +4,7 @@
 import { withAuth } from "@workos-inc/authkit-nextjs";
 import { NextResponse } from "next/server";
 import { verifyApi } from "@/lib/verify";
-import { resolveTier, tenantOf, devCodeTierFromCookie } from "@/lib/tier";
+import { resolveTier, tenantOf, tierOverride } from "@/lib/tier";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +16,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   }
   const { id } = await params;
   try {
-    const tier = resolveTier(user, await devCodeTierFromCookie());
+    const tier = resolveTier(user, await tierOverride(user));
     return NextResponse.json(await verifyApi.job(id, { tenant: tenantOf(user, devTenant), tier }));
   } catch (e) {
     return NextResponse.json(
