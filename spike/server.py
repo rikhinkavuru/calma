@@ -562,9 +562,11 @@ def verify(req: VerifyReq, ident: Identity = Depends(identity)):
     # FCR-safe regardless (capped REPRODUCED-ONLY), but kept off the end-user path until corpus-proven.
     req.synthesize_predictions = ((_SYNTHESIZE or (bool(req.synthesize_predictions) and _internal()))
                                   and req.orchestrate)
-    # artifact-reproduction: owner (unmetered) or internal only for now — advisory + FCR-safe, but kept off the
-    # end-user path until corpus-proven. Requires a deep run (nothing to diff without regenerating the files).
-    req.artifact_repro = bool(req.artifact_repro) and req.deep and (ident.unmetered or _internal())
+    # artifact-reproduction: a paid capability (gated by allow_ai_plan, the pro+/owner proxy) — advisory +
+    # FCR-safe (a separate report, never a verdict), low cost (bounded file read-backs). Requires a deep run
+    # (nothing to diff without regenerating the files).
+    req.artifact_repro = bool(req.artifact_repro) and req.deep and (
+        tier.allow_ai_plan or ident.unmetered or _internal())
     req.cpu_cores = int(clamped.get("cpu_cores", 0))                  # tier vCPU (E2B template routing)
     req.mem_mb = int(clamped.get("mem_mb", 0))                        # tier per-sandbox RSS cap
     req.repair_steps = int(clamped.get("repair_steps", 0))           # tier env-repair budget (0 = off)
