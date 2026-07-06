@@ -1,22 +1,35 @@
 "use client";
-// Minimal two-step sign-in. Left: a single still landscape, full-bleed on three sides. Right: provider
-// buttons (icon-only, so more can sit beside Google later), then email → password on the next step.
-// Auth is real (WorkOS): continueWithProvider (hosted) and passwordSignIn (inline email+password).
-import { useActionState, useState } from "react";
+// Minimal black-and-white two-step sign-in. Left: a single still landscape, full-bleed on three sides.
+// Right: provider buttons (Google / GitHub / Microsoft / SSO), then a passwordless email → code (Magic Auth)
+// flow. Only the lotus logo carries colour. A Sign-up pill sits top-right, aligned with the wordmark.
+import { useActionState, useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { FcGoogle } from "react-icons/fc";
-import { FiArrowRight } from "react-icons/fi";
-import { continueWithProvider, passwordSignIn } from "./login-actions";
+import { FaGoogle, FaGithub, FaMicrosoft } from "react-icons/fa";
+import { FiArrowRight, FiKey } from "react-icons/fi";
+import {
+  continueWithGoogle, continueWithGithub, continueWithMicrosoft, continueWithSSO, signUp,
+  startMagicAuth, verifyMagicAuth,
+} from "./login-actions";
 import s from "./login.module.css";
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
+const PROVIDERS = [
+  { action: continueWithGoogle, label: "Continue with Google", icon: <FaGoogle size={18} /> },
+  { action: continueWithGithub, label: "Continue with GitHub", icon: <FaGithub size={19} /> },
+  { action: continueWithMicrosoft, label: "Continue with Microsoft", icon: <FaMicrosoft size={18} /> },
+  { action: continueWithSSO, label: "Single sign-on (SSO)", icon: <FiKey size={18} /> },
+];
+
 export function LoginScreen() {
-  const [state, action, pending] = useActionState(passwordSignIn, {});
-  const [step, setStep] = useState<"email" | "password">("email");
+  const [sendState, sendAction, sending] = useActionState(startMagicAuth, {});
+  const [verifyState, verifyAction, verifying] = useActionState(verifyMagicAuth, {});
   const [email, setEmail] = useState("");
+  const [step, setStep] = useState<"email" | "code">("email");
   const emailOk = EMAIL_RE.test(email.trim());
+
+  useEffect(() => { if (sendState.sent) setStep("code"); }, [sendState.sent, sendState.notice]);
 
   return (
     <div className={s.login}>
@@ -32,29 +45,32 @@ export function LoginScreen() {
           <span>calma</span>
         </Link>
 
+        <form action={signUp} className={s.signupForm}>
+          <button type="submit" className={s.signup}>Sign up</button>
+        </form>
+
         <div className={s.form}>
           <h1 className={s.h1}>Welcome back</h1>
 
-          {/* provider row — icon-only, more can sit beside it */}
+          {/* provider row — add more slots beside these as they come online */}
           <div className={s.providers}>
-            <form action={continueWithProvider}>
-              <input type="hidden" name="email" value={email} />
-              <button type="submit" className={s.provider} aria-label="Continue with Google" title="Continue with Google">
-                <FcGoogle size={20} />
-              </button>
-            </form>
+            {PROVIDERS.map((p) => (
+              <form action={p.action} key={p.label}>
+                <button type="submit" className={s.provider} aria-label={p.label} title={p.label}>
+                  {p.icon}
+                </button>
+              </form>
+            ))}
           </div>
 
           <div className={s.divider}><span>or</span></div>
 
           {step === "email" ? (
-            <form
-              className={s.fields}
-              onSubmit={(e) => { e.preventDefault(); if (emailOk) setStep("password"); }}
-            >
+            <form action={sendAction} className={s.fields}>
               <label className={s.label} htmlFor="email">Email</label>
               <input
                 id="email"
+                name="email"
                 type="email"
                 required
                 autoComplete="email"
@@ -64,43 +80,46 @@ export function LoginScreen() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
-              <button type="submit" className={s.submit} disabled={!emailOk}>
-                Continue <FiArrowRight size={16} />
+              {sendState.error && <p className={s.err}>{sendState.error}</p>}
+              <button type="submit" className={s.submit} disabled={!emailOk || sending}>
+                {sending ? "Sending code…" : (<>Continue <FiArrowRight size={16} /></>)}
               </button>
             </form>
           ) : (
-            <form action={action} className={s.fields}>
-              <input type="hidden" name="email" value={email} />
-
+            <>
               <button type="button" className={s.emailChip} onClick={() => setStep("email")}>
                 <span>{email}</span>
                 <span className={s.change}>Change</span>
               </button>
 
-              <div className={s.pwrow}>
-                <label className={s.label} htmlFor="password">Password</label>
-                <button type="submit" name="intent" value="reset" formNoValidate className={s.forgot}>
-                  Forgot password?
+              <form action={verifyAction} className={s.fields}>
+                <input type="hidden" name="email" value={email} />
+                <label className={s.label} htmlFor="code">Enter the code sent to your email</label>
+                <input
+                  id="code"
+                  name="code"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  autoFocus
+                  placeholder="6-digit code"
+                  className={`${s.input} ${s.code}`}
+                />
+
+                {verifyState.error && <p className={s.err}>{verifyState.error}</p>}
+                {sendState.notice && <p className={s.notice}>{sendState.notice}</p>}
+
+                <button type="submit" className={s.submit} disabled={verifying}>
+                  {verifying ? "Verifying…" : (<>Sign in <FiArrowRight size={16} /></>)}
                 </button>
-              </div>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                autoComplete="current-password"
-                autoFocus
-                placeholder="••••••••"
-                className={s.input}
-              />
+              </form>
 
-              {state.error && <p className={s.err}>{state.error}</p>}
-              {state.notice && <p className={s.notice}>{state.notice}</p>}
-
-              <button type="submit" className={s.submit} disabled={pending}>
-                {pending ? "Signing in…" : (<>Sign in <FiArrowRight size={16} /></>)}
-              </button>
-            </form>
+              <form action={sendAction} className={s.resendForm}>
+                <input type="hidden" name="email" value={email} />
+                <button type="submit" className={s.resend} disabled={sending}>
+                  {sending ? "Sending…" : "Resend code"}
+                </button>
+              </form>
+            </>
           )}
 
           <p className={s.legal}>

@@ -1,106 +1,122 @@
 "use server";
-// Server actions behind the redesigned login screen. Two real auth paths, both forcing a fresh WorkOS
-// prompt (prompt:"login") so the user is NEVER silently single-signed-on:
-//   - Google / hosted: getSignInUrl({ prompt:"login" }) -> redirect to WorkOS AuthKit.
-//   - Inline email + password: authenticateWithPassword() -> saveSession() -> /dashboard (no redirect).
-// AuthKit is imported DYNAMICALLY (as in lib/session.ts) so the @workos-inc/node worker chain stays out
-// of the static page-data graph at build time.
+// Server actions behind the sign-in screen. Every path forces a fresh WorkOS prompt so the user is never
+// silently single-signed-on. Methods:
+//   - Direct OAuth (Google / GitHub / Microsoft): userManagement.getAuthorizationUrl({ provider }) ->
+//     WorkOS -> /auth/callback (confidential-client code exchange). No AuthKit PKCE, so it needs its own route.
+//   - SSO + Sign up: AuthKit hosted (getSignInUrl / getSignUpUrl) -> /callback. Hosted routes SSO by domain.
+//   - Magic Auth (email): createMagicAuth sends a 6-digit code -> authenticateWithMagicAuth verifies it.
+//     Passwordless, so there is no password to reset.
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
 
 const RETURN_TO = "/dashboard";
+const OAUTH_STATE_COOKIE = "calma_oauth_state";
+const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
-// The SDK type narrows `prompt` to 'consent', but AuthKit forwards any standard OIDC prompt value to the
-// hosted page, and prompt=login is what disables silent SSO.
 type AuthKit = typeof import("@workos-inc/authkit-nextjs");
 const authkit = (): Promise<AuthKit> => import("@workos-inc/authkit-nextjs");
 
-async function hostedUrl(kind: "in" | "up", opts: { loginHint?: string } = {}): Promise<string | null> {
+async function origin(): Promise<string> {
+  const h = await headers();
+  return `${h.get("x-forwarded-proto") || "https"}://${h.get("host") || "localhost:3000"}`;
+}
+
+// ── Direct OAuth (Google / GitHub / Microsoft) ────────────────────────────────────────────────────────────
+type OAuthProvider = "GoogleOAuth" | "GitHubOAuth" | "MicrosoftOAuth";
+
+async function startOAuth(provider: OAuthProvider) {
+  const { getWorkOS } = await authkit();
+  const state = crypto.randomUUID();
+  (await cookies()).set(OAUTH_STATE_COOKIE, state, {
+    httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 600,
+  });
+  const url = getWorkOS().userManagement.getAuthorizationUrl({
+    provider,
+    clientId: process.env.WORKOS_CLIENT_ID || "",
+    redirectUri: `${await origin()}/auth/callback`,
+    state,
+  });
+  redirect(url);
+}
+
+export async function continueWithGoogle() { await startOAuth("GoogleOAuth"); }
+export async function continueWithGithub() { await startOAuth("GitHubOAuth"); }
+export async function continueWithMicrosoft() { await startOAuth("MicrosoftOAuth"); }
+
+// ── SSO + Sign up via AuthKit hosted (existing /callback) ──────────────────────────────────────────────────
+async function hostedUrl(kind: "in" | "up"): Promise<string | null> {
   try {
     const { getSignInUrl, getSignUpUrl } = await authkit();
-    const o = { ...opts, returnTo: RETURN_TO, prompt: "login" } as unknown as Parameters<typeof getSignInUrl>[0];
+    const o = { returnTo: RETURN_TO, prompt: "login" } as unknown as Parameters<typeof getSignInUrl>[0];
     return kind === "in" ? await getSignInUrl(o) : await getSignUpUrl(o);
   } catch (e) {
-    console.error("[calma] login url error:", e instanceof Error ? e.message : e);
+    console.error("[calma] hosted url error:", e instanceof Error ? e.message : e);
     return null;
   }
 }
 
-// "Continue with Google" (and the email "Sign in" when password isn't used) -> WorkOS hosted login.
-export async function continueWithProvider(formData: FormData) {
-  const email = String(formData.get("email") || "").trim();
-  const url = await hostedUrl("in", email ? { loginHint: email } : {});
+// Enterprise SSO — the hosted page routes the user to their org's IdP by email domain.
+export async function continueWithSSO() {
+  const url = await hostedUrl("in");
   if (url) redirect(url);
 }
 
-// "Create one"
-export async function createAccount() {
+export async function signUp() {
   const url = await hostedUrl("up");
   if (url) redirect(url);
 }
 
-export type LoginState = { error?: string; notice?: string };
+// ── Magic Auth (email code) ───────────────────────────────────────────────────────────────────────────────
+export type LoginState = { error?: string; notice?: string; sent?: boolean; email?: string };
 
-function errCode(e: unknown): string {
-  if (e && typeof e === "object") {
-    const o = e as Record<string, unknown>;
-    if (typeof o.code === "string") return o.code;
-    const rd = o.rawData as Record<string, unknown> | undefined;
-    if (rd && typeof rd.code === "string") return rd.code;
-  }
-  return "";
-}
-
-// Inline email + password sign-in. Returns an inline error on failure; redirects on success.
-export async function passwordSignIn(_prev: LoginState, formData: FormData): Promise<LoginState> {
+// Step 1: send the code.
+export async function startMagicAuth(_prev: LoginState, formData: FormData): Promise<LoginState> {
   const email = String(formData.get("email") || "").trim();
-  const password = String(formData.get("password") || "");
-
-  // "Forgot password?" submits this same form with intent=reset. Create a WorkOS password reset (which sends
-  // the reset email) and return a generic notice. We do NOT redirect to the hosted sign-in page — that would
-  // silently log an already-authenticated user straight back in instead of resetting anything. Errors are
-  // swallowed so we never reveal whether an account exists (no email enumeration).
-  if (formData.get("intent") === "reset") {
-    if (!email) return { error: "Enter your email first, then tap Forgot password." };
-    try {
-      const { getWorkOS } = await authkit();
-      await getWorkOS().userManagement.createPasswordReset({ email });
-    } catch (e) {
-      console.error("[calma] password reset error:", e instanceof Error ? e.message : e);
-    }
-    return { notice: `If an account exists for ${email}, we’ve sent a password reset link. Check your inbox.` };
-  }
-
-  if (!email || !password) return { error: "Enter your email and password." };
-
-  let auth;
-  let challenge = false;
+  if (!EMAIL_RE.test(email)) return { error: "Enter a valid email address." };
   try {
     const { getWorkOS } = await authkit();
-    auth = await getWorkOS().userManagement.authenticateWithPassword({
+    await getWorkOS().userManagement.createMagicAuth({ email });
+  } catch (e) {
+    console.error("[calma] magic auth send error:", e instanceof Error ? e.message : e);
+    return { error: "Couldn’t send a code to that address — try again." };
+  }
+  return { sent: true, email };
+}
+
+// Step 2: verify the code and open a session.
+export async function verifyMagicAuth(_prev: LoginState, formData: FormData): Promise<LoginState> {
+  const email = String(formData.get("email") || "").trim();
+  const code = String(formData.get("code") || "").replace(/\s+/g, "");
+  if (!code) return { sent: true, email, error: "Enter the code we emailed you." };
+
+  let auth;
+  try {
+    const { getWorkOS } = await authkit();
+    auth = await getWorkOS().userManagement.authenticateWithMagicAuth({
       clientId: process.env.WORKOS_CLIENT_ID || "",
       email,
-      password,
+      code,
     });
   } catch (e) {
-    const code = errCode(e);
-    // MFA / email-verification / SSO challenges can't be completed inline — hand off to the hosted page.
-    if (/mfa|verification|sso_required|organization_selection/i.test(code)) challenge = true;
-    else if (/password|credential|authentication_failed|user_not_found|invalid/i.test(code) || code === "")
-      return { error: "Incorrect email or password." };
-    else return { error: "Couldn’t sign in with email & password — try “Continue with Google”." };
+    console.error("[calma] magic auth verify error:", e instanceof Error ? e.message : e);
+    return { sent: true, email, error: "That code didn’t match. Check it and try again." };
   }
 
-  if (challenge) {
-    const url = await hostedUrl("in", { loginHint: email });
-    if (url) redirect(url);
-    return { error: "Extra verification needed — try “Continue with Google”." };
-  }
-
-  // Persist the WorkOS session into the AuthKit cookie, then land on the dashboard.
   const { saveSession } = await authkit();
-  const h = await headers();
-  const origin = `${h.get("x-forwarded-proto") || "https"}://${h.get("host") || "localhost:3000"}`;
-  await saveSession(auth!, origin);
+  await saveSession(auth!, await origin());
   redirect(RETURN_TO);
+}
+
+// Resend the code.
+export async function resendMagicAuth(_prev: LoginState, formData: FormData): Promise<LoginState> {
+  const email = String(formData.get("email") || "").trim();
+  if (!EMAIL_RE.test(email)) return { error: "Enter a valid email address." };
+  try {
+    const { getWorkOS } = await authkit();
+    await getWorkOS().userManagement.createMagicAuth({ email });
+  } catch (e) {
+    console.error("[calma] magic auth resend error:", e instanceof Error ? e.message : e);
+    return { sent: true, email, error: "Couldn’t resend the code — try again." };
+  }
+  return { sent: true, email, notice: `New code sent to ${email}.` };
 }

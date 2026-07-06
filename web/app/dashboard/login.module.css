@@ -1,14 +1,14 @@
-/* Split sign-in: a single still landscape (left, full-bleed on three sides) + minimal credential panel
-   (right). Light, sleek, barely-rounded — no pills. */
+/* Split sign-in: a single still landscape (left, full-bleed on three sides) + a minimal black-and-white
+   credential panel (right). Only the lotus logo carries colour. Barely-rounded — no pills, except the
+   nav-style Sign-up chip. */
 
 .login {
-  --ink: #1b1712;
-  --ink-2: rgba(27, 23, 18, 0.6);
-  --ink-3: rgba(27, 23, 18, 0.42);
-  --line: rgba(27, 23, 18, 0.13);
-  --bg: #fdfcfa;
-  --panel: #f3f0ea;
-  --amber: #d9824a;
+  --ink: #121212;
+  --ink-2: rgba(0, 0, 0, 0.58);
+  --ink-3: rgba(0, 0, 0, 0.4);
+  --line: rgba(0, 0, 0, 0.14);
+  --bg: #ffffff;
+  --panel: #f4f4f4;
   --r: 6px;
   min-height: 100vh;
   min-height: 100dvh;
@@ -21,28 +21,22 @@
 }
 
 /* ---- left: a single still landscape, edge-to-edge on top/left/bottom ---- */
-.art {
-  position: relative;
-  overflow: hidden;
-  background: var(--panel);
-}
+.art { position: relative; overflow: hidden; background: var(--panel); }
 .artImg { object-fit: cover; }
 .scrim {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(8, 6, 3, 0.5) 0%, rgba(8, 6, 3, 0.1) 24%, rgba(8, 6, 3, 0) 44%);
+  background: linear-gradient(to top, rgba(8, 8, 8, 0.5) 0%, rgba(8, 8, 8, 0.1) 24%, rgba(8, 8, 8, 0) 44%);
 }
 .caption {
   position: absolute;
-  left: 30px;
-  right: 30px;
-  bottom: 28px;
+  left: 30px; right: 30px; bottom: 28px;
   margin: 0;
-  color: rgba(255, 255, 255, 0.92);
+  color: rgba(255, 255, 255, 0.94);
   font-size: 14px;
   font-weight: 500;
   letter-spacing: -0.01em;
-  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.4);
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.45);
 }
 
 /* ---- right: credential panel ---- */
@@ -66,50 +60,49 @@
 .brandLogo { height: 22px; width: auto; display: block; }
 .brand span { font-size: 19px; font-weight: 650; letter-spacing: -0.02em; }
 
-.form { width: 100%; max-width: 348px; margin: 0 auto; }
-.h1 {
-  font-size: 26px;
+/* sign-up chip, top-right, vertically aligned with the wordmark */
+.signupForm { position: absolute; top: 30px; right: clamp(28px, 6vw, 88px); margin: 0; }
+.signup {
+  padding: 8px 18px;
+  font-family: inherit;
+  font-size: 13.5px;
   font-weight: 600;
-  letter-spacing: -0.02em;
-  margin: 0 0 22px;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease;
 }
+.signup:hover { background: var(--ink); color: #fff; border-color: var(--ink); }
 
-/* provider row — icon-only buttons, more can sit beside Google */
+.form { width: 100%; max-width: 348px; margin: 0 auto; }
+.h1 { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; margin: 0 0 22px; }
+
+/* provider row — icon-only, monochrome; more slots can sit beside these */
 .providers { display: flex; gap: 10px; }
 .provider {
   display: grid;
   place-items: center;
-  width: 48px;
+  width: 100%;
   height: 46px;
+  color: var(--ink);
   border-radius: var(--r);
   border: 1px solid var(--line);
   background: #fff;
   cursor: pointer;
   transition: border-color 0.16s ease, background 0.16s ease, transform 0.06s ease;
 }
-.provider:hover { border-color: rgba(27, 23, 18, 0.28); background: #fff; }
+.provider:hover { border-color: rgba(0, 0, 0, 0.3); background: var(--panel); }
 .provider:active { transform: translateY(1px); }
 
 /* divider */
-.divider {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 20px 0;
-  color: var(--ink-3);
-  font-size: 12px;
-}
-.divider::before,
-.divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.divider { display: flex; align-items: center; gap: 12px; margin: 20px 0; color: var(--ink-3); font-size: 12px; }
+.divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 
 /* fields */
 .fields { display: flex; flex-direction: column; }
-.label {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--ink-2);
-  margin-bottom: 7px;
-}
+.label { font-size: 12px; font-weight: 500; color: var(--ink-2); margin-bottom: 7px; }
 .input {
   width: 100%;
   padding: 11px 13px;
@@ -124,12 +117,11 @@
   margin-bottom: 14px;
 }
 .input::placeholder { color: var(--ink-3); }
-.input:focus {
-  border-color: rgba(217, 130, 74, 0.55);
-  box-shadow: 0 0 0 3px rgba(217, 130, 74, 0.13);
-}
+.input:focus { border-color: var(--ink); box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.08); }
+.code { letter-spacing: 0.28em; font-variant-numeric: tabular-nums; }
+.code::placeholder { letter-spacing: normal; }
 
-/* the chosen email on step 2, tap to change */
+/* chosen email, tap to change */
 .emailChip {
   display: flex;
   align-items: center;
@@ -146,26 +138,14 @@
   cursor: pointer;
 }
 .emailChip span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.change { color: var(--amber); font-weight: 500; margin-left: 12px; flex: none; }
-
-.pwrow { display: flex; align-items: baseline; justify-content: space-between; }
-.forgot {
-  border: 0;
-  background: none;
-  padding: 0;
-  font-family: inherit;
-  font-size: 12px;
-  color: var(--ink-3);
-  cursor: pointer;
-}
-.forgot:hover { color: var(--ink); text-decoration: underline; }
+.change { color: var(--ink); font-weight: 600; margin-left: 12px; flex: none; }
 
 .err {
   margin: -2px 0 12px;
   font-size: 13px;
-  color: #b4460f;
-  background: rgba(217, 130, 74, 0.1);
-  border: 1px solid rgba(217, 130, 74, 0.32);
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid rgba(0, 0, 0, 0.26);
   border-radius: var(--r);
   padding: 9px 12px;
 }
@@ -173,7 +153,7 @@
   margin: -2px 0 12px;
   font-size: 13px;
   color: var(--ink-2);
-  background: rgba(27, 23, 18, 0.04);
+  background: var(--panel);
   border: 1px solid var(--line);
   border-radius: var(--r);
   padding: 9px 12px;
@@ -186,27 +166,30 @@
   gap: 8px;
   width: 100%;
   margin-top: 2px;
-  padding: 11px;
+  padding: 12px;
   font-family: inherit;
   font-size: 14px;
   font-weight: 600;
-  color: #17110b;
-  background: var(--amber);
-  border: 1px solid var(--amber);
+  color: #fff;
+  background: var(--ink);
+  border: 1px solid var(--ink);
   border-radius: var(--r);
   cursor: pointer;
   transition: background 0.16s ease, transform 0.06s ease, opacity 0.16s ease;
 }
-.submit:hover { background: #e08f5b; }
+.submit:hover { background: #2b2b2b; }
 .submit:active { transform: translateY(1px); }
-.submit:disabled { opacity: 0.45; cursor: default; }
+.submit:disabled { opacity: 0.4; cursor: default; }
 
-.legal {
-  margin: 22px 0 0;
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--ink-3);
+.resendForm { margin: 12px 0 0; text-align: center; }
+.resend {
+  border: 0; background: none; padding: 4px;
+  font-family: inherit; font-size: 12.5px; color: var(--ink-3); cursor: pointer;
 }
+.resend:hover { color: var(--ink); text-decoration: underline; }
+.resend:disabled { opacity: 0.5; cursor: default; }
+
+.legal { margin: 22px 0 0; font-size: 12px; line-height: 1.6; color: var(--ink-3); }
 .legal a { color: var(--ink-2); font-weight: 500; text-decoration: none; }
 .legal a:hover { color: var(--ink); text-decoration: underline; }
 
@@ -215,4 +198,5 @@
   .login { grid-template-columns: 1fr; }
   .art { display: none; }
   .panel { padding-top: 96px; padding-bottom: 80px; }
+  .signupForm { top: 30px; }
 }
