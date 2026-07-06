@@ -22,7 +22,7 @@ async function origin(): Promise<string> {
 }
 
 // ── Direct OAuth (Google / GitHub / Microsoft) ────────────────────────────────────────────────────────────
-type OAuthProvider = "GoogleOAuth" | "GitHubOAuth" | "MicrosoftOAuth";
+type OAuthProvider = "GoogleOAuth" | "GitHubOAuth" | "MicrosoftOAuth" | "AppleOAuth";
 
 async function startOAuth(provider: OAuthProvider) {
   const { getWorkOS } = await authkit();
@@ -42,6 +42,7 @@ async function startOAuth(provider: OAuthProvider) {
 export async function continueWithGoogle() { await startOAuth("GoogleOAuth"); }
 export async function continueWithGithub() { await startOAuth("GitHubOAuth"); }
 export async function continueWithMicrosoft() { await startOAuth("MicrosoftOAuth"); }
+export async function continueWithApple() { await startOAuth("AppleOAuth"); }
 
 // ── SSO + Sign up via AuthKit hosted (existing /callback) ──────────────────────────────────────────────────
 async function hostedUrl(kind: "in" | "up"): Promise<string | null> {

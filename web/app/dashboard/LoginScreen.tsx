@@ -1,25 +1,37 @@
 "use client";
-// Minimal black-and-white two-step sign-in. Left: a single still landscape, full-bleed on three sides.
-// Right: provider buttons (Google / GitHub / Microsoft / SSO), then a passwordless email → code (Magic Auth)
-// flow. Only the lotus logo carries colour. A Sign-up pill sits top-right, aligned with the wordmark.
+// Sign-in: still landscape on the left (full-bleed on three sides), a clean panel on the right. Colour lives
+// in the lotus + the provider logos; everything else is black-and-white. Passwordless email (Magic Auth code)
+// with OAuth providers and enterprise SSO.
 import { useActionState, useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { FaGoogle, FaGithub, FaMicrosoft } from "react-icons/fa";
-import { FiArrowRight, FiKey } from "react-icons/fi";
+import { FcGoogle } from "react-icons/fc";
+import { FaGithub, FaApple } from "react-icons/fa";
+import { FiArrowRight, FiUsers } from "react-icons/fi";
 import {
-  continueWithGoogle, continueWithGithub, continueWithMicrosoft, continueWithSSO, signUp,
+  continueWithGoogle, continueWithGithub, continueWithMicrosoft, continueWithApple, continueWithSSO, signUp,
   startMagicAuth, verifyMagicAuth,
 } from "./login-actions";
 import s from "./login.module.css";
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
+function MicrosoftLogo({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 23 23" aria-hidden focusable="false">
+      <path fill="#f25022" d="M1 1h10v10H1z" />
+      <path fill="#7fba00" d="M12 1h10v10H12z" />
+      <path fill="#00a4ef" d="M1 12h10v10H1z" />
+      <path fill="#ffb900" d="M12 12h10v10H12z" />
+    </svg>
+  );
+}
+
 const PROVIDERS = [
-  { action: continueWithGoogle, label: "Continue with Google", icon: <FaGoogle size={18} /> },
-  { action: continueWithGithub, label: "Continue with GitHub", icon: <FaGithub size={19} /> },
-  { action: continueWithMicrosoft, label: "Continue with Microsoft", icon: <FaMicrosoft size={18} /> },
-  { action: continueWithSSO, label: "Single sign-on (SSO)", icon: <FiKey size={18} /> },
+  { action: continueWithGoogle, label: "Continue with Google", icon: <FcGoogle size={20} /> },
+  { action: continueWithMicrosoft, label: "Continue with Microsoft", icon: <MicrosoftLogo size={18} /> },
+  { action: continueWithGithub, label: "Continue with GitHub", icon: <FaGithub size={19} color="#181717" /> },
+  { action: continueWithApple, label: "Continue with Apple", icon: <FaApple size={20} color="#000" /> },
 ];
 
 export function LoginScreen() {
@@ -50,9 +62,12 @@ export function LoginScreen() {
         </form>
 
         <div className={s.form}>
-          <h1 className={s.h1}>Welcome back</h1>
+          <h1 className={s.h1}>Sign in to Calma</h1>
+          <p className={s.sub}>
+            Re-run your repositories, recompute every number they report, and confirm the results before they ship.
+          </p>
 
-          {/* provider row — add more slots beside these as they come online */}
+          {/* OAuth providers — colour from their own logos */}
           <div className={s.providers}>
             {PROVIDERS.map((p) => (
               <form action={p.action} key={p.label}>
@@ -66,25 +81,33 @@ export function LoginScreen() {
           <div className={s.divider}><span>or</span></div>
 
           {step === "email" ? (
-            <form action={sendAction} className={s.fields}>
-              <label className={s.label} htmlFor="email">Email</label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                required
-                autoComplete="email"
-                autoFocus
-                placeholder="name@company.com"
-                className={s.input}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-              {sendState.error && <p className={s.err}>{sendState.error}</p>}
-              <button type="submit" className={s.submit} disabled={!emailOk || sending}>
-                {sending ? "Sending code…" : (<>Continue <FiArrowRight size={16} /></>)}
-              </button>
-            </form>
+            <>
+              <form action={sendAction} className={s.fields}>
+                <label className={s.label} htmlFor="email">Work email</label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  required
+                  autoComplete="email"
+                  autoFocus
+                  placeholder="you@company.com"
+                  className={s.input}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+                {sendState.error && <p className={s.err}>{sendState.error}</p>}
+                <button type="submit" className={s.submit} disabled={!emailOk || sending}>
+                  {sending ? "Sending code…" : (<>Continue <FiArrowRight size={16} /></>)}
+                </button>
+              </form>
+
+              <form action={continueWithSSO}>
+                <button type="submit" className={s.sso}>
+                  <FiUsers size={17} /> Continue with SSO
+                </button>
+              </form>
+            </>
           ) : (
             <>
               <button type="button" className={s.emailChip} onClick={() => setStep("email")}>
@@ -104,10 +127,8 @@ export function LoginScreen() {
                   placeholder="6-digit code"
                   className={`${s.input} ${s.code}`}
                 />
-
                 {verifyState.error && <p className={s.err}>{verifyState.error}</p>}
                 {sendState.notice && <p className={s.notice}>{sendState.notice}</p>}
-
                 <button type="submit" className={s.submit} disabled={verifying}>
                   {verifying ? "Verifying…" : (<>Sign in <FiArrowRight size={16} /></>)}
                 </button>
