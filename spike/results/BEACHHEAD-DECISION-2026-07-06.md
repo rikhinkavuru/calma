@@ -63,6 +63,20 @@ The engine is there; the gaps are positioning + two demos, not new verdict logic
 - Keep widening make-runnable coverage (6 fixes shipped this session) — every benchmark repo that now runs is a
   verifiable customer artifact.
 
+## Refinement — where the recompute actually bites (GT is usually hidden)
+
+Scouting real benchmark repos surfaced a constraint: **live competition leaderboards hide the ground-truth
+labels** (to stop gaming), so you often cannot recompute their headline metric from what's committed. The
+recompute-from-committed-predictions path therefore bites hardest on **reproducibility artifacts** — the
+predictions + labels + scorer a paper/challenge commits *for peer/artifact review* (e.g. PhysioNet's
+`evaluate_model.py -d labels.csv -o predictions.csv`, PTB-XL's `preds_x.npy`/`targs_x.npy`, per-run result
+CSVs). This is the concrete paid entry point: **the artifact-evaluation / reproducibility-review step**
+(ACM/NeurIPS/IEEE artifact committees, journal code-review, a lab's internal "did this eval reproduce before we
+publish it" gate) — a place that both needs auditor-grade verification AND has committed both sides. Two
+verifiable modes to lead with:
+1. **Committed predictions + labels + a reported score** → recompute the standard metric → CONFIRMED / REFUTED.
+2. **A repro script + committed result files** → artifact-reproduction (already shipped; meta 983/983).
+
 ## What NOT to do
 
 Do not chase the generic "point Calma at any ML repo" funnel (low CONFIRM-rate: multi-value binding wall,
