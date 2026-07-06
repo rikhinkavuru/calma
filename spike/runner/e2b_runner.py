@@ -837,7 +837,7 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
                 # the backend-agnostic capture-run env (runner.effector) — freezes hash/tz, points the shim at
                 # this run's fresh JSONL, JSON-encodes targets, arms the fuzz emitter (feature 2/7/10).
                 envs = effector.capture_run_env(i, out_remote, hooks=hooks, targets=targets,
-                                                max_elems=max_elems, fuzz=fuzz)
+                                                max_elems=max_elems, fuzz=fuzz, repo_root="/work")
                 # stream the run's stdout/stderr LIVE into the job log — the repo's own prints are the best
                 # signal for "what is it actually doing" during a long run.
                 r = _cmd_run(sbx, _command_for(pybin, entry), cwd="/work", envs=envs, timeout=run_timeout,

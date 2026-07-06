@@ -174,7 +174,7 @@ def run_modal(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeo
         for i in range(max(1, k)):
             out_remote = "/capture/calls_%d.jsonl" % i
             env = effector.capture_run_env(i, out_remote, hooks=hooks, targets=targets,
-                                           max_elems=max_elems, fuzz=fuzz)
+                                           max_elems=max_elems, fuzz=fuzz, repo_root="/work")
             t0 = time.time()
             _note(log, "Modal: running `%s` (run %d/%d)…" % (" ".join(entry), i + 1, max(1, k)))
             rc, out, err = _exec_capture(sb, _command_for("python", entry), env, timeout, log=log)
