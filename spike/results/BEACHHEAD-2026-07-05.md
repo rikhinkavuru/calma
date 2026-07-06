@@ -110,6 +110,24 @@ This opens the large, well-defined **reproducible-research companion-repo** nich
 beachhead. It is a real feature (runner must snapshot committed outputs *before* the run, then diff) — worth a
 focused, carefully-tested build, not a rushed one.
 
+## Iteration 6-7 — BUILT + shipped the unlock (artifact-reproduction verification)
+
+`core/artifact_repro.py` (pure, FCR-firewalled) + wired into `verify_repo` behind `opts.artifact_repro`
+(default OFF, owner-gated at the API). Snapshot committed result cells → run the repro entrypoint → `run_e2b`
+pulls the regenerated files back from the sandbox → diff regenerated vs committed → advisory report (never a
+verdict). CLI: `calma verify <repo> --deep --artifact-repro`. 1121 tests, FCR 12/12.
+
+**LIVE-VALIDATED on the exact repo that motivated it** — metacognitive-monitoring-battery, which the
+capture path verifies nothing on (`DISCOVERED:277, 0 computations`):
+> `artifact_repro: status=reproduced — 983/983 committed result cells regenerated identically (5 files, 0 changed)`
+
+So a custom-pipeline leaderboard that Calma could NOT verify now gets **983 committed numbers verified** by
+file-level reproduction. And it catches misreports: a committed `metrics.json` of 0.99 whose repro code
+produces 0.90 → `not-reproduced`, naming the cell (integration-tested). **This converts the AI-eval /
+reproducible-research niche from "0 verified" to a real, verifiable product surface** — the beachhead is now
+backed by a working capability, not just analysis. Next: verdict-elevation (reproduced cells → a
+REPRODUCED-class signal, FCR-gated) + surface it in the dashboard/validity card + broaden the gate past owner.
+
 ## Method
 Harnesses: `scratchpad/beachhead_eval.py` (corpus + genomics), `scratchpad/diverse_batch.py` (quant+genomics
 via Exa). Deep verifies via the new `calma` CLI against calma-engine.fly.dev. n=45; grows each loop iteration.
