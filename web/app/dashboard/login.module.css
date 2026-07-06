@@ -43,6 +43,12 @@
   font-weight: 650;
   letter-spacing: -0.02em;
 }
+/* the lotus is 523x332 — size by height, auto width, so it never squishes */
+.brandLogo {
+  height: 22px;
+  width: auto;
+  display: block;
+}
 
 .form {
   width: 100%;
@@ -69,7 +75,7 @@
 .submit,
 .create {
   width: 100%;
-  border-radius: 999px;
+  border-radius: 8px;
   font-family: inherit;
   font-size: 14px;
   cursor: pointer;
@@ -140,7 +146,7 @@
   color: var(--ink);
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: 8px;
   outline: none;
   transition: border-color 0.16s ease, box-shadow 0.16s ease;
   margin-bottom: 16px;
@@ -194,14 +200,18 @@
 .submit:active { transform: translateY(1px); }
 .submit:disabled { opacity: 0.55; cursor: default; }
 
-.foot {
-  position: absolute;
-  bottom: 28px;
-  left: clamp(28px, 6vw, 92px);
-  margin: 0;
+.legal {
+  margin: 22px 0 0;
   font-size: 12px;
+  line-height: 1.6;
   color: var(--ink-3);
 }
+.legal a {
+  color: var(--ink-2);
+  font-weight: 500;
+  text-decoration: none;
+}
+.legal a:hover { color: var(--ink); text-decoration: underline; }
 
 /* ---- left panel: a single still landscape ---- */
 .art {

@@ -30,7 +30,7 @@ export function LoginScreen() {
 
       <section className={s.panel}>
         <Link className={s.brand} href="/">
-          <Image src="/img/calma-lotus.png" alt="" width={30} height={30} priority />
+          <Image src="/img/calma-lotus.png" alt="Calma" width={523} height={332} priority className={s.brandLogo} />
           <span>calma</span>
         </Link>
 
@@ -88,9 +88,12 @@ export function LoginScreen() {
               {pending ? "Signing in…" : (<>Sign in <FiArrowRight size={16} /></>)}
             </button>
           </form>
-        </div>
 
-        <p className={s.foot}>© 2026 Calma. All rights reserved.</p>
+          <p className={s.legal}>
+            By continuing, you agree to our <Link href="/terms">Terms of Service</Link> and acknowledge our{" "}
+            <Link href="/privacy">Privacy Policy</Link>.
+          </p>
+        </div>
       </section>
     </div>
   );

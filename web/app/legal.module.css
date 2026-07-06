@@ -1,0 +1,132 @@
+/* Shared styling for the Terms + Privacy pages. Clean, readable, light — a calm reading column. */
+.page {
+  --ink: #1b1712;
+  --ink-2: rgba(27, 23, 18, 0.66);
+  --ink-3: rgba(27, 23, 18, 0.46);
+  --line: rgba(27, 23, 18, 0.12);
+  --bg: #fdfcfa;
+  --amber: #d9824a;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--disp), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.wrap {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 40px clamp(22px, 5vw, 40px) 96px;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 40px;
+  margin-bottom: 40px;
+  border-bottom: 1px solid var(--line);
+}
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  text-decoration: none;
+  color: var(--ink);
+}
+.brandLogo { height: 22px; width: auto; display: block; }
+.brand span { font-size: 19px; font-weight: 650; letter-spacing: -0.02em; }
+.back {
+  font-size: 13px;
+  color: var(--ink-2);
+  text-decoration: none;
+}
+.back:hover { color: var(--ink); }
+
+.h1 {
+  font-size: clamp(30px, 5vw, 42px);
+  font-weight: 550;
+  letter-spacing: -0.02em;
+  margin: 0 0 12px;
+}
+.meta {
+  font-family: var(--mono, monospace);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+  margin: 0 0 12px;
+}
+.lede {
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--ink-2);
+  margin: 0 0 8px;
+}
+
+.body h2 {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 44px 0 12px;
+  scroll-margin-top: 24px;
+}
+.body h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 24px 0 8px;
+}
+.body p {
+  font-size: 15px;
+  line-height: 1.72;
+  color: var(--ink);
+  margin: 0 0 14px;
+}
+.body ul {
+  margin: 0 0 14px;
+  padding-left: 22px;
+}
+.body li {
+  font-size: 15px;
+  line-height: 1.7;
+  margin-bottom: 7px;
+}
+.body a {
+  color: var(--amber);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(217, 130, 74, 0.35);
+}
+.body a:hover { border-bottom-color: var(--amber); }
+.body strong { font-weight: 600; }
+
+.note {
+  margin-top: 40px;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(217, 130, 74, 0.05);
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--ink-2);
+}
+
+.tableWrap { overflow-x: auto; margin: 0 0 16px; }
+.body table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.body th,
+.body td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+.body th {
+  font-family: var(--mono, monospace);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  font-weight: 500;
+}
