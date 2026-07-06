@@ -622,8 +622,17 @@ def list_jobs(ident: Identity = Depends(identity)):
         jobs = JOBS.values() if ident.unmetered else (j for j in JOBS.values() if j.get("_tenant") == ident.tenant)
         return [{"id": j["id"], "repo": j["repo"], "status": j["status"], "stage": j["stage"],
                  "progress": j.get("progress", ""), "counts": j["counts"], "n_claims": j["n_claims"],
-                 "created": j["created"]}
+                 "repro": _compact_repro(j.get("artifact_repro")), "created": j["created"]}
                 for j in sorted(jobs, key=lambda j: -j["created"])]
+
+
+def _compact_repro(ar):
+    """A tiny artifact-reproduction summary for the Scans list / Overview (status + the reproduced/changed
+    counts) — so a repro-verified repo isn't undersold as '0 confirmed' in the aggregate views. None when the
+    check didn't run or found nothing to compare."""
+    if not ar or ar.get("status") in (None, "incomplete"):
+        return None
+    return {"status": ar.get("status"), "n_match": ar.get("n_match", 0), "n_changed": ar.get("n_changed", 0)}
 
 
 @app.get("/api/jobs/{job_id}")
