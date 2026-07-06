@@ -84,7 +84,7 @@ export async function continueWithSSO(_prev: LoginState, formData: FormData): Pr
     httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 600,
   });
   const url = getWorkOS().userManagement.getAuthorizationUrl({
-    connection: connectionId,
+    connectionId,
     clientId: process.env.WORKOS_CLIENT_ID || "",
     redirectUri: `${await origin()}/auth/callback`,
     state,
