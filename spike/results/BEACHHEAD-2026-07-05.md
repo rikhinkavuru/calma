@@ -78,6 +78,38 @@ real CONFIRMED/REFUTED verdicts — including catching a non-reproducing number 
 disambiguation wall is exactly what separates "lands a verdict" (single-value) from INCONCLUSIVE (multi-value),
 so priority #1 (disambiguation) is the single biggest lever to extend the beachhead to richer benchmark repos.
 
+## Iteration 5 — testing the beachhead segment directly (AI-eval repos), and the real unlock
+
+Deep/shallow-scanned 3 real AI-eval/benchmark repos with committed leaderboards + raw data (found via Exa):
+- **metacognitive-monitoring-battery** — the *ideal* "re-run the paper" shape: `reproduce.py` regenerates
+  committed `outputs/*.csv` from 120 committed raw CSVs, CPU-only. Calma ran it → **DISCOVERED ×277, 0
+  computations captured.**
+- **sob** (JSON eval summaries → leaderboard) and **tollama-eval** (results.json/leaderboard.csv): shallow →
+  INCOMPLETE, no verifiable claims.
+
+**Why the ideal repo still yields zero verified numbers** (the sharp finding):
+1. The leaderboard is computed with **custom numpy / pure-Python** (accuracy-per-model, split-half r,
+   Spearman-Brown, Cohen's d) — **no hookable sklearn/scipy call** → capture = 0.
+2. The committed raw data is per-(model, track) response folders, **not a (y_true, y_pred) shape** → the
+   committed-prediction recompute path is n/a too.
+
+So the AI-eval market is the right BUYER, but most AI-eval repos derive leaderboards with **custom pipelines**,
+which Calma's capture-by-hooking-library-calls and metric-recompute paths do not cover. The *currently
+verifiable* slice is narrower: **benchmarks that commit (y_true, y_pred) predictions and score with a STANDARD
+metric** (Kaggle/competition-style) — verifiable with no run via the artifact recompute.
+
+**The real unlock (highest-leverage next capability): artifact-reproduction verification.**
+Calma already RAN `reproduce.py` (it regenerated `probe_adjusted_leaderboard.csv`, overwriting the committed
+copy) but never **diffed the regenerated file against the committed one**. A new mode — *snapshot the committed
+result files → run the repro entrypoint → diff regenerated vs committed (per-cell, float-tolerant)* — would:
+- verify the exact "re-run the paper" niche (reproduce script + committed outputs) that Calma can't touch today;
+- need **no capture, no binding, no disambiguation** (sidesteps all three walls);
+- be **FCR-safe** — a deterministic file diff: outputs match → the committed results reproduce (CONFIRMED-class);
+  a cell differs → that committed number doesn't reproduce (REFUTED-class), naming the exact cell.
+This opens the large, well-defined **reproducible-research companion-repo** niche and strengthens the AI-eval
+beachhead. It is a real feature (runner must snapshot committed outputs *before* the run, then diff) — worth a
+focused, carefully-tested build, not a rushed one.
+
 ## Method
 Harnesses: `scratchpad/beachhead_eval.py` (corpus + genomics), `scratchpad/diverse_batch.py` (quant+genomics
 via Exa). Deep verifies via the new `calma` CLI against calma-engine.fly.dev. n=45; grows each loop iteration.
