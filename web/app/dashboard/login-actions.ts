@@ -56,10 +56,21 @@ async function hostedUrl(kind: "in" | "up"): Promise<string | null> {
   }
 }
 
-// Enterprise SSO — the hosted page routes the user to their org's IdP by email domain.
-export async function continueWithSSO() {
-  const url = await hostedUrl("in");
-  if (url) redirect(url);
+// Enterprise SSO — requires a work email; the hosted page routes to that domain's IdP. Passing the email as
+// loginHint (and never firing without one) stops the "SSO with no email" fallback that used to sign a user in
+// silently / email a code they never asked for.
+export async function continueWithSSO(formData: FormData) {
+  const email = String(formData.get("email") || "").trim();
+  if (!EMAIL_RE.test(email)) return; // guarded in the UI too (button disabled until a valid email)
+  let url: string | null = null;
+  try {
+    const { getSignInUrl } = await authkit();
+    const o = { returnTo: RETURN_TO, prompt: "login", loginHint: email } as unknown as Parameters<typeof getSignInUrl>[0];
+    url = await getSignInUrl(o);
+  } catch (e) {
+    console.error("[calma] sso url error:", e instanceof Error ? e.message : e);
+  }
+  if (url) redirect(url); // redirect() must live OUTSIDE the try — it throws NEXT_REDIRECT by design
 }
 
 export async function signUp() {

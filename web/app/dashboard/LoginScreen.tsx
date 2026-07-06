@@ -1,7 +1,7 @@
 "use client";
 // Sign-in: still landscape on the left (full-bleed on three sides), a clean panel on the right. Colour lives
-// in the lotus + the provider logos; everything else is black-and-white. Passwordless email (Magic Auth code)
-// with OAuth providers and enterprise SSO.
+// in the lotus + the provider logos; everything else is black-and-white. Passwordless email (Magic Auth code),
+// OAuth providers, and enterprise SSO.
 import { useActionState, useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -28,10 +28,10 @@ function MicrosoftLogo({ size = 18 }: { size?: number }) {
 }
 
 const PROVIDERS = [
-  { action: continueWithGoogle, label: "Continue with Google", icon: <FcGoogle size={20} /> },
-  { action: continueWithMicrosoft, label: "Continue with Microsoft", icon: <MicrosoftLogo size={18} /> },
-  { action: continueWithGithub, label: "Continue with GitHub", icon: <FaGithub size={19} color="#181717" /> },
-  { action: continueWithApple, label: "Continue with Apple", icon: <FaApple size={20} color="#000" /> },
+  { action: continueWithGoogle, label: "Continue with Google", icon: <FcGoogle size={22} /> },
+  { action: continueWithMicrosoft, label: "Continue with Microsoft", icon: <MicrosoftLogo size={20} /> },
+  { action: continueWithGithub, label: "Continue with GitHub", icon: <FaGithub size={21} color="#181717" /> },
+  { action: continueWithApple, label: "Continue with Apple", icon: <FaApple size={22} color="#000" /> },
 ];
 
 export function LoginScreen() {
@@ -67,22 +67,13 @@ export function LoginScreen() {
             Re-run your repositories, recompute every number they report, and confirm the results before they ship.
           </p>
 
-          {/* OAuth providers — colour from their own logos */}
-          <div className={s.providers}>
-            {PROVIDERS.map((p) => (
-              <form action={p.action} key={p.label}>
-                <button type="submit" className={s.provider} aria-label={p.label} title={p.label}>
-                  {p.icon}
-                </button>
-              </form>
-            ))}
-          </div>
-
-          <div className={s.divider}><span>or</span></div>
-
           {step === "email" ? (
             <>
               <form action={sendAction} className={s.fields}>
+                <button type="submit" className={s.submit} disabled={sending}>
+                  {sending ? "Sending code…" : (<>Continue <FiArrowRight size={16} /></>)}
+                </button>
+
                 <label className={s.label} htmlFor="email">Work email</label>
                 <input
                   id="email"
@@ -97,16 +88,24 @@ export function LoginScreen() {
                   onChange={(e) => setEmail(e.target.value)}
                 />
                 {sendState.error && <p className={s.err}>{sendState.error}</p>}
-                <button type="submit" className={s.submit} disabled={!emailOk || sending}>
-                  {sending ? "Sending code…" : (<>Continue <FiArrowRight size={16} /></>)}
-                </button>
               </form>
 
               <form action={continueWithSSO}>
-                <button type="submit" className={s.sso}>
+                <input type="hidden" name="email" value={email} />
+                <button type="submit" className={s.sso} disabled={!emailOk} title={emailOk ? "" : "Enter your work email first"}>
                   <FiUsers size={17} /> Continue with SSO
                 </button>
               </form>
+
+              <div className={s.providers}>
+                {PROVIDERS.map((p) => (
+                  <form action={p.action} key={p.label} className={s.providerForm}>
+                    <button type="submit" className={s.provider} aria-label={p.label} title={p.label}>
+                      {p.icon}
+                    </button>
+                  </form>
+                ))}
+              </div>
             </>
           ) : (
             <>
