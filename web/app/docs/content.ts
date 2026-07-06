@@ -7,7 +7,7 @@ export const DASH = "https://calma1.vercel.app";
 
 export type DocPage = { slug: string; title: string; description: string; group: string; markdown: string };
 
-export const GROUPS = ["Getting started", "Surfaces", "CI & pull requests"] as const;
+export const GROUPS = ["Getting started", "Use cases", "Surfaces", "CI & pull requests"] as const;
 
 export const DOCS: DocPage[] = [
   {
@@ -56,6 +56,59 @@ Every reported number gets exactly one verdict — the label is derived by a sin
 - [Authentication](/docs/authentication) — create and use an API key
 - [CLI reference](/docs/cli) — every command and flag
 - [Re-run the paper](/docs/api#artifact-reproduction) — verify committed result files regenerate
+`,
+  },
+  {
+    slug: "verify-a-benchmark",
+    title: "Verify a benchmark or paper",
+    description: "Independently check that a repo's reported numbers reproduce — and aren't contaminated.",
+    group: "Use cases",
+    markdown: `The core job: point Calma at a benchmark, eval, or paper repository and get an **independent, third-party verdict** on whether its reported numbers actually hold up. No self-grading — a deterministic re-run and recompute, neutral by construction.
+
+This is the workflow for benchmark maintainers, eval vendors, artifact-evaluation committees, and anyone who needs to trust a number before they publish or buy on it.
+
+## What Calma checks
+
+| Question | How | Verdict |
+| --- | --- | --- |
+| Does the reported metric reproduce? | Re-run the repo, recompute the metric from the raw outputs, diff it | **CONFIRMED** / **REFUTED** |
+| Do the committed result files regenerate? | Re-run the repro script, diff regenerated vs committed cells | reproduced / **not-reproduced** |
+| Is the benchmark contaminated? | Train/test overlap (verbatim + near-duplicate) detection | **INVALIDATED** on leakage |
+
+## Run it
+
+\`\`\`bash
+# recompute the reported metric + check the committed result files regenerate
+calma verify owner/benchmark-repo --deep --artifact-repro
+\`\`\`
+
+- \`--deep\` clones into a network-isolated sandbox, re-runs the repo, and recomputes each reported number.
+- \`--artifact-repro\` additionally diffs the repo's **committed result files** (leaderboard CSVs, \`results.json\`, per-run metrics) against what a fresh run regenerates — cell by cell. A number that doesn't come back is flagged \`not-reproduced\` with the exact file and cell.
+
+If the repo's run command needs a config or data argument, name it:
+
+\`\`\`bash
+calma verify owner/repo --deep --artifact-repro --entry "reproduce.py --config configs/main.yaml"
+\`\`\`
+
+## Two verifiable shapes
+
+Calma lands a clean verdict when a repo has a runnable entrypoint plus one of:
+
+1. **Committed predictions + labels + a reported score** → Calma recomputes the standard metric and returns CONFIRMED / REFUTED. (Live leaderboards usually hide labels; reproducibility artifacts commit both.)
+2. **A repro script + committed result files** → artifact-reproduction diffs every regenerated cell against the committed one.
+
+## Why the verdict is trustworthy
+
+The verdict is a single deterministic function of the recompute — it is **fail-closed and can never be a false confirm**. When Calma can't bind a number to a computation, it says INCONCLUSIVE rather than guessing. That is the whole point of a neutral auditor: a CONFIRMED means the number reproduced, full stop.
+
+## Gate it
+
+\`\`\`bash
+calma verify owner/repo --deep   # exits non-zero on REFUTED / INVALIDATED
+\`\`\`
+
+Drop that into CI (or the [GitHub Action](/docs/github-action) / [PR check](/docs/pr-check)) so a regression that breaks a reported number fails the build.
 `,
   },
   {
