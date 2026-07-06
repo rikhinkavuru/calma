@@ -106,3 +106,17 @@ def test_verify_repo_artifact_repro_off_by_default(tmp_path):
     res = verify_repo(repo, VerifyOptions(deep=True, entry="reproduce.py", discover=True, k=1,
                                           heal_deps=False, plan=False))    # flag off
     assert res["artifact_repro"] is None
+
+
+def test_verify_repo_artifact_repro_failed_run_is_incomplete(tmp_path):
+    # regression (Monte-Carlo-paper false positive): a run that FAILS regenerates nothing, so the committed
+    # files are untouched — must be 'incomplete', NEVER a false 'reproduced' from reading back the originals.
+    repo = str(tmp_path / "r")
+    os.makedirs(os.path.join(repo, "results"))
+    with open(os.path.join(repo, "reproduce.py"), "w") as fh:
+        fh.write("import __calma_nonexistent_module__  # the run errors, writes nothing\n")
+    with open(os.path.join(repo, "results", "metrics.json"), "w") as fh:
+        fh.write('{"acc": 0.9}\n')
+    res = verify_repo(repo, VerifyOptions(deep=True, entry="reproduce.py", discover=True, k=1,
+                                          heal_deps=False, plan=False, artifact_repro=True))
+    assert res["artifact_repro"]["status"] == "incomplete"       # NOT "reproduced"

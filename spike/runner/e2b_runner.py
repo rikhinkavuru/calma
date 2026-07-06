@@ -801,6 +801,14 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
     last_dt = 0.0
     max_dt = 0.0
     adaptive_k_capped = False
+    if fetch_artifacts and sbx is not None:
+        # artifact-reproduction: mark run-start so we can tell which committed result files the run ACTUALLY
+        # regenerated (mtime newer than this marker) vs the untouched copies it was uploaded with — a run that
+        # fails or never writes a file must NOT read back the uploaded committed copy and report it "reproduced".
+        try:
+            sbx.commands.run("touch /tmp/.calma_run_start")
+        except Exception:  # noqa: BLE001 — best-effort; a missing marker just makes the fetch conservative below
+            pass
     try:
         for i in range(max(1, k)):
             # time-boxed adaptive-k: never START a run that can't finish before the sandbox's end-of-life. A run
@@ -907,6 +915,18 @@ def run_e2b(repo_dir, entry=None, *, k=2, hooks="sklearn", targets=None, timeout
                 rels = _AR.find_artifacts(repo_dir)
                 dest_root = os.path.join(repo_dir, ".calma_regenerated")
                 for rel in rels:
+                    # only pull a file the RUN regenerated (newer than the run-start marker). An untouched
+                    # committed file still sits in /work as the uploaded copy; reading it back would diff
+                    # identical → a FALSE "reproduced" for a run that never actually wrote it (found via
+                    # Monte-Carlo-paper: a SyntaxError run regenerated nothing yet reported 1952/1952).
+                    try:
+                        chk = sbx.commands.run(
+                            "test %s -nt /tmp/.calma_run_start && echo NEW || true"
+                            % shlex.quote("/work/" + rel))
+                        if "NEW" not in (getattr(chk, "stdout", "") or ""):
+                            continue
+                    except Exception:  # noqa: BLE001 — can't prove it was regenerated → skip it (fail-closed)
+                        continue
                     try:
                         data = sbx.files.read("/work/" + rel)
                     except Exception:  # noqa: BLE001 — the run may not regenerate every committed file
