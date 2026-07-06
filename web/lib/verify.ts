@@ -165,6 +165,7 @@ export type JobSummary = {
   status: string;
   stage: string;
   progress?: string;                 // live sub-stage for a long run: "run 1/2 · 15m elapsed" (server.py)
+  repro?: { status: "reproduced" | "not-reproduced"; n_match: number; n_changed: number } | null;
   counts: Record<string, number>;
   n_claims: number;
   created: number;

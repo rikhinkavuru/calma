@@ -45,6 +45,19 @@ export function RunProgress({ status, progress, stage }: { status: string; progr
   return <span className={dash.muted} style={{ fontSize: 12, marginLeft: 8, whiteSpace: "nowrap" }}>{text}</span>;
 }
 
+// A compact "committed results reproduce?" badge for the list/overview — a repro-verified repo would
+// otherwise read as "0 confirmed" in the aggregate. Green when all committed numbers regenerate, amber when
+// some don't. Nothing when the artifact-repro check didn't run.
+export function ReproBadge({ repro }: { repro?: { status: string; n_match: number; n_changed: number } | null }) {
+  if (!repro) return null;
+  const ok = repro.status === "reproduced";
+  return (
+    <span className={`${dash.badge} ${ok ? dash.badgeOk : dash.badgeBad}`} title="Committed result files regenerate from the code (re-run-the-paper)">
+      <span className={dash.dot} />{ok ? `${repro.n_match} reproduce` : `${repro.n_changed} not reproduced`}
+    </span>
+  );
+}
+
 // A compact one-cell verdict summary: catches first (the actionable ones), then confirmed, then a muted tail
 // for the honest-uncertainty + not-yet-checked rows. Empty → an em dash.
 export function VerdictSummary({ counts, nClaims }: { counts?: Record<string, number>; nClaims?: number }) {

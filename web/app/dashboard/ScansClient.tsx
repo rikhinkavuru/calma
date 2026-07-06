@@ -11,7 +11,7 @@ import { FiPlus, FiSearch } from "react-icons/fi";
 import type { JobSummary } from "@/lib/verify";
 import { readScans } from "@/lib/scan-history";
 import { useJobs } from "@/lib/useJobs";
-import { StatusPill, RunProgress, VerdictSummary, repoLabel, timeAgo } from "./scan-ui";
+import { StatusPill, RunProgress, VerdictSummary, ReproBadge, repoLabel, timeAgo } from "./scan-ui";
 import dash from "./dashboard.module.css";
 
 type Row = JobSummary & { expired?: boolean };
@@ -88,7 +88,9 @@ export function ScansClient() {
                       <Link href={`/dashboard/scans/${r.id}`} className={dash.rowlink}><b>{repoLabel(r.repo)}</b></Link>
                     )}
                   </td>
-                  <td>{r.expired ? <span className={dash.muted}>expired</span> : <VerdictSummary counts={r.counts} nClaims={r.n_claims} />}</td>
+                  <td>{r.expired ? <span className={dash.muted}>expired</span> : (
+                    <span className={dash.vsum}><VerdictSummary counts={r.counts} nClaims={r.n_claims} /><ReproBadge repro={r.repro} /></span>
+                  )}</td>
                   <td style={{ whiteSpace: "nowrap" }}>
                     <StatusPill status={r.status} />
                     <RunProgress status={r.status} progress={r.progress} stage={r.stage} />

@@ -7,7 +7,7 @@ import Link from "next/link";
 import { FiPlus, FiArrowRight, FiCheckCircle, FiAlertTriangle, FiActivity } from "react-icons/fi";
 import { tierCounts } from "@/lib/verdict";
 import { useJobs } from "@/lib/useJobs";
-import { StatusPill, RunProgress, VerdictSummary, repoLabel, timeAgo } from "./scan-ui";
+import { StatusPill, RunProgress, VerdictSummary, ReproBadge, repoLabel, timeAgo } from "./scan-ui";
 import dash from "./dashboard.module.css";
 
 export function OverviewClient() {
@@ -82,7 +82,7 @@ export function OverviewClient() {
                         <b>{repoLabel(j.repo)}</b>
                       </Link>
                     </td>
-                    <td><VerdictSummary counts={j.counts} nClaims={j.n_claims} /></td>
+                    <td><span className={dash.vsum}><VerdictSummary counts={j.counts} nClaims={j.n_claims} /><ReproBadge repro={j.repro} /></span></td>
                     <td style={{ whiteSpace: "nowrap" }}>
                       <StatusPill status={j.status} />
                       <RunProgress status={j.status} progress={j.progress} stage={j.stage} />
