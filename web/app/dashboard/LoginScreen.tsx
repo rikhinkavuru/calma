@@ -37,6 +37,7 @@ const PROVIDERS = [
 export function LoginScreen() {
   const [sendState, sendAction, sending] = useActionState(startMagicAuth, {});
   const [verifyState, verifyAction, verifying] = useActionState(verifyMagicAuth, {});
+  const [ssoState, ssoAction, ssoPending] = useActionState(continueWithSSO, {});
   const [email, setEmail] = useState("");
   const [step, setStep] = useState<"email" | "code">("email");
   const emailOk = EMAIL_RE.test(email.trim());
@@ -90,12 +91,13 @@ export function LoginScreen() {
                 {sendState.error && <p className={s.err}>{sendState.error}</p>}
               </form>
 
-              <form action={continueWithSSO}>
+              <form action={ssoAction}>
                 <input type="hidden" name="email" value={email} />
-                <button type="submit" className={s.sso} disabled={!emailOk} title={emailOk ? "" : "Enter your work email first"}>
-                  <FiUsers size={17} /> Continue with SSO
+                <button type="submit" className={s.sso} disabled={!emailOk || ssoPending} title={emailOk ? "" : "Enter your work email first"}>
+                  {ssoPending ? "Checking SSO…" : (<><FiUsers size={17} /> Continue with SSO</>)}
                 </button>
               </form>
+              {ssoState.error && <p className={s.err} style={{ marginTop: 10 }}>{ssoState.error}</p>}
 
               <div className={s.providers}>
                 {PROVIDERS.map((p) => (

@@ -56,21 +56,40 @@ async function hostedUrl(kind: "in" | "up"): Promise<string | null> {
   }
 }
 
-// Enterprise SSO — requires a work email; the hosted page routes to that domain's IdP. Passing the email as
-// loginHint (and never firing without one) stops the "SSO with no email" fallback that used to sign a user in
-// silently / email a code they never asked for.
-export async function continueWithSSO(formData: FormData) {
-  const email = String(formData.get("email") || "").trim();
-  if (!EMAIL_RE.test(email)) return; // guarded in the UI too (button disabled until a valid email)
-  let url: string | null = null;
+// Enterprise SSO — real connection-based SSO, NOT the hosted fallback. We look up the SSO connection for the
+// email's domain and send the user straight to that IdP via /auth/callback. If the domain has no SSO
+// connection (e.g. a personal gmail), we return an error instead of falling back to magic auth — which is what
+// used to email a code and silently auto-log-in off an existing WorkOS session.
+export async function continueWithSSO(_prev: LoginState, formData: FormData): Promise<LoginState> {
+  const email = String(formData.get("email") || "").trim().toLowerCase();
+  if (!EMAIL_RE.test(email)) return { error: "Enter a valid work email first." };
+  const domain = email.split("@")[1];
+
+  let connectionId: string | undefined;
   try {
-    const { getSignInUrl } = await authkit();
-    const o = { returnTo: RETURN_TO, prompt: "login", loginHint: email } as unknown as Parameters<typeof getSignInUrl>[0];
-    url = await getSignInUrl(o);
+    const { getWorkOS } = await authkit();
+    const res = await getWorkOS().sso.listConnections({ domain });
+    connectionId = (res.data || [])[0]?.id;
   } catch (e) {
-    console.error("[calma] sso url error:", e instanceof Error ? e.message : e);
+    console.error("[calma] sso lookup error:", e instanceof Error ? e.message : e);
+    return { error: "Couldn’t check SSO for that domain — try again." };
   }
-  if (url) redirect(url); // redirect() must live OUTSIDE the try — it throws NEXT_REDIRECT by design
+  if (!connectionId) {
+    return { error: `No single sign-on is set up for @${domain}. Use your email or a provider above.` };
+  }
+
+  const { getWorkOS } = await authkit();
+  const state = crypto.randomUUID();
+  (await cookies()).set(OAUTH_STATE_COOKIE, state, {
+    httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 600,
+  });
+  const url = getWorkOS().userManagement.getAuthorizationUrl({
+    connection: connectionId,
+    clientId: process.env.WORKOS_CLIENT_ID || "",
+    redirectUri: `${await origin()}/auth/callback`,
+    state,
+  });
+  redirect(url); // outside the try — redirect() throws NEXT_REDIRECT by design
 }
 
 export async function signUp() {
