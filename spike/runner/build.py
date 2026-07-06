@@ -9,6 +9,7 @@ import ast
 import hashlib
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -70,6 +71,38 @@ def _module_exists(repo_dir, dotted):
             or os.path.isdir(base))
 
 
+_PATHY_EXTS = (".csv", ".tsv", ".json", ".yaml", ".yml", ".txt", ".cfg", ".toml", ".parquet", ".pkl",
+               ".h5", ".hdf5", ".npz", ".npy", ".pt", ".ckpt", ".ini", ".jsonl")
+
+
+def _arg_is_safe(tok: str, repo_dir: str) -> bool:
+    """One README arg is safe to pass in the sandbox unless it names a path we don't have: an ABSOLUTE path
+    (`/data/x`, `~/x`) or a relative path NOT committed to the repo would just fail. A flag (`--verbose`), a
+    scalar (`--seed 42`), or a repo-relative path that EXISTS (`--config configs/a.yaml`) is safe."""
+    val = tok.split("=", 1)[1] if (tok.startswith("--") and "=" in tok) else tok
+    if not val or val.startswith("-"):
+        return True                                   # a flag / option name — no path to worry about
+    looks_path = ("/" in val or val.startswith((".", "~")) or val.lower().endswith(_PATHY_EXTS))
+    if not looks_path:
+        return True                                   # a scalar value (number, name)
+    if os.path.isabs(val) or val.startswith("~"):
+        return False                                  # absolute — won't exist in the sandbox
+    return os.path.exists(os.path.join(repo_dir, val))  # relative — safe iff committed to the repo
+
+
+def _readme_safe_args(cmd_str: str, repo_dir: str) -> list:
+    """The author's args from a README run command, kept ONLY when every path-like arg is a committed
+    repo-relative file (keep-all-or-none, so a flag never loses its value). Fixes repro scripts that REQUIRE a
+    config/data arg (`python reproduce.py --config configs/default.yaml`) which the old code dropped → argparse
+    error. A stale `--data /abs/…` still drops all args (bare run, today's behavior)."""
+    try:
+        toks = shlex.split(cmd_str)
+    except ValueError:
+        return []
+    args = toks[3:] if (len(toks) >= 2 and toks[1] == "-m") else toks[2:]
+    return args if all(_arg_is_safe(t, repo_dir) for t in args) else []
+
+
 def _readme_run_command(repo_dir):
     """A `python …` command from a README/REPRODUCE doc that points at a file/module that ACTUALLY EXISTS.
     Two fixes over a naive scan: (a) preserve the relative PATH — `python scripts/run.py` must run
@@ -99,13 +132,13 @@ def _readme_run_command(repo_dir):
                 if mod.split(".")[0] in _SETUP_MODULES:   # env setup (venv/pip/...), not the eval entrypoint
                     continue
                 if _module_exists(repo_dir, mod):
-                    return ["-m", mod]
+                    return ["-m", mod] + _readme_safe_args(m.group(0), repo_dir)
                 continue
             if os.path.isfile(os.path.join(repo_dir, tok)):   # keeps a subdir path intact
-                return [tok]
+                return [tok] + _readme_safe_args(m.group(0), repo_dir)
             base = os.path.basename(tok)                       # tolerate a README naming just the basename
             if base != tok and os.path.isfile(os.path.join(repo_dir, base)):
-                return [base]
+                return [base] + _readme_safe_args(m.group(0), repo_dir)
     return None
 
 

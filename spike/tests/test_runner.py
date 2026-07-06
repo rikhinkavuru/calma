@@ -11,7 +11,8 @@ def test_readme_run_command_wins(tmp_path):
     (tmp_path / "run_benchmark.py").write_text("print(1)")
     (tmp_path / "helper.py").write_text("print(2)")
     (tmp_path / "README.md").write_text("## Reproduce\n```bash\npython run_benchmark.py --all\n```\n")
-    assert build.detect_entrypoint(str(tmp_path)) == ["run_benchmark.py"]
+    # the author's safe args (a flag with no path) are now preserved, not dropped — run it as the README says
+    assert build.detect_entrypoint(str(tmp_path)) == ["run_benchmark.py", "--all"]
 
 
 def test_detect_module_invocation(tmp_path):
