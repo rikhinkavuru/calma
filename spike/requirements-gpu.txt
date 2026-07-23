@@ -3,4 +3,4 @@
 # CPU backend runs fine without it — a GPU-required repo just reports needs-gpu instead of escalating.
 #   pip install -r requirements-gpu.txt
 -r requirements.txt
-modal>=0.64
+modal>=1.5.2
